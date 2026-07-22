@@ -69,7 +69,7 @@ Suppressions (an intentionally allowed edge, a framework hook `vulture` can't se
 Structural fixes **touch code** (moving code between modules, inverting a dependency, splitting a file, deleting dead code), so they are **not** docs-only: the domain gate is "imports resolve, the type checker passes, **and** the test suite passes" — run the normal install + lint/typecheck/test CI, and the code-review gate.
 - **Invert or cut an illegal edge:** move the shared type down to a lower tier both sides may import, introduce an interface/protocol the lower tier defines and the higher tier implements, or relocate the misplaced module. Re-run the layering check to green.
 - **Break a cycle:** extract the shared piece into a new lower module, or convert an import-time dependency into a lazy/local import only when extraction genuinely doesn't fit (note the trade-off).
-- **Split a god-module / oversized file** along its cohesion seams (files that change together stay together); update all importers in the same change (this is an alpha-style project convention in many repos — no back-compat re-export shims unless the project keeps a public API).
+- **Split a god-module / oversized file** along its cohesion seams (files that change together stay together); update all importers in the same change, and drop back-compat re-export shims unless the project maintains a public API.
 - **Delete dead code** only after verifying it is truly unreachable (not a plugin entry point, dynamic import, or re-export).
 - **Highest-leverage fix:** add a layering contract (`import-linter` / `tach`) and wire it into CI so the violation can't silently recur.
 - Docs-only output: the findings report and any architecture-diagram update.
