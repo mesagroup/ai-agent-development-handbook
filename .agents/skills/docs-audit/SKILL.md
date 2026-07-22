@@ -20,7 +20,7 @@ A reusable, project-agnostic workflow for auditing a documentation tree and then
 - You want the docs to stand alone for onboarding ("if we stopped for six months, could we restart from the docs?").
 - The user asks to audit, reorganize, cross-link, or complete documentation.
 
-**Not for:** writing a single new doc for a single new feature (just write it), or a pure prose copy-edit (use a writing-style skill).
+**Not for:** writing a single new doc for a single new feature (just write it), or a pure prose copy-edit with no coverage/structure question.
 
 ## Scope and arguments
 
@@ -35,24 +35,14 @@ For a multi-tier or large tree, plan to deliver in **phases** (one tier or coher
 
 This skill adapts the planning / spec / subagent-driven-development / review / finish steps from the issue-to-merge family, keeping the doc-relevant parts and dropping the code-only ones. If those skills are available in the environment, invoke them at the marked points; if not, follow the inline instructions.
 
-```dot
-digraph docs_audit {
-  "Scope + docstring decision" [shape=box];
-  "Phase 1: Audit (parallel source-mapping)" [shape=box];
-  "Coverage matrix + findings + reorg plan" [shape=box];
-  "Phase 2: Write the plan" [shape=box];
-  "Phase 3: Subagent-driven writing + per-task review" [shape=box];
-  "Phase 4: Whole-branch review" [shape=box];
-  "Phase 5: Finish (PR)" [shape=box];
+The steps run in order, each feeding the next:
 
-  "Scope + docstring decision" -> "Phase 1: Audit (parallel source-mapping)";
-  "Phase 1: Audit (parallel source-mapping)" -> "Coverage matrix + findings + reorg plan";
-  "Coverage matrix + findings + reorg plan" -> "Phase 2: Write the plan";
-  "Phase 2: Write the plan" -> "Phase 3: Subagent-driven writing + per-task review";
-  "Phase 3: Subagent-driven writing + per-task review" -> "Phase 4: Whole-branch review";
-  "Phase 4: Whole-branch review" -> "Phase 5: Finish (PR)";
-}
-```
+0. **Scope + docstring decision** (see the section above) →
+1. **Audit** — parallel read-only source-mapping → a coverage matrix + findings report + reorganization plan →
+2. **Write the plan** — one task per doc, forward-link-safe ordering →
+3. **Subagent-driven writing + per-task review** — fresh implementer per doc, reviewed against source →
+4. **Whole-branch review** — cross-doc consistency and residual inaccuracy →
+5. **Finish** — open the docs-only PR.
 
 ### Phase 1 — Audit
 
@@ -85,7 +75,7 @@ Invoke the subagent-driven-development skill if available; otherwise follow this
 
 For each task:
 1. **Dispatch a fresh implementer subagent** with: where the doc fits, the task brief (its requirements + source references), the global constraints, and the report-file path. Instruct it to read source and confirm every fact, write the doc to the standard, add the index entry, run the link-checker to green, commit (docs-only), and self-review. Remind it of the Bash-no-`#` rule.
-2. **Review against source (two verdicts).** Dispatch a reviewer subagent (or review inline if subagents are unstable): *spec compliance* (all required content, nothing extra) and *quality*. The reviewer's first duty is to **open the source files and spot-verify the doc's specific claims** — names, signatures, defaults, env vars, "currently does X" statements. Fabrication or drift is the highest-value catch. Also check: doc-standard order, cross-link-don't-duplicate, link-checker green, no env-specific values.
+2. **Review against source (two verdicts).** Dispatch a reviewer subagent (or review inline if subagents are unstable): *spec compliance* (all required content, nothing extra) and *quality*. The reviewer's first duty is to **open the source files and spot-verify the doc's specific claims** — names, signatures, defaults, env vars, "currently does X" statements. Fabrication or drift is the highest-value catch. Also check: doc-standard order, cross-link-don't-duplicate, link-checker green, no env-specific values. (The whole-branch gate in Phase 4 runs the fuller multi-reviewer pass — the per-task review is the lighter, single-reviewer gate.)
 3. **Resolve findings.** Fix Critical/Important before advancing; apply easy, correct Minor fixes too. Resolve any "cannot verify from the diff" item yourself against source — these often hide real defects (a plausible-but-wrong default, a dropped flag).
 4. **Record** the task as complete in the ledger and move on.
 
@@ -93,7 +83,16 @@ Do not run implementers in parallel (they collide on the index and shared files)
 
 ### Phase 4 — Whole-branch review
 
-After all tasks, dispatch one whole-branch review (use the most capable model available). Its focus is cross-cutting, not per-doc: **cross-doc consistency** (the new docs must agree with each other and with existing docs), residual source-inaccuracy across the set, link integrity, and constraint compliance across all commits. Fix anything real it surfaces with a single follow-up pass.
+After all tasks, run the project's canonical code-review skill over the whole branch, **adapted for documentation**. If a `/code-review:code-review` skill (or an `implement-and-review`-style review phase) exists, invoke it; otherwise reproduce its shape inline. That shape is: **several specialized reviewer subagents in parallel, then confidence-score each finding and act on it by threshold** — the same multi-subagent review used on the source-of-this-skill PRs.
+
+Adapt the specialized reviewers to documentation dimensions (one subagent each, run in parallel):
+- **Source accuracy** — open the code and verify the docs' concrete claims (names, signatures, defaults, env vars, "does X now"). This is where fabricated defaults, dropped flags, and wrong import paths get caught.
+- **Cross-doc consistency** — the new docs agree with each other and with pre-existing docs (no two docs contradicting on the same fact).
+- **Cross-link integrity** — every internal link resolves, no forward links, link-checker green; cross-link-don't-duplicate holds.
+- **Doc-standard + conventions** — section order, markdown/style rules, no environment-specific values, commit-message/trailer conventions across all commits.
+- **Coverage vs plan** — every planned gap/partial is actually addressed; nothing silently dropped.
+
+Then, per the project's review convention, **score each finding for confidence** (real vs. false positive) and act by threshold — fix the confident ones (and easy correct minor ones), and report the full findings list with dispositions. Resolve any "cannot verify from the diff" item yourself against source. Fix everything real in a single follow-up pass. Use the most capable model available for this gate.
 
 ### Phase 5 — Finish
 
