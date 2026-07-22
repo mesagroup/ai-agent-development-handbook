@@ -1,46 +1,46 @@
-# Part 8 — Security, Dependencies & Supply Chain
+# Part 8. Security, Dependencies & Supply Chain
 
-The parts so far make the system correct and measurable. This one keeps it safe to ship and safe to run. A system can be well-tested, well-evaluated, and still leak a credential, ship a dependency it has no legal right to distribute, or hand a malicious pull request the keys to its own pipeline — and none of those failures show up in a unit test or an eval. Give them their own lens. There are three surfaces (your own code, what you depend on, and the pipeline that builds you) and one principle that ties them together: **find where untrusted input meets a dangerous operation, know what you depend on, and make the pipeline that builds you trustworthy.**
+The parts so far make the system correct and measurable. This one keeps it safe to ship and safe to run. A system can be well-tested, well-evaluated, and still leak a credential, ship a dependency it has no legal right to distribute, or hand a malicious pull request the keys to its own pipeline, and none of those failures show up in a unit test or an eval. Give them their own lens. There are three surfaces (your own code, what you depend on, and the pipeline that builds you) and one principle that ties them together: **find where untrusted input meets a dangerous operation, know what you depend on, and make the pipeline that builds you trustworthy.**
 
 ## First-party code: trace a path from source to sink
 
-Report a real security finding as a **path from an untrusted source to a dangerous sink** — not a scary-looking function in isolation. Name both or it isn't a finding: a `subprocess` call on a hardcoded constant is not command injection; a real dataflow a scanner missed is the finding that matters. Verify both directions against the actual code.
+Report a real security finding as a **path from an untrusted source to a dangerous sink**: not a scary-looking function in isolation. Name both or it isn't a finding: a `subprocess` call on a hardcoded constant is not command injection; a real dataflow a scanner missed is the finding that matters. Verify both directions against the actual code.
 
-- **Sources** (where untrusted data enters): HTTP handlers, CLI arguments, file and object-store reads, message queues, environment, and — the one specific to agents — **model and tool outputs.** Treat what an LLM or a tool returns as untrusted input, not as trusted data; it can carry injected instructions or hostile content.
+- **Sources** (where untrusted data enters): HTTP handlers, CLI arguments, file and object-store reads, message queues, environment, and, the one specific to agents, **model and tool outputs.** Treat what an LLM or a tool returns as untrusted input, not as trusted data; it can carry injected instructions or hostile content.
 - **Sinks** (dangerous operations): shell/subprocess, `eval`/`exec`, deserialization (`pickle`, unsafe `yaml.load`), SQL, filesystem paths, outbound requests (SSRF), template rendering.
 - **Neutralize at the sink** (parameterized queries, an argument-list subprocess with no shell, safe deserialization, hardened XML) and **validate/canonicalize at the boundary** (allowlists, path-containment checks against traversal and zip-slip, URL-host allowlisting against SSRF).
 
-## Secrets: never commit them, and rotate — don't just delete
+## Secrets: never commit them, and rotate: don't just delete
 
-Keep no credential in source, defaults, tests, fixtures, or notebooks. A secret *read from* the environment is fine; a secret *literal* is not. And the rule that is easy to get wrong: treat a committed secret as **live until rotated.** Deleting the line leaves it in git history, where it is still exploitable — rotate the credential at its provider first, then remove it, then purge history if it was ever pushed. Never merely "suppress" this one.
+Keep no credential in source, defaults, tests, fixtures, or notebooks. A secret *read from* the environment is fine; a secret *literal* is not. And the rule that is easy to get wrong: treat a committed secret as **live until rotated.** Deleting the line leaves it in git history, where it is still exploitable, rotate the credential at its provider first, then remove it, then purge history if it was ever pushed. Never merely "suppress" this one.
 
 ## Depend only on what you can account for
 
 Know your third-party surface **transitively**, because most vulnerabilities and most copyleft licenses arrive through a dependency's dependency, not your own `pyproject`. Audit four things:
 
-- **Licenses** — each dependency's license against your project's own license and distribution model. Copyleft pulled into a permissive, distributed artifact is a legal problem, not a style one; missing/unknown license metadata is its own risk.
-- **Known vulnerabilities** — advisories affecting the *resolved* versions, with the fixed version if one exists.
-- **Freshness** — outdated, yanked, or end-of-life versions.
-- **Hygiene** — declared-but-unused, used-but-undeclared (silently relying on a transitive), and conflicting pins.
+- **Licenses**: each dependency's license against your project's own license and distribution model. Copyleft pulled into a permissive, distributed artifact is a legal problem, not a style one; missing/unknown license metadata is its own risk.
+- **Known vulnerabilities**: advisories affecting the *resolved* versions, with the fixed version if one exists.
+- **Freshness**: outdated, yanked, or end-of-life versions.
+- **Hygiene**: declared-but-unused, used-but-undeclared (silently relying on a transitive), and conflicting pins.
 
-**Pin for reproducibility.** A floating direct dependency means a build that resolved clean yesterday can pull a vulnerable or newly-copyleft version today; the lockfile is the record of what actually ran. And apply the AI-specific extension: **treat the model and the provider as dependencies too.** Pin model versions where the provider allows it, record which model produced a given result, and know your providers' data-retention terms — a silent model upgrade is an unpinned dependency that can move your eval numbers out from under you. Where you operate under a data-protection regime (GDPR and the like), also confirm each provider that processes personal data has the legal basis to (a signed DPA, acceptable residency and retention) — the compliance face of the same "account for what you depend on" rule.
+**Pin for reproducibility.** A floating direct dependency means a build that resolved clean yesterday can pull a vulnerable or newly-copyleft version today; the lockfile is the record of what actually ran. And apply the AI-specific extension: **treat the model and the provider as dependencies too.** Pin model versions where the provider allows it, record which model produced a given result, and know your providers' data-retention terms, a silent model upgrade is an unpinned dependency that can move your eval numbers out from under you. Where you operate under a data-protection regime (GDPR and the like), also confirm each provider that processes personal data has the legal basis to (a signed DPA, acceptable residency and retention), the compliance face of the same "account for what you depend on" rule.
 
 ## Treat the pipeline as a privileged environment
 
 CI is both the merge gate and a privileged runtime holding your secrets, which makes it an attack surface in its own right. Keep asking: *what could a malicious pull request, or a compromised third-party action, do with this pipeline's permissions?*
 
-- **Grant least privilege** — default the pipeline token to read-only; widen to write only the single job that genuinely needs it.
+- **Grant least privilege**: default the pipeline token to read-only; widen to write only the single job that genuinely needs it.
 - **Pin third-party actions to an immutable commit, not a mutable tag.** A `@v4` or `@main` reference can change under you; a full commit SHA cannot.
-- **Guard triggers** — never run untrusted PR code with secrets in scope. Keep the privileged, secret-bearing steps off any path an outside contributor can influence.
+- **Guard triggers**: never run untrusted PR code with secrets in scope. Keep the privileged, secret-bearing steps off any path an outside contributor can influence.
 - **Prefer short-lived, federated credentials** (OIDC and the like) over long-lived stored secrets where the platform supports it.
 
 ## Turn every fix into a gate
 
-Every fix on this page is one-time; the *class* of problem is forever. A credential scrubbed today is re-committed next month; a dependency bumped today drifts again; a locked-down workflow is loosened by the next author who needs a quick win. So take the same highest-leverage move the rest of the handbook keeps returning to: **encode the standard as an executable check and wire it into CI and pre-commit** — a SAST plus secret scan for first-party code, a CVE-plus-license gate for dependencies, a workflow linter and an action-pin checker for the pipeline. A cleanup you did not turn into a gate is a cleanup you will do again. This is the [make-the-standard-executable](lifecycle.md) discipline applied to the safety surfaces.
+Every fix on this page is one-time; the *class* of problem is forever. A credential scrubbed today is re-committed next month; a dependency bumped today drifts again; a locked-down workflow is loosened by the next author who needs a quick win. So take the same highest-leverage move the rest of the handbook keeps returning to: **encode the standard as an executable check and wire it into CI and pre-commit**: a SAST plus secret scan for first-party code, a CVE-plus-license gate for dependencies, a workflow linter and an action-pin checker for the pipeline. A cleanup you did not turn into a gate is a cleanup you will do again. This is the [make-the-standard-executable](lifecycle.md) discipline applied to the safety surfaces.
 
 ## Verify against the real artifacts
 
-Each surface here has a counterpart that *verifies* it against the real artifacts — the first-party code, the resolved dependency graph, the workflow files and their branch-protection reality. Treat this page as the practice and that verification as the standing check: run it periodically, report-only first to see where the repo hurts, then fix one surface at a time in its own reviewed change (see [Part 1](lifecycle.md) on auditing as a periodic health check). Judge severity by context: the same injection pattern is Critical on an internet-facing surface and a code-smell in a local dev script, so weigh each finding by whether its path is actually reachable and what it reaches.
+Each surface here has a counterpart that *verifies* it against the real artifacts, the first-party code, the resolved dependency graph, the workflow files and their branch-protection reality. Treat this page as the practice and that verification as the standing check: run it periodically, report-only first to see where the repo hurts, then fix one surface at a time in its own reviewed change (see [Part 1](lifecycle.md) on auditing as a periodic health check). Judge severity by context: the same injection pattern is Critical on an internet-facing surface and a code-smell in a local dev script, so weigh each finding by whether its path is actually reachable and what it reaches.
 
 ## Checklist: a security & supply-chain sweep
 
@@ -51,7 +51,7 @@ Each surface here has a counterpart that *verifies* it against the real artifact
 
 **Secrets**
 - [ ] No secret literals in source, tests, fixtures, or notebooks.
-- [ ] Any exposed credential **rotated at the provider**, then removed, then history purged — not just deleted.
+- [ ] Any exposed credential **rotated at the provider**, then removed, then history purged, not just deleted.
 
 **Dependencies**
 - [ ] Transitive graph audited for licenses, CVEs (resolved versions), freshness, and hygiene.
@@ -68,7 +68,7 @@ Each surface here has a counterpart that *verifies* it against the real artifact
 
 ## See also
 
-- [Part 1 — Lifecycle](lifecycle.md) — CI gates, the "make the standard executable" principle, and periodic audits.
-- [Part 4 — Observability](observability.md) — errors that don't leak secrets/PII, and no swallowed exceptions hiding a security failure.
-- [Part 5 — Evaluation](evaluation.md) — behavioral injection-resistance as an eval dimension.
+- [Part 1. Lifecycle](lifecycle.md), CI gates, the "make the standard executable" principle, and periodic audits.
+- [Part 4. Observability](observability.md), errors that don't leak secrets/PII, and no swallowed exceptions hiding a security failure.
+- [Part 5. Evaluation](evaluation.md), behavioral injection-resistance as an eval dimension.
 - [Handbook index](README.md).
