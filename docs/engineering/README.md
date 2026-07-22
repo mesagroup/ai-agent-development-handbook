@@ -1,4 +1,4 @@
-# How We Develop at Lidia
+# AI Agent Development Handbook
 
 A vademecum: the way we build software and AI agents, and — more importantly — *why* we build them this way. It is a handbook for judgment, not a rulebook. The commands and the checklists matter, but they are downstream of a few convictions that recur in every section. Read this page first; it is the lens for the rest.
 
