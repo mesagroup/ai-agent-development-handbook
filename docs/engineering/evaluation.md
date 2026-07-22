@@ -12,6 +12,10 @@ The failure mode is not *no* confidence. It is **false** confidence. Adding patt
 
 Build or extend a validation dataset → measure candidates against it → interpret with variance and cost → decide and ship → **re-measure after shipping**, because the change surfaces new failure forms, and those become the next dataset extension and the next hypothesis. The loop does not terminate; it is how the system stays honest as the data and the models drift. Record each decision and its evidence where the next person can find it ([Part 7](documentation.md)).
 
+## Measure the behaviors that matter
+
+Before *how well* comes *whether at all.* An eval is a measuring instrument, and the first question about any instrument is what it is pointed at. So enumerate the behaviors the product actually depends on — accuracy, grounding and citation, format adherence, refusal handling, latency and cost, and the specific *failure modes* that would hurt in production — and map each to an eval that exercises it. **An unevaluated capability is an unmonitored one:** the ones with no test case are exactly where a regression ships silently, and a capability that has a leaderboard entry but no case for its key failure mode is still a gap. This is the behavioural twin of test coverage ([Part 1](lifecycle.md)) — same idea, one level up from code to conduct. Include the adversarial modes: does the agent hold up when untrusted or tool-returned content tries to redirect it? That behavioural injection-resistance is an eval dimension, and the security-surface counterpart is in [Part 8](security-supply-chain.md).
+
 ## Building a dataset you can trust
 
 The dataset is the load-bearing part. A good measurement against a bad dataset is worse than no measurement, because it launders a blind spot into a number.
@@ -38,6 +42,8 @@ Once the dataset exists, the measurement has to be honest about three things poi
 - **Variance.** A single run of a stochastic system is an anecdote, not a result; a number without a variance is not a measurement. Run each candidate several times and report the spread; flag configurations whose run-to-run variability is too high to trust (a coefficient-of-variation cutoff works well). Comparisons need enough runs that a real difference clears the noise band, or a swing that is pure variance reads as an improvement.
 - **Full cost, not the convenient part.** Most choices are quality/cost trade-offs, so quality alone can't decide them (see [Part 4 — Observability](observability.md) on full-cost accounting). On cached-context workloads the cache read/write tokens often dominate and are invisible if you count only input/output; sub-agent calls, latency, and retries all belong in the total. Estimating cost from token counts instead of actual billing can flip a conclusion. Lead with absolute figures, not percentages.
 - **One variable at a time.** The before/after must be genuinely like-for-like: same inputs, same queries, one rule or parameter changed. A comparison that moves two things at once measures neither.
+- **Separate failure types.** A refusal or an API error is not a quality failure, and folding them together corrupts the score — don't penalize a model for a sub-agent's refusal or a transient timeout. Bucket them apart so a low score means "answered badly," not "didn't answer."
+- **Reproducibility.** A headline number is only trustworthy if it can be regenerated: pin the model version, record the full config (model, params, dataset revision, seed where feasible), and keep the run's artifacts. A pinned model matters as much as a pinned dependency ([Part 8](security-supply-chain.md)) — a silent provider upgrade moves your numbers out from under you, and an unacknowledged non-determinism turns a "regression" into noise.
 
 ## Which approach fits the decision
 

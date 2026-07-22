@@ -37,6 +37,7 @@ This is why the lifecycle in [Part 1](lifecycle.md) puts so much weight on the s
 | **[5 — Evaluation: how we decide](evaluation.md)** | Build → measure → decide → re-measure. Trustworthy datasets, variance and cost, which method fits which decision, LLM-as-judge vs human-in-the-loop, evaluating a multi-agent system unit by unit, and escalation ladders. |
 | **[6 — The three-layer document model](three-layer-model.md)** | Why a generic, domain-independent decomposition (intrinsic structure / domain entities / workflow knowledge) is the right organizing principle for document-AI, and the contracts (engine-agnostic representation, stable IDs, versioned enrichment) that make it pay off. |
 | **[7 — Documentation & knowledge capture](documentation.md)** | Keeping docs in sync with code, the architecture-vs-research split, cross-reference sanity, and the decision-trail artifacts. |
+| **[8 — Security, dependencies & supply chain](security-supply-chain.md)** | The safety surfaces the other parts don't cover: first-party code (untrusted-source-to-sink), secrets, the dependency graph (licenses, CVEs, pinning), and the pipeline as a privileged environment. |
 
 ## Where the binding rules live
 

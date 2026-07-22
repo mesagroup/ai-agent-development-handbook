@@ -34,6 +34,18 @@ The acyclic, directional shape buys three concrete things:
 
 An import that would violate a rule is therefore a **design smell, not a lint nuisance.** If an application-specific concept is pulling toward the core, the concept is in the wrong tier, or it is two concepts that need splitting. The rule is doing its job by making that visible at the import line.
 
+## Structural health beyond layering
+
+Layering is the highest-value axis, but it is not the only way structure decays, and a clean layer graph can still hide modules that are painful to change. A codebase that has grown organically drifts in ways a dependency rule alone won't catch, so it's worth periodically measuring the **declared** architecture against the **real** one (what the imports actually do) and watching a few more signals:
+
+- **Cycles** — import cycles defeat the isolation the tiers were meant to give and make the graph un-orderable; a cycle *within* a package is a warning, one *across* package boundaries is a real break.
+- **Coupling and cohesion** — a hub module everything imports (or one that reaches into everything) becomes a change-amplifier: touching it ripples everywhere. A grab-bag `utils` whose contents don't belong together is the same problem wearing a different name. Both are signals to split along cohesion seams — files that change together belong together.
+- **Complexity** — a function whose cyclomatic complexity or nesting depth resists understanding also resists testing; high complexity and low coverage tend to be the same modules.
+- **Dead code** — modules, functions, or exports reachable from nothing are cost with no benefit, but verify true unreachability before deleting (a plugin entry point, a dynamic import, or a re-export can look dead and not be).
+- **File size** — a file grown past what a reader can hold in one sitting is a cohesion smell; flag the outliers.
+
+These are health signals, not absolutes — an oversized-but-cohesive file or a moderately complex function may be fine. The point is to measure them deliberately rather than discover them during a refactor that keeps rippling further than expected. And per [Part 1](lifecycle.md), the durable fix for the layering rule specifically is to encode it as an import-linter contract in CI, so a violation can't silently return.
+
 ## Agent composition: typed hooks over a generic runner
 
 Agents are not forks of a base agent; they are **configurations of shared machinery**. A generic runner in the core tier owns the run lifecycle and exposes a small set of hook methods (create the agent, build the collector, format the query, post-process the result, and so on). Each application customizes behaviour by overriding those hooks, and narrows the runner's loose metadata into its own typed sub-models, so its run records are structured and self-describing rather than a loose bag of keys. This is composition-over-inheritance: the reusable runner, the disposable task layer.

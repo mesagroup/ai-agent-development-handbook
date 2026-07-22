@@ -61,9 +61,17 @@ write a failing test → run it (see it fail) → minimal implementation → run
 
 New code ships **with** unit tests, and adding code must not reduce overall coverage. The deterministic, pure logic of anything you add — parsing, scoring, transformation, id-mapping, verdict application, regex behaviour — must be covered *before the change is done*, because a bug in a scorer's math or an adjudicator's id-mapping silently corrupts every result it touches. I/O-bound edges (network, storage, model calls) may be mocked or left to integration tests. Analysis and tooling scripts are **not** exempt: exercise their pure helpers with unit tests too.
 
+### Coverage is not the value; catching a regression is
+
+A test suite's worth is not its coverage percentage — it is whether it **fails when the code breaks.** A high number produced by tests that assert nothing, only check "no exception was raised," assert against a value the test computed the same way (a tautology), or mock away the very unit under test is a *false* safety net, and a false safety net is worse than an honest low number because people trust it. So two habits matter as much as reach: write the assertion that would actually fail on a plausible regression (not the one that merely executes the line), and mock only true I/O edges, never the logic you are testing.
+
+Measure the right things, too: **branch** coverage, not just line coverage, is the signal (an untested error path is an uncovered branch that reads as covered); and measure coverage **on the diff**, because "don't lower overall coverage" can hide new code that shipped untested behind a large well-covered base. And keep tests **deterministic** — a test that depends on wall-clock, unseeded randomness, ordering, or the network is a flake that erodes trust in the whole suite; inject the clock and the seed rather than reaching for the real ones.
+
 ## CI and static analysis
 
 CI runs lint + typecheck + unit tests on every push and pull request. Before committing, run the same checks locally — and run **both** the linter and the formatter, not just one: a linter catches rule violations while a formatter catches layout drift, and they are different checks. Type-checking is part of the gate, not optional. The goal is that CI is a formality because the checks already passed locally.
+
+A gate only counts if it is actually enforced. **A gate that never runs — or runs but isn't required to pass — is worse than no gate, because people trust it.** A check that is skippable by a path filter, marked continue-on-error, only fires on a schedule, or is green but not in branch protection does not block a bad merge. So confirm the gate against the branch-protection rules, not the badge, and make sure "what the contributor guide says CI enforces" matches what the workflows actually require.
 
 ## The code-review protocol
 
@@ -83,6 +91,12 @@ Unit tests and type-checking verify code; they cannot catch a regression in an a
 - **How.** Run the agent end-to-end against a small, fixed battery of representative queries and score the output against a quality checklist (deterministic checks, or an LLM-as-judge rubric — see [Part 5](evaluation.md)). Run it on the branch, before merge, with a **cheap** configuration (a mock or lighter backend, see [Part 3](agent-harness.md)) so the gate is affordable enough to run every time. Set a pass bar (a minimum number of checks) and treat a drop as a blocking regression, the same as a failing test. Keep the battery frozen so a run is comparable to the last one.
 
 The general principle: **test each thing at the level where its failures actually appear.** Deterministic code is gated by unit tests; emergent agent behaviour is gated by an end-to-end run against a frozen battery.
+
+## Make the standard executable, and audit periodically
+
+Whenever you fix a class of problem, ask the follow-up question: *what stops it coming back?* A one-time cleanup regresses the moment the next change reintroduces it, because nothing was watching. So the highest-leverage version of almost every fix in this handbook is to **encode the standard as an executable check and wire it into CI (and pre-commit)** rather than leaving it to memory and review diligence. The pattern recurs at every layer: an import-linter contract makes a layering rule ([Part 2](codebase-structure.md)) un-violable; a coverage-plus-diff-coverage gate makes "new code ships with tests" mechanical; a SAST and secret scan, a CVE-and-license gate, and a workflow linter make the safety rules ([Part 8](security-supply-chain.md)) self-enforcing; a cheap eval/smoke gate makes a behavioural bar hold. A rule a human has to remember is a rule that eventually lapses; a rule the pipeline enforces is one that doesn't.
+
+The counterpart to standing gates is the **periodic audit** — a deliberate, evidence-based sweep across the quality dimensions (structure, tests, evals, docs, dependencies, security, CI) to find what has drifted below the standard, because gates catch only the regressions you already thought to encode. The discipline that makes an audit trustworthy is the same one that makes an eval trustworthy ([Part 5](evaluation.md)): every finding cites the artifact or tool output it rests on, tooling that can't run is marked *no-evidence* rather than *pass* (absence of a scanner is not absence of a problem), and a report-only diagnosis comes first, with fixes following one dimension at a time in their own reviewed changes.
 
 ## Coding-hygiene rules that surface at review
 
@@ -108,4 +122,4 @@ Merging isn't the end of the trace. After merging a PR linked to an issue: verif
 
 ## See also
 
-- [README / the stance](README.md) · [Part 2 — Codebase structure](codebase-structure.md) · [Part 4 — Observability](observability.md) (no swallowed exceptions) · [Part 5 — Evaluation](evaluation.md) (the quality gate uses a checklist; deeper decisions use the eval loop) · [Part 7 — Documentation](documentation.md) (specs, plans, and the trail)
+- [README / the stance](README.md) · [Part 2 — Codebase structure](codebase-structure.md) · [Part 4 — Observability](observability.md) (no swallowed exceptions) · [Part 5 — Evaluation](evaluation.md) (the quality gate uses a checklist; deeper decisions use the eval loop) · [Part 7 — Documentation](documentation.md) (specs, plans, and the trail) · [Part 8 — Security & supply chain](security-supply-chain.md) (the safety gates)
