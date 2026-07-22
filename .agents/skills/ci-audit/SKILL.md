@@ -5,7 +5,7 @@ description: "Audit a project's CI/CD pipelines (GitHub Actions and similar): wo
 
 # CI/CD Audit (pipelines, gates, pipeline security)
 
-A domain specialization of **[audit-core](../audit-core/SKILL.md)** — read that first; it owns the loop (scope → parallel evidence → findings matrix → plan → subagent-driven fixes → review → PR) and the cross-cutting rules. This skill supplies the pipeline lens. It cross-links two neighbors: **[security-audit](../security-audit/SKILL.md)** owns first-party application-code weaknesses, and **[deps-audit](../deps-audit/SKILL.md)** owns third-party package CVEs/licenses — this skill owns the *pipeline itself* (its secrets, permissions, and the actions it pulls in).
+A domain specialization of **[audit-core](../audit-core/SKILL.md)** — read that first; it owns the loop (scope → parallel evidence → findings matrix → plan → subagent-driven fixes → review → PR) and the cross-cutting rules. This skill supplies the pipeline lens. It cross-links two neighbors: **`security-audit`** (a sibling in the audit-skills program) owns first-party application-code weaknesses, and **[deps-audit](../deps-audit/SKILL.md)** owns third-party package CVEs/licenses — this skill owns the *pipeline itself* (its secrets, permissions, and the actions it pulls in).
 
 **Core principle:** CI is both a quality gate and a privileged execution environment holding your secrets. The audit answers two questions at once — *does the pipeline actually enforce what everyone assumes it enforces?* (a gate that never runs is worse than no gate, because people trust it) and *what could a malicious PR or a compromised action do with the pipeline's permissions and secrets?* Verify both against the real workflow files and run history, not the badge.
 
@@ -44,7 +44,7 @@ Slice the parallel evidence pass **by workflow file** — one read-only agent pe
 
 ## 3. Evidence sources & tooling
 
-**Detect** what the platform offers and what the project already uses: for GitHub Actions, `actionlint` (workflow correctness + shellcheck of `run:` blocks), `zizmor` (GHA security auditor — trigger safety, injection, permissions, unpinned actions), `pinact`/`ratchet` (action-pin checking), and the GitHub API/CLI (`gh`) for branch-protection and run history. For other platforms, use their native linter (`gitlab-ci-lint`, `circleci config validate`) plus manual review. Prefer a tool the project already runs; fall back to careful manual reading of every workflow. Instruct subagents: never pass `#`-comment lines to Bash.
+**Detect** what the platform offers and what the project already uses: for GitHub Actions, `actionlint` (workflow correctness + shellcheck of `run:` blocks), `zizmor` (GHA security auditor — trigger safety, injection, permissions, unpinned actions), `pinact`/`ratchet` (action-pin checking), and the GitHub API/CLI (`gh`) for branch-protection and run history. For other platforms, use their native linter (`glab ci lint`, `circleci config validate`) plus manual review. Prefer a tool the project already runs; fall back to careful manual reading of every workflow. Instruct subagents: never pass `#`-comment lines to Bash.
 
 Run in the parallel evidence pass:
 - **Correctness:** `actionlint` (catches syntax, expression, and shell-quoting errors), or the platform's config validator.
