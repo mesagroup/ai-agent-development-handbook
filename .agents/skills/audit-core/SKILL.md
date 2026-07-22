@@ -17,31 +17,33 @@ Every `*-audit` skill is the **same loop** applied through a different lens. Thi
 
 Runs in order; each step feeds the next.
 
-0. **Scope.** Fix the subject (which package/tree/config) and the depth. For a large subject, deliver in **increments** (one coherent slice per PR) rather than one giant change. Resolve any opt-in sub-audits here (ask the user once if an argument didn't specify).
+0. **Scope + mode.** Fix the subject (which package/tree/config) and the depth. **Always ask the user the mode:** *report-only* (produce the findings matrix + report and stop) or *report + fix* (continue through remediation). For a large subject in fix mode, deliver in **increments** (one coherent slice per PR) rather than one giant change. Resolve any opt-in sub-audits here too (ask once if an argument didn't specify).
 
 1. **Gather evidence — fan out read-only subagents in parallel.** This is the load-bearing step. Dispatch one read-only agent per slice of the subject (per package, per config file, per dimension — whatever partitions cleanly) to collect *ground-truth* evidence: run the domain's tools, read the relevant files, and report a structured result. Run the domain's detection/measurement tooling here (see the domain skill for which). Also gather the project's existing conventions (contributor guide, prior audits, existing config) so remediation matches house style.
 
 2. **Build the findings matrix.** Consolidate the evidence into a table: **item × dimension × status × severity**, plus a one-line evidence pointer (`file:line`, tool output, or metric) for every row. Status is a small fixed scale the domain defines (e.g. pass / partial / fail, or ok / warn / violation). Severity is Critical / Important / Minor. Summarize counts. Save the findings report under the repo (e.g. `docs/audit/<date>-<domain>-audit.md`) so it is itself linkable, and record any policy decisions so they are not re-litigated.
 
-3. **Plan remediation.** Turn the fail/violation rows into a work list. Invoke the writing-plans skill if available; else write a plan file under the project's plans location.
+**If the mode is report-only, stop here** — present the findings matrix + report (with a short recommended-remediation sketch), modify no files, and ask the user whether to proceed to fixes. Steps 3–6 run only in report + fix mode.
+
+3. **Plan remediation.** Turn the fail/violation rows into a work list. Write a plan file under the project's plans location (fall back to `docs/plans/`).
    - **One task per coherent fix** (or tightly-coupled group), each independently verifiable.
    - **Global-constraints block** copied verbatim into every task: the domain's fix conventions, the gate that must stay green (link-checker / test suite / linter — whichever the domain uses), style/commit conventions, and **no environment-specific values** (no absolute machine paths, personal profiles, hostnames — use placeholders).
    - **Forward-safe ordering + per-item gate:** order tasks so none depends on a later task's output, and have each task leave the domain gate green in its own commit, so a regression is attributable to the task that caused it.
    - Ground each task in the Phase-1 evidence (exact `file:line` / tool findings) so the implementer verifies rather than guesses.
 
-4. **Apply fixes — subagent-driven with per-item review.** Invoke the subagent-driven-development skill if available; else follow this per task, tracking progress in a durable ledger:
+4. **Apply fixes — subagent-driven with per-item review.** Work one task at a time, tracking progress in a durable ledger (so the run survives interruption):
    1. Dispatch a **fresh implementer subagent** with: where the fix fits, the task brief + evidence, the global constraints, the report-file path, and the Bash-no-`#` reminder. It makes the change, re-runs the domain gate to green, commits, and self-reviews.
    2. **Review against evidence:** a reviewer subagent (or inline if subagents are unstable) verifies the fix actually resolves the finding *against the real artifact/tool output* — not just that it looks plausible. Spec compliance + quality.
    3. **Resolve findings:** fix Critical/Important before advancing; apply easy correct Minor fixes; resolve any "can't verify from the diff" item yourself against the evidence.
    4. Record the task complete in the ledger. **One implementer at a time** (parallel implementers collide on shared files).
 
-5. **Whole-branch review — adopt `/code-review:code-review`, adapted to the domain.** After all fixes, run the project's canonical code-review skill over the whole branch. If a `/code-review:code-review` skill (or an `implement-and-review`-style phase) exists, invoke it; else reproduce its shape inline. That shape is: **several specialized reviewer subagents in parallel, then confidence-score each finding and act by threshold** (post/fix the confident ones per the project's review convention, report the full findings list with dispositions). The domain skill supplies the specialized review dimensions (the lens each reviewer takes). Resolve everything real in one follow-up pass; use the most capable model available for this gate.
+5. **Whole-branch review — a multi-reviewer, confidence-scored pass.** After all fixes, review the whole branch with **several specialized reviewer subagents running in parallel**, each taking one lens (the domain supplies the lenses in its Review-dimensions slot; always include a "verify claims against the real artifact/tool output" reviewer). Collect their findings, then **score each finding 0–100 for confidence** that it is real (vs. a false positive), and **act by threshold**: fix the confident ones (and easy, correct minor ones), and report the full findings list with a disposition for each (fixed / not-a-real-issue-with-reason / deferred-with-reason). Resolve anything a reviewer "couldn't verify from the diff" yourself against the evidence. Fix everything real in one follow-up pass; use the most capable model available for this gate.
 
-6. **Finish.** Invoke the finishing-a-development-branch skill (or open a PR). State the CI implications up front — a docs/config-only audit usually stays off the heavy code gates; a code-changing audit needs the normal lint/typecheck/test (and possibly the code-review) gates. Update the tracking issue and tick only acceptance criteria you verified. **Do not merge without explicit user approval.**
+6. **Finish.** Open a PR. State the CI implications up front — a docs/config-only audit usually stays off the heavy code gates; a code-changing audit needs the normal lint/typecheck/test (and any review) gates. Update the tracking issue and tick only acceptance criteria you verified. **Do not merge without explicit user approval.**
 
-## What a domain skill must provide
+## Authoring a new auditing skill
 
-A `<domain>-audit` skill is thin: it states the lens and defers the loop to this engine. It must define:
+A `<domain>-audit` skill is thin: it states the lens and defers the loop above to this engine. It must define these seven slots:
 
 1. **Subject & scope** — what is audited, and how to slice it for the parallel evidence pass.
 2. **Dimensions** — the axes/checks (the columns of the findings matrix).
