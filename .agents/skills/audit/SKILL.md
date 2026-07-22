@@ -25,25 +25,27 @@ The front door to the `*-audit` family. It runs several domain audits **at once*
 
 ### 0. Scope + mode
 
-- **Scope — argument-first.** `/audit` (no args) or `/audit all` → every available domain. `/audit ci security test` → just those. **Detect which `*-audit` skills actually exist** under the skills dir and only run those (project-agnostic; a repo may have a subset). If the invocation is interactive and the scope is genuinely unclear, ask with the ask-the-user tool — but note that tool caps a question at **4 options**, so do **not** try to render all seven domains as one checklist; offer a coarse choice instead (e.g. *All (recommended)* / *A subset I'll name* / *Just the security-relevant ones: security + deps + ci*). **Default = all.**
+- **Scope — argument-first.** `/audit` (no args) or `/audit all` → every available domain. `/audit ci security test` → just those. **Detect which `*-audit` skills actually exist** under the skills dir and only run those (project-agnostic; a repo may have a subset). **If the user explicitly names a domain that has no skill on disk, tell them it was skipped (and why) before fanning out** — never drop a requested scope silently. If the invocation is interactive and the scope is genuinely unclear, ask with the ask-the-user tool — but note that tool caps a question at **4 options**, so do **not** try to render every available domain as one checklist; offer a coarse choice instead (e.g. *All (recommended)* / *A subset I'll name* / *Just the security-relevant ones: security + deps + ci*). **Default = all.**
 - **Mode — report-only by default.** The sweep produces findings, changes nothing, creates no branches/commits/PRs. Only ask about report+fix if the user explicitly wants fixes in this run — and then still hand each fix to the per-domain skill (see below), do not fan fixes out.
 
 ### 1. Fan out — one read-only subagent per selected domain, in parallel
 
-Dispatch all selected domains **concurrently** (a barrier — you need every matrix to consolidate). Give each subagent:
+Dispatch all selected domains **concurrently** (a barrier — collect the matrices before consolidating; a domain that errors does **not** block the others). Give each subagent:
 - The repo root and the one line: "Read `.agents/skills/<domain>-audit/SKILL.md` and `.agents/skills/audit-core/SKILL.md`, then execute that audit on THIS repo in REPORT-ONLY mode, through the findings-matrix step only."
 - Any repo-specific grounding the domain needs (declared architecture rules for arch, the eval stack location for eval, the workflow list for ci, etc.) — a short pointer, not a pasted lens.
-- The hard constraints: **do NOT edit/create/delete any file, do NOT create branches/commits/PRs, report-only**; the Bash-no-`#` reminder; "keep raw tool output OUT of your final answer — return the matrix, counts, top findings, and a one-line-per-tool ran/fell-back log."
-- Instruction to run the domain's detection tooling ephemerally (`uv run --with <tool> …`) with the domain skill's fallbacks, and to **verify each finding against the real artifact** (source→sink, `file:line`, tool output) so scanner artifacts don't become findings.
+- The hard constraints: **do NOT edit/create/delete any file, do NOT create branches/commits/PRs, report-only**; the Bash-no-`#` reminder; "keep raw tool output OUT of your final answer — return the matrix (**capped to the significant rows**), counts, top findings, and a one-line-per-tool ran/fell-back log."
+- Instruction to run the domain's detection tooling ephemerally (`uv run --with <tool> …`) with the domain skill's fallbacks, and to **verify each finding against the real artifact** (source→sink, `file:line`, tool output) so scanner artifacts don't become findings. **If every fallback for a dimension fails (no network, tool won't install), mark that dimension `no-evidence` — never `pass`** — so absence of tooling is not reported as absence of findings.
 
 One subagent per domain; do not split a single domain across subagents here (that's the domain skill's own internal concern).
+
+**Partial results.** If a subagent dies, times out, or returns null/unusable output, do **not** stall the sweep: consolidate the domains that returned, and mark each missing one as `errored / incomplete` (with the reason) in the roll-up. A broken domain degrades the report; it does not block it.
 
 ### 2. Consolidate — into the report template
 
 Merge the returned matrices into one report using the **template below**. Rules:
 - **Carry each domain's self-verification forward.** Do not upgrade a Minor to a Critical (or invent a finding) during the merge; the domain subagent owns severity. If a domain reports a false positive it caught, keep that note — it is evidence the lens is grounded.
-- **Surface cross-domain agreement.** When two domains flag the same root cause (e.g. "checks exist but aren't enforced", a shared shim), call it out as a theme — corroboration across lenses is a strong signal.
-- Compute the severity roll-up (counts per domain, total Criticals).
+- **Surface cross-domain agreement.** When two domains flag the same root cause (e.g. "checks exist but aren't enforced", a shared shim), call it out as a theme — corroboration across lenses is a strong signal. A theme is corroboration, **not a new finding**: it is not added to the severity totals.
+- Compute the severity roll-up by counting **per-domain matrix rows** (not themes); include the total Criticals, and any `errored / incomplete` domains from partial results.
 
 ### 3. Output — ask which format(s), then emit
 
