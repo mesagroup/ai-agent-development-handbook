@@ -49,7 +49,7 @@ Run in the parallel evidence pass:
 - **Coverage (with branches):** `pytest --cov=<pkg> --cov-branch --cov-report=term-missing` (or `coverage run -m pytest` + `coverage report --show-missing`). Branch coverage is the signal; capture the missing line/branch ranges per module as the evidence pointer.
 - **Diff coverage:** `diff-cover coverage.xml --compare-branch=origin/main` to find coverage the *current work* added or dropped — this is the TDD-adherence evidence.
 - **Assertion-strength review (the load-bearing step):** read the tests covering each high-risk module and judge whether an assertion would actually fail if the code regressed. A scanner can't do this — a subagent reading `test → code` pairs can. Flag no-op asserts, tautologies, and over-mocking with `file:line`.
-- **Flakiness:** run the suite with `pytest -p randomly` (randomized order) and, for suspected flakies, repeat runs; flag order-dependence and non-determinism. Grep tests for `time.time()`, `datetime.now()`, `random.` without a seed, and live network calls.
+- **Flakiness:** run the suite in randomized order (`pytest-randomly` randomizes automatically once installed; use `--randomly-seed=<n>` to reproduce a failing order) and, for suspected flakies, repeat runs; flag order-dependence and non-determinism. Grep tests for `time.time()`, `datetime.now()`, `random.` without a seed, and live network calls.
 - **Speed/isolation:** `pytest --durations=25` for the slowest tests; check unit tests for real I/O.
 
 Read the contributor guide for the coverage rule and any test-pattern conventions (e.g. how the project tests scripts). Record the coverage metric or `test_file:line` as the evidence pointer for every row.
