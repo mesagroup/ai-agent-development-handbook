@@ -42,7 +42,11 @@ When an optional gate is off, take the autonomous path but *announce the decisio
 Run this bite-sized loop for every feature and bugfix:
 
 ```
-write a failing test → run it (see it fail) → minimal implementation → run it (passes) → commit
+write a failing test
+  → run it (see it fail)
+  → minimal implementation
+  → run it (passes)
+  → commit
 ```
 
 Ship new code **with** unit tests, and don't let adding code reduce overall coverage. Cover the deterministic, pure logic of anything you add, parsing, scoring, transformation, id-mapping, verdict application, regex behaviour, *before the change is done*, because a bug in a scorer's math or an adjudicator's id-mapping silently corrupts every result it touches. You may mock or defer I/O-bound edges (network, storage, model calls) to integration tests. Don't exempt analysis and tooling scripts: exercise their pure helpers with unit tests too.

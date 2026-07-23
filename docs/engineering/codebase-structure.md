@@ -54,11 +54,13 @@ Build multi-agent systems by exposing one agent to another **as a tool**: the on
 
 ## Dispatch on a discriminator, not a type
 
-Where a component has interchangeable backends (say, several research or model providers), select them through a **polymorphic configuration** rather than conditionals scattered across call sites. Give a base config a `mode` (or `kind`) discriminator, let each concrete variant live in its own module, and dispatch with a `match` on the discriminator literal, **never** an `isinstance()` chain, which couples the dispatcher to every concrete class and quietly breaks the tier boundaries. Let a settings library resolve environment variables per variant to keep the wiring declarative. Expose one provider-agnostic entry point that returns a uniform result type, so an application swaps a backend by changing a config value, not its own code.
+Where a component has interchangeable backends (say, several research or model providers), select them through a **polymorphic configuration** rather than conditionals scattered across call sites. Give a base config a `mode` (or `kind`) discriminator, let each concrete variant live in its own module, and dispatch with a `match`/`switch` on that discriminator literal, **never** a runtime type test (an `isinstance()` chain in Python, `instanceof` in TypeScript), which couples the dispatcher to every concrete class and quietly breaks the tier boundaries. Let a settings library resolve environment variables per variant to keep the wiring declarative. Expose one provider-agnostic entry point that returns a uniform result type, so an application swaps a backend by changing a config value, not its own code.
 
 ## Name every configuration worth reusing
 
-A configuration worth reusing gets a name. Bundle a model, its parameters, and feature toggles into a machine-readable named profile, selectable by name (and discoverable by listing). Then have scripts, eval harnesses, and agents reference a configuration *by name* instead of reconstructing a pile of flags, which is what makes an experiment reproducible and a "run the cheap profile" instruction unambiguous (see [Part 3](agent-harness.md)).
+A **configuration** here is the full bundle of choices that determine how a run behaves: which model it uses, that model's parameters (temperature, top-p, and so on), which tools and features are switched on, and any budgets or limits. A run is pinned by one specific combination of these, and the same combination tends to be wanted again, by the next experiment, by CI, by a teammate reproducing a result.
+
+So any combination worth reusing gets a name. Bundle it into a machine-readable **named profile**, selectable by name (and discoverable by listing). Then have scripts, eval harnesses, and agents reference a configuration *by name* instead of reconstructing a pile of flags at each call site. That is what makes an experiment reproducible (rerun the exact same profile months later) and a "run the cheap profile" instruction unambiguous (see [Part 3](agent-harness.md)).
 
 ## Checklist: placing new code / reviewing an import
 
@@ -67,8 +69,8 @@ A configuration worth reusing gets a name. Bundle a model, its parameters, and f
 - [ ] No new import cycle (within or across packages).
 - [ ] A single-application convenience stayed *in* that application, not migrated into shared core.
 - [ ] Cross-application reuse is via `as_tool()` composition, not internal reach-in.
-- [ ] Backend selection dispatches on a discriminator (`match`), not an `isinstance()` chain.
-- [ ] The layering rule is (or is now) an import-linter contract in CI, not just prose.
+- [ ] Backend selection dispatches on a discriminator (`match`/`switch`), not a runtime type test (`isinstance`/`instanceof`).
+- [ ] The layering rule is enforced by an import-linter contract in CI, not left to prose and memory.
 
 ## See also
 
