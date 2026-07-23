@@ -45,25 +45,30 @@ Each surface here has a counterpart that *verifies* it against the real artifact
 ## Checklist: a security & supply-chain sweep
 
 **First-party code**
+
 - [ ] Each finding names a real **source → sink** path, verified in the code.
 - [ ] Model/tool outputs treated as **untrusted** input.
 - [ ] Dangerous sinks neutralized at the sink; input validated/canonicalized at the boundary.
 
 **Secrets**
+
 - [ ] No secret literals in source, tests, fixtures, or notebooks.
 - [ ] Any exposed credential **rotated at the provider**, then removed, then history purged, not just deleted.
 
 **Dependencies**
+
 - [ ] Transitive graph audited for licenses, CVEs (resolved versions), freshness, and hygiene.
 - [ ] Direct deps **pinned**; lockfile committed.
 - [ ] Models/providers pinned and recorded; retention terms and (where applicable) **DPA/GDPR basis** confirmed.
 
 **Pipeline**
+
 - [ ] Pipeline token least-privilege (read-only by default).
 - [ ] Third-party actions pinned to **commit SHAs**, not tags.
 - [ ] No untrusted PR code runs with secrets in scope; federated creds preferred.
 
 **Standing**
+
 - [ ] Each class of fix is now an **executable gate** (SAST + secret scan, CVE+license gate, workflow linter, action-pin checker).
 
 ## See also
