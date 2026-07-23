@@ -1,6 +1,6 @@
 ---
 name: audit-core
-description: "The shared engine behind the *-audit skills (docs-audit, deps-audit, test-audit, eval-audit, arch-audit, ci-audit, security-audit). Encodes the reusable audit loop — scope, evidence gathering, findings matrix, remediation plan, subagent-driven fixes, review — that each domain skill specializes. Read this when authoring or running any of those skills; it is not usually invoked directly on its own."
+description: "The shared engine behind the *-audit skills (docs-audit, deps-audit, test-audit, eval-audit, arch-audit, ci-audit, security-audit, prompt-audit). Encodes the reusable audit loop — scope, evidence gathering, findings matrix, remediation plan, subagent-driven fixes, review — that each domain skill specializes. Read this when authoring or running any of those skills; it is not usually invoked directly on its own."
 ---
 
 # Audit Core — the shared audit engine
