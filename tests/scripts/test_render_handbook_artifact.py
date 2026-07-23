@@ -90,3 +90,18 @@ def test_build_renders_verbatim_section(tmp_path: Path):
     assert '<li class="task">first</li>' in html
     assert '<li class="task done">second</li>' in html
     assert 'href="README.md"' not in html  # no residual .md link
+
+
+def test_to_ascii_entities_escapes_non_ascii():
+    assert (
+        rh.to_ascii_entities("A · § ◐ → ≥") == "A &#183; &#167; &#9680; &#8594; &#8805;"
+    )
+    assert rh.to_ascii_entities("plain ascii") == "plain ascii"
+
+
+def test_build_output_is_pure_ascii(tmp_path: Path):
+    pytest.importorskip("markdown")
+    (tmp_path / "README.md").write_text("# Heading\n\n- [ ] a\n")
+    html = rh.build(tmp_path, parts=[("top", "README", "Overview")])
+    html.encode("ascii")  # must not raise: output carries no raw non-ASCII
+    assert "&#183;" in html  # the brand middle dot rendered as an entity

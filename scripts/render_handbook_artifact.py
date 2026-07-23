@@ -121,6 +121,17 @@ def render_nav(parts: list[tuple[str, str, str]]) -> str:
     return "\n".join(rows)
 
 
+def to_ascii_entities(html: str) -> str:
+    """Escape every non-ASCII character to a numeric HTML entity.
+
+    The artifact host serves the page from a wrapper whose ``<head>`` we do not
+    control, so we cannot declare ``<meta charset="utf-8">``. Raw UTF-8 bytes
+    then mojibake under a Latin-1 interpretation (``·`` -> ``Â·``). Numeric
+    entities are pure ASCII and render as the same glyph under any charset.
+    """
+    return html.encode("ascii", "xmlcharrefreplace").decode("ascii")
+
+
 def build(docs_dir: Path, parts: list[tuple[str, str, str]] = PARTS) -> str:
     """Render the full handbook artifact HTML from ``docs_dir``."""
     linkmap = {stem + ".md": "#" + anchor for anchor, stem, _ in parts}
@@ -135,7 +146,7 @@ def build(docs_dir: Path, parts: list[tuple[str, str, str]] = PARTS) -> str:
             f'      <div class="col doc">\n{html}\n      </div>\n    </section>'
         )
     body = _BODY % {"nav": render_nav(parts), "sections": "\n".join(sections)}
-    return _HEAD + body + _SCRIPT
+    return to_ascii_entities(_HEAD + body + _SCRIPT)
 
 
 def main(argv: list[str] | None = None) -> int:
