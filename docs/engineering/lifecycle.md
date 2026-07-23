@@ -120,7 +120,9 @@ These are the recurring review findings. Each has a *why*, and each belongs, wit
 
 ## Prompt and SOP engineering
 
-An agent's behaviour is defined by its **SOP** (Standard Operating Procedure), its prompts. Apply two rules specifically to prompts, because a prompt change is a behavioural change that no type-checker will catch:
+An agent's behaviour is defined by its **SOP** (Standard Operating Procedure): a structured, reusable prompt that specifies how the agent performs a task, so a complex workflow runs the same way every time instead of being re-improvised per run. Give an SOP a fixed shape (keep it in a `.sop.md` file): an **Overview** of what it does and when to use it, its **Parameters** (the `snake_case` inputs, each marked required or optional), and ordered **Steps**, each carrying explicit **Constraints**, with optional **Examples** and **Troubleshooting**. Write the constraints with RFC 2119 keywords (**MUST** / **SHOULD** / **MAY** and their negatives) so the requirement level is unambiguous, and give every negative constraint (**MUST NOT**, **SHOULD NOT**) its *reason* inline, because "don't do X because Y" is what stops the model quietly reintroducing X. That is the same capture-the-why discipline the rest of the handbook runs on, applied to the prompt. (The format is the open [`agent-sop`](https://github.com/strands-agents/agent-sop) specification.)
+
+Apply two rules specifically to prompts, because a prompt change is a behavioural change that no type-checker will catch:
 
 - **Explain *why* a prompt changed in its commit**, not just what, the reasoning is the part a future reader needs. Keep prompt changes in their own commit, separate from code, where you can.
 - **Analyze SOPs for cognitive load.** A prompt that overloads the model with constraints degrades its reasoning; run a periodic analysis of constraint density and redundancy to keep prompts lean, and let it inform when to decompose a monolithic agent into sub-agents.
