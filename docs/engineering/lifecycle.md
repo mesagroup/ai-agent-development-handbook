@@ -55,7 +55,21 @@ Measure the right things: track **branch** coverage, not just line coverage (an 
 
 ## CI and static analysis
 
-Run lint + typecheck + unit tests on every push and pull request. Before committing, run the same checks locally, and run **both** the linter and the formatter, not just one: a linter catches rule violations while a formatter catches layout drift, and they are different checks. Keep type-checking in the gate, not optional. Aim to make CI a formality because the checks already passed locally.
+Run the same static-quality checks on every push and pull request, and locally before committing, so CI is a formality because the checks already passed. Treat these as **four distinct, complementary gates**, not one blurry "lint" step, because each catches a class the others miss:
+
+- **Format.** Run the formatter, not just the linter: a linter catches rule violations, a formatter catches layout drift, and they are different checks. Normalized layout is also what keeps diffs meaningful and ends whitespace arguments.
+- **Lint.** Flag rule violations, likely bugs, and smells the formatter won't see; add domain-specific linters where they pay (an import-linter for the layering rule, see [Part 2](codebase-structure.md)).
+- **Type-check, and annotate.** Keep type-checking in the gate, not optional. But remember a type-checker only helps code that is annotated: annotate public interfaces, prefer typed models over loose dicts, and run the checker strict enough to actually fail on an untyped or mistyped path. An un-annotated codebase passes the checker by having nothing to check, a false pass in the same family as a test that asserts nothing.
+- **Docstrings.** Treat them as a checked surface too: every public module and symbol carries one, audited for coverage and staleness (see [Part 7](documentation.md)).
+
+These are language-agnostic disciplines; only the toolchain changes. Pick the equivalent for your stack and wire each in the same way (illustrative, not prescriptive):
+
+| Check | Python | TypeScript |
+|---|---|---|
+| Format | `ruff format` / `black` | `prettier` |
+| Lint | `ruff` / `flake8` | `eslint` |
+| Type-check | `pyright` / `mypy` | `tsc` (with `strict`) |
+| Docstrings | docstring-coverage + staleness audit | `tsdoc` / `typedoc` |
 
 A gate only counts if it is actually enforced. **A gate that never runs, or runs but isn't required to pass, is worse than no gate, because people trust it.** A check that is skippable by a path filter, marked continue-on-error, only fires on a schedule, or is green but not in branch protection does not block a bad merge. So confirm the gate against the branch-protection rules, not the badge, and make sure "what the contributor guide says CI enforces" matches what the workflows actually require.
 
@@ -123,7 +137,7 @@ Don't treat merging as the end of the trace. After merging a PR linked to an iss
 - [ ] Plan written with complete, placeholder-free code; every spec requirement maps to a task.
 - [ ] Each task implemented by a fresh subagent and passed both review verdicts (spec + quality).
 - [ ] New code ships with tests; branch + diff coverage not lowered; tests deterministic.
-- [ ] Lint **and** formatter **and** typecheck pass locally; CI green and actually required in branch protection.
+- [ ] Format, lint, type-check (with annotations), and docstring checks pass locally; CI green and actually required in branch protection.
 - [ ] Comprehensive review run; all findings reported with disposition; ≥-threshold findings fixed.
 - [ ] End-to-end agent quality gate run if any agent's import path was touched.
 - [ ] Docs / READMEs / module docstrings updated in the same PR.
