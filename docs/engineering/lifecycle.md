@@ -69,7 +69,7 @@ These are language-agnostic disciplines; only the toolchain changes. Pick the eq
 | Format | `ruff format` / `black` | `prettier` |
 | Lint | `ruff` / `flake8` | `eslint` |
 | Type-check | `pyright` / `mypy` | `tsc` (with `strict`) |
-| Docstrings | docstring-coverage + staleness audit | `tsdoc` / `typedoc` |
+| Docstrings | docstring-coverage + staleness audit | JSDoc/TSDoc comments; `eslint-plugin-jsdoc` for coverage; `typedoc` to generate |
 
 A gate only counts if it is actually enforced. **A gate that never runs, or runs but isn't required to pass, is worse than no gate, because people trust it.** A check that is skippable by a path filter, marked continue-on-error, only fires on a schedule, or is green but not in branch protection does not block a bad merge. So confirm the gate against the branch-protection rules, not the badge, and make sure "what the contributor guide says CI enforces" matches what the workflows actually require.
 
