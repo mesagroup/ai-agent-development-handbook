@@ -1,6 +1,6 @@
 ---
 name: arch-audit
-description: "Audit a Python project's structure: layering / dependency-rule conformance (no illegal cross-tier imports, no cycles), module cohesion and coupling, per-module complexity, dead code, oversized files, and over-abstraction / speculative generality (single-implementer interfaces, one-caller wrappers, one-case registries, back-compat shims). Use when a codebase has grown organically and the boundaries have blurred, before a refactor, when import cycles or god-modules are suspected, when the structure feels heavier than the problem, or when the user asks to audit architecture / structure / layering. Works on any Python project. Runs on the audit-core engine."
+description: "Audit a Python project's structure: layering / dependency-rule conformance (no illegal cross-tier imports, no cycles), module cohesion and coupling (god-modules and the opposite — over-decomposition / ravioli code), per-module complexity, dead code, oversized files, and over-abstraction / speculative generality (single-implementer interfaces, one-caller wrappers, one-case registries, back-compat shims). Use when a codebase has grown organically and the boundaries have blurred, before a refactor, when import cycles or god-modules are suspected, when the structure feels heavier than the problem, or when the user asks to audit architecture / structure / layering. Works on any Python project. Runs on the audit-core engine."
 ---
 
 # Architecture Audit (structure, layering, coupling)
@@ -17,7 +17,8 @@ A domain specialization of **[audit-core](../audit-core/SKILL.md)** — read tha
 
 - A package tree grew organically and no one is sure the layering still holds (a low tier importing a high one, a service reaching into an agent).
 - Import cycles are suspected, or a refactor keeps rippling further than expected (a sign of high coupling).
-- A few modules have become god-files that everything depends on and nothing can be changed safely.
+- A few modules have become god-files that everything depends on and nothing can be changed safely — or the opposite, the code is fragmented into so many trivial modules ("ravioli code") that the dependency graph is the thing no one can follow.
+- A routine change turns into shotgun surgery (one logical edit scattered across many tiny units) — a sign of over-decomposition.
 - The structure feels heavier than the problem — layers, interfaces, or a plugin/registry mechanism that each call threads through to reach a single implementation.
 - The user asks to audit architecture, structure, layering, coupling, dead code, or over-engineering.
 
@@ -36,7 +37,7 @@ Slice the parallel evidence pass **by top-level package/tier** — one read-only
 
 - **Layering / dependency-rule conformance** — every import that crosses a tier boundary the wrong way (a lower tier importing a higher one), or an edge the documented rules forbid. This is the highest-value axis when the project documents its layers.
 - **Cycles** — import cycles between modules or packages (they defeat isolation and make the graph un-orderable).
-- **Coupling & cohesion** — modules with too many afferent/efferent dependencies (a hub everything imports, or a module that reaches into everything); modules whose contents don't belong together (grab-bag `utils`).
+- **Coupling & cohesion** — wrong granularity in *either* direction. Too **coarse**: modules with too many afferent/efferent dependencies (a hub everything imports, or a module that reaches into everything), or modules whose contents don't belong together (grab-bag `utils`). Too **fine — over-decomposition** ("ravioli code", the nanoservice anti-pattern): so many trivial single-responsibility units that the dependency graph, not any one component, is the thing you can't hold in your head. The tell is a graph-level shape — a high edge-to-node ratio, many modules carrying one public symbol / a handful of lines, and long call chains threading through pass-through units that only forward (the "poltergeist" / "middle man"). This is distinct from the over-abstraction axis (a *single* abstraction with no second consumer) and from a god-module (too *few* nodes doing too much) — here the fault is the aggregate shape of the whole graph.
 - **Complexity** — functions/modules with high cyclomatic complexity or deep nesting that resist understanding and testing.
 - **Dead code** — unused modules, functions, classes, or exports reachable from nothing.
 - **File / module size** — files grown past the point of holding in context at once (the contributor guide may state a norm; otherwise flag outliers relative to the repo).
@@ -50,6 +51,7 @@ Run in the parallel evidence pass:
 - **Layering:** `import-linter` if a `.importlinter` contract exists, or `tach`. If neither, build the ground-truth edge set yourself — parse each module's `import` / `from ... import` statements (`grimp`, or an AST/`ast`-based walk, or a scoped grep) and check every cross-tier edge against the §1 rules. Record the offending `file:line` for each violation.
 - **Cycles:** `import-linter`'s cycle contract, `pydeps --show-cycles`, or `grimp`'s cycle detection on the built graph.
 - **Coupling:** compute afferent/efferent counts per module from the same edge set; flag the top hubs. `pydeps` gives a visual; the counts are the evidence.
+- **Over-decomposition (too-fine granularity):** from the same edge set, compute graph-level shape, not per-module counts. Flag a high **edge-to-node ratio** (many dependencies relative to the number of modules), the distribution of **public-symbols-per-module** and **LOC-per-module** (a long tail of one-symbol / few-line modules), and **call chains that thread through pass-through units** — modules whose functions only forward to another module (reuse the over-abstraction one-caller detection). Record the ratio / the count of trivial nodes / the offending chain as the evidence. A finding needs a **read** confirming the units are genuinely trivial and merging them raises cohesion (files that change together) — a fine-grained split that maps onto real, independently-changing responsibilities is correct design, not a finding.
 - **Complexity:** `ruff check --select C901` (needs `mccabe` max-complexity set) or `radon cc` / `xenon`. Capture the metric per function.
 - **Dead code:** `vulture` (note its confidence score — it has false positives on framework hooks, dynamic dispatch, and re-exports; verify before deleting).
 - **Size:** line counts per file; flag outliers and anything over a documented norm.
@@ -62,8 +64,8 @@ Read the contributor guide's architecture section and any existing layering conf
 Status per row: **ok / warn / violation** (for a documented rule: conforms / borderline / violates).
 
 - **Critical** — an import that violates a documented dependency rule (e.g. a lower tier importing a higher one), or an import cycle across package boundaries. These break the architecture the team committed to. Over-abstraction reaches Critical **only** when the contributor guide explicitly bans the construct (e.g. a back-compat shim in a stated no-shim project) — then it is a documented-rule violation like any other; over-abstraction is otherwise a tax on the architecture, not a break in it.
-- **Important** — a god-module with runaway coupling that blocks safe change; a function whose complexity makes it untestable; a cycle within a package; a clearly dead public module; a registry / plugin / config-dispatch mechanism serving a single case, or a multi-module indirection layer every call threads through to reach one implementation, where the machinery actively blocks a reader from following the call path.
-- **Minor** — an oversized-but-cohesive file, a moderately complex function, a low-confidence dead-code hit, a grab-bag `utils` that should be split; a single-implementer interface/ABC, a one-caller forwarding wrapper, an unused generic parameter, or an unexercised knob (a parameter/flag/config option with one value everywhere) — real but low-cost, fix when touching the area.
+- **Important** — a god-module with runaway coupling that blocks safe change; a function whose complexity makes it untestable; a cycle within a package; a clearly dead public module; a registry / plugin / config-dispatch mechanism serving a single case, or a multi-module indirection layer every call threads through to reach one implementation, where the machinery actively blocks a reader from following the call path; **over-decomposition severe enough that a routine change is shotgun surgery** — one logical edit scatters across many trivial units and the dependency graph is the barrier to understanding.
+- **Minor** — an oversized-but-cohesive file, a moderately complex function, a low-confidence dead-code hit, a grab-bag `utils` that should be split; a single-implementer interface/ABC, a one-caller forwarding wrapper, an unused generic parameter, an unexercised knob (a parameter/flag/config option with one value everywhere), or a handful of over-decomposed pass-through modules that should be merged — real but low-cost, fix when touching the area.
 
 Suppressions (an intentionally allowed edge, a framework hook `vulture` can't see) must be explicit and recorded with a reason — never silently dropped.
 
@@ -73,6 +75,7 @@ Structural fixes **touch code** (moving code between modules, inverting a depend
 - **Invert or cut an illegal edge:** move the shared type down to a lower tier both sides may import, introduce an interface/protocol the lower tier defines and the higher tier implements, or relocate the misplaced module. Re-run the layering check to green.
 - **Break a cycle:** extract the shared piece into a new lower module, or convert an import-time dependency into a lazy/local import only when extraction genuinely doesn't fit (note the trade-off).
 - **Split a god-module / oversized file** along its cohesion seams (files that change together stay together); update all importers in the same change, and drop back-compat re-export shims unless the project maintains a public API.
+- **Merge over-decomposed units** (the inverse): collapse trivial pass-through modules and poltergeists back into the unit they serve, so a responsibility that always changes together lives together and the graph loses the hops that carried no work. Merge along the same cohesion seam a split would follow — combine only units that change together; do not fuse genuinely independent responsibilities just to shrink the node count.
 - **Delete dead code** only after verifying it is truly unreachable (not a plugin entry point, dynamic import, or re-export).
 - **Collapse an over-abstraction:** inline the single-implementer interface into its one implementer, replace a one-caller forwarding wrapper with a direct call, drop a one-entry registry for a direct reference, remove an unexercised knob (delete the parameter/flag and inline its single value), delete a back-compat shim and update its callers in the same change (per a no-shim project rule). This is a behavior-preserving refactor — same domain gate as the other structural fixes (tests + typecheck green). Do **not** collapse a seam that has a second consumer imminent or that isolates a genuinely volatile boundary; note it as an intentional extension point instead.
 - **Highest-leverage fix:** add a layering contract (`import-linter` / `tach`) and wire it into CI so the violation can't silently recur.
@@ -86,6 +89,7 @@ Structural fixes **touch code** (moving code between modules, inverting a depend
 - **Dead-code safety** — deleted code really was unreachable (checked against entry points, dynamic dispatch, plugin registries, re-exports), not a false positive.
 - **No regression** — imports resolve, type check clean, tests pass after every move/split/deletion.
 - **Abstraction earns its keep** — for each collapsed indirection, confirm the removed layer had no second consumer and no volatile-boundary role (i.e. the fix didn't delete a legitimate seam just to satisfy a count), and that inlining genuinely shortened the call path a reader must trace.
+- **Granularity is right, both ways** — a split fix didn't fragment a cohesive unit into ravioli, and a merge fix combined only units that actually change together (it didn't fuse independent responsibilities into a new god-module just to shrink the node count).
 
 ## 7. Opt-in sub-audits
 
