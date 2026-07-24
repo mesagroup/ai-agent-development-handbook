@@ -21,6 +21,8 @@ Runs in order; each step feeds the next.
 
 1. **Gather evidence — fan out read-only subagents in parallel.** This is the load-bearing step. Dispatch one read-only agent per slice of the subject (per package, per config file, per dimension — whatever partitions cleanly) to collect *ground-truth* evidence: run the domain's tools, read the relevant files, and report a structured result. Run the domain's detection/measurement tooling here (see the domain skill for which). Also gather the project's existing conventions (contributor guide, prior audits, existing config) so remediation matches house style.
 
+   **Match the fan-out axis to each dimension's *locality*, don't hardcode one axis.** Build any shared ground-truth artifact (a parsed graph, a resolved dependency tree, a coverage map) **once** and let agents consume it, rather than each rebuilding a possibly-inconsistent copy. Then slice **local** dimensions (decidable from one partition) per-partition, and give each **global** dimension (one that needs the whole subject — a cycle, a whole-graph ratio, a cross-file flow) its own agent over the whole artifact, because a per-partition agent cannot compute a whole-subject property from its slice. Do **not** fan a cheap local check out to its own agent — that duplicates the shared build for no gain.
+
 2. **Build the findings matrix.** Consolidate the evidence into a table: **item × dimension × status × severity**, plus a one-line evidence pointer (`file:line`, tool output, or metric) for every row. Status is a small fixed scale the domain defines (e.g. pass / partial / fail, or ok / warn / violation). Severity is Critical / Important / Minor. Summarize counts. Save the findings report under the repo (e.g. `docs/audit/<date>-<domain>-audit.md`) so it is itself linkable, and record any policy decisions so they are not re-litigated.
 
 **If the mode is report-only, stop here** — present the findings matrix + report (with a short recommended-remediation sketch), modify no files, and ask the user whether to proceed to fixes. Steps 3–6 run only in report + fix mode.
@@ -45,7 +47,7 @@ Runs in order; each step feeds the next.
 
 A `<domain>-audit` skill is thin: it states the lens and defers the loop above to this engine. It must define these seven slots:
 
-1. **Subject & scope** — what is audited, and how to slice it for the parallel evidence pass.
+1. **Subject & scope** — what is audited, and how to slice it for the parallel evidence pass: by partition for local dimensions, one-agent-over-the-whole for global ones, and name any shared artifact to build once.
 2. **Dimensions** — the axes/checks (the columns of the findings matrix).
 3. **Evidence sources & tooling** — which files to read and which tools to run to get ground truth; **detect** the project's tools, with sensible fallbacks if absent.
 4. **Status scale + severity rubric** — the fixed status values and what makes a finding Critical / Important / Minor in this domain.
