@@ -257,8 +257,8 @@ Do not expect the loop to terminate. That the story ends where it began is not a
 
 ### The parts, at a glance
 
-| # | Part | Role in the story |
-|---|---|---|
+| Part | Role in the story |
+|---|---|
 | **[1. Development lifecycle](lifecycle.md)** | The spine: issue to spec to plan to implementation to review to merge, with the human gates placed where they pay. |
 | **[2. Codebase structure](codebase-structure.md)** | The change needs a home: layered tiers, acyclic dependencies, composition over forking. |
 | **[3. The three-layer document model](three-layer-model.md)** | The same shape inside the domain: intrinsic structure, domain entities, workflow knowledge. |
