@@ -54,7 +54,7 @@ The approaches are not interchangeable; each answers a different question. Reach
 | The decision you face | Approach |
 |---|---|
 | Which model / temperature / params to ship, across many candidates | **Staged evaluation funnel**: cheap deterministic gates eliminate the clearly-bad, a composite score ranks survivors, optional semantic scoring enriches. |
-| Is variant A better than variant B (a prompt change, a feature flag) | **Blind paired A/B**: human + LLM-as-judge scoring with correlation analysis. |
+| Is variant A better than variant B (a prompt change, a feature flag) | **Blind paired A/B**: human + [LLM-as-judge](https://arxiv.org/abs/2306.05685) scoring with correlation analysis. |
 | How good is a rich answer against what an expert would accept | **Ground-truth evaluation**: claim extraction, recall/coverage/consistency vs an expert baseline. |
 | An extractor's *recall* over a huge unlabeled corpus | **Anchor-based recall probe**: score against an independent higher-recall anchor. |
 | Which of several implementations renders best against a fixed target | **Reproducible golden-set benchmark**: a metric suite over a frozen golden set. |

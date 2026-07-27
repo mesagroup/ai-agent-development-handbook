@@ -10,13 +10,13 @@ Report a real security finding as a **path from an untrusted source to a dangero
 
 - **Sources** (where untrusted data enters): HTTP handlers, CLI arguments, file and object-store reads, message queues, environment, and, the one specific to agents, **model and tool outputs.** Treat what an LLM or a tool returns as untrusted input, not as trusted data; it can carry injected instructions or hostile content.
 - **Sinks** (dangerous operations): shell/subprocess, `eval`/`exec`, deserialization (`pickle`, unsafe `yaml.load`), SQL, filesystem paths, outbound requests (SSRF), template rendering.
-- **Neutralize at the sink** (parameterized queries, an argument-list subprocess with no shell, safe deserialization, hardened XML) and **validate/canonicalize at the boundary** (allowlists, path-containment checks against traversal and zip-slip, URL-host allowlisting against SSRF).
+- **Neutralize at the sink** (parameterized queries, an argument-list subprocess with no shell, safe deserialization, hardened XML) and **validate/canonicalize at the boundary** (allowlists, path-containment checks against traversal and [zip-slip](https://security.snyk.io/research/zip-slip-vulnerability), URL-host allowlisting against [SSRF](https://cheatsheetseries.owasp.org/)).
 
 ## Grant the agent the least privilege it needs
 
 The rule above treats what a model or tool *returns* as untrusted. The other half of the agent's security surface is what it is *allowed to do*: its granted powers are an attack surface in their own right, and the handbook has so far said less about them than about its inputs. Reason about them explicitly.
 
-The danger to avoid is concentrating the **lethal trifecta** in one agent: access to private data, exposure to untrusted content, and the ability to act on the outside world (to write, to spend, or to exfiltrate). Any one alone is ordinary; any two are manageable; all three in one agent mean a prompt injection carried in the untrusted content can read the private data and ship it out, with no further foothold required. Keep the three apart, and put a human gate on the acting edge whenever a task genuinely needs more than one of them at once.
+The danger to avoid is concentrating the **[lethal trifecta](https://simonwillison.net/2025/Jun/16/the-lethal-trifecta/)** in one agent: access to private data, exposure to untrusted content, and the ability to act on the outside world (to write, to spend, or to exfiltrate). Any one alone is ordinary; any two are manageable; all three in one agent mean a prompt injection carried in the untrusted content can read the private data and ship it out, with no further foothold required. Keep the three apart, and put a human gate on the acting edge whenever a task genuinely needs more than one of them at once.
 
 - **Default to read-only.** A diagnostic, research, or analysis agent should get read-only tool and MCP access: it can look at everything and change nothing.
 - **Grant write access narrowly.** Widen from read-only per tool and per purpose, never wholesale, and never grant an agent production or pipeline write access for convenience. That is the least-privilege rule the pipeline itself runs on (below), applied to the agent.
@@ -34,16 +34,16 @@ Know your third-party surface **transitively**, because most vulnerabilities and
 - **Freshness**: outdated, yanked, or end-of-life versions.
 - **Hygiene**: declared-but-unused, used-but-undeclared (silently relying on a transitive), and conflicting pins.
 
-**Pin for reproducibility.** A floating direct dependency means a build that resolved clean yesterday can pull a vulnerable or newly-copyleft version today; the lockfile is the record of what actually ran. And apply the AI-specific extension: **treat the model and the provider as dependencies too.** Pin model versions where the provider allows it, record which model produced a given result, and know your providers' data-retention terms, a silent model upgrade is an unpinned dependency that can move your eval numbers out from under you. Where you operate under a data-protection regime (GDPR and the like), also confirm each provider that processes personal data has the legal basis to (a signed DPA, acceptable residency and retention), the compliance face of the same "account for what you depend on" rule.
+**Pin for reproducibility.** A floating direct dependency means a build that resolved clean yesterday can pull a vulnerable or newly-copyleft version today; the lockfile is the record of what actually ran. And apply the AI-specific extension: **treat the model and the provider as dependencies too.** Pin model versions where the provider allows it, record which model produced a given result, and know your providers' data-retention terms, a silent model upgrade is an unpinned dependency that can move your eval numbers out from under you. Where you operate under a data-protection regime ([GDPR](https://eur-lex.europa.eu/eli/reg/2016/679/oj) and the like), also confirm each provider that processes personal data has the legal basis to (a signed DPA, acceptable residency and retention), the compliance face of the same "account for what you depend on" rule.
 
 ## Treat the pipeline as a privileged environment
 
 CI is both the merge gate and a privileged runtime holding your secrets, which makes it an attack surface in its own right. Keep asking: *what could a malicious pull request, or a compromised third-party action, do with this pipeline's permissions?*
 
 - **Grant least privilege**: default the pipeline token to read-only; widen to write only the single job that genuinely needs it.
-- **Pin third-party actions to an immutable commit, not a mutable tag.** A `@v4` or `@main` reference can change under you; a full commit SHA cannot.
+- **[Pin third-party actions to an immutable commit](https://docs.github.com/en/actions/reference/security/secure-use), not a mutable tag.** A `@v4` or `@main` reference can change under you; a full commit SHA cannot.
 - **Guard triggers**: never run untrusted PR code with secrets in scope. Keep the privileged, secret-bearing steps off any path an outside contributor can influence.
-- **Prefer short-lived, federated credentials** (OIDC and the like) over long-lived stored secrets where the platform supports it.
+- **Prefer short-lived, federated credentials** ([OIDC](https://openid.net/developers/how-connect-works/) and the like) over long-lived stored secrets where the platform supports it.
 
 ## Turn every fix into a gate
 

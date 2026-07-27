@@ -27,7 +27,7 @@ Different records serve different moments in a piece of work. Some look *forward
 |---|---|---|
 | **Spec** | The design agreed *before* code, architecture, components, data flow, testing. The always-on spec-review gate stops here. | Forward |
 | **Plan** | The implementation blueprint, file structure, right-sized tasks, bite-sized TDD steps with complete code. | Forward |
-| **ADR** | One durable architectural decision, its alternatives, and the rationale for the choice, socialized with 1-3 readers before implementation. | Forward |
+| **[ADR](https://adr.github.io/)** | One durable architectural decision, its alternatives, and the rationale for the choice, socialized with 1-3 readers before implementation. | Forward |
 | **Story** | A narrative write-up *after* a piece of work lands, what, why, findings, lessons. | Back |
 | **Experiment** | A dated experiment write-up: setup, results, conclusion. | Back |
 | **Results log / leaderboard** | The running record of every eval result and the decision it drove. | Back |
@@ -57,7 +57,7 @@ Documentation is not only the prose tree.
 - **Module and symbol docstrings**: keep every module and public symbol carrying a docstring describing what it does and how to use it (usage patterns plus minimal architecture notes), updated whenever the purpose or interface changes. Docstrings drift the same way prose does, so audit them the same two ways: *coverage* (which public modules/classes/functions have none) and *staleness* (a docstring that names a parameter the function no longer takes, or an example that would now fail). Because a docstring lives in code, route fixing one through the normal code gate, not the lighter docs-only path.
 - **The project's binding-rules file** (the one your team and your coding agents both read as authoritative), hold the coding rules, review thresholds, and git workflow here and maintain it. When this handbook and that file disagree, the rules file wins and the handbook is the bug.
 - **Prompt / SOP changes**: document them in their commit message with the *why*, not just the *what*, and keep them in their own commit where you can (see [Part 1](lifecycle.md)).
-- **Diagrams as code, generated from source**: keep any generated diagram in a text metalanguage (Mermaid, PlantUML) rather than a binary image, and regenerate it from the source of truth on merge. A diagram drawn by hand or by a model drifts from the code the moment either changes; one generated from the code cannot, and it stays diffable in review like the rest of the source.
+- **Diagrams as code, generated from source**: keep any generated diagram in a text metalanguage ([Mermaid](https://mermaid.js.org/), [PlantUML](https://plantuml.com/)) rather than a binary image, and regenerate it from the source of truth on merge. A diagram drawn by hand or by a model drifts from the code the moment either changes; one generated from the code cannot, and it stays diffable in review like the rest of the source.
 
 ## House rule: don't hard-wrap Markdown source
 

@@ -22,7 +22,7 @@ Pick your own tier list; what matters is the *ordering principle*. Sort the code
 
 Hold one invariant: **an import may only point at a more-reusable tier than the one it lives in, and the dependency graph has no cycles.** Don't let core infrastructure import an application's types, or an integration import an agent. Reuse across applications by *composition* (expose one agent to another as a tool), never by one application reaching into another's internals.
 
-Write the rule down explicitly for your project, which tier may import which, so it is enforceable, ideally by an import-linter in CI rather than by memory.
+Write the rule down explicitly for your project, which tier may import which, so it is enforceable, ideally by an [import-linter](https://import-linter.readthedocs.io/) in CI rather than by memory.
 
 ## Why the rule matters
 
