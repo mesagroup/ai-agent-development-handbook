@@ -73,7 +73,7 @@ Each surface here has a counterpart that *verifies* it against the real artifact
 
 - [ ] Each class of fix is now an **executable gate** (SAST + secret scan, CVE+license gate, workflow linter, action-pin checker).
 
-*And the loop begins again: the next idea becomes the next issue. [Part 1. The development lifecycle](lifecycle.md).*
+*And the loop begins again: the next idea becomes the next issue. First, a few [closing words](coda.md).*
 
 ## See also
 

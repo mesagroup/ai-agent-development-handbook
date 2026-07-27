@@ -74,6 +74,15 @@ def test_render_nav_marks_intro_and_numbers_parts():
     assert 'href="#p1"' in nav and "01" in nav  # first part is 01
 
 
+def test_render_nav_marks_coda_with_glyph_not_number():
+    nav = rh.render_nav(
+        [("p8", "security-supply-chain", "Security"), ("coda", "coda", "Coda")]
+    )
+    assert 'href="#coda"' in nav
+    assert "∎" in nav  # coda glyph, not a part number
+    assert "01" not in nav.split("#coda")[1]  # the coda row carries no number
+
+
 def test_build_renders_verbatim_section(tmp_path: Path):
     pytest.importorskip("markdown")
     (tmp_path / "README.md").write_text(

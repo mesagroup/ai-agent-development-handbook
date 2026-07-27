@@ -30,6 +30,7 @@ Do not expect the loop to terminate. That the story ends where it began is not a
 | **[6. Evaluation: how to decide](evaluation.md)** | The loop closes: was it actually better, measured against a dataset you trust? |
 | **[7. Documentation & knowledge capture](documentation.md)** | What the change leaves behind: the trail that outlives the moment. |
 | **[8. Security, dependencies & supply chain](security-supply-chain.md)** | The standing obligation: safe code, accounted dependencies, a trustworthy pipeline. |
+| **[Coda](coda.md)** | Closing words: the loop, and what stays. |
 
 ## The four throughlines
 
