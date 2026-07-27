@@ -74,6 +74,6 @@ Each surface here has a counterpart that *verifies* it against the real artifact
 ## See also
 
 - [Part 1. Lifecycle](lifecycle.md), CI gates, the "make the standard executable" principle, and periodic audits.
-- [Part 4. Observability](observability.md), errors that don't leak secrets/PII, and no swallowed exceptions hiding a security failure.
-- [Part 5. Evaluation](evaluation.md), behavioral injection-resistance as an eval dimension.
+- [Part 5. Observability](observability.md), errors that don't leak secrets/PII, and no swallowed exceptions hiding a security failure.
+- [Part 6. Evaluation](evaluation.md), behavioral injection-resistance as an eval dimension.
 - [Handbook index](README.md).

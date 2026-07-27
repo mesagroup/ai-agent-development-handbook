@@ -1,4 +1,4 @@
-# Part 5. Evaluation: How to Decide
+# Part 6. Evaluation: How to Decide
 
 This is where the "evidence over intuition" throughline becomes a method. Don't settle prompt wording, context engineering, model and parameter selection, regex and filter tuning, or pipeline architecture by intuition or by "the tests still pass." Settle them with evidence produced against a dataset you trust. This page is the reasoning; the concrete method you reach for depends on the shape of the decision.
 
@@ -40,7 +40,7 @@ Two more disciplines, both cheap and both routinely skipped:
 Once the dataset exists, be honest about the things point estimates hide:
 
 - **Report variance.** A single run of a stochastic system is an anecdote, not a result; a number without a variance is not a measurement. Run each candidate several times and report the spread; flag configurations whose run-to-run variability is too high to trust (a coefficient-of-variation cutoff works well). Give comparisons enough runs that a real difference clears the noise band, or a swing that is pure variance reads as an improvement.
-- **Account for full cost, not the convenient part.** Most choices are quality/cost trade-offs, so quality alone can't decide them (see [Part 4. Observability](observability.md) on full-cost accounting). On cached-context workloads the cache read/write tokens often dominate and are invisible if you count only input/output; put sub-agent calls, latency, and retries in the total. Take cost from actual billing, not token counts, estimating can flip a conclusion. Lead with absolute figures, not percentages.
+- **Account for full cost, not the convenient part.** Most choices are quality/cost trade-offs, so quality alone can't decide them (see [Part 5. Observability](observability.md) on full-cost accounting). On cached-context workloads the cache read/write tokens often dominate and are invisible if you count only input/output; put sub-agent calls, latency, and retries in the total. Take cost from actual billing, not token counts, estimating can flip a conclusion. Lead with absolute figures, not percentages.
 - **Change one variable at a time.** Keep the before/after genuinely like-for-like: same inputs, same queries, one rule or parameter changed. A comparison that moves two things at once measures neither.
 - **Separate failure types.** A refusal or an API error is not a quality failure, and folding them together corrupts the score, don't penalize a model for a sub-agent's refusal or a transient timeout. Bucket them apart so a low score means "answered badly," not "didn't answer."
 - **Make it reproducible.** A headline number is only trustworthy if you can regenerate it: pin the model version, record the full config (model, params, dataset revision, seed where feasible), and keep the run's artifacts. A pinned model matters as much as a pinned dependency ([Part 8](security-supply-chain.md)), a silent provider upgrade moves your numbers out from under you, and an unacknowledged non-determinism turns a "regression" into noise.
@@ -81,7 +81,7 @@ The ladder is itself a data-driven decision: **you need a measurement to know wh
 
 1. **Name the decision.** Write down the exact question ("ship model A or B?", "does this prompt change help recall?") and pick the matching approach from the table above.
 2. **Establish an independent dataset.** Choose the dataset shape; ensure candidates do *not* come from the system under test; estimate prevalence if you're harvesting positives. **Freeze it** for the comparison.
-3. **Fix the harness.** Drive the frozen headless CLI ([Part 3](agent-harness.md)); pin the model version; record the full config and dataset revision.
+3. **Fix the harness.** Drive the frozen headless CLI ([Part 4](agent-harness.md)); pin the model version; record the full config and dataset revision.
 4. **Change one variable.** Hold inputs, queries, and every other parameter constant.
 5. **Run each candidate multiple times.** Capture all artifacts; compute the spread, not just a point estimate.
 6. **Score quality and cost together.** Pair the quality metric with a full-cost number from actual billing; bucket refusals/errors apart from quality failures.
@@ -101,7 +101,7 @@ Each of these *feels* like progress, which is why it's worth naming. Scan for th
 
 ## See also
 
-- [Part 4. Observability](observability.md), instrument before you tune; pair efficiency with quality.
-- [Part 6. Three-layer model](three-layer-model.md), separately-evaluable layers.
+- [Part 5. Observability](observability.md), instrument before you tune; pair efficiency with quality.
+- [Part 3. Three-layer model](three-layer-model.md), separately-evaluable layers.
 - [Part 7. Documentation](documentation.md), recording the results trail.
 - [Handbook index](README.md).

@@ -29,7 +29,7 @@ Different records serve different moments in a piece of work. Some look *forward
 | **Experiment** | A dated experiment write-up: setup, results, conclusion. | Back |
 | **Results log / leaderboard** | The running record of every eval result and the decision it drove. | Back |
 
-Don't skip the **story**: it is the one most easily skipped and most valuable. A diff records *what* changed; a story records the *why*, the surprises, and the "don't do it this way" that the diff cannot. It is where tacit knowledge, the calibration that collapsed a schema, the finding that a metric measured the wrong thing, survives past the memory of whoever ran it. And treat the **results log** as the evidence half of "evidence over intuition" ([Part 5](evaluation.md)): a decision is not done until its result is recorded where the next person can find it and build on it.
+Don't skip the **story**: it is the one most easily skipped and most valuable. A diff records *what* changed; a story records the *why*, the surprises, and the "don't do it this way" that the diff cannot. It is where tacit knowledge, the calibration that collapsed a schema, the finding that a metric measured the wrong thing, survives past the memory of whoever ran it. And treat the **results log** as the evidence half of "evidence over intuition" ([Part 6](evaluation.md)): a decision is not done until its result is recorded where the next person can find it and build on it.
 
 ## Audit docs like a test suite
 
@@ -69,5 +69,5 @@ Write one paragraph as one line in the source; let the renderer wrap. Never hard
 ## See also
 
 - [Part 1. Development lifecycle](lifecycle.md), where specs and plans are produced and the review gates live.
-- [Part 5. Evaluation](evaluation.md), the loop that the results log and stories feed.
+- [Part 6. Evaluation](evaluation.md), the loop that the results log and stories feed.
 - [Handbook index](README.md).

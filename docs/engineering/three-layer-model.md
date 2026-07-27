@@ -1,4 +1,4 @@
-# Part 6. The Three-Layer Document Model
+# Part 3. The Three-Layer Document Model
 
 When a system works with documents, contracts, judgments, legislation, reports, transcripts, through AI agents, hold on to the single most important architectural idea: document knowledge splits into **three layers with different reuse profiles**, and keeping them explicit is what makes the whole system diagnosable, reusable, and separately evaluable. This page is the *why it's generic and why it helps*. It is document-AI-specific by subject, but the shape it teaches, a reusable core with a disposable task layer on top, is the same one the [codebase structure](codebase-structure.md) follows.
 
@@ -52,7 +52,7 @@ Once a document is layered (Layer 1 structure with stable ids, Layer 2 resolved 
 
 ## Why this is the organizing principle, not just a document feature
 
-The same shape recurs one level up, in [how the codebase is structured](codebase-structure.md): a reusable core that is modeled in advance, and a task-shaped application layer built per workflow. "Keep the reusable core sparse and stable; keep the task layer rich and disposable" is the document-model rule and the module-dependency rule at once. And because the layers are separable, they are separately *evaluable*, a golden dataset per layer, far less noisy than one ill-defined end-to-end number ([Part 5](evaluation.md)). Diagnosability, reuse, and measurability are three payoffs of the same decision: make the layers explicit and never skip one.
+The same shape recurs one level up, in [how the codebase is structured](codebase-structure.md): a reusable core that is modeled in advance, and a task-shaped application layer built per workflow. "Keep the reusable core sparse and stable; keep the task layer rich and disposable" is the document-model rule and the module-dependency rule at once. And because the layers are separable, they are separately *evaluable*, a golden dataset per layer, far less noisy than one ill-defined end-to-end number ([Part 6](evaluation.md)). Diagnosability, reuse, and measurability are three payoffs of the same decision: make the layers explicit and never skip one.
 
 ## Checklist: reviewing a document capability
 
@@ -66,5 +66,5 @@ The same shape recurs one level up, in [how the codebase is structured](codebase
 ## See also
 
 - [Part 2. Codebase structure](codebase-structure.md), the same reusable-core-vs-task-layer idea in the module graph.
-- [Part 5. Evaluation](evaluation.md), why separable layers are separately evaluable.
+- [Part 6. Evaluation](evaluation.md), why separable layers are separately evaluable.
 - [Handbook index](README.md).

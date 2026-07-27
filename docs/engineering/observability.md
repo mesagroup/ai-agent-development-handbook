@@ -1,6 +1,6 @@
-# Part 4. Observability
+# Part 5. Observability
 
-You cannot improve what you cannot see, and you cannot decide ([Part 5](evaluation.md)) without numbers you trust. Use observability to stop an agent run being a black box: capture what it fetched, how big it was before and after processing, whether it was actually used, how many tokens and seconds and dollars each (sub-)agent and each tool spent. This page is why to instrument, where the instrumentation goes, and how it closes the loop from production back into development.
+You cannot improve what you cannot see, and you cannot decide ([Part 6](evaluation.md)) without numbers you trust. Use observability to stop an agent run being a black box: capture what it fetched, how big it was before and after processing, whether it was actually used, how many tokens and seconds and dollars each (sub-)agent and each tool spent. This page is why to instrument, where the instrumentation goes, and how it closes the loop from production back into development.
 
 ## Instrument before you tune
 
@@ -26,7 +26,7 @@ A quality number without its full cost is not a decision, most model and pipelin
 - **Counting only input/output tokens.** On cached-context workloads the cache read and write tokens often dominate the bill and are invisible if you count only the obvious two. Put sub-agent calls, latency, and retries in the total too.
 - **Estimating cost from token counts instead of actual billing.** This can flip a conclusion: a filter that looks cheaper because *its own* model is cheap can be more expensive once it inflates the downstream context. Account for the effect a component has on the whole pipeline, not just its local price.
 
-And remember efficiency is necessary but not sufficient: two options can tie on utilization, cost, and latency while differing in the quality of the final answer, and the efficiency numbers are silent about it. A change that delivers the same utilization at lower cost can still ship measurably worse answers. So always pair an efficiency metric with an independent quality evaluation ([Part 5](evaluation.md)). When you communicate the trade-off, lead with absolute figures (a few cents per query) over percentages (69% more), the absolute number is what hits the budget, and a large percentage on a tiny base often doesn't matter.
+And remember efficiency is necessary but not sufficient: two options can tie on utilization, cost, and latency while differing in the quality of the final answer, and the efficiency numbers are silent about it. A change that delivers the same utilization at lower cost can still ship measurably worse answers. So always pair an efficiency metric with an independent quality evaluation ([Part 6](evaluation.md)). When you communicate the trade-off, lead with absolute figures (a few cents per query) over percentages (69% more), the absolute number is what hits the budget, and a large percentage on a tiny base often doesn't matter.
 
 ## Make errors diagnosable
 
@@ -34,7 +34,7 @@ Observability is not only metrics; it is also what happens when something breaks
 
 ## Close the loop: production → development
 
-Don't confine observability to the dev inner loop; use it to feed production experience back into development. Persist the same per-(sub)agent usage record with each production interaction, so you can triage a real-world session after the fact, reconstruct where a turn spent its time, whether it hung or merely ran long, which tool errored. That feedback loop is what turns a vague "the agent is slow / hanging" report into a specific, fixable root cause: a stage with no timeout, an unbounded resource teardown, a socket with no keep-alive (the reliability defaults in [Part 3](agent-harness.md) are the fixes such investigations produce). Generalize the lesson: **instrumentation that persists into production artifacts is what lets you debug the run you weren't watching.**
+Don't confine observability to the dev inner loop; use it to feed production experience back into development. Persist the same per-(sub)agent usage record with each production interaction, so you can triage a real-world session after the fact, reconstruct where a turn spent its time, whether it hung or merely ran long, which tool errored. That feedback loop is what turns a vague "the agent is slow / hanging" report into a specific, fixable root cause: a stage with no timeout, an unbounded resource teardown, a socket with no keep-alive (the reliability defaults in [Part 4](agent-harness.md) are the fixes such investigations produce). Generalize the lesson: **instrumentation that persists into production artifacts is what lets you debug the run you weren't watching.**
 
 ## Checklist: instrumenting a run
 
@@ -50,6 +50,6 @@ Don't confine observability to the dev inner loop; use it to feed production exp
 ## See also
 
 - [Part 1. Lifecycle](lifecycle.md), no swallowed exceptions, as a review rule.
-- [Part 3. Agent harness](agent-harness.md), bounded external calls, the reliability half of the loop.
-- [Part 5. Evaluation](evaluation.md), pairing efficiency with an independent quality metric.
+- [Part 4. Agent harness](agent-harness.md), bounded external calls, the reliability half of the loop.
+- [Part 6. Evaluation](evaluation.md), pairing efficiency with an independent quality metric.
 - [Handbook index](README.md).
