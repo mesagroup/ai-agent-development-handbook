@@ -32,6 +32,22 @@ Do not expect the loop to terminate. That the story ends where it began is not a
 | **[8. Security, dependencies & supply chain](security-supply-chain.md)** | The standing obligation: safe code, accounted dependencies, a trustworthy pipeline. |
 | **[Coda](coda.md)** | Closing words: the loop, and what stays. |
 
+## Starting from zero
+
+The story above assumes a system for the change to land in. Building an agent, or a whole agentic application, from scratch does not get a different handbook: greenfield is the story of the *first* change. The loop is identical. What changes is that every station has to be built the first time you arrive at it, which turns the parts into a build order.
+
+Begin where every change begins, with an issue and a spec, scoped to a thin end-to-end slice a user could exercise rather than to the whole application ([Part 1](lifecycle.md)). The narrow first slice forces the "how will we know it is right?" question while answering it is still cheap, and it gives every later station something real to attach to. Lay the tier skeleton before writing the first agent ([Part 2](codebase-structure.md)): that first agent will be almost entirely task layer, and that is correct. Resist building the reusable core speculatively; respect the boundaries from day one and let the core condense out of what the second and third agents turn out to need.
+
+Stand up the minimal harness before the second agent exists ([Part 4](agent-harness.md)): model aliases, one named profile, a headless CLI, a mock backend. This looks premature exactly once. It is the precondition for every measurement you will ever make, and retrofitting it under a grown agent costs more than building it under a new one. Create the eval dataset and the metric while writing the spec, before there is anything to tune ([Part 6](evaluation.md)), and instrument from the first run ([Part 5](observability.md)): the first slice's numbers are the baseline every later change is judged against. Give the project its rules file, its CI gates, and its security sweep with the first commit, not as a retrofit ([Part 7](documentation.md), [Part 8](security-supply-chain.md)); a gate added later must fight every habit that grew in its absence.
+
+### Checklist: standing up a project from zero
+
+- [ ] First deliverable specced as a **thin end-to-end slice**, with "how will we know it is right?" answered.
+- [ ] **Tier skeleton** laid down; the first agent lives in the task layer, no speculative core.
+- [ ] Minimal **harness** up: model aliases, a named profile, a headless CLI, a mock backend.
+- [ ] **Eval dataset and metric** exist before tuning starts; the first run is instrumented and becomes the baseline.
+- [ ] **Rules file, CI gates, and the security sweep** present from the first commit.
+
 ## The four throughlines
 
 Almost every directive in the parts is an application of one of four ideas. Internalize these and the rest follows; when a directive and reality collide, the throughline is how you decide.
@@ -73,6 +89,7 @@ The map of throughlines to parts (● a primary home, ○ drawn on):
 - **Use the checklists as the working surface.** Most parts end with a checklist. Paste it into a PR description, an issue, or a review comment and tick it. Where a part describes a procedure (the lifecycle, an eval run, a security sweep), it also gives a step-by-step you can run top to bottom.
 - **Treat the reasons as load-bearing, not decoration.** A rule you follow without knowing why is a rule you will misapply at the first edge case. When a directive and reality collide, the *why* is how you decide.
 - **Enter anywhere.** The story above is the recommended first read, but every part opens by locating itself in the story and stands alone; you can land on any part cold, mid-task, and use it.
+- **Building from scratch?** Greenfield is the story of the *first* change: the "Starting from zero" section above walks the same parts as a build order.
 
 ## Where the binding rules live
 
