@@ -10,6 +10,12 @@ Raising the level of abstraction relocates the hard work upward (see [the stance
 
 Run task management on an issue tracker, and **trace every piece of work to an issue**: keep no scratch `TODO` list. Encode the whole run as a single reusable workflow that inlines the sub-steps (brainstorming, plan-writing, subagent-driven implementation, code review, merge) so one issue goes end-to-end in a single guided pass.
 
+## Keep batches small and the flow fast
+
+Where the human's judgment goes is one lever; the *size* of what you hand off is another, set before any gate fires. An agent multiplies the code you can produce, which quietly revives the oldest anti-pattern there is: the giant branch nobody can review. A change too large to hold in one reading defeats the review protocol below, because a reviewer forced to skim approves what they cannot actually see. Counter it at the source: scope each issue narrowly enough that its diff stays reviewable. A hard cap on diff size is a legitimate backstop, but only a backstop; the mechanism is scoping the work small in the first place.
+
+Then measure the whole distance, not the convenient part. Optimizing commit-to-deploy while idea-to-production stays slow moves a number without moving the outcome. The four DORA measures (deployment frequency, lead time for changes, change-failure rate, and time to restore) are a useful shared vocabulary for that whole-distance view. The durable evidence that small batches, loosely coupled architecture, and lightweight change approval predict delivery performance is in *Accelerate* (Forsgren, Humble, Kim): reach for the book, not a screenshotted chart whose numbers rot.
+
 ## Decide the human-in-the-loop gates up front
 
 Before anything else, pick *how involved the human wants to be*, which optional gates are active for this run. Decide this once, explicitly; don't renegotiate it at every step. Optional gates include issue selection, approach sign-off, plan approval, per-task checkpoints, review-triage sign-off, and confirming the PR is ready.
@@ -21,10 +27,18 @@ Before anything else, pick *how involved the human wants to be*, which optional 
 
 When an optional gate is off, take the autonomous path but *announce the decision you made on the human's behalf* (which issue, which approach); don't silently proceed.
 
+## Scale involvement to criticality
+
+Not every change deserves the same human attention, and spending it uniformly starves the risky change to over-supervise the trivial one. Scale involvement along two independent axes. The first is *how present the human is*: **in-the-loop** (co-design and approve each step), **on-the-loop** (let the agent run, monitor and audit the result, intervene on a signal), or **out-of-the-loop** (run behind guardrails and sample after the fact). The second is *how much the code matters*: a **core differentiator** (the logic that is the reason the product exists), **supporting** code, or a **commodity** integration any equivalent could replace.
+
+Match one to the other. Core-differentiator code gets in-the-loop treatment, co-design and a second reviewer, because a subtle error there is expensive and the understanding must not live in one head. Supporting code runs on-the-loop; a commodity integration behind a good guardrail can run out-of-the-loop. This does *not* mean hand-writing the core yourself: even core-domain code is agent-assisted here (see [the stance](README.md)); what scales up with criticality is the *oversight and review*, not who types.
+
+Two boundaries keep this from becoming a licence to cut corners. First, the two always-on bookend gates (spec review and the merge gate) never scale off, whatever the criticality: only the *optional* gates and the depth of implementation involvement move. Second, criticality is a different axis from reuse: a commodity utility can sit in the reusable core, and a core differentiator can live in a single agent's task layer ([Part 2](codebase-structure.md)). Classify a change on both, then place your attention accordingly.
+
 ## Step-by-step: one issue, end to end
 
 1. **Select the issue.** Pick by priority, and **read the issue's comments too**, not just the body: comments carry the current state, which the original description often no longer reflects. Reflect the state back on the issue (a status label).
-2. **Brainstorm into a spec.** Explore the problem with the user; propose 2–3 approaches with trade-offs, leading with a recommendation. **Write no code in this phase.** Design for isolation: each unit one clear purpose, a well-defined interface, independently testable. Write the spec to a dated file in the docs tree, commit it, then self-review it (placeholder scan, internal consistency, scope, ambiguity). **Then stop for spec review** (always-on) and loop until the user approves. After approval, post an issue comment linking the spec.
+2. **Brainstorm into a spec.** Explore the problem with the user; propose 2–3 approaches with trade-offs, leading with a recommendation. **Write no code in this phase.** Design for isolation: each unit one clear purpose, a well-defined interface, independently testable. Write the spec to a dated file in the docs tree, commit it, then self-review it (placeholder scan, internal consistency, scope, ambiguity). **Then stop for spec review** (always-on) and loop until the user approves. After approval, post an issue comment linking the spec. Spec quality is bounded less by solo authoring skill than by how well context is extracted across product, engineering, and domain experts, so pull that knowledge out collaboratively: techniques like Event Storming, event modeling, or a lightweight architecture canvas surface it without importing enterprise DDD wholesale. Model live and low-fidelity, because the shared understanding forms in the room; handing the whole job to an agent to "write the doc" produces an artifact without the alignment that was the point. Where the change is architectural, use the architecture doc *forward*: sketch the post-change version and read the blast radius off it before committing to the approach.
 3. **Branch from fresh main.** Fetch first, then create a descriptively-named branch from *up-to-date* `main`, never a stale local copy. If you started from a stale base, rebase onto the latest `main` immediately. Never implement on `main`.
 4. **Write the plan.** Assume the implementer has **zero context** for this codebase. Map the file structure first (which files are created/modified, each file's single responsibility). Right-size tasks: a task is the smallest unit that carries its own test cycle and is worth a fresh reviewer's gate. Make every step bite-sized and TDD-shaped, and put the **complete** code in every code step: no placeholders, no "TBD", no "similar to Task N", no references to undefined types. A placeholder is a plan failure, because the implementer can't see what you can. Save the plan to the docs tree, self-review it against the spec (every requirement maps to a task), and update the issue status.
 5. **Implement via subagent-driven development.** Dispatch a **fresh implementer subagent per task**: subagents never inherit the session's history, so construct exactly the context each needs and hand bulk artifacts as files. Keep the per-task review (below): it is a load-bearing quality gate, not optional.
@@ -55,6 +69,8 @@ write a failing test
 
 Ship new code **with** unit tests, and don't let adding code reduce overall coverage. Cover the deterministic, pure logic of anything you add (parsing, scoring, transformation, id-mapping, verdict application, regex behaviour) *before the change is done*, because a bug in a scorer's math or an adjudicator's id-mapping silently corrupts every result it touches. You may mock or defer I/O-bound edges (network, storage, model calls) to integration tests. Don't exempt analysis and tooling scripts: exercise their pure helpers with unit tests too.
 
+One exception earns its keep: for a pure like-for-like refactor or port, a throwaway battery that pins the *current* behaviour is legitimate scaffolding. Write it to prove the port changed nothing, then delete it once the old and new paths agree; it was a safety harness for the move, not a permanent test of the design.
+
 ### Chase caught regressions, not coverage percentage
 
 Judge a test suite by whether it **fails when the code breaks**, not by its coverage number. A high number produced by tests that assert nothing, only check "no exception was raised," assert against a value the test computed the same way (a tautology), or mock away the very unit under test is a *false* safety net: worse than an honest low number, because people trust it. So build two habits: write the assertion that would actually fail on a plausible regression (not the one that merely executes the line), and mock only true I/O edges, never the logic you're testing.
@@ -69,6 +85,8 @@ Apply two rules specifically to prompts, because a prompt change is a behavioura
 
 - **Explain *why* a prompt changed in its commit**, not just what: the reasoning is the part a future reader needs. Keep prompt changes in their own commit, separate from code, where you can.
 - **Analyze SOPs for cognitive load.** A prompt that overloads the model with constraints degrades its reasoning; run a periodic analysis of constraint density and redundancy to keep prompts lean, and let it inform when to decompose a monolithic agent into sub-agents.
+
+And keep the division of labour sharp from the other side: reserve an SOP for judgment a deterministic tool cannot express, the heuristic, context-weighing steps where there is no rule to write. If a constraint *can* be written as a lint rule or a type, write the rule instead (the CI gates below handle it); an SOP is for the genuinely non-deterministic part, not for re-encoding what a checker already guarantees.
 
 ## CI and static analysis
 
@@ -90,7 +108,11 @@ These are language-agnostic disciplines; only the toolchain changes. Pick the eq
 
 A gate only counts if it is actually enforced. **A gate that never runs, or runs but isn't required to pass, is worse than no gate, because people trust it.** A check that is skippable by a path filter, marked continue-on-error, only fires on a schedule, or is green but not in branch protection does not block a bad merge. So confirm the gate against the branch-protection rules, not the badge, and make sure "what the contributor guide says CI enforces" matches what the workflows actually require.
 
+Keep the labour on the right side of the line: never spend an agent on what a linter, formatter, or type-checker already enforces deterministically. A deterministic tool is faster, cheaper, and gives the same verdict every time on the job it was built for; an agent pointed at a linter's task is strictly worse at it.
+
 ## The code-review protocol
+
+Before the mechanics, the purpose. When agents write most of the code, review is the moment a human is *forced* to understand what ships, which makes it the real guard against a codebase no one on the team actually comprehends. So review what the change *expresses*: its intent, its design, whether it fits the system and solves the right problem. How the code is *written* (formatting, naming, layout) is the CI gates' job, above, not a reviewer's. A review whose understanding one person silently absorbs has failed its primary purpose even when it catches a bug, because the point was to spread the understanding, not merely to filter defects.
 
 The mechanical gates pass; what they cannot judge, the review does. Run the comprehensive whole-branch review as a deliberately adversarial, multi-perspective pass. Give each reviewer pass a different angle (audit the diff against the project's binding rules; shallow-scan for obvious bugs; read git history and blame for context; read prior PRs that touched these files; check compliance with in-code comments), because a single reviewer is blind to what its one angle doesn't surface. Then score each finding independently against a fixed rubric.
 
@@ -153,6 +175,7 @@ Run the counterpart to standing gates too, the **periodic audit**: a deliberate,
 - [ ] Docs / READMEs / module docstrings updated in the same PR.
 - [ ] Prompt changes carry a *why* in their commit message.
 - [ ] Explicit human "merge it" obtained; merged with `--rebase`; branch deleted local + remote.
+- [ ] Involvement depth matched the change's criticality; the bookend gates stayed on regardless.
 - [ ] Acceptance criteria verified-then-ticked; release-notes comment posted; issue status set.
 
 *Next: the change needs a home, and the shape of that home decides how cheap every future change will be. [Part 2. Codebase structure](codebase-structure.md).*
