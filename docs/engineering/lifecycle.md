@@ -19,15 +19,15 @@ Before anything else, pick *how involved the human wants to be*, which optional 
 - **Spec review**: after the spec is written, stop until the human approves it. This is the cheapest possible place to catch "we're building the wrong thing."
 - **Merge**: before merging, the human does their own review and gives *explicit* approval. "Prepare for merge" is **not** approval; "merge it" is. Never merge without it, and never bump a major version without asking.
 
-When an optional gate is off, take the autonomous path but *announce the decision you made on the human's behalf* (which issue, which approach), don't silently proceed.
+When an optional gate is off, take the autonomous path but *announce the decision you made on the human's behalf* (which issue, which approach); don't silently proceed.
 
 ## Step-by-step: one issue, end to end
 
-1. **Select the issue.** Pick by priority, and **read the issue's comments too**, not just the body, comments carry the current state, which the original description often no longer reflects. Reflect the state back on the issue (a status label).
+1. **Select the issue.** Pick by priority, and **read the issue's comments too**, not just the body: comments carry the current state, which the original description often no longer reflects. Reflect the state back on the issue (a status label).
 2. **Brainstorm into a spec.** Explore the problem with the user; propose 2–3 approaches with trade-offs, leading with a recommendation. **Write no code in this phase.** Design for isolation: each unit one clear purpose, a well-defined interface, independently testable. Write the spec to a dated file in the docs tree, commit it, then self-review it (placeholder scan, internal consistency, scope, ambiguity). **Then stop for spec review** (always-on) and loop until the user approves. After approval, post an issue comment linking the spec.
 3. **Branch from fresh main.** Fetch first, then create a descriptively-named branch from *up-to-date* `main`, never a stale local copy. If you started from a stale base, rebase onto the latest `main` immediately. Never implement on `main`.
-4. **Write the plan.** Assume the implementer has **zero context** for this codebase. Map the file structure first (which files are created/modified, each file's single responsibility). Right-size tasks: a task is the smallest unit that carries its own test cycle and is worth a fresh reviewer's gate. Make every step bite-sized and TDD-shaped, and put the **complete** code in every code step, no placeholders, no "TBD", no "similar to Task N", no references to undefined types. A placeholder is a plan failure, because the implementer can't see what you can. Save the plan to the docs tree, self-review it against the spec (every requirement maps to a task), and update the issue status.
-5. **Implement via subagent-driven development.** Dispatch a **fresh implementer subagent per task**: subagents never inherit the session's history, so construct exactly the context each needs and hand bulk artifacts as files. Keep the per-task review (below), it is a load-bearing quality gate, not optional.
+4. **Write the plan.** Assume the implementer has **zero context** for this codebase. Map the file structure first (which files are created/modified, each file's single responsibility). Right-size tasks: a task is the smallest unit that carries its own test cycle and is worth a fresh reviewer's gate. Make every step bite-sized and TDD-shaped, and put the **complete** code in every code step: no placeholders, no "TBD", no "similar to Task N", no references to undefined types. A placeholder is a plan failure, because the implementer can't see what you can. Save the plan to the docs tree, self-review it against the spec (every requirement maps to a task), and update the issue status.
+5. **Implement via subagent-driven development.** Dispatch a **fresh implementer subagent per task**: subagents never inherit the session's history, so construct exactly the context each needs and hand bulk artifacts as files. Keep the per-task review (below): it is a load-bearing quality gate, not optional.
 6. **Draft PR.** Push and open a **draft** PR whose body starts with the issue it closes and carries a Test-plan checklist.
 7. **Comprehensive review.** Run the whole-branch review protocol (below).
 8. **Finish the branch.** Verify tests pass; update any affected docs / READMEs / module docstrings; run the end-to-end quality gate if agent behaviour was touched (below); verify-then-tick the issue's acceptance criteria; post a release-notes-style comment. Mark the PR ready.
@@ -35,9 +35,11 @@ When an optional gate is off, take the autonomous path but *announce the decisio
 
 **Select the model per role, explicitly and frugally.** Use the least powerful model that fits each role, and always name it (an omitted model silently inherits the session's expensive one). Transcribing complete plan-code or a single-file mechanical fix → cheapest tier; multi-file integration → standard tier; reviewers → a mid-tier floor scaled up for risky diffs; the final whole-branch review → the most capable tier.
 
-**After each task, run a two-stage review.** Hand a reviewer subagent the task brief, the implementer's report, and the diff, and require *two* verdicts, **spec compliance** and **code quality**. Never pre-judge findings for the reviewer; let it raise and adjudicate. Loop (fix subagent → re-review) until both verdicts pass before starting the next task.
+**After each task, run a two-stage review.** Hand a reviewer subagent the task brief, the implementer's report, and the diff, and require *two* verdicts: **spec compliance** and **code quality**. Never pre-judge findings for the reviewer; let it raise and adjudicate. Loop (fix subagent → re-review) until both verdicts pass before starting the next task.
 
 > When you launch **any** subagent with shell access, explicitly instruct it to **never pass comment lines (`#…`) to the shell tool**: they can confuse a tool-permission subsystem. For long subagent runs, start a background keep-awake first and kill it when done. And scope each subagent to its brief: a worker that inherits too much context tends to overreach and act on the whole plan instead of its one task.
+
+That is the route. The rest of this part equips its stations, in the order the change meets them: how the code gets written (TDD), how an agent's behaviour gets written (prompts and SOPs), the mechanical gates (CI and static analysis), the human-shaped gate (the review protocol and the hygiene findings it keeps surfacing), the behavioural gate (the end-to-end quality run), what happens after the merge, and the meta-practice that keeps all of it enforced.
 
 ## TDD
 
@@ -51,21 +53,30 @@ write a failing test
   → commit
 ```
 
-Ship new code **with** unit tests, and don't let adding code reduce overall coverage. Cover the deterministic, pure logic of anything you add, parsing, scoring, transformation, id-mapping, verdict application, regex behaviour, *before the change is done*, because a bug in a scorer's math or an adjudicator's id-mapping silently corrupts every result it touches. You may mock or defer I/O-bound edges (network, storage, model calls) to integration tests. Don't exempt analysis and tooling scripts: exercise their pure helpers with unit tests too.
+Ship new code **with** unit tests, and don't let adding code reduce overall coverage. Cover the deterministic, pure logic of anything you add (parsing, scoring, transformation, id-mapping, verdict application, regex behaviour) *before the change is done*, because a bug in a scorer's math or an adjudicator's id-mapping silently corrupts every result it touches. You may mock or defer I/O-bound edges (network, storage, model calls) to integration tests. Don't exempt analysis and tooling scripts: exercise their pure helpers with unit tests too.
 
 ### Chase caught regressions, not coverage percentage
 
-Judge a test suite by whether it **fails when the code breaks**, not by its coverage number. A high number produced by tests that assert nothing, only check "no exception was raised," assert against a value the test computed the same way (a tautology), or mock away the very unit under test is a *false* safety net, worse than an honest low number, because people trust it. So build two habits: write the assertion that would actually fail on a plausible regression (not the one that merely executes the line), and mock only true I/O edges, never the logic you're testing.
+Judge a test suite by whether it **fails when the code breaks**, not by its coverage number. A high number produced by tests that assert nothing, only check "no exception was raised," assert against a value the test computed the same way (a tautology), or mock away the very unit under test is a *false* safety net: worse than an honest low number, because people trust it. So build two habits: write the assertion that would actually fail on a plausible regression (not the one that merely executes the line), and mock only true I/O edges, never the logic you're testing.
 
 Measure the right things: track **branch** coverage, not just line coverage (an untested error path is an uncovered branch that reads as covered), and measure coverage **on the diff**, because "don't lower overall coverage" can hide new code that shipped untested behind a large well-covered base. Keep tests **deterministic**: a test that depends on wall-clock, unseeded randomness, ordering, or the network is a flake that erodes trust in the whole suite; inject the clock and the seed rather than reaching for the real ones.
 
+## Prompt and SOP engineering
+
+For an agent, part of the implementation is not code but prompt, and it deserves the same discipline as code. An agent's behaviour is defined by its **SOP** (Standard Operating Procedure): a structured, reusable prompt that specifies how the agent performs a task, so a complex workflow runs the same way every time instead of being re-improvised per run. Give an SOP a fixed shape (keep it in a `.sop.md` file): an **Overview** of what it does and when to use it, its **Parameters** (the `snake_case` inputs, each marked required or optional), and ordered **Steps**, each carrying explicit **Constraints**, with optional **Examples** and **Troubleshooting**. Write the constraints with RFC 2119 keywords (**MUST** / **SHOULD** / **MAY** and their negatives) so the requirement level is unambiguous, and give every negative constraint (**MUST NOT**, **SHOULD NOT**) its *reason* inline, because "don't do X because Y" is what stops the model quietly reintroducing X. That is the same capture-the-why discipline the rest of the handbook runs on, applied to the prompt. (The format is the open [`agent-sop`](https://github.com/strands-agents/agent-sop) specification.)
+
+Apply two rules specifically to prompts, because a prompt change is a behavioural change that no type-checker will catch:
+
+- **Explain *why* a prompt changed in its commit**, not just what: the reasoning is the part a future reader needs. Keep prompt changes in their own commit, separate from code, where you can.
+- **Analyze SOPs for cognitive load.** A prompt that overloads the model with constraints degrades its reasoning; run a periodic analysis of constraint density and redundancy to keep prompts lean, and let it inform when to decompose a monolithic agent into sub-agents.
+
 ## CI and static analysis
 
-Run the same static-quality checks on every push and pull request, and locally before committing, so CI is a formality because the checks already passed. Treat these as **four distinct, complementary gates**, not one blurry "lint" step, because each catches a class the others miss:
+With the change written, the first gates it meets are mechanical. Run the same static-quality checks on every push and pull request, and locally before committing, so CI is a formality because the checks already passed. Treat these as **four distinct, complementary gates**, not one blurry "lint" step, because each catches a class the others miss:
 
 - **Format.** Run the formatter, not just the linter: a linter catches rule violations, a formatter catches layout drift, and they are different checks. Normalized layout is also what keeps diffs meaningful and ends whitespace arguments.
 - **Lint.** Flag rule violations, likely bugs, and smells the formatter won't see; add domain-specific linters where they pay (an import-linter for the layering rule, see [Part 2](codebase-structure.md)).
-- **Type-check, and annotate.** Keep type-checking in the gate, not optional. But remember a type-checker only helps code that is annotated: annotate public interfaces, prefer typed models over loose dicts, and run the checker strict enough to actually fail on an untyped or mistyped path. An un-annotated codebase passes the checker by having nothing to check, a false pass in the same family as a test that asserts nothing.
+- **Type-check, and annotate.** Keep type-checking in the gate, not optional. But remember a type-checker only helps code that is annotated: annotate public interfaces, prefer typed models over loose dicts, and run the checker strict enough to actually fail on an untyped or mistyped path. An un-annotated codebase passes the checker by having nothing to check: a false pass in the same family as a test that asserts nothing.
 - **Docstrings.** Treat them as a checked surface too: every public module and symbol carries one, audited for coverage and staleness (see [Part 7](documentation.md)).
 
 These are language-agnostic disciplines; only the toolchain changes. Pick the equivalent for your stack and wire each in the same way (illustrative, not prescriptive):
@@ -81,12 +92,12 @@ A gate only counts if it is actually enforced. **A gate that never runs, or runs
 
 ## The code-review protocol
 
-Run the comprehensive whole-branch review as a deliberately adversarial, multi-perspective pass. Give each reviewer pass a different angle, audit the diff against the project's binding rules, shallow-scan for obvious bugs, read git history/blame for context, read prior PRs that touched these files, check compliance with in-code comments, because a single reviewer is blind to what its one angle doesn't surface. Then score each finding independently against a fixed rubric.
+The mechanical gates pass; what they cannot judge, the review does. Run the comprehensive whole-branch review as a deliberately adversarial, multi-perspective pass. Give each reviewer pass a different angle (audit the diff against the project's binding rules; shallow-scan for obvious bugs; read git history and blame for context; read prior PRs that touched these files; check compliance with in-code comments), because a single reviewer is blind to what its one angle doesn't surface. Then score each finding independently against a fixed rubric.
 
 Set a single, agreed **confidence threshold** that decides what must be acted on: post findings at or above it as inline PR comments and fix them before merge; fix easy, non-false-positive findings below it too. Keep two rules that hold the review honest and in-scope:
 
-- **Report *all* findings**, not only the fixed ones, a full table of score, description, and disposition. This makes visible what was considered and why.
-- **Hold scope discipline:** fix what *this PR* made worse. Do **not** dismiss a finding merely as "pre-existing" (fix small ones, discuss big ones), and do **not** fork the new code away from identical shared/sibling code just to satisfy a finding, that trades a cosmetic win for real divergence; note it as a follow-up instead.
+- **Report *all* findings**, not only the fixed ones: a full table of score, description, and disposition. This makes visible what was considered and why.
+- **Hold scope discipline:** fix what *this PR* made worse. Do **not** dismiss a finding merely as "pre-existing" (fix small ones, discuss big ones), and do **not** fork the new code away from identical shared/sibling code just to satisfy a finding: that trades a cosmetic win for real divergence; note it as a follow-up instead.
 
 **Reviewer checklist** (one pass per line, most surface different findings):
 
@@ -96,22 +107,6 @@ Set a single, agreed **confidence threshold** that decides what must be acted on
 - [ ] Prior PRs touching these files read.
 - [ ] In-code comments and docstrings still match the code.
 - [ ] Every finding scored against the fixed rubric; all findings reported with disposition.
-
-## When to add an end-to-end agent quality gate
-
-Unit tests and type-checking verify code; they cannot catch a regression in an agent's *reasoning*, a prompt tweak that makes a retriever cite worse, or a routing change that quietly degrades answers. Those failures live above the level any assertion in the test suite reaches, so give an agent a second kind of gate.
-
-- **Why.** An agent's output quality is an emergent property of prompts, tools, model, and context working together. A change can be green on every unit test and still make the agent measurably worse. The gate exists to make that class of regression visible before merge.
-- **When.** Add the gate for any change that can alter an agent's behaviour, its prompts/SOPs, its tools, its model or parameters, or the shared code on its import path (the harness, config, or capabilities it actually uses). A change confined to code no agent consumes does **not** need it; ordinary CI still gates that. Deciding this requires knowing which shared modules each agent imports, so make that dependency explicit.
-- **How.** Run the agent end-to-end against a small, fixed battery of representative queries and score the output against a quality checklist (deterministic checks, or an LLM-as-judge rubric, see [Part 6](evaluation.md)). Run it on the branch, before merge, with a **cheap** configuration (a mock or lighter backend, see [Part 4](agent-harness.md)) so the gate is affordable enough to run every time. Set a pass bar (a minimum number of checks) and treat a drop as a blocking regression, the same as a failing test. Keep the battery frozen so a run is comparable to the last one.
-
-The general principle: **test each thing at the level where its failures actually appear.** Gate deterministic code with unit tests; gate emergent agent behaviour with an end-to-end run against a frozen battery.
-
-## Make the standard executable, and audit periodically
-
-Whenever you fix a class of problem, ask the follow-up: *what stops it coming back?* A one-time cleanup regresses the moment the next change reintroduces it, because nothing was watching. So take the highest-leverage version of almost every fix in this handbook: **encode the standard as an executable check and wire it into CI (and pre-commit)** rather than leaving it to memory and review diligence. The pattern recurs at every layer: an import-linter contract makes a layering rule ([Part 2](codebase-structure.md)) un-violable; a coverage-plus-diff-coverage gate makes "new code ships with tests" mechanical; a SAST and secret scan, a CVE-and-license gate, and a workflow linter make the safety rules ([Part 8](security-supply-chain.md)) self-enforcing; a cheap eval/smoke gate makes a behavioural bar hold. A rule a human has to remember is a rule that eventually lapses; a rule the pipeline enforces is one that doesn't.
-
-Run the counterpart to standing gates too: the **periodic audit**: a deliberate, evidence-based sweep across the quality dimensions (structure, tests, evals, docs, dependencies, security, CI) to find what has drifted below the standard, because gates catch only the regressions you already thought to encode. Hold an audit to the same discipline that makes an eval trustworthy ([Part 6](evaluation.md)): cite the artifact or tool output each finding rests on, mark tooling that can't run as *no-evidence* rather than *pass* (absence of a scanner is not absence of a problem), and produce a report-only diagnosis first, with fixes following one dimension at a time in their own reviewed changes.
 
 ## Coding-hygiene rules that surface at review
 
@@ -124,18 +119,25 @@ These are the recurring review findings. Each has a *why*, and each belongs, wit
 - **Keep module docstrings current.** Update the docstring whenever a module's purpose or interface changes.
 - **Mind provider-specific tool-argument quirks.** Some model/runtime combinations handle nullable or loosely-typed tool arguments poorly; prefer explicit enums or non-null defaults for agent tool parameters.
 
-## Prompt and SOP engineering
+## When to add an end-to-end agent quality gate
 
-An agent's behaviour is defined by its **SOP** (Standard Operating Procedure): a structured, reusable prompt that specifies how the agent performs a task, so a complex workflow runs the same way every time instead of being re-improvised per run. Give an SOP a fixed shape (keep it in a `.sop.md` file): an **Overview** of what it does and when to use it, its **Parameters** (the `snake_case` inputs, each marked required or optional), and ordered **Steps**, each carrying explicit **Constraints**, with optional **Examples** and **Troubleshooting**. Write the constraints with RFC 2119 keywords (**MUST** / **SHOULD** / **MAY** and their negatives) so the requirement level is unambiguous, and give every negative constraint (**MUST NOT**, **SHOULD NOT**) its *reason* inline, because "don't do X because Y" is what stops the model quietly reintroducing X. That is the same capture-the-why discipline the rest of the handbook runs on, applied to the prompt. (The format is the open [`agent-sop`](https://github.com/strands-agents/agent-sop) specification.)
+Unit tests and type-checking verify code; they cannot catch a regression in an agent's *reasoning*, a prompt tweak that makes a retriever cite worse, or a routing change that quietly degrades answers. Those failures live above the level any assertion in the test suite reaches, so give an agent a second kind of gate.
 
-Apply two rules specifically to prompts, because a prompt change is a behavioural change that no type-checker will catch:
+- **Why.** An agent's output quality is an emergent property of prompts, tools, model, and context working together. A change can be green on every unit test and still make the agent measurably worse. The gate exists to make that class of regression visible before merge.
+- **When.** Add the gate for any change that can alter an agent's behaviour, its prompts/SOPs, its tools, its model or parameters, or the shared code on its import path (the harness, config, or capabilities it actually uses). A change confined to code no agent consumes does **not** need it; ordinary CI still gates that. Deciding this requires knowing which shared modules each agent imports, so make that dependency explicit.
+- **How.** Run the agent end-to-end against a small, fixed battery of representative queries and score the output against a quality checklist (deterministic checks, or an LLM-as-judge rubric, see [Part 6](evaluation.md)). Run it on the branch, before merge, with a **cheap** configuration (a mock or lighter backend, see [Part 4](agent-harness.md)) so the gate is affordable enough to run every time. Set a pass bar (a minimum number of checks) and treat a drop as a blocking regression, the same as a failing test. Keep the battery frozen so a run is comparable to the last one.
 
-- **Explain *why* a prompt changed in its commit**, not just what, the reasoning is the part a future reader needs. Keep prompt changes in their own commit, separate from code, where you can.
-- **Analyze SOPs for cognitive load.** A prompt that overloads the model with constraints degrades its reasoning; run a periodic analysis of constraint density and redundancy to keep prompts lean, and let it inform when to decompose a monolithic agent into sub-agents.
+The general principle: **test each thing at the level where its failures actually appear.** Gate deterministic code with unit tests; gate emergent agent behaviour with an end-to-end run against a frozen battery.
 
 ## After the merge
 
 Don't treat merging as the end of the trace. After merging a PR linked to an issue: verify each acceptance-criterion was *actually* implemented before ticking it (never blind-check the boxes), post a release-notes-style comment summarizing what shipped, and set the issue's final status. This is the [capture-the-trail](documentation.md) throughline closing the loop.
+
+## Make the standard executable, and audit periodically
+
+One meta-practice closes the lifecycle, because it decides whether every gate above keeps existing. Whenever you fix a class of problem, ask the follow-up: *what stops it coming back?* A one-time cleanup regresses the moment the next change reintroduces it, because nothing was watching. So take the highest-leverage version of almost every fix in this handbook: **encode the standard as an executable check and wire it into CI (and pre-commit)** rather than leaving it to memory and review diligence. The pattern recurs at every layer: an import-linter contract makes a layering rule ([Part 2](codebase-structure.md)) un-violable; a coverage-plus-diff-coverage gate makes "new code ships with tests" mechanical; a SAST and secret scan, a CVE-and-license gate, and a workflow linter make the safety rules ([Part 8](security-supply-chain.md)) self-enforcing; a cheap eval/smoke gate makes a behavioural bar hold. A rule a human has to remember is a rule that eventually lapses; a rule the pipeline enforces is one that doesn't.
+
+Run the counterpart to standing gates too, the **periodic audit**: a deliberate, evidence-based sweep across the quality dimensions (structure, tests, evals, docs, dependencies, security, CI) to find what has drifted below the standard, because gates catch only the regressions you already thought to encode. Hold an audit to the same discipline that makes an eval trustworthy ([Part 6](evaluation.md)): cite the artifact or tool output each finding rests on, mark tooling that can't run as *no-evidence* rather than *pass* (absence of a scanner is not absence of a problem), and produce a report-only diagnosis first, with fixes following one dimension at a time in their own reviewed changes.
 
 ## Pre-merge checklist
 
