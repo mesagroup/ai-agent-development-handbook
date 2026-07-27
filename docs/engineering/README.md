@@ -2,7 +2,7 @@
 
 How to build software and AI agents: the practices, and the reasons behind them. Read each section as a set of **directives backed by their reasons**: it states what to do, then why the practice earns its place. The reasons matter (they are what let you apply a rule to a case it doesn't literally cover), but when you just need to act, the directives and the checklists are the operational surface.
 
-The practices are meant to be portable. Some are supported by shared infrastructure we maintain (a model catalog, a configuration system, a run harness), but nothing below *depends* on it: a project that reuses none of it should still recognize every directive as its own. Where a section describes a capability, read it as "here is what a good setup provides, and what to build or demand if you don't have it", not "here is our specific tool."
+The practices are meant to be portable. Some lean on shared infrastructure (a model catalog, a configuration system, a run harness), but nothing below *depends* on any particular implementation of it: a project that has none of it should still recognize every directive as its own. Where a section describes a capability, read it as "here is what a good setup provides, and what to build or demand if you don't have it", not "here is a specific tool."
 
 ## The story of a change
 
