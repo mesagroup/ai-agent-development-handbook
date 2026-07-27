@@ -86,7 +86,7 @@ Apply two rules specifically to prompts, because a prompt change is a behavioura
 - **Explain *why* a prompt changed in its commit**, not just what: the reasoning is the part a future reader needs. Keep prompt changes in their own commit, separate from code, where you can.
 - **Analyze SOPs for cognitive load.** A prompt that overloads the model with constraints degrades its reasoning; run a periodic analysis of constraint density and redundancy to keep prompts lean, and let it inform when to decompose a monolithic agent into sub-agents.
 
-And keep the division of labour sharp from the other side: reserve an SOP for judgment a deterministic tool cannot express, the heuristic, context-weighing steps where there is no rule to write. If a constraint *can* be written as a lint rule or a type, write the rule instead (the CI gates below handle it); an SOP is for the genuinely non-deterministic part, not for re-encoding what a checker already guarantees.
+And keep the division of labour sharp from the other side: reserve an SOP for judgment the model must exercise, the heuristic, context-weighing steps where there is no rule to write. If a constraint on the agent's behaviour *can* be enforced deterministically, enforce it in the harness instead: a schema on the output, a validator in the tool, a guard in the pipeline (see [Part 4](agent-harness.md)); the SOP is for the genuinely non-deterministic part, not for re-encoding what code already guarantees. (The CI section below applies the same division to your own workflow: never spend an agent where a linter suffices.)
 
 ## CI and static analysis
 
