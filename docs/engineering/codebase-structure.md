@@ -1,6 +1,6 @@
-# Part 2. Codebase Structure
+# Part 3. Codebase Structure
 
-*Your change is specced and planned; now it needs a home. Whether it lands cleanly or ripples into places it had no business touching is decided by the structure it meets on arrival. This part gives that structure one organizing idea (the reusable core versus the disposable task layer) and one invariant that holds the idea in place.*
+*Your change is planned and built; whether it lands cleanly or ripples into places it had no business touching is decided by the structure it meets on arrival. This part gives that structure one organizing idea (the reusable core versus the disposable task layer) and one invariant that holds the idea in place.*
 
 Organize the codebase into layered tiers with **acyclic dependencies** between them. This is not bureaucratic tidiness, it is the same conviction as the [three-layer document model](three-layer-model.md), applied one level up: **the reusable core is real, and only the task-shaped layer is use-relative.** Lower tiers are the reusable core; the agents and applications are the task layer. Keep the dependencies directional and acyclic to stop the reusable core from quietly acquiring one application's assumptions, and to pay the "wire this up" integration tax once instead of per agent.
 
@@ -32,7 +32,7 @@ The acyclic, directional shape buys three concrete things:
 
 - **Each tier is independently testable.** You can exercise an integration without standing up an agent, because it cannot depend on one. The dependency graph *is* the test-isolation boundary.
 - **Churn stays local.** Change an application and nothing below it can break, because nothing below it imports it. Change a core utility and the blast radius is explicit, exactly the set of tiers above it, which the type-checker can enumerate.
-- **The integration tax is paid once.** New agents reuse the harness, the config machinery, the eval framework, and the integrations as-is (see [Part 4](agent-harness.md)). The marginal agent is mostly its prompt/SOP and its tools, not a fresh copy of the plumbing.
+- **The integration tax is paid once.** New agents reuse the harness, the config machinery, the eval framework, and the integrations as-is (see [Part 5](agent-harness.md)). The marginal agent is mostly its prompt/SOP and its tools, not a fresh copy of the plumbing.
 
 Treat an import that would violate a rule as a **design smell, not a lint nuisance.** If an application-specific concept is pulling toward the core, the concept is in the wrong tier, or it is two concepts that need splitting. The rule is doing its job by making that visible at the import line.
 
@@ -62,7 +62,7 @@ Where a component has interchangeable backends (say, several research or model p
 
 A **configuration** here is the full bundle of choices that determine how a run behaves: which model it uses, that model's parameters (temperature, top-p, and so on), which tools and features are switched on, and any budgets or limits. A run is pinned by one specific combination of these, and the same combination tends to be wanted again, by the next experiment, by CI, by a teammate reproducing a result.
 
-So any combination worth reusing gets a name. Bundle it into a machine-readable **named profile**, selectable by name (and discoverable by listing). Then have scripts, eval harnesses, and agents reference a configuration *by name* instead of reconstructing a pile of flags at each call site. That is what makes an experiment reproducible (rerun the exact same profile months later) and a "run the cheap profile" instruction unambiguous (see [Part 4](agent-harness.md)).
+So any combination worth reusing gets a name. Bundle it into a machine-readable **named profile**, selectable by name (and discoverable by listing). Then have scripts, eval harnesses, and agents reference a configuration *by name* instead of reconstructing a pile of flags at each call site. That is what makes an experiment reproducible (rerun the exact same profile months later) and a "run the cheap profile" instruction unambiguous (see [Part 5](agent-harness.md)).
 
 ## Checklist: placing new code / reviewing an import
 
@@ -74,10 +74,10 @@ So any combination worth reusing gets a name. Bundle it into a machine-readable 
 - [ ] Backend selection dispatches on a discriminator (`match`/`switch`), not a runtime type test (`isinstance`/`instanceof`).
 - [ ] The layering rule is enforced by an import-linter contract in CI, not left to prose and memory.
 
-*Next: the same core-versus-task-layer shape, one level down, inside the documents your agents work on. [Part 3. The three-layer document model](three-layer-model.md).*
+*Next: the same core-versus-task-layer shape, one level down, inside the documents your agents work on. [Part 4. The three-layer document model](three-layer-model.md).*
 
 ## See also
 
-- [Part 4. The extended agent harness](agent-harness.md), the shared machinery agents reuse.
-- [Part 3. The three-layer document model](three-layer-model.md), the same reusable-core-vs-task-layer idea, one level down.
+- [Part 5. The extended agent harness](agent-harness.md), the shared machinery agents reuse.
+- [Part 4. The three-layer document model](three-layer-model.md), the same reusable-core-vs-task-layer idea, one level down.
 - [Handbook index](README.md).

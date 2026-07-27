@@ -33,17 +33,18 @@ import re
 from pathlib import Path
 
 # (anchor id, markdown stem, sidebar label). Order defines the page order;
-# README is the intro section (#top), the eight parts follow, the coda closes.
+# README is the intro section (#top), the nine parts follow, the coda closes.
 PARTS: list[tuple[str, str, str]] = [
     ("top", "README", "Overview &amp; the story"),
     ("p1", "lifecycle", "Development lifecycle"),
-    ("p2", "codebase-structure", "Codebase structure"),
-    ("p3", "three-layer-model", "Three-layer model"),
-    ("p4", "agent-harness", "The agent harness"),
-    ("p5", "observability", "Observability"),
-    ("p6", "evaluation", "Evaluation"),
-    ("p7", "documentation", "Documentation"),
-    ("p8", "security-supply-chain", "Security &amp; supply chain"),
+    ("p2", "implementation-disciplines", "Implementation disciplines"),
+    ("p3", "codebase-structure", "Codebase structure"),
+    ("p4", "three-layer-model", "Three-layer model"),
+    ("p5", "agent-harness", "The agent harness"),
+    ("p6", "observability", "Observability"),
+    ("p7", "evaluation", "Evaluation"),
+    ("p8", "documentation", "Documentation"),
+    ("p9", "security-supply-chain", "Security &amp; supply chain"),
     ("coda", "coda", "Coda"),
 ]
 

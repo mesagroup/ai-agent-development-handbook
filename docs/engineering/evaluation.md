@@ -1,4 +1,4 @@
-# Part 6. Evaluation: How to Decide
+# Part 7. Evaluation: How to Decide
 
 *Everything so far was preparation for one question: did the change actually make the product better? Green tests cannot answer it, and neither can a demo that went well. This part answers it with evidence: a dataset fixed before the decision, a metric you can trust, and the honesty disciplines that keep both. The story's loop closes here, because what the measurement teaches becomes the next issue.*
 
@@ -12,11 +12,11 @@ Guard against **false** confidence, not the absence of it. Adding patterns until
 
 ## Run the loop
 
-Build or extend a validation dataset → measure candidates against it → interpret with variance and cost → decide and ship → **re-measure after shipping**, because the change surfaces new failure forms, and those become the next dataset extension and the next hypothesis. Don't expect the loop to terminate; it is how the system stays honest as the data and the models drift. Record each decision and its evidence where the next person can find it ([Part 7](documentation.md)).
+Build or extend a validation dataset → measure candidates against it → interpret with variance and cost → decide and ship → **re-measure after shipping**, because the change surfaces new failure forms, and those become the next dataset extension and the next hypothesis. Don't expect the loop to terminate; it is how the system stays honest as the data and the models drift. Record each decision and its evidence where the next person can find it ([Part 8](documentation.md)).
 
 ## Measure the behaviors that matter
 
-Ask *whether at all* before *how well.* An eval is a measuring instrument, and the first question about any instrument is what it is pointed at. So enumerate the behaviors the product actually depends on (accuracy, grounding and citation, format adherence, refusal handling, latency and cost, and the specific *failure modes* that would hurt in production) and map each to an eval that exercises it. **Treat an unevaluated capability as an unmonitored one:** the ones with no test case are exactly where a regression ships silently, and a capability that has a leaderboard entry but no case for its key failure mode is still a gap. This is the behavioural twin of test coverage ([Part 1](lifecycle.md)), same idea, one level up from code to conduct. Include the adversarial modes: does the agent hold up when untrusted or tool-returned content tries to redirect it? Make that behavioural injection-resistance an eval dimension; the security-surface counterpart is in [Part 8](security-supply-chain.md). Match the *grader* to the behavior too: some checks are **code-graded** (a deterministic assertion on the output: exact match, schema validity, a required citation present), some are **judge-graded** (an LLM rubric, but only where it has been calibrated against a human, below), and some are **trajectory-graded** (an assertion on the *path* the run took, for example that a forbidden tool was never called or that retrieval ran before generation). The trajectory grader is the only one that sees *how* the agent reached its answer rather than only whether the answer was right, which is what you need for behaviours the final output does not reveal.
+Ask *whether at all* before *how well.* An eval is a measuring instrument, and the first question about any instrument is what it is pointed at. So enumerate the behaviors the product actually depends on (accuracy, grounding and citation, format adherence, refusal handling, latency and cost, and the specific *failure modes* that would hurt in production) and map each to an eval that exercises it. **Treat an unevaluated capability as an unmonitored one:** the ones with no test case are exactly where a regression ships silently, and a capability that has a leaderboard entry but no case for its key failure mode is still a gap. This is the behavioural twin of test coverage ([Part 2](implementation-disciplines.md)), same idea, one level up from code to conduct. Include the adversarial modes: does the agent hold up when untrusted or tool-returned content tries to redirect it? Make that behavioural injection-resistance an eval dimension; the security-surface counterpart is in [Part 9](security-supply-chain.md). Match the *grader* to the behavior too: some checks are **code-graded** (a deterministic assertion on the output: exact match, schema validity, a required citation present), some are **judge-graded** (an LLM rubric, but only where it has been calibrated against a human, below), and some are **trajectory-graded** (an assertion on the *path* the run took, for example that a forbidden tool was never called or that retrieval ran before generation). The trajectory grader is the only one that sees *how* the agent reached its answer rather than only whether the answer was right, which is what you need for behaviours the final output does not reveal.
 
 ## Build a dataset you can trust
 
@@ -42,10 +42,10 @@ Two more disciplines, both cheap and both routinely skipped:
 Once the dataset exists, be honest about the things point estimates hide:
 
 - **Report variance.** A single run of a stochastic system is an anecdote, not a result; a number without a variance is not a measurement. Run each candidate several times and report the spread; flag configurations whose run-to-run variability is too high to trust (a coefficient-of-variation cutoff works well). Give comparisons enough runs that a real difference clears the noise band, or a swing that is pure variance reads as an improvement. For pass/fail cases rather than scalar scores, report the same honesty a different way: run each case N times and record its reliability band (how many of N passed), because *k of N* separates a case that is flaky from one that is genuinely failing, which a single pass/fail hides. Alongside the per-case bands, report the strict **pass^N** aggregate (the probability that all N runs pass), the honest answer to "will this work every time" that an average of lucky runs flatters. How high that reliability bar must sit is a business decision tied to the change's criticality ([Part 1](lifecycle.md)): a commodity path tolerates a band a core differentiator cannot.
-- **Account for full cost, not the convenient part.** Most choices are quality/cost trade-offs, so quality alone can't decide them (see [Part 5. Observability](observability.md) on full-cost accounting). On cached-context workloads the cache read/write tokens often dominate and are invisible if you count only input/output; put sub-agent calls, latency, and retries in the total. Take cost from actual billing, not token counts, estimating can flip a conclusion. Lead with absolute figures, not percentages.
+- **Account for full cost, not the convenient part.** Most choices are quality/cost trade-offs, so quality alone can't decide them (see [Part 6. Observability](observability.md) on full-cost accounting). On cached-context workloads the cache read/write tokens often dominate and are invisible if you count only input/output; put sub-agent calls, latency, and retries in the total. Take cost from actual billing, not token counts, estimating can flip a conclusion. Lead with absolute figures, not percentages.
 - **Change one variable at a time.** Keep the before/after genuinely like-for-like: same inputs, same queries, one rule or parameter changed. A comparison that moves two things at once measures neither.
 - **Separate failure types.** A refusal or an API error is not a quality failure, and folding them together corrupts the score, don't penalize a model for a sub-agent's refusal or a transient timeout. Bucket them apart so a low score means "answered badly," not "didn't answer."
-- **Make it reproducible.** A headline number is only trustworthy if you can regenerate it: pin the model version, record the full config (model, params, dataset revision, seed where feasible), and keep the run's artifacts. A pinned model matters as much as a pinned dependency ([Part 8](security-supply-chain.md)), a silent provider upgrade moves your numbers out from under you, and an unacknowledged non-determinism turns a "regression" into noise.
+- **Make it reproducible.** A headline number is only trustworthy if you can regenerate it: pin the model version, record the full config (model, params, dataset revision, seed where feasible), and keep the run's artifacts. A pinned model matters as much as a pinned dependency ([Part 9](security-supply-chain.md)), a silent provider upgrade moves your numbers out from under you, and an unacknowledged non-determinism turns a "regression" into noise.
 
 ## Pick the approach that fits the decision
 
@@ -89,12 +89,12 @@ The ladder is itself a data-driven decision: **you need a measurement to know wh
 
 1. **Name the decision.** Write down the exact question ("ship model A or B?", "does this prompt change help recall?") and pick the matching approach from the table above.
 2. **Establish an independent dataset.** Choose the dataset shape; ensure candidates do *not* come from the system under test; estimate prevalence if you're harvesting positives. **Freeze it** for the comparison.
-3. **Fix the harness.** Drive the frozen headless CLI ([Part 4](agent-harness.md)); pin the model version; record the full config and dataset revision.
+3. **Fix the harness.** Drive the frozen headless CLI ([Part 5](agent-harness.md)); pin the model version; record the full config and dataset revision.
 4. **Change one variable.** Hold inputs, queries, and every other parameter constant.
 5. **Run each candidate multiple times.** Capture all artifacts; compute the spread, not just a point estimate.
 6. **Score quality and cost together.** Pair the quality metric with a full-cost number from actual billing; bucket refusals/errors apart from quality failures.
 7. **Calibrate any LLM judge** against a human sample; trust it only on the dimensions where they correlate.
-8. **Decide, record, re-measure.** Log the decision and its evidence to the results trail ([Part 7](documentation.md)); after shipping, feed new failure forms back into the dataset.
+8. **Decide, record, re-measure.** Log the decision and its evidence to the results trail ([Part 8](documentation.md)); after shipping, feed new failure forms back into the dataset.
 
 ## Name the anti-patterns out loud
 
@@ -107,11 +107,11 @@ Each of these *feels* like progress, which is why it's worth naming. Scan for th
 - [ ] **Moving the goalposts mid-experiment**: adjusting thresholds/queries/gold while a comparison runs.
 - [ ] **Demo-driven selection**: an example is not a dataset.
 
-*Next: the loop has closed; what remains is what the change leaves behind. [Part 7. Documentation & knowledge capture](documentation.md).*
+*Next: the loop has closed; what remains is what the change leaves behind. [Part 8. Documentation & knowledge capture](documentation.md).*
 
 ## See also
 
-- [Part 5. Observability](observability.md), instrument before you tune; pair efficiency with quality.
-- [Part 3. Three-layer model](three-layer-model.md), separately-evaluable layers.
-- [Part 7. Documentation](documentation.md), recording the results trail.
+- [Part 6. Observability](observability.md), instrument before you tune; pair efficiency with quality.
+- [Part 4. Three-layer model](three-layer-model.md), separately-evaluable layers.
+- [Part 8. Documentation](documentation.md), recording the results trail.
 - [Handbook index](README.md).

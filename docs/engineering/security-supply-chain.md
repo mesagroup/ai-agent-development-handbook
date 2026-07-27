@@ -1,4 +1,4 @@
-# Part 8. Security, Dependencies & Supply Chain
+# Part 9. Security, Dependencies & Supply Chain
 
 *One obligation follows no single change but stands over all of them: keeping the machine safe. Nothing in the story so far would catch a leaked credential, a dependency you may not legally ship, or a pipeline that hands its own keys to a malicious pull request. This part covers those surfaces, and it applies the make-the-standard-executable throughline at its most literal: turn every fix into a gate.*
 
@@ -92,7 +92,8 @@ Each surface here has a counterpart that *verifies* it against the real artifact
 
 ## See also
 
-- [Part 1. Lifecycle](lifecycle.md), CI gates, the "make the standard executable" principle, and periodic audits.
-- [Part 5. Observability](observability.md), errors that don't leak secrets/PII, and no swallowed exceptions hiding a security failure.
-- [Part 6. Evaluation](evaluation.md), behavioral injection-resistance as an eval dimension.
+- [Part 1. Lifecycle](lifecycle.md), the "make the standard executable" principle and periodic audits.
+- [Part 2. Implementation disciplines](implementation-disciplines.md), the CI gates that enforce these checks.
+- [Part 6. Observability](observability.md), errors that don't leak secrets/PII, and no swallowed exceptions hiding a security failure.
+- [Part 7. Evaluation](evaluation.md), behavioral injection-resistance as an eval dimension.
 - [Handbook index](README.md).

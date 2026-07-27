@@ -1,4 +1,4 @@
-# Part 7. Documentation & Knowledge Capture
+# Part 8. Documentation & Knowledge Capture
 
 *The change shipped and the verdict is in. What survives of it now (for a teammate, a future you, or an agent dispatched with zero conversation history) is only what was written down. This part is about the artifacts that make a decision and its evidence recoverable, and about keeping every written claim true against the code it describes.*
 
@@ -36,7 +36,7 @@ An ADR is not a spec and not a story: a spec scopes one change and its acceptanc
 
 Treat the data model itself as a first-class context artifact alongside these: a versioned, explicit description of the schemas the system works over, plus their known quirks and invariants, that both people and agents are pointed at. An agent left to infer the data model from scattered code will reinvent it wrong, and an undocumented quirk is a bug waiting for the next author who does not know it is there.
 
-Don't skip the **story**: it is the one most easily skipped and most valuable. A diff records *what* changed; a story records the *why*, the surprises, and the "don't do it this way" that the diff cannot. It is where tacit knowledge, the calibration that collapsed a schema, the finding that a metric measured the wrong thing, survives past the memory of whoever ran it. And treat the **results log** as the evidence half of "evidence over intuition" ([Part 6](evaluation.md)): a decision is not done until its result is recorded where the next person can find it and build on it.
+Don't skip the **story**: it is the one most easily skipped and most valuable. A diff records *what* changed; a story records the *why*, the surprises, and the "don't do it this way" that the diff cannot. It is where tacit knowledge, the calibration that collapsed a schema, the finding that a metric measured the wrong thing, survives past the memory of whoever ran it. And treat the **results log** as the evidence half of "evidence over intuition" ([Part 7](evaluation.md)): a decision is not done until its result is recorded where the next person can find it and build on it.
 
 ## Audit docs like a test suite
 
@@ -56,7 +56,7 @@ Documentation is not only the prose tree.
 
 - **Module and symbol docstrings**: keep every module and public symbol carrying a docstring describing what it does and how to use it (usage patterns plus minimal architecture notes), updated whenever the purpose or interface changes. Docstrings drift the same way prose does, so audit them the same two ways: *coverage* (which public modules/classes/functions have none) and *staleness* (a docstring that names a parameter the function no longer takes, or an example that would now fail). Because a docstring lives in code, route fixing one through the normal code gate, not the lighter docs-only path.
 - **The project's binding-rules file** (the one your team and your coding agents both read as authoritative), hold the coding rules, review thresholds, and git workflow here and maintain it. When this handbook and that file disagree, the rules file wins and the handbook is the bug.
-- **Prompt / SOP changes**: document them in their commit message with the *why*, not just the *what*, and keep them in their own commit where you can (see [Part 1](lifecycle.md)).
+- **Prompt / SOP changes**: document them in their commit message with the *why*, not just the *what*, and keep them in their own commit where you can (see [Part 2](implementation-disciplines.md)).
 - **Diagrams as code, generated from source**: keep any generated diagram in a text metalanguage ([Mermaid](https://mermaid.js.org/), [PlantUML](https://plantuml.com/), [D2](https://d2lang.com/)) rather than a binary image, and regenerate it from the source of truth on merge. A diagram drawn by hand or by a model drifts from the code the moment either changes; one generated from the code cannot, and it stays diffable in review like the rest of the source.
 
 ## House rule: don't hard-wrap Markdown source
@@ -74,10 +74,10 @@ Write one paragraph as one line in the source; let the renderer wrap. Never hard
 - [ ] Markdown source is **not hard-wrapped**.
 - [ ] A **link-and-index checker** guards this in CI where possible.
 
-*Next: the one obligation that stands over every change rather than following any single one. [Part 8. Security, dependencies & supply chain](security-supply-chain.md).*
+*Next: the one obligation that stands over every change rather than following any single one. [Part 9. Security, dependencies & supply chain](security-supply-chain.md).*
 
 ## See also
 
 - [Part 1. Development lifecycle](lifecycle.md), where specs and plans are produced and the review gates live.
-- [Part 6. Evaluation](evaluation.md), the loop that the results log and stories feed.
+- [Part 7. Evaluation](evaluation.md), the loop that the results log and stories feed.
 - [Handbook index](README.md).

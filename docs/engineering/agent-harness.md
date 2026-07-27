@@ -1,10 +1,10 @@
-# Part 4. The Extended Agent Harness
+# Part 5. The Extended Agent Harness
 
-*Your change is about to run: as an agent, or through one. Between it and the model sits machinery that is the same for every agent (model selection, configuration, entry points, reliability), which is exactly why it should belong to none of them. This part is the shared harness: the core-versus-task-layer throughline applied to the plumbing, and, through the headless CLI and the cheap backends, the precondition for every measurement in [Part 6](evaluation.md).*
+*Your change is about to run: as an agent, or through one. Between it and the model sits machinery that is the same for every agent (model selection, configuration, entry points, reliability), which is exactly why it should belong to none of them. This part is the shared harness: the core-versus-task-layer throughline applied to the plumbing, and, through the headless CLI and the cheap backends, the precondition for every measurement in [Part 7](evaluation.md).*
 
-Don't make a new agent re-solve model selection, configuration, headless execution, or reliability. Those are the same problem every time, so solve them once, in the shared core and configuration tiers, and let each agent author spend their attention on the task-shaped logic that is actually new. Aim for a harness that makes agents **cheap to build, cheap to swap models under, cheap to run headless, and reproducible**. This page lists the capabilities such a harness provides and why each earns its place; the tier boundaries they live in are in [Part 2](codebase-structure.md), and the reason reproducibility matters so much is in [Part 6](evaluation.md).
+Don't make a new agent re-solve model selection, configuration, headless execution, or reliability. Those are the same problem every time, so solve them once, in the shared core and configuration tiers, and let each agent author spend their attention on the task-shaped logic that is actually new. Aim for a harness that makes agents **cheap to build, cheap to swap models under, cheap to run headless, and reproducible**. This page lists the capabilities such a harness provides and why each earns its place; the tier boundaries they live in are in [Part 3](codebase-structure.md), and the reason reproducibility matters so much is in [Part 7](evaluation.md).
 
-A word on the term. Industry usage has converged on *agent = model + harness*: the model reasons, and the harness is everything built around it (tool dispatch, memory, configuration, sandboxing, the safeguards that keep it bounded). The agent framework gives you the [base agentic loop](https://www.anthropic.com/engineering/building-effective-agents); this part is the *extended* harness layered around that loop, which is what the title means. The word also travels in a broader sense, Fowler's ["harness engineering"](https://martinfowler.com/articles/harness-engineering.html), spanning guides that steer the model forward, sensors that feed results back, and the human steering between them: this handbook covers that wider envelope too, distributed across the lifecycle ([Part 1](lifecycle.md)), observability ([Part 5](observability.md)), and evaluation ([Part 6](evaluation.md)).
+A word on the term. Industry usage has converged on *agent = model + harness*: the model reasons, and the harness is everything built around it (tool dispatch, memory, configuration, sandboxing, the safeguards that keep it bounded). The agent framework gives you the [base agentic loop](https://www.anthropic.com/engineering/building-effective-agents); this part is the *extended* harness layered around that loop, which is what the title means. The word also travels in a broader sense, Fowler's ["harness engineering"](https://martinfowler.com/articles/harness-engineering.html), spanning guides that steer the model forward, sensors that feed results back, and the human steering between them: this handbook covers that wider envelope too, distributed across the lifecycle ([Part 1](lifecycle.md)), observability ([Part 6](observability.md)), and evaluation ([Part 7](evaluation.md)).
 
 ## Build the harness, don't inline the plumbing
 
@@ -16,15 +16,15 @@ Put the production-reliability decisions in the harness too, so no agent has to 
 
 Never name a concrete provider model inline. Take a short **alias** and resolve it through a central catalog. Encode the provider in the alias's prefix (a `bedrock-…` alias, an `openrouter-…` alias, and so on), so the same call site works across providers and switching the model a run uses is a one-token change, not a code change.
 
-This indirection is what makes model screening (see [Part 6](evaluation.md)) practical: point the same agent at a dozen candidate models by varying a flag, never touching the agent. Keep the catalog the single place that knows real model IDs, regions, and credentials, so provider churn is contained to one file.
+This indirection is what makes model screening (see [Part 7](evaluation.md)) practical: point the same agent at a dozen candidate models by varying a flag, never touching the agent. Keep the catalog the single place that knows real model IDs, regions, and credentials, so provider churn is contained to one file.
 
 ## Expose model parameters as optional, defaulted flags
 
-Make generation parameters (temperature, top-p, penalties) optional flags with provider defaults when omitted, so the common case stays terse and the tuning case stays possible. For models that support it, expose reasoning/extended-thinking as a budget flag. Decide whether any such parameter change is actually an improvement the same way as everything else: treat it as a hypothesis, measure it against a frozen benchmark, one variable at a time (see [Part 6](evaluation.md)).
+Make generation parameters (temperature, top-p, penalties) optional flags with provider defaults when omitted, so the common case stays terse and the tuning case stays possible. For models that support it, expose reasoning/extended-thinking as a budget flag. Decide whether any such parameter change is actually an improvement the same way as everything else: treat it as a hypothesis, measure it against a frozen benchmark, one variable at a time (see [Part 7](evaluation.md)).
 
 ## Bundle configuration into named profiles
 
-A bare pile of flags is not reproducible, the next person has to know which twelve you passed. Have the config tier bundle a model, its parameters, and feature toggles into a **named profile** selectable by name and discoverable by listing. Keep profiles machine-readable, so scripts and eval harnesses reference a configuration by name rather than reconstructing it, and "run the cheap profile" becomes a shared, unambiguous instruction. The polymorphic configuration machinery underneath profiles is covered in [Part 2](codebase-structure.md).
+A bare pile of flags is not reproducible, the next person has to know which twelve you passed. Have the config tier bundle a model, its parameters, and feature toggles into a **named profile** selectable by name and discoverable by listing. Keep profiles machine-readable, so scripts and eval harnesses reference a configuration by name rather than reconstructing it, and "run the cheap profile" becomes a shared, unambiguous instruction. The polymorphic configuration machinery underneath profiles is covered in [Part 3](codebase-structure.md).
 
 ## Ship every agent with a headless CLI
 
@@ -42,7 +42,7 @@ Keep a machine's worth of runs navigable months later with two conventions: land
 
 Iterating against a frozen benchmark means running the agent many times, and the expensive part of a run is usually a live external API (search, retrieval, a large model). So offer cheaper backends, selected by flag, that keep the loop fast without changing the agent, for example a **mock backend** (a small model over a fixed knowledge base) that stands in for the live service at a fraction of the cost, or a lighter real backend for the same capability.
 
-Treat a cheap inner loop as a first-class capability, not just a cost saving: it is what lets you re-measure against the same benchmark ten times in an afternoon instead of once a day, the difference between a decision backed by a variance band and one backed by an anecdote (see [Part 6](evaluation.md)). Account for the *full* cost when you compare backends, though, a stand-in that inflates the downstream context is not as cheap as its own token count suggests (see [Part 5](observability.md)).
+Treat a cheap inner loop as a first-class capability, not just a cost saving: it is what lets you re-measure against the same benchmark ten times in an afternoon instead of once a day, the difference between a decision backed by a variance band and one backed by an anecdote (see [Part 7](evaluation.md)). Account for the *full* cost when you compare backends, though, a stand-in that inflates the downstream context is not as cheap as its own token count suggests (see [Part 6](observability.md)).
 
 ## Make bounding the default
 
@@ -52,7 +52,7 @@ Bake the production-reliability defaults into the harness so no agent author has
 - **Harden the outbound HTTP client**: explicit connect and read timeouts, bounded retries, TCP keep-alive, so a dropped socket surfaces as an error instead of an indefinite wait.
 - **Time-bound teardown** of external resources (browsers, sessions, worker threads), so a wedged close cannot hang the run or leak a billed resource.
 
-Carry this principle into any new external integration: an unbounded external call is a latent production hang. Bound it at the harness level, and the failure becomes a clean, diagnosable error instead of a silent stall, which is also what makes the production feedback loop in [Part 5](observability.md) possible.
+Carry this principle into any new external integration: an unbounded external call is a latent production hang. Bound it at the harness level, and the failure becomes a clean, diagnosable error instead of a silent stall, which is also what makes the production feedback loop in [Part 6](observability.md) possible.
 
 ## Checklist: standing up a new agent
 
@@ -64,11 +64,11 @@ Carry this principle into any new external integration: an unbounded external ca
 - [ ] A **cheap/mock backend** is selectable by flag for the inner loop.
 - [ ] External calls are **bounded** (turn/idle timeouts, hardened HTTP client, time-bounded teardown) via the harness, not per-agent.
 
-*Next: the change ships, and starts doing things no unit test can see. [Part 5. Observability](observability.md).*
+*Next: the change ships, and starts doing things no unit test can see. [Part 6. Observability](observability.md).*
 
 ## See also
 
-- [Part 2. Codebase structure](codebase-structure.md), the tier boundaries the harness lives in, and the configuration polymorphism under named profiles.
-- [Part 5. Observability](observability.md), the per-(sub)agent metrics the harness emits, and full-cost accounting.
-- [Part 6. Evaluation](evaluation.md), why headless, reproducible, cheap-to-run agents are the precondition for deciding with evidence.
+- [Part 3. Codebase structure](codebase-structure.md), the tier boundaries the harness lives in, and the configuration polymorphism under named profiles.
+- [Part 6. Observability](observability.md), the per-(sub)agent metrics the harness emits, and full-cost accounting.
+- [Part 7. Evaluation](evaluation.md), why headless, reproducible, cheap-to-run agents are the precondition for deciding with evidence.
 - [Handbook index](README.md).

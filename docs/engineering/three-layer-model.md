@@ -1,4 +1,4 @@
-# Part 3. The Three-Layer Document Model
+# Part 4. The Three-Layer Document Model
 
 *If your change touches documents, the codebase's shape repeats inside the data. This part draws the same core-versus-task-layer boundary through document knowledge itself: what generalizes to every document, what generalizes across a domain, and what belongs to a single workflow. Hold the boundary and a failure stays localizable to a layer; collapse it and the system just fails, nowhere in particular.*
 
@@ -54,7 +54,7 @@ Once a document is layered (Layer 1 structure with stable ids, Layer 2 resolved 
 
 ## Why this is the organizing principle, not just a document feature
 
-The same shape recurs one level up, in [how the codebase is structured](codebase-structure.md): a reusable core that is modeled in advance, and a task-shaped application layer built per workflow. "Keep the reusable core sparse and stable; keep the task layer rich and disposable" is the document-model rule and the module-dependency rule at once. And because the layers are separable, they are separately *evaluable*, a golden dataset per layer, far less noisy than one ill-defined end-to-end number ([Part 6](evaluation.md)). Diagnosability, reuse, and measurability are three payoffs of the same decision: make the layers explicit and never skip one.
+The same shape recurs one level up, in [how the codebase is structured](codebase-structure.md): a reusable core that is modeled in advance, and a task-shaped application layer built per workflow. "Keep the reusable core sparse and stable; keep the task layer rich and disposable" is the document-model rule and the module-dependency rule at once. And because the layers are separable, they are separately *evaluable*, a golden dataset per layer, far less noisy than one ill-defined end-to-end number ([Part 7](evaluation.md)). Diagnosability, reuse, and measurability are three payoffs of the same decision: make the layers explicit and never skip one.
 
 ## Checklist: reviewing a document capability
 
@@ -65,10 +65,10 @@ The same shape recurs one level up, in [how the codebase is structured](codebase
 - [ ] Layer 2 holds only **task-independent domain facts**; task-shaped judgments stay in Layer 3.
 - [ ] A failure can be localized to a **single layer**; each layer is separately evaluable.
 
-*Next: the machinery every change runs on and none should rebuild. [Part 4. The extended agent harness](agent-harness.md).*
+*Next: the machinery every change runs on and none should rebuild. [Part 5. The extended agent harness](agent-harness.md).*
 
 ## See also
 
-- [Part 2. Codebase structure](codebase-structure.md), the same reusable-core-vs-task-layer idea in the module graph.
-- [Part 6. Evaluation](evaluation.md), why separable layers are separately evaluable.
+- [Part 3. Codebase structure](codebase-structure.md), the same reusable-core-vs-task-layer idea in the module graph.
+- [Part 7. Evaluation](evaluation.md), why separable layers are separately evaluable.
 - [Handbook index](README.md).
