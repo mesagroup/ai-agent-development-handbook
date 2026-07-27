@@ -27,9 +27,14 @@ Different records serve different moments in a piece of work. Some look *forward
 |---|---|---|
 | **Spec** | The design agreed *before* code, architecture, components, data flow, testing. The always-on spec-review gate stops here. | Forward |
 | **Plan** | The implementation blueprint, file structure, right-sized tasks, bite-sized TDD steps with complete code. | Forward |
+| **ADR** | One durable architectural decision, its alternatives, and the rationale for the choice, socialized with 1-3 readers before implementation. | Forward |
 | **Story** | A narrative write-up *after* a piece of work lands, what, why, findings, lessons. | Back |
 | **Experiment** | A dated experiment write-up: setup, results, conclusion. | Back |
 | **Results log / leaderboard** | The running record of every eval result and the decision it drove. | Back |
+
+An ADR is not a spec and not a story: a spec scopes one change and its acceptance, a story looks back at what a piece of work taught, and an ADR records a decision meant to *outlive* both, the kind a future contributor would otherwise reverse without knowing why it was made. Keep the boundary clean: architectural rationale (why this boundary, why this datastore, why not the obvious alternative) goes in the ADR; implementation-level rationale stays in the story.
+
+Treat the data model itself as a first-class artifact in this set: a versioned, explicit description of the schemas the system works over, plus their known quirks and invariants, that both people and agents are pointed at. An agent left to infer the data model from scattered code will reinvent it wrong, and an undocumented quirk is a bug waiting for the next author who does not know it is there.
 
 Don't skip the **story**: it is the one most easily skipped and most valuable. A diff records *what* changed; a story records the *why*, the surprises, and the "don't do it this way" that the diff cannot. It is where tacit knowledge, the calibration that collapsed a schema, the finding that a metric measured the wrong thing, survives past the memory of whoever ran it. And treat the **results log** as the evidence half of "evidence over intuition" ([Part 6](evaluation.md)): a decision is not done until its result is recorded where the next person can find it and build on it.
 
@@ -52,6 +57,7 @@ Documentation is not only the prose tree.
 - **Module and symbol docstrings**: keep every module and public symbol carrying a docstring describing what it does and how to use it (usage patterns plus minimal architecture notes), updated whenever the purpose or interface changes. Docstrings drift the same way prose does, so audit them the same two ways: *coverage* (which public modules/classes/functions have none) and *staleness* (a docstring that names a parameter the function no longer takes, or an example that would now fail). Because a docstring lives in code, route fixing one through the normal code gate, not the lighter docs-only path.
 - **The project's binding-rules file** (the one your team and your coding agents both read as authoritative), hold the coding rules, review thresholds, and git workflow here and maintain it. When this handbook and that file disagree, the rules file wins and the handbook is the bug.
 - **Prompt / SOP changes**: document them in their commit message with the *why*, not just the *what*, and keep them in their own commit where you can (see [Part 1](lifecycle.md)).
+- **Diagrams as code, generated from source**: keep any generated diagram in a text metalanguage (Mermaid, PlantUML) rather than a binary image, and regenerate it from the source of truth on merge. A diagram drawn by hand or by a model drifts from the code the moment either changes; one generated from the code cannot, and it stays diffable in review like the rest of the source.
 
 ## House rule: don't hard-wrap Markdown source
 
