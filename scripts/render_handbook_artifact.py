@@ -35,7 +35,7 @@ from pathlib import Path
 # (anchor id, markdown stem, sidebar label). Order defines the page order;
 # README is the intro section (#top), the eight parts follow.
 PARTS: list[tuple[str, str, str]] = [
-    ("top", "README", "Overview &amp; stance"),
+    ("top", "README", "Overview &amp; the story"),
     ("p1", "lifecycle", "Development lifecycle"),
     ("p2", "codebase-structure", "Codebase structure"),
     ("p3", "three-layer-model", "Three-layer model"),
