@@ -1,6 +1,6 @@
 # AI Agent Development Handbook
 
-How to build software and AI agents here, and why. Read each section as a set of **directives backed by their reasons**: it states what to do, then why the practice earns its place. The reasons matter (they are what let you apply a rule to a case it doesn't literally cover), but when you just need to act, the directives and the checklists are the operational surface.
+How to build software and AI agents, and why. Read each section as a set of **directives backed by their reasons**: it states what to do, then why the practice earns its place. The reasons matter (they are what let you apply a rule to a case it doesn't literally cover), but when you just need to act, the directives and the checklists are the operational surface.
 
 The practices are meant to be portable. Some are supported by shared infrastructure we maintain (a model catalog, a configuration system, a run harness), but nothing below *depends* on it: a project that reuses none of it should still recognize every directive as its own. Where a section describes a capability, read it as "here is what a good setup provides, and what to build or demand if you don't have it", not "here is our specific tool."
 
