@@ -1,5 +1,7 @@
 # Part 8. Security, Dependencies & Supply Chain
 
+*One obligation follows no single change but stands over all of them: keeping the machine safe. Nothing in the story so far would catch a leaked credential, a dependency you may not legally ship, or a pipeline that hands its own keys to a malicious pull request. This part covers those surfaces, and it applies the make-the-standard-executable throughline at its most literal: turn every fix into a gate.*
+
 The parts so far make the system correct and measurable. This one keeps it safe to ship and safe to run. A system can be well-tested, well-evaluated, and still leak a credential, ship a dependency it has no legal right to distribute, or hand a malicious pull request the keys to its own pipeline, and none of those failures show up in a unit test or an eval. Give them their own lens. There are three surfaces (your own code, what you depend on, and the pipeline that builds you) and one principle that ties them together: **find where untrusted input meets a dangerous operation, know what you depend on, and make the pipeline that builds you trustworthy.**
 
 ## First-party code: trace a path from source to sink
@@ -70,6 +72,8 @@ Each surface here has a counterpart that *verifies* it against the real artifact
 **Standing**
 
 - [ ] Each class of fix is now an **executable gate** (SAST + secret scan, CVE+license gate, workflow linter, action-pin checker).
+
+*And the loop begins again: the next idea becomes the next issue. [Part 1. The development lifecycle](lifecycle.md).*
 
 ## See also
 

@@ -1,5 +1,7 @@
 # Part 7. Documentation & Knowledge Capture
 
+*The change shipped and the verdict is in. What survives of it now (for a teammate, a future you, or an agent dispatched with zero conversation history) is only what was written down. This part is about the artifacts that make a decision and its evidence recoverable, and about keeping every written claim true against the code it describes.*
+
 This is the "capture the trail" throughline made concrete. You develop with agents and across long time horizons, so make a decision, and the evidence that justified it, recoverable by someone who wasn't there: a new teammate, a future self, or a subagent dispatched with zero conversation history. Don't treat documentation as an afterthought to the code; it is where the *why* lives, so hold it to nearly the same standard as the code.
 
 ## Aim for docs that stand alone; drifted docs are worse than none
@@ -65,6 +67,8 @@ Write one paragraph as one line in the source; let the renderer wrap. Never hard
 - [ ] Module / symbol **docstrings** updated for any changed purpose or interface.
 - [ ] Markdown source is **not hard-wrapped**.
 - [ ] A **link-and-index checker** guards this in CI where possible.
+
+*Next: the one obligation that stands over every change rather than following any single one. [Part 8. Security, dependencies & supply chain](security-supply-chain.md).*
 
 ## See also
 

@@ -1,5 +1,7 @@
 # Part 4. The Extended Agent Harness
 
+*Your change is about to run: as an agent, or through one. Between it and the model sits machinery that is the same for every agent (model selection, configuration, entry points, reliability), which is exactly why it should belong to none of them. This part is the shared harness: the core-versus-task-layer throughline applied to the plumbing, and, through the headless CLI and the cheap backends, the precondition for every measurement in [Part 6](evaluation.md).*
+
 Don't make a new agent re-solve model selection, configuration, headless execution, or reliability. Those are the same problem every time, so solve them once, in the shared core and configuration tiers, and let each agent author spend their attention on the task-shaped logic that is actually new. Aim for a harness that makes agents **cheap to build, cheap to swap models under, cheap to run headless, and reproducible**. This page lists the capabilities such a harness provides and why each earns its place; the tier boundaries they live in are in [Part 2](codebase-structure.md), and the reason reproducibility matters so much is in [Part 6](evaluation.md).
 
 ## Build the harness, don't inline the plumbing
@@ -59,6 +61,8 @@ Carry this principle into any new external integration: an unbounded external ca
 - [ ] Artifacts land in a **dated, self-describing subfolder**, never at a root.
 - [ ] A **cheap/mock backend** is selectable by flag for the inner loop.
 - [ ] External calls are **bounded** (turn/idle timeouts, hardened HTTP client, time-bounded teardown) via the harness, not per-agent.
+
+*Next: the change ships, and starts doing things no unit test can see. [Part 5. Observability](observability.md).*
 
 ## See also
 

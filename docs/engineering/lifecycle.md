@@ -1,5 +1,7 @@
 # Part 1. The Development Lifecycle
 
+*Here the story begins: an idea on its way to becoming a merged, verified change. This part is the handbook's spine, the one path every piece of work travels, with the human judgment placed at the moments where it pays most. Two throughlines run through it end to end: the trail you capture at every step, and the standards you make executable so that the path holds without heroics.*
+
 Take every piece of work from idea to merged code along one path: issue → spec → plan → implement → review → merge. The individual practices here (TDD, CI, static analysis, code review, an end-to-end quality gate) are standard professional engineering; what is distinctive is running them as *one guided lifecycle* with the human-in-the-loop decisions chosen up front, because you develop *with* agents, and delegating without a spec, a plan, and a verification step is guessing at scale.
 
 ## Front-load the judgment
@@ -150,6 +152,8 @@ Don't treat merging as the end of the trace. After merging a PR linked to an iss
 - [ ] Prompt changes carry a *why* in their commit message.
 - [ ] Explicit human "merge it" obtained; merged with `--rebase`; branch deleted local + remote.
 - [ ] Acceptance criteria verified-then-ticked; release-notes comment posted; issue status set.
+
+*Next: the change needs a home, and the shape of that home decides how cheap every future change will be. [Part 2. Codebase structure](codebase-structure.md).*
 
 ## See also
 

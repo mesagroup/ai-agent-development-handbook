@@ -1,5 +1,7 @@
 # Part 6. Evaluation: How to Decide
 
+*Everything so far was preparation for one question: did the change actually make the product better? Green tests cannot answer it, and neither can a demo that went well. This part answers it with evidence: a dataset fixed before the decision, a metric you can trust, and the honesty disciplines that keep both. The story's loop closes here, because what the measurement teaches becomes the next issue.*
+
 This is where the "evidence over intuition" throughline becomes a method. Don't settle prompt wording, context engineering, model and parameter selection, regex and filter tuning, or pipeline architecture by intuition or by "the tests still pass." Settle them with evidence produced against a dataset you trust. This page is the reasoning; the concrete method you reach for depends on the shape of the decision.
 
 ## The enemy is false confidence
@@ -98,6 +100,8 @@ Each of these *feels* like progress, which is why it's worth naming. Scan for th
 - [ ] **Quality without cost**: declaring a winner on quality alone when the decision was always a trade-off.
 - [ ] **Moving the goalposts mid-experiment**: adjusting thresholds/queries/gold while a comparison runs.
 - [ ] **Demo-driven selection**: an example is not a dataset.
+
+*Next: the loop has closed; what remains is what the change leaves behind. [Part 7. Documentation & knowledge capture](documentation.md).*
 
 ## See also
 

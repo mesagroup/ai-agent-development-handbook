@@ -1,5 +1,7 @@
 # Part 5. Observability
 
+*The change is merged and running, and it is now doing things no test asserted: fetching, spending, taking time in places nobody predicted. Before anyone asks whether it made the product better, you need to see what it actually does. This part is the evidence throughline's first half: instrument before you tune, and keep the instruments from disturbing the thing they observe.*
+
 You cannot improve what you cannot see, and you cannot decide ([Part 6](evaluation.md)) without numbers you trust. Use observability to stop an agent run being a black box: capture what it fetched, how big it was before and after processing, whether it was actually used, how many tokens and seconds and dollars each (sub-)agent and each tool spent. This page is why to instrument, where the instrumentation goes, and how it closes the loop from production back into development.
 
 ## Instrument before you tune
@@ -46,6 +48,8 @@ Don't confine observability to the dev inner loop; use it to feed production exp
 - [ ] Every efficiency number paired with an independent **quality** number.
 - [ ] Exceptions reported/logged/re-raised so the message alone diagnoses the failure, none swallowed.
 - [ ] The same usage record persists into **production** artifacts, not just dev runs.
+
+*Next: the numbers are in hand; now the question they exist for: is it actually better? [Part 6. Evaluation](evaluation.md).*
 
 ## See also
 

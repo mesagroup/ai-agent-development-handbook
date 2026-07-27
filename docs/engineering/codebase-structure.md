@@ -1,5 +1,7 @@
 # Part 2. Codebase Structure
 
+*Your change is specced and planned; now it needs a home. Whether it lands cleanly or ripples into places it had no business touching is decided by the structure it meets on arrival. This part gives that structure one organizing idea (the reusable core versus the disposable task layer) and one invariant that holds the idea in place.*
+
 Organize the codebase into layered tiers with **acyclic dependencies** between them. This is not bureaucratic tidiness, it is the same conviction as the [three-layer document model](three-layer-model.md), applied one level up: **the reusable core is real, and only the task-shaped layer is use-relative.** Lower tiers are the reusable core; the agents and applications are the task layer. Keep the dependencies directional and acyclic to stop the reusable core from quietly acquiring one application's assumptions, and to pay the "wire this up" integration tax once instead of per agent.
 
 ## Order the tiers by reuse
@@ -71,6 +73,8 @@ So any combination worth reusing gets a name. Bundle it into a machine-readable 
 - [ ] Cross-application reuse is via `as_tool()` composition, not internal reach-in.
 - [ ] Backend selection dispatches on a discriminator (`match`/`switch`), not a runtime type test (`isinstance`/`instanceof`).
 - [ ] The layering rule is enforced by an import-linter contract in CI, not left to prose and memory.
+
+*Next: the same core-versus-task-layer shape, one level down, inside the documents your agents work on. [Part 3. The three-layer document model](three-layer-model.md).*
 
 ## See also
 

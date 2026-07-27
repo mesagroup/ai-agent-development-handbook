@@ -1,5 +1,7 @@
 # Part 3. The Three-Layer Document Model
 
+*If your change touches documents, the codebase's shape repeats inside the data. This part draws the same core-versus-task-layer boundary through document knowledge itself: what generalizes to every document, what generalizes across a domain, and what belongs to a single workflow. Hold the boundary and a failure stays localizable to a layer; collapse it and the system just fails, nowhere in particular.*
+
 When a system works with documents, contracts, judgments, legislation, reports, transcripts, through AI agents, hold on to the single most important architectural idea: document knowledge splits into **three layers with different reuse profiles**, and keeping them explicit is what makes the whole system diagnosable, reusable, and separately evaluable. This page is the *why it's generic and why it helps*. It is document-AI-specific by subject, but the shape it teaches, a reusable core with a disposable task layer on top, is the same one the [codebase structure](codebase-structure.md) follows.
 
 ## A document has no privileged decomposition
@@ -62,6 +64,8 @@ The same shape recurs one level up, in [how the codebase is structured](codebase
 - [ ] Refinements run as **versioned, additive passes** over an immutable base, keyed by stable ids, not folded into extraction.
 - [ ] Layer 2 holds only **task-independent domain facts**; task-shaped judgments stay in Layer 3.
 - [ ] A failure can be localized to a **single layer**; each layer is separately evaluable.
+
+*Next: the machinery every change runs on and none should rebuild. [Part 4. The extended agent harness](agent-harness.md).*
 
 ## See also
 
