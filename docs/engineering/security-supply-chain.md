@@ -12,6 +12,15 @@ Report a real security finding as a **path from an untrusted source to a dangero
 - **Sinks** (dangerous operations): shell/subprocess, `eval`/`exec`, deserialization (`pickle`, unsafe `yaml.load`), SQL, filesystem paths, outbound requests (SSRF), template rendering.
 - **Neutralize at the sink** (parameterized queries, an argument-list subprocess with no shell, safe deserialization, hardened XML) and **validate/canonicalize at the boundary** (allowlists, path-containment checks against traversal and zip-slip, URL-host allowlisting against SSRF).
 
+## Grant the agent the least privilege it needs
+
+The rule above treats what a model or tool *returns* as untrusted. The other half of the agent's security surface is what it is *allowed to do*: its granted powers are an attack surface in their own right, and the handbook has so far said less about them than about its inputs. Reason about them explicitly.
+
+The danger to avoid is concentrating the **lethal trifecta** in one agent: access to private data, exposure to untrusted content, and the ability to act on the outside world (to write, to spend, or to exfiltrate). Any one alone is ordinary; any two are manageable; all three in one agent mean a prompt injection carried in the untrusted content can read the private data and ship it out, with no further foothold required. Keep the three apart, and put a human gate on the acting edge whenever a task genuinely needs more than one of them at once.
+
+- **Default to read-only.** A diagnostic, research, or analysis agent should get read-only tool and MCP access: it can look at everything and change nothing.
+- **Grant write access narrowly.** Widen from read-only per tool and per purpose, never wholesale, and never grant an agent production or pipeline write access for convenience. That is the least-privilege rule the pipeline itself runs on (below), applied to the agent.
+
 ## Secrets: never commit them, and rotate: don't just delete
 
 Keep no credential in source, defaults, tests, fixtures, or notebooks. A secret *read from* the environment is fine; a secret *literal* is not. And the rule that is easy to get wrong: treat a committed secret as **live until rotated.** Deleting the line leaves it in git history, where it is still exploitable, rotate the credential at its provider first, then remove it, then purge history if it was ever pushed. Never merely "suppress" this one.
@@ -51,6 +60,12 @@ Each surface here has a counterpart that *verifies* it against the real artifact
 - [ ] Each finding names a real **source → sink** path, verified in the code.
 - [ ] Model/tool outputs treated as **untrusted** input.
 - [ ] Dangerous sinks neutralized at the sink; input validated/canonicalized at the boundary.
+
+**Agent privileges**
+
+- [ ] Each agent audited against the **lethal trifecta**: no single agent holds private-data access, untrusted-content exposure, and an external-action power at once without a human gate.
+- [ ] Diagnostic / research agents default to **read-only** tool and MCP access.
+- [ ] No **convenience write grants** to production or the pipeline; write access is per-tool and per-purpose.
 
 **Secrets**
 
