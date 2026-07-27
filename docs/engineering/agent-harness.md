@@ -8,7 +8,7 @@ A word on the term. Industry usage has converged on *agent = model + harness*: t
 
 ## Build the harness, don't inline the plumbing
 
-The temptation with a new agent is to wire a model client, a config object, and an entry point directly into the agent module, it feels faster. It is faster once. The second agent pays the tax again, the third diverges subtly from the first two, and now "swap the model" or "run this headless for an eval" means editing three places that drift apart. So instrument and configure once, reuse across every agent, and let the marginal agent be mostly its prompt and its tools.
+The temptation with a new agent is to wire a model client, a config object, and an entry point directly into the agent module; it feels faster. It is faster once. The second agent pays the tax again, the third diverges subtly from the first two, and now "swap the model" or "run this headless for an eval" means editing three places that drift apart. So instrument and configure once, reuse across every agent, and let the marginal agent be mostly its prompt and its tools.
 
 Put the production-reliability decisions in the harness too, so no agent has to remember them. An unbounded call to a model or an external tool is a production hang waiting to happen; make *bounding* the default, not an afterthought each author reinvents.
 
