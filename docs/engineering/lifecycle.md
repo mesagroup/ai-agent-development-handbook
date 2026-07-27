@@ -33,7 +33,7 @@ Not every change deserves the same human attention, and spending it uniformly st
 
 Match one to the other. Core-differentiator code gets in-the-loop treatment, co-design and a second reviewer, because a subtle error there is expensive and the understanding must not live in one head. Supporting code runs on-the-loop; a commodity integration behind a good guardrail can run out-of-the-loop. This does *not* mean hand-writing the core yourself: even core-domain code is agent-assisted here (see [the stance](README.md)); what scales up with criticality is the *oversight and review*, not who types.
 
-Two boundaries keep this from becoming a licence to cut corners. First, the two always-on bookend gates (spec review and the merge gate) never scale off, whatever the criticality: only the *optional* gates and the depth of implementation involvement move. Second, criticality is a different axis from reuse: a commodity utility can sit in the reusable core, and a core differentiator can live in a single agent's task layer ([Part 2](codebase-structure.md)). Classify a change on both, then place your attention accordingly.
+Two boundaries keep this from becoming a licence to cut corners. First, the two always-on bookend gates (spec review and the merge gate) never scale off, whatever the criticality: only the *optional* gates and the depth of implementation involvement move. Second, criticality is a different axis from reuse: a commodity utility can sit in the reusable core, and a core differentiator can live in a single agent's task layer ([Part 2](codebase-structure.md)). Classify a change on both; then place your attention accordingly.
 
 ## Step-by-step: one issue, end to end
 
@@ -69,7 +69,7 @@ write a failing test
 
 Ship new code **with** unit tests, and don't let adding code reduce overall coverage. Cover the deterministic, pure logic of anything you add (parsing, scoring, transformation, id-mapping, verdict application, regex behaviour) *before the change is done*, because a bug in a scorer's math or an adjudicator's id-mapping silently corrupts every result it touches. You may mock or defer I/O-bound edges (network, storage, model calls) to integration tests. Don't exempt analysis and tooling scripts: exercise their pure helpers with unit tests too.
 
-One exception earns its keep: for a pure like-for-like refactor or port, a throwaway battery that pins the *current* behaviour is legitimate scaffolding. Write it to prove the port changed nothing, then delete it once the old and new paths agree; it was a safety harness for the move, not a permanent test of the design.
+One exception earns its keep: for a pure like-for-like refactor or port, a throwaway battery that pins the *current* behaviour is legitimate scaffolding. Write it to prove the port changed nothing, and delete it once the old and new paths agree; it was a safety harness for the move, not a permanent test of the design.
 
 ### Chase caught regressions, not coverage percentage
 
