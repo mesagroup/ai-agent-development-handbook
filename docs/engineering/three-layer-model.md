@@ -26,6 +26,19 @@ Resist the seductive shortcut in document AI: dropping the raw document (or a te
 
 The cost is not just the error; it is that the error is **undiagnosable.** With the layers explicit, each step is separately inspectable and a failure is localizable to one layer. Skip them and you cannot answer the only question that matters when the answer is wrong: *which layer failed?* A layered system fails in a place; a skipped-layer system just fails. (Going back to re-read a specific span that the lower layers point to is not skipping a layer, it is using them to navigate. What the rule forbids is the ungrounded one-shot from raw document to final answer.) In practice the rule is most often violated by Layer 3 trying to short-circuit Layer 1: "extract the parties from this raw text", so re-explain it at the code review of every new agent.
 
+```d2 title="The three layers, and the shortcut that skips them"
+doc: The document
+l1: "Layer 1: intrinsic structure"
+l2: "Layer 2: domain entities"
+l3: "Layer 3: workflow knowledge"
+ans: The answer
+doc -> l1: perception
+l1 -> l2: grounding
+l2 -> l3: inference
+l3 -> ans
+doc -> l3: the shortcut that makes a failure undiagnosable {style.stroke-dash: 4}
+```
+
 ## Hold the contracts that make layering pay off
 
 Layering is only worth the cost if a few contracts hold. Treat these as the load-bearing engineering decisions.

@@ -22,6 +22,26 @@ Pick your own tier list; what matters is the *ordering principle*. Sort the code
 
 Hold one invariant: **an import may only point at a more-reusable tier than the one it lives in, and the dependency graph has no cycles.** Don't let core infrastructure import an application's types, or an integration import an agent. Reuse across applications by *composition* (expose one agent to another as a tool), never by one application reaching into another's internals.
 
+```d2 title="Tiers, and the direction an import may point"
+task: Task layer {
+  direction: right
+  a: Agent A
+  b: Agent B
+  a -> b: as_tool {style.stroke-dash: 4}
+}
+core: Reusable core {
+  grid-columns: 1
+  ev: Evaluation
+  cap: Capabilities
+  integ: External integrations
+  conf: Configuration
+  infra: Core infrastructure
+  types: Shared schemas and types
+}
+task -> core: imports point at the core
+core -> task: never, and never in a cycle {style.stroke-dash: 4}
+```
+
 Write the rule down explicitly for your project, which tier may import which, so it is enforceable, ideally by an import-boundary linter in CI rather than by memory ([import-linter](https://import-linter.readthedocs.io/) in Python, [dependency-cruiser](https://github.com/sverweij/dependency-cruiser) in the JavaScript ecosystem).
 
 ## Why the rule matters
