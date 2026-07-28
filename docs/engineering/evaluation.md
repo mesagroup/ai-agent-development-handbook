@@ -61,18 +61,16 @@ The approaches are not interchangeable; each answers a different question. Reach
 
 The funnel exists precisely so you spend expensive semantic evaluation only on candidates that already cleared the cheap gates.
 
-```d2 title="The staged screening funnel"
-c: Many candidates
-g1: Cheap deterministic gates
-g2: Composite score
-g3: Semantic scoring, LLM judge
-h: Human adjudication
-ship: The one you ship
-c -> g1: everything
-g1 -> g2: the clearly bad eliminated
-g2 -> g3: survivors only
-g3 -> h: the residual only
-h -> ship
+```d2 title="The staged screening funnel; each stage is sized by what survives it"
+grid-rows: 1
+horizontal-gap: 4
+*.shape: step
+c: "Many\ncandidates" {width: 100; height: 132}
+g1: "Cheap\ndeterministic\ngates" {width: 106; height: 104}
+g2: "Composite\nscore" {width: 96; height: 80}
+g3: "Semantic\nscoring,\nLLM judge" {width: 96; height: 62}
+h: "Human\nadjudication" {width: 104; height: 46}
+ship: "The one\nyou ship" {width: 88; height: 34}
 ```
 
 ## Grow the eval into a gate
