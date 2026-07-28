@@ -12,6 +12,17 @@ Don't tune knobs before you can see their effect: that is guessing with extra st
 
 Before deciding what to capture, decide where it rides. Send analysis metadata through a **side channel the model never sees.** Every extra byte in the prompt costs tokens and risks distracting the model's reasoning, so persist per-item timing, sizes, utilization, and cost *alongside* the run in the artifacts; don't ride them inside the prompt. Apply the same discipline to any bookkeeping a tool must carry but the model shouldn't read: attach it to a metadata envelope the downstream code consumes, not to the tool output the model sees. Observability that changes the thing it observes is not observability.
 
+```d2 title="The observability side channel"
+tool: A tool runs
+ctx: Model context
+side: Side channel
+art: Run artifacts, persisted into production
+tool -> ctx: the result the model reads
+tool -> side: the metadata envelope
+side -> art: timing, tokens, cost, utilization
+side -> ctx: never {style.stroke-dash: 4}
+```
+
 ## Capture per-(sub)agent, per-tool usage
 
 With the side channel in place, this is what to put on it. Have the run harness produce a per-(sub)agent and per-tool usage record: tokens (including cache read and write, which are easy to forget), wall-clock timing, agent-loop cycles, and per-tool total time and cost. Give it a *typed* shape (structured metadata sub-models per agent, not a loose dict) so the record is analyzable rather than a bag of stringly-typed keys.

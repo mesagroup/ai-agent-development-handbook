@@ -61,6 +61,20 @@ The approaches are not interchangeable; each answers a different question. Reach
 
 The funnel exists precisely so you spend expensive semantic evaluation only on candidates that already cleared the cheap gates.
 
+```d2 title="The staged screening funnel"
+c: Many candidates
+g1: Cheap deterministic gates
+g2: Composite score
+g3: Semantic scoring, LLM judge
+h: Human adjudication
+ship: The one you ship
+c -> g1: everything
+g1 -> g2: the clearly bad eliminated
+g2 -> g3: survivors only
+g3 -> h: the residual only
+h -> ship
+```
+
 ## Grow the eval into a gate
 
 An eval does not start life as a merge blocker; it earns that authority in stages. First run it **offline** against a fixed dataset, to answer a question you are asking deliberately. Once it is stable, run it in **shadow mode**: score real production traffic and log the result, but let nothing block on it, so you learn what the metric does on live inputs (and where it is noisy) before it can stop a merge. Only after it has proven trustworthy in shadow does it become a **merge-blocking CI gate**. Promote an eval past a rung it has not earned and you gate on noise, which teaches the team to ignore the gate, which is worse than having none.

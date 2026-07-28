@@ -12,6 +12,15 @@ Report a real security finding as a **path from an untrusted source to a dangero
 - **Sinks** (dangerous operations): shell/subprocess, `eval`/`exec`, deserialization (`pickle`, unsafe `yaml.load`), SQL, filesystem paths, outbound requests (SSRF), template rendering.
 - **Neutralize at the sink** (parameterized queries, an argument-list subprocess with no shell, safe deserialization, hardened XML) and **validate/canonicalize at the boundary** (allowlists, path-containment checks against traversal and [zip-slip](https://security.snyk.io/research/zip-slip-vulnerability), URL-host allowlisting against [SSRF](https://cheatsheetseries.owasp.org/)).
 
+```d2 title="A finding is a path from a source to a sink"
+src: Untrusted source
+b: Validate and canonicalize at the boundary {shape: hexagon}
+app: Your code
+n: Neutralize at the sink {shape: hexagon}
+sink: Dangerous sink
+src -> b -> app -> n -> sink
+```
+
 ## Grant the agent the least privilege it needs
 
 The rule above treats what a model or tool *returns* as untrusted. The other half of the agent's security surface is what it is *allowed to do*: its granted powers are an attack surface in their own right, and the handbook has so far said less about them than about its inputs. Reason about them explicitly.
