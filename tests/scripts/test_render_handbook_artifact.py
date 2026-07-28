@@ -233,6 +233,22 @@ def test_d2_preludes_shrink_the_label_font_in_both_variants():
         assert "**.style.font-size: 12" in prelude
 
 
+def test_d2_preludes_size_connection_labels_too():
+    # `**` reaches shapes only. Setting it alone left every edge label at d2's
+    # 16px default, larger than the boxes it ran between and wide enough to
+    # cover the short arrows it sat on.
+    for prelude in rh.D2_PRELUDES.values():
+        assert "(** -> **)[*].style.font-size: 12" in prelude
+
+
+def test_d2_rank_gap_is_long_enough_to_show_an_unlabelled_arrow():
+    # The gap is the entire length of an edge carrying no label, arrowhead
+    # included. Below roughly 20 such an arrow collapses to just its head.
+    args = rh._D2_LAYOUT_ARGS
+    gap = int(args[args.index("--elk-nodeNodeBetweenLayers") + 1])
+    assert 20 <= gap < 70
+
+
 def test_d2_icon_classes_declares_both_classes_and_writes_the_files():
     block = rh.d2_icon_classes("light")
     assert "step:" in block and "human:" in block

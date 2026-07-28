@@ -70,12 +70,18 @@ LINKMAP: dict[str, str] = {stem + ".md": "#" + anchor for anchor, stem, _ in PAR
 # default vertical gap made every multi-step diagram taller than a laptop
 # viewport, forcing the reader to scroll a figure that is meant to be taken in
 # at a glance. ELK's `nodeNodeBetweenLayers` is exactly that knob: dropping it
-# from 70 to 15 cuts the tallest diagram roughly in half with no loss of
+# from 70 to 22 cuts the tallest diagram roughly in half with no loss of
 # legibility, because the boxes were never the problem, the air between the
 # ranks was.
+#
+# 22 rather than tighter because this is also the *whole* length of an edge
+# that carries no label, arrowhead included: below about 20 an unlabelled arrow
+# collapses to little more than its head. It is the horizontal gap in a
+# `direction: right` diagram, so raising it also widens the story arc, which is
+# why that one sets a narrower fixed box to stay inside the measure.
 _D2_LAYOUT_ARGS = [
     "--layout", "elk",
-    "--elk-nodeNodeBetweenLayers", "15",
+    "--elk-nodeNodeBetweenLayers", "22",
     "--elk-edgeNodeBetweenLayers", "15",
     "--elk-padding", "[top=20,left=20,bottom=20,right=20]",
 ]  # fmt: skip
@@ -83,7 +89,11 @@ _D2_LAYOUT_ARGS = [
 # d2 defaults to 16px labels, which sets the minimum box size and so drives the
 # whole diagram's footprint. 12px reads as figure furniture next to the body
 # serif instead of competing with it, and shrinks every box in both axes.
-_D2_FONT_SIZE = "**.style.font-size: 12\n"
+#
+# Both globs are needed: `**` reaches shapes only, so setting it alone left
+# every connection label at the 16px default, visibly larger than the boxes it
+# ran between and wide enough to cover the short arrows it sat on.
+_D2_FONT_SIZE = "**.style.font-size: 12\n(** -> **)[*].style.font-size: 12\n"
 
 # A person outline for marking a step a human owns, plus an empty icon of the
 # same footprint. Both are generated rather than committed as assets: the

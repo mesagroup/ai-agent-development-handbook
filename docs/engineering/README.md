@@ -23,7 +23,7 @@ Do not expect the loop to terminate. That the story ends where it began is not a
 ```d2 title="The story of a change; the marked steps are its human gates"
 direction: right
 *.class: step
-**.width: 74
+**.width: 70
 **.height: 56
 idea: An idea
 issue: Issue
