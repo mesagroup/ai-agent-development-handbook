@@ -39,15 +39,15 @@ Silence is not one failure; it is three. Before touching code, pull the persiste
 Unlike the hang above, this failure announces itself: you get errors, sporadically, on calls that succeed the rest of the time. That pattern is the signature of a dependency that is flaky rather than broken, and the harness, not the agent, is where it should be absorbed. Check first whether the outbound path retries at all: a single attempt against a service with a small but real error rate makes every run a coin toss, and bounded retries with backoff turn most of those failures into a slightly slower success. Then check the blast radius, because without a circuit breaker one degraded dependency keeps being called by every run, and a partial outage becomes a fleet-wide slowdown. Finally, make sure the retries are visible: a retry that eventually succeeds still spends tokens, seconds, and money, and a cost or latency figure that omits it will quietly mislead the next comparison you run.
 
 - No bounded retries with backoff on the outbound path: make bounding the default, via the hardened HTTP client ([Part 5](agent-harness.md)).
-- No circuit breaker, so one degraded dependency poisons every run: build the harness, don't inline the plumbing ([Part 5](agent-harness.md)).
+- No circuit breaker, so one degraded dependency poisons every run: the breaker rule under make bounding the default ([Part 5](agent-harness.md)).
 - Retries that happen but never reach the numbers: account for the full cost, not the convenient part ([Part 6](observability.md)).
 
 ### It loops without progress
 
 The run is alive, spending, and getting nowhere: the same tool called with near-identical arguments, the cycle count climbing, the answer no closer. Read the agent-loop cycle counts and the per-tool record first (the per-(sub)agent, per-tool capture in [Part 6](observability.md)), then the repeated calls themselves in the artifacts the run persisted; the shape of the repetition names the cause. A loop that would run forever if you let it is a missing bound, and bounds belong in the harness rather than in the model's good intentions. A loop that does stop, but late, usually means the procedure never said what done looks like, so the agent keeps polishing an answer that was finished several cycles ago. A loop that reissues the same call because the result was unusable is not a looping problem at all; see the tool-misuse entry below. And when the bounds exist, the stop condition is explicit, and the tools return clean output, what remains is a model that cannot plan its way through the task, which is a model-choice question settled by measurement rather than by prompt patches.
 
-- No cycle or budget bound in the harness: make bounding the default, extending its bounding rule to the agent loop's own cycles ([Part 5](agent-harness.md)).
-- An SOP with no stop condition or completion criterion: prompt and SOP engineering ([Part 2](implementation-disciplines.md)).
+- No cycle or budget bound in the harness: make bounding the default, which caps the agent loop's own cycles ([Part 5](agent-harness.md)).
+- An SOP with no stop condition or completion criterion: prompt and SOP engineering, where the procedure names what done looks like and when to exit early ([Part 2](implementation-disciplines.md)).
 - A tool returning output the agent cannot use, so it retries blindly: the tool-misuse entry below.
 - A model too weak to plan its way through the task: pick the approach that fits the decision, and settle the swap with a staged evaluation funnel ([Part 7](evaluation.md)).
 
@@ -58,7 +58,7 @@ The run is alive, spending, and getting nowhere: the same tool called with near-
 The window did not get smaller, so ask what grew. Before raising any limit, read one failing run's context by origin: the question is which producer put the bytes there, and the answer is rarely the user's query. The first suspect is bookkeeping (timing, sizes, provenance, analysis metadata) riding inside the prompt instead of on a side channel the model never sees. The second is a tool that hands back whatever the upstream service gave it, because nothing in the harness ever decided what a too-large result should become. The third is quieter and more expensive: the run fetches far more than it uses, and only per-item instrumentation will show you that, so the fix is less retrieval rather than a bigger window.
 
 - Bookkeeping and analysis metadata riding inside the prompt: keep observability out of the model's context ([Part 6](observability.md)).
-- Tool output with no truncation or summarization strategy: make bounding the default, extending its unbounded-call rule to size as well as time ([Part 5](agent-harness.md)).
+- Tool output with no truncation or summarization strategy: make bounding the default, which bounds the size of what a tool returns as well as the time it takes ([Part 5](agent-harness.md)).
 - Over-fetching that instrumentation would show as unused: the utilization metric that per-(sub)agent, per-tool capture makes visible ([Part 6](observability.md)).
 
 ### It hallucinates

@@ -10,7 +10,7 @@ A word on the term. Industry usage has converged on *agent = model + harness*: t
 
 The temptation with a new agent is to wire a model client, a config object, and an entry point directly into the agent module; it feels faster. It is faster once. The second agent pays the tax again, the third diverges subtly from the first two, and now "swap the model" or "run this headless for an eval" means editing three places that drift apart. So instrument and configure once, reuse across every agent, and let the marginal agent be mostly its prompt and its tools.
 
-Put the production-reliability decisions in the harness too, so no agent has to remember them. An unbounded call to a model or an external tool is a production hang waiting to happen; make *bounding* the default, not an afterthought each author reinvents.
+Put the production-reliability decisions in the harness too, so no agent has to remember them. An unbounded call to a model or an external tool, an agent loop with no cycle budget, and a tool result with no size limit are each a production incident waiting to happen; make *bounding* the default, not an afterthought each author reinvents.
 
 ## Resolve models through aliases, never hard-coded IDs
 
@@ -49,10 +49,13 @@ Treat a cheap inner loop as a first-class capability, not just a cost saving: it
 Bake the production-reliability defaults into the harness so no agent author has to rediscover them under an incident:
 
 - **Set wall-clock and idle timeouts** on agent turns and streaming loops, so a stalled or slowly-dribbling response can no longer hang a run past a usable window with nothing to rescue it.
-- **Harden the outbound HTTP client**: explicit connect and read timeouts, bounded retries, TCP keep-alive, so a dropped socket surfaces as an error instead of an indefinite wait.
+- **Harden the outbound HTTP client**: explicit connect and read timeouts, bounded retries, TCP keep-alive, so a dropped socket surfaces as an error instead of an indefinite wait. Retry only what is safe to repeat, though: a retried non-idempotent call can land twice (a duplicate payment, a duplicate job submission), so give the operation an idempotency key or a deduplicated write *before* you put it behind a retry.
+- **Trip a circuit breaker** on a dependency that keeps failing: after a threshold of failures, stop calling it for a cooldown and fail fast instead. Retries rescue a flaky dependency and punish a broken one, because without a breaker every run in flight pays the full retry budget against a service that is already down, and one degraded dependency becomes a fleet-wide slowdown.
+- **Bound the agent loop itself**: cap the cycles and the token budget a single run may spend. A loop that stops converging then ends as a diagnosable budget error rather than spinning until a human notices the bill, and the cap belongs in the harness because the model's own judgment about when to stop is exactly what has failed.
+- **Bound the size of what comes back**, not only how long it takes: decide in the harness what an oversized tool result becomes, whether truncated, summarized, or spilled to an artifact the model can fetch on demand. A tool that returns whatever the upstream service handed it will eventually return the response that fills the context window, and that failure surfaces far from the tool that caused it.
 - **Time-bound teardown** of external resources (browsers, sessions, worker threads), so a wedged close cannot hang the run or leak a billed resource.
 
-Carry this principle into any new external integration: an unbounded external call is a latent production hang. Bound it at the harness level, and the failure becomes a clean, diagnosable error instead of a silent stall, which is also what makes the production feedback loop in [Part 6](observability.md) possible.
+Carry this principle into any new integration and any new loop: an unbounded call, an unbounded cycle count, and an unbounded payload are each a latent production failure, differing only in which resource they exhaust. Bound them at the harness level, and the failure becomes a clean, diagnosable error instead of a silent stall, which is also what makes the production feedback loop in [Part 6](observability.md) possible.
 
 ## Checklist: standing up a new agent
 
@@ -62,7 +65,8 @@ Carry this principle into any new external integration: an unbounded external ca
 - [ ] A **headless CLI** entry point exists; it is the same path the eval harness drives.
 - [ ] Artifacts land in a **dated, self-describing subfolder**, never at a root.
 - [ ] A **cheap/mock backend** is selectable by flag for the inner loop.
-- [ ] External calls are **bounded** (turn/idle timeouts, hardened HTTP client, time-bounded teardown) via the harness, not per-agent.
+- [ ] External calls are **bounded in time** (turn/idle timeouts, hardened HTTP client, time-bounded teardown) via the harness, not per-agent, and retries wrap only operations that are safe to repeat.
+- [ ] The **loop and the payload** are bounded too: a cycle/budget cap on the agent loop, a size strategy for oversized tool output, and a breaker on a dependency that keeps failing.
 
 *Next: the change ships, and starts doing things no unit test can see. [Part 6. Observability](observability.md).*
 
