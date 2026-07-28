@@ -25,7 +25,7 @@ Hold one invariant: **an import may only point at a more-reusable tier than the 
 ```d2 title="Tiers, and the direction an import may point"
 task: Task layer {
   direction: right
-  width: 600
+  width: 240
   a: Agent A
   b: Agent B
   a -> b: as_tool {style.stroke-dash: 4}
