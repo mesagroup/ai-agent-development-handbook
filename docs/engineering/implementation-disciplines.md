@@ -8,12 +8,14 @@ The lifecycle placed the human judgment; this part equips the stations a change 
 
 Run this bite-sized loop for every feature and bugfix:
 
-```
-write a failing test
-  → run it (see it fail)
-  → minimal implementation
-  → run it (passes)
-  → commit
+```d2 title="The TDD loop"
+t: Write a failing test
+f: Run it, see it fail
+i: Write the minimal code
+p: Run it, see it pass
+c: Commit
+t -> f -> i -> p -> c
+c -> t: the next behaviour {style.stroke-dash: 4}
 ```
 
 Ship new code **with** unit tests, and don't let adding code reduce overall coverage. Cover the deterministic, pure logic of anything you add (parsing, scoring, transformation, id-mapping, verdict application, regex behaviour) *before the change is done*, because a bug in a scorer's math or an adjudicator's id-mapping silently corrupts every result it touches. You may mock or defer I/O-bound edges (network, storage, model calls) to integration tests. Don't exempt analysis and tooling scripts: exercise their pure helpers with unit tests too.

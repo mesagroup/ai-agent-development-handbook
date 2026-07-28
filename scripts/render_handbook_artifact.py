@@ -6,10 +6,15 @@
 
 The prose is produced verbatim by a Markdown converter over
 ``docs/engineering/*.md``, so the HTML text is identical to the repo; only
-cross-links (``foo.md`` -> ``#anchor``) and table / task-list markup are
-transformed, and the result is wrapped in a styled, single-page shell (sidebar
-nav, light/dark theme toggle, scroll-spy). Re-run after editing any doc to
-regenerate the shareable artifact; there is no hand-maintained copy to drift.
+cross-links (``foo.md`` -> ``#anchor``), table / task-list markup, and ```d2
+fences are transformed, and the result is wrapped in a styled, single-page
+shell (sidebar nav, light/dark theme toggle, scroll-spy). Re-run after editing
+any doc to regenerate the shareable artifact; there is no hand-maintained copy
+to drift.
+
+Requires the `d2` CLI on PATH (``brew install d2``): every ```d2 fence is
+rendered twice, once per theme palette, and inlined as SVG so the artifact
+stays self-contained under a strict CSP.
 
 Usage::
 
@@ -30,6 +35,8 @@ from __future__ import annotations
 
 import argparse
 import re
+import subprocess
+from dataclasses import dataclass
 from pathlib import Path
 
 # (anchor id, markdown stem, sidebar label). Order defines the page order;
@@ -52,6 +59,203 @@ PARTS: list[tuple[str, str, str]] = [
 
 # `<stem>.md` -> in-page anchor, used to turn repo cross-links into scroll links.
 LINKMAP: dict[str, str] = {stem + ".md": "#" + anchor for anchor, stem, _ in PARTS}
+
+# The handbook's own palette, prepended to every diagram's source so the
+# rendered SVG uses the same hex values as the artifact's CSS variables and the
+# diagrams read as page furniture rather than as pictures from another system.
+# Two variants rather than d2's own `--dark-theme`, because that follows the
+# `prefers-color-scheme` query alone and the page carries a manual theme button.
+D2_PRELUDES: dict[str, str] = {
+    "light": (
+        "style.fill: transparent\n"
+        '**.style.fill: "#f7f6f2"\n'
+        '**.style.stroke: "#c3bfb1"\n'
+        '**.style.font-color: "#1c2024"\n'
+        "**.style.shadow: false\n"
+        '(** -> **)[*].style.stroke: "#9a6a1c"\n'
+        '(** -> **)[*].style.font-color: "#4b5057"\n'
+    ),
+    "dark": (
+        "style.fill: transparent\n"
+        '**.style.fill: "#1e2126"\n'
+        '**.style.stroke: "#3a4048"\n'
+        '**.style.font-color: "#e9e7df"\n'
+        "**.style.shadow: false\n"
+        '(** -> **)[*].style.stroke: "#d9a441"\n'
+        '(** -> **)[*].style.font-color: "#adaaa0"\n'
+    ),
+}
+
+_D2_FENCE_RE = re.compile(
+    r"^```d2(?P<meta>[^\n]*)\n(?P<body>.*?)^```[ \t]*$", re.DOTALL | re.MULTILINE
+)
+_D2_TITLE_RE = re.compile(r'title="([^"]+)"')
+_D2_PLACEHOLDER_RE = re.compile(r'<div class="d2ph" data-i="(\d+)"></div>')
+_SVG_OPEN_RE = re.compile(r"<svg\b[^>]*>")
+_VIEWBOX_RE = re.compile(r'viewBox="[-\d.]+ [-\d.]+ ([\d.]+) ([\d.]+)"')
+
+
+@dataclass(frozen=True)
+class D2Block:
+    """One ```d2 fence lifted out of a handbook page."""
+
+    index: int
+    title: str
+    source: str
+
+
+def extract_d2_blocks(md: str, stem: str) -> tuple[str, list[D2Block]]:
+    """Replace every ```d2 fence with a placeholder and return the blocks.
+
+    Fences are lifted out of the Markdown *before* the converter runs, so the
+    rendered SVG never has to be recovered from an entity-escaped `<pre><code>`
+    block. python-markdown passes a block-level `<div>` through untouched.
+
+    Args:
+        md: The page's Markdown source.
+        stem: The page's filename stem, used in error messages and ids.
+
+    Returns:
+        The Markdown with each fence replaced by its placeholder, and the
+        extracted blocks in document order.
+
+    Raises:
+        ValueError: A fence carries no `title="..."`.
+    """
+    blocks: list[D2Block] = []
+
+    def repl(match: re.Match[str]) -> str:
+        title = _D2_TITLE_RE.search(match.group("meta"))
+        if title is None:
+            raise ValueError(
+                f'{stem}.md: a ```d2 fence has no title="..."; the title becomes '
+                "the figure caption and the diagram's accessible name, so an "
+                "untitled diagram would ship unlabeled."
+            )
+        index = len(blocks)
+        blocks.append(
+            D2Block(index=index, title=title.group(1), source=match.group("body"))
+        )
+        return f'<div class="d2ph" data-i="{index}"></div>'
+
+    return _D2_FENCE_RE.sub(repl, md), blocks
+
+
+def run_d2(source: str, salt: str, variant: str) -> str:
+    """Render one diagram to SVG with the `d2` CLI.
+
+    Args:
+        source: The fence body.
+        salt: Appended to every generated SVG element id, so two variants of one
+            diagram (or two identical diagrams) cannot collide on one page.
+        variant: Which palette prelude to prepend, `light` or `dark`.
+
+    Returns:
+        The SVG markup, with no XML prolog.
+
+    Raises:
+        SystemExit: The `d2` CLI is absent, or it rejected the source.
+    """
+    command = [
+        "d2",
+        "--stdout-format", "svg",
+        "--no-xml-tag",
+        "--theme", "0",
+        "--layout", "dagre",
+        "--pad", "10",
+        "--salt", salt,
+        "-", "-",
+    ]  # fmt: skip
+    try:
+        proc = subprocess.run(
+            command,
+            input=D2_PRELUDES[variant] + source,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except FileNotFoundError as exc:
+        raise SystemExit(
+            "d2 CLI not found on PATH. The handbook renderer turns ```d2 fences "
+            "into inline SVG and cannot produce the artifact without it. Install "
+            "it with `brew install d2`, or take a binary from "
+            "https://github.com/terrastruct/d2/releases."
+        ) from exc
+    if proc.returncode != 0:
+        raise SystemExit(
+            f"d2 failed on diagram {salt!r} (exit {proc.returncode}):\n"
+            f"{proc.stderr.strip()}"
+        )
+    return proc.stdout
+
+
+def prepare_svg(svg: str, caption_id: str) -> str:
+    """Make one d2 SVG embeddable: give it an intrinsic size and a name.
+
+    d2 puts only a `viewBox` on the outer element, but `max-width: 100%;
+    height: auto` needs an intrinsic size to scale against, so the viewBox's
+    dimensions are copied onto the tag as `width`/`height`.
+
+    Args:
+        svg: Raw d2 output.
+        caption_id: The `id` of the `<figcaption>` that names this diagram.
+
+    Returns:
+        The SVG with `width`, `height`, `role`, and `aria-labelledby` added.
+
+    Raises:
+        ValueError: The output has no `<svg>` element, or none with a viewBox.
+    """
+    opening = _SVG_OPEN_RE.search(svg)
+    if opening is None:
+        raise ValueError("d2 produced output with no <svg> element")
+    tag = opening.group(0)
+    viewbox = _VIEWBOX_RE.search(tag)
+    if viewbox is None:
+        raise ValueError("the outer <svg> element has no viewBox to size from")
+    sized = (
+        f'{tag[:-1]} width="{viewbox.group(1)}" height="{viewbox.group(2)}"'
+        f' role="img" aria-labelledby="{caption_id}">'
+    )
+    return svg[: opening.start()] + sized + svg[opening.end() :]
+
+
+def diagram_figure(stem: str, block: D2Block, light: str, dark: str) -> str:
+    """Wrap both rendered variants and their caption in one `<figure>`."""
+    caption_id = f"dcap-{stem}-{block.index}"
+    return (
+        '<figure class="diagram">'
+        f'<span class="d2var d2-light">{prepare_svg(light, caption_id)}</span>'
+        f'<span class="d2var d2-dark">{prepare_svg(dark, caption_id)}</span>'
+        f'<figcaption id="{caption_id}">{block.title}</figcaption>'
+        "</figure>"
+    )
+
+
+def substitute_d2(html: str, figures: dict[int, str]) -> str:
+    """Replace each d2 placeholder with its rendered figure.
+
+    Raises:
+        ValueError: A placeholder has no matching figure.
+    """
+
+    def repl(match: re.Match[str]) -> str:
+        index = int(match.group(1))
+        if index not in figures:
+            raise ValueError(f"no rendered figure for d2 placeholder {index}")
+        return figures[index]
+
+    return _D2_PLACEHOLDER_RE.sub(repl, html)
+
+
+def count_em_dashes(html: str) -> int:
+    """Count em-dashes in both the literal and the numeric-entity form.
+
+    `to_ascii_entities` runs before this counter and has already rewritten the
+    literal character to `&#8212;`, so counting only the character reported zero
+    whatever the sources held, which made the handbook's em-dash gate vacuous.
+    """
+    return html.count("—") + html.count("&#8212;")
 
 
 def rewrite_links(html: str, linkmap: dict[str, str]) -> tuple[str, list[str]]:
@@ -108,8 +312,23 @@ def render_doc(
     import markdown  # lazy: keeps the pure helpers importable without the dep
 
     md = (docs_dir / f"{stem}.md").read_text()
+    md, blocks = extract_d2_blocks(md, stem)
     html = markdown.markdown(md, extensions=["tables", "fenced_code", "sane_lists"])
-    return post_process(html, linkmap)
+    html, unmapped = post_process(html, linkmap)
+    if blocks:
+        html = substitute_d2(
+            html,
+            {
+                block.index: diagram_figure(
+                    stem,
+                    block,
+                    run_d2(block.source, f"{stem}-{block.index}-light", "light"),
+                    run_d2(block.source, f"{stem}-{block.index}-dark", "dark"),
+                )
+                for block in blocks
+            },
+        )
+    return html, unmapped
 
 
 def render_nav(parts: list[tuple[str, str, str]]) -> str:
@@ -185,11 +404,14 @@ def main(argv: list[str] | None = None) -> int:
     args.out.write_text(html)
 
     residual = len(re.findall(r'href="[^"]+\.md', html))
+    tasks = html.count('class="task')
+    diagrams = html.count('<figure class="diagram"')
     print(f"wrote {args.out} ({len(html)} bytes)")
     print(
         f"  sections: {html.count('<section id=')}  "
-        f"task items: {html.count('class="task')}  "
-        f"em-dashes: {html.count(chr(8212))}  "
+        f"task items: {tasks}  "
+        f"diagrams: {diagrams}  "
+        f"em-dashes: {count_em_dashes(html)}  "
         f"residual .md hrefs: {residual}"
     )
     return 0
@@ -317,6 +539,21 @@ _HEAD = """<title>AI Agent Development Handbook</title>
     border: 1px solid var(--line-strong); border-radius: 3px; background: var(--surface-2);
   }
   .doc li.task.done::before { content: "\\2713"; color: var(--accent); font-size: .7rem; line-height: 13px; text-align: center; }
+
+  /* d2 diagrams: two rendered variants, toggled with the page theme */
+  .doc figure.diagram { margin: 22px 0; }
+  .doc figure.diagram svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+  .doc figure.diagram figcaption {
+    margin-top: 10px; text-align: center; font-family: var(--mono);
+    font-size: .7rem; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint);
+  }
+  .d2var { display: block; }
+  .d2-dark { display: none; }
+  @media (prefers-color-scheme: dark) { .d2-light { display: none; } .d2-dark { display: block; } }
+  :root[data-theme="light"] .d2-light { display: block; }
+  :root[data-theme="light"] .d2-dark { display: none; }
+  :root[data-theme="dark"] .d2-light { display: none; }
+  :root[data-theme="dark"] .d2-dark { display: block; }
 
   footer { max-width: var(--measure); margin: 70px 0 0; padding-top: 24px; border-top: 1px solid var(--line); font-size: .82rem; color: var(--ink-faint); }
   footer code { font-family: var(--mono); background: var(--surface-2); padding: 1px 5px; border-radius: 3px; }
