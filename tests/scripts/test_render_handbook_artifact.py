@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import re
 import sys
 from pathlib import Path
 
@@ -230,6 +231,39 @@ def test_d2_preludes_shrink_the_label_font_in_both_variants():
     # theme's diagrams larger than the other's.
     for prelude in rh.D2_PRELUDES.values():
         assert "**.style.font-size: 12" in prelude
+
+
+def test_d2_icon_classes_declares_both_classes_and_writes_the_files():
+    block = rh.d2_icon_classes("light")
+    assert "step:" in block and "human:" in block
+    paths = re.findall(r"icon: (\S+\.svg)", block)
+    assert len(paths) == 2
+    for path in paths:
+        assert Path(path).is_file()
+
+
+def test_d2_icon_person_follows_the_theme_but_the_blank_does_not():
+    # The person is drawn in the palette's accent, so it has to differ per
+    # theme; the blank one draws nothing and is deliberately shared.
+    light = dict(
+        re.findall(r"(\w+): \{ icon: (\S+\.svg) \}", rh.d2_icon_classes("light"))
+    )
+    dark = dict(
+        re.findall(r"(\w+): \{ icon: (\S+\.svg) \}", rh.d2_icon_classes("dark"))
+    )
+    assert light["step"] == dark["step"]
+    assert light["human"] != dark["human"]
+    assert rh._D2_ICON_STROKE["light"] in Path(light["human"]).read_text()
+    assert rh._D2_ICON_STROKE["dark"] in Path(dark["human"]).read_text()
+
+
+def test_d2_blank_icon_draws_nothing_but_keeps_the_person_footprint():
+    # It exists only to buy a node the same 21px icon gutter d2 forces on any
+    # node that has an icon, so marked and unmarked steps end up equal boxes.
+    blank, person = rh._D2_ICON_BLANK, rh._D2_ICON_PERSON
+    assert 'width="16" height="16"' in blank
+    assert 'width="16" height="16"' in person
+    assert "<path" not in blank and "<circle" not in blank
 
 
 def test_d2_layout_pins_elk_with_a_tighter_rank_gap_than_dagre():

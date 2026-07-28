@@ -38,7 +38,9 @@ from __future__ import annotations
 import argparse
 import re
 import subprocess
+import tempfile
 from dataclasses import dataclass
+from functools import cache
 from html import escape as html_escape
 from pathlib import Path
 
@@ -82,6 +84,33 @@ _D2_LAYOUT_ARGS = [
 # whole diagram's footprint. 12px reads as figure furniture next to the body
 # serif instead of competing with it, and shrinks every box in both axes.
 _D2_FONT_SIZE = "**.style.font-size: 12\n"
+
+# A person outline for marking a step a human owns, plus an empty icon of the
+# same footprint. Both are generated rather than committed as assets: the
+# stroke has to follow the theme, and d2 inlines the file as a base64 data URI,
+# so nothing external survives into the artifact anyway.
+#
+# The blank one exists because d2 adds a fixed 21px of icon gutter to any node
+# carrying an icon, and offers no way to opt out or to compensate (a height set
+# on the node or on the class is ignored). Marking two nodes in a row of eight
+# therefore leaves those two visibly taller than their neighbours. Giving every
+# node an icon, blank for all but the marked ones, puts each of them in the
+# same box. Diagrams that never reference these classes are unaffected.
+_D2_ICON_PERSON = (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"'
+    ' viewBox="0 0 24 24" fill="none" stroke="{stroke}" stroke-width="2.2"'
+    ' stroke-linecap="round" stroke-linejoin="round">'
+    '<circle cx="12" cy="7.5" r="3.6"/>'
+    '<path d="M5 20a7 7 0 0 1 14 0"/></svg>'
+)
+_D2_ICON_BLANK = (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"'
+    ' viewBox="0 0 24 24"></svg>'
+)
+_D2_ICON_STROKE = {"light": "#6f4c12", "dark": "#d9a441"}
+# Held for the process lifetime so the files outlive every d2 call; its
+# finalizer removes the directory at interpreter exit.
+_D2_ICON_TMPDIR: tempfile.TemporaryDirectory[str] | None = None
 
 # The handbook's own palette, prepended to every diagram's source so the
 # rendered SVG uses the same hex values as the artifact's CSS variables and the
@@ -180,6 +209,33 @@ def extract_d2_blocks(md: str, stem: str) -> tuple[str, list[D2Block]]:
     return out, blocks
 
 
+@cache
+def d2_icon_classes(variant: str) -> str:
+    """Write this theme's icon files and declare the classes that use them.
+
+    Diagrams reference these by name, `{class: human}` for a step a human owns
+    and `*.class: step` for the rest, so no diagram source has to carry a
+    filesystem path.
+
+    Args:
+        variant: Which palette the icon stroke should match, `light` or `dark`.
+
+    Returns:
+        A d2 `classes` block declaring `human` and `step`.
+    """
+    global _D2_ICON_TMPDIR
+    if _D2_ICON_TMPDIR is None:
+        _D2_ICON_TMPDIR = tempfile.TemporaryDirectory(prefix="handbook-d2-icons-")
+    directory = Path(_D2_ICON_TMPDIR.name)
+    blank = directory / "blank.svg"
+    blank.write_text(_D2_ICON_BLANK)
+    person = directory / f"person-{variant}.svg"
+    person.write_text(_D2_ICON_PERSON.format(stroke=_D2_ICON_STROKE[variant]))
+    return (
+        f"classes: {{\n  step: {{ icon: {blank} }}\n  human: {{ icon: {person} }}\n}}\n"
+    )
+
+
 def run_d2(source: str, salt: str, variant: str) -> str:
     """Render one diagram to SVG with the `d2` CLI.
 
@@ -208,7 +264,7 @@ def run_d2(source: str, salt: str, variant: str) -> str:
     try:
         proc = subprocess.run(
             command,
-            input=D2_PRELUDES[variant] + source,
+            input=D2_PRELUDES[variant] + d2_icon_classes(variant) + source,
             capture_output=True,
             text=True,
             check=False,
