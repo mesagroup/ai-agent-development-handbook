@@ -36,7 +36,7 @@ core: Reusable core {
   integ: External integrations
   conf: Configuration
   infra: Core infrastructure
-  types: Shared schemas and types
+  types: "Shared schemas / types"
 }
 task -> core: imports point at the core
 core -> task: never, and never in a cycle {style.stroke-dash: 4}
