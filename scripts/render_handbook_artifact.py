@@ -27,8 +27,10 @@ The output is a fragment (``<title> + <style> + <body> markup + <script>``)
 suitable for publishing as a Claude artifact, and it also renders as a complete
 page when opened directly in a browser.
 
-NOT a CI test. The pure transforms (:func:`rewrite_links`, :func:`wrap_tables`,
-:func:`mark_task_items`) are unit-tested in ``tests/scripts/``.
+NOT a CI test. The pure transforms (``rewrite_links``, ``wrap_tables``,
+``mark_task_items``, ``extract_d2_blocks``, ``prepare_svg``, ``diagram_figure``,
+``substitute_d2``, ``count_em_dashes``) are unit-tested in ``tests/scripts/``.
+``run_d2`` shells out to the CLI and is deliberately left to the manual render.
 """
 
 from __future__ import annotations
@@ -37,6 +39,7 @@ import argparse
 import re
 import subprocess
 from dataclasses import dataclass
+from html import escape as html_escape
 from pathlib import Path
 
 # (anchor id, markdown stem, sidebar label). Order defines the page order;
@@ -86,11 +89,20 @@ D2_PRELUDES: dict[str, str] = {
     ),
 }
 
+# The body admits no line of its own that opens with a fence, so an unclosed
+# ```d2 block fails to match instead of swallowing the prose and headings that
+# follow it up to the next stray ``` line. `extract_d2_blocks` then turns that
+# non-match into a loud error rather than a page with content silently missing.
 _D2_FENCE_RE = re.compile(
-    r"^```d2(?P<meta>[^\n]*)\n(?P<body>.*?)^```[ \t]*$", re.DOTALL | re.MULTILINE
+    r"^```d2(?P<meta>[^\n]*)\n(?P<body>(?:(?!```)[^\n]*\n)*)^```[ \t]*$", re.MULTILINE
 )
-_D2_TITLE_RE = re.compile(r'title="([^"]+)"')
+# Anchored to the whole meta, so `title="Foo \"Bar\""` fails to match and is
+# reported as a missing title, rather than being truncated to a wrong caption.
+_D2_TITLE_RE = re.compile(r'^\s*title="([^"]+)"\s*$')
 _D2_PLACEHOLDER_RE = re.compile(r'<div class="d2ph" data-i="(\d+)"></div>')
+# Seven small diagrams render in well under a second; a bound this loose only
+# ever fires on a d2 that has genuinely wedged.
+_D2_TIMEOUT_S = 60
 _SVG_OPEN_RE = re.compile(r"<svg\b[^>]*>")
 _VIEWBOX_RE = re.compile(r'viewBox="[-\d.]+ [-\d.]+ ([\d.]+) ([\d.]+)"')
 
@@ -120,12 +132,13 @@ def extract_d2_blocks(md: str, stem: str) -> tuple[str, list[D2Block]]:
         extracted blocks in document order.
 
     Raises:
-        ValueError: A fence carries no `title="..."`.
+        ValueError: A fence carries no `title="..."`, or a `d2` fence was left
+            unrecognised (unclosed, indented, or containing a fence of its own).
     """
     blocks: list[D2Block] = []
 
     def repl(match: re.Match[str]) -> str:
-        title = _D2_TITLE_RE.search(match.group("meta"))
+        title = _D2_TITLE_RE.match(match.group("meta"))
         if title is None:
             raise ValueError(
                 f'{stem}.md: a ```d2 fence has no title="..."; the title becomes '
@@ -138,7 +151,15 @@ def extract_d2_blocks(md: str, stem: str) -> tuple[str, list[D2Block]]:
         )
         return f'<div class="d2ph" data-i="{index}"></div>'
 
-    return _D2_FENCE_RE.sub(repl, md), blocks
+    out = _D2_FENCE_RE.sub(repl, md)
+    if "```d2" in out:
+        raise ValueError(
+            f"{stem}.md: a ```d2 fence was left unrecognised. A fence must begin "
+            "at column 0, must carry a closing ``` line, and must contain no ``` "
+            "line of its own. Left alone it would render as a literal code block "
+            "and the diagram would go missing without any gate noticing."
+        )
+    return out, blocks
 
 
 def run_d2(source: str, salt: str, variant: str) -> str:
@@ -154,7 +175,7 @@ def run_d2(source: str, salt: str, variant: str) -> str:
         The SVG markup, with no XML prolog.
 
     Raises:
-        SystemExit: The `d2` CLI is absent, or it rejected the source.
+        SystemExit: The `d2` CLI is absent, hung, or rejected the source.
     """
     command = [
         "d2",
@@ -173,7 +194,15 @@ def run_d2(source: str, salt: str, variant: str) -> str:
             capture_output=True,
             text=True,
             check=False,
+            timeout=_D2_TIMEOUT_S,
         )
+    except subprocess.TimeoutExpired as exc:
+        raise SystemExit(
+            f"d2 did not finish within {_D2_TIMEOUT_S}s on diagram {salt!r}. "
+            "Bounding this call is the same rule Part 5 of the handbook "
+            "prescribes for every external call, applied to the handbook's own "
+            "build: an unbounded one would hang the render with no diagnosis."
+        ) from exc
     except FileNotFoundError as exc:
         raise SystemExit(
             "d2 CLI not found on PATH. The handbook renderer turns ```d2 fences "
@@ -221,13 +250,18 @@ def prepare_svg(svg: str, caption_id: str) -> str:
 
 
 def diagram_figure(stem: str, block: D2Block, light: str, dark: str) -> str:
-    """Wrap both rendered variants and their caption in one `<figure>`."""
+    """Wrap both rendered variants and their caption in one `<figure>`.
+
+    The title is escaped on the way in: `to_ascii_entities` later rewrites only
+    non-ASCII characters, so an unescaped `&` or `<` in a caption would reach
+    the browser intact and corrupt the markup after it.
+    """
     caption_id = f"dcap-{stem}-{block.index}"
     return (
         '<figure class="diagram">'
         f'<span class="d2var d2-light">{prepare_svg(light, caption_id)}</span>'
         f'<span class="d2var d2-dark">{prepare_svg(dark, caption_id)}</span>'
-        f'<figcaption id="{caption_id}">{block.title}</figcaption>'
+        f'<figcaption id="{caption_id}">{html_escape(block.title)}</figcaption>'
         "</figure>"
     )
 

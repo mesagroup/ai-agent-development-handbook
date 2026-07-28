@@ -36,7 +36,7 @@ doc -> l1: perception
 l1 -> l2: grounding
 l2 -> l3: inference
 l3 -> ans
-doc -> l3: the shortcut that makes a failure undiagnosable {style.stroke-dash: 4}
+doc -> l3: the shortcut that makes failure undiagnosable {style.stroke-dash: 4}
 ```
 
 ## Hold the contracts that make layering pay off

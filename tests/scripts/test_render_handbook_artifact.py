@@ -222,3 +222,46 @@ def test_d2_preludes_cover_both_variants_and_clear_the_canvas():
     assert set(rh.D2_PRELUDES) == {"light", "dark"}
     for prelude in rh.D2_PRELUDES.values():
         assert prelude.startswith("style.fill: transparent")
+
+
+def test_extract_d2_blocks_rejects_an_unclosed_fence():
+    # An unclosed fence used to swallow every following paragraph up to the
+    # next stray fence line, so the page lost content with nothing to notice.
+    md = '```d2 title="One"\na -> b\n\nSome prose that must not be swallowed.\n'
+    with pytest.raises(ValueError, match="unrecognised"):
+        rh.extract_d2_blocks(md, "lifecycle")
+
+
+def test_extract_d2_blocks_rejects_an_indented_fence():
+    md = '1. A step:\n\n   ```d2 title="One"\n   a -> b\n   ```\n'
+    with pytest.raises(ValueError, match="column 0"):
+        rh.extract_d2_blocks(md, "lifecycle")
+
+
+def test_extract_d2_blocks_does_not_overrun_a_following_fence():
+    md = (
+        '```d2 title="One"\na -> b\n```\n\ntext\n\n'
+        "```python\nprint(1)\n```\n\nmore text\n"
+    )
+    out, blocks = rh.extract_d2_blocks(md, "x")
+    assert len(blocks) == 1
+    assert blocks[0].source == "a -> b\n"
+    assert "```python\nprint(1)\n```" in out  # untouched, not absorbed
+    assert "more text" in out
+
+
+def test_extract_d2_blocks_rejects_a_title_with_escaped_quotes():
+    # Silently truncating to `Foo \` would ship a wrong caption; erroring is
+    # what makes the mistake visible.
+    with pytest.raises(ValueError, match="title"):
+        rh.extract_d2_blocks('```d2 title="Foo \\"Bar\\""\na\n```\n', "x")
+
+
+def test_diagram_figure_escapes_the_caption():
+    # to_ascii_entities only rewrites non-ASCII, so an unescaped & or < in a
+    # title would reach the browser intact and corrupt the markup after it.
+    block = rh.D2Block(index=0, title="Retrieve & rerank <2s", source="a\n")
+    svg = '<svg viewBox="0 0 1 2"></svg>'
+    out = rh.diagram_figure("evaluation", block, svg, svg)
+    assert "Retrieve &amp; rerank &lt;2s" in out
+    assert "<2s" not in out
