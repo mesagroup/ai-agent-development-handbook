@@ -82,5 +82,5 @@ All standing `docs/engineering/` gates, binding:
 ## Out of scope
 
 - No new fix content in the parts. If writing an entry exposes a genuine gap in a part (a root cause with nothing to route to), file it as a separate issue rather than inlining the fix material in the guide.
-- No new unit tests: the only code change is one data row in the render script's PARTS list; the existing render-gate run exercises it.
+- The renderer change turned out to need a `render_nav` glyph branch as well as the PARTS row (an unnumbered anchor needs its own `✚` case), and per the project's rule that new code ships with tests, that branch carries a unit test.
 - No diagrams: that is #537, and the guide can pick up a diagram there later if one earns its place.
