@@ -96,12 +96,18 @@ _D2_FONT_SIZE = "**.style.font-size: 12\n"
 # therefore leaves those two visibly taller than their neighbours. Giving every
 # node an icon, blank for all but the marked ones, puts each of them in the
 # same box. Diagrams that never reference these classes are unaffected.
+#
+# d2 scales whatever it is given into a fixed 37px icon box, so the drawing is
+# deliberately small and bottom-weighted inside its 24-unit viewBox rather than
+# filling it: the empty upper third is what sets the icon back from the label
+# above it, and it is the only way to control either size or spacing, since the
+# box d2 draws into cannot be changed.
 _D2_ICON_PERSON = (
     '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"'
-    ' viewBox="0 0 24 24" fill="none" stroke="{stroke}" stroke-width="2.2"'
+    ' viewBox="0 0 24 24" fill="none" stroke="{stroke}" stroke-width="1.9"'
     ' stroke-linecap="round" stroke-linejoin="round">'
-    '<circle cx="12" cy="7.5" r="3.6"/>'
-    '<path d="M5 20a7 7 0 0 1 14 0"/></svg>'
+    '<circle cx="12" cy="11.8" r="2.6"/>'
+    '<path d="M7.5 21.4a4.5 4.5 0 0 1 9 0"/></svg>'
 )
 _D2_ICON_BLANK = (
     '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"'
