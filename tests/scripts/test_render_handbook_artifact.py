@@ -83,6 +83,20 @@ def test_render_nav_marks_coda_with_glyph_not_number():
     assert "01" not in nav.split("#coda")[1]  # the coda row carries no number
 
 
+def test_render_nav_marks_troubleshooting_with_glyph_not_number():
+    nav = rh.render_nav(
+        [
+            ("p9", "security-supply-chain", "Security"),
+            ("troubleshooting", "troubleshooting", "Troubleshooting"),
+            ("coda", "coda", "Coda"),
+        ]
+    )
+    assert 'href="#troubleshooting"' in nav
+    assert "✚" in nav  # unnumbered companion glyph, like the coda's ∎
+    row = nav.split("#troubleshooting")[1].split("#coda")[0]
+    assert "01" not in row  # the companion row carries no part number
+
+
 def test_build_renders_verbatim_section(tmp_path: Path):
     pytest.importorskip("markdown")
     (tmp_path / "README.md").write_text(

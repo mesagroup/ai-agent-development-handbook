@@ -4,6 +4,8 @@ How to build software and AI agents: the practices, and the reasons behind them.
 
 The practices are meant to be portable. Some lean on shared infrastructure (a model catalog, a configuration system, a run harness), but nothing below *depends* on any particular implementation of it: a project that has none of it should still recognize every directive as its own. Where a section describes a capability, read it as "here is what a good setup provides, and what to build or demand if you don't have it", not "here is a specific tool."
 
+Arriving with a problem rather than a curriculum? The [troubleshooting guide](troubleshooting.md) starts from the symptom and routes you to the parts that fix it.
+
 ## The story of a change
 
 Every part of this handbook attaches to one story: the life of a single change. Follow it once, end to end, and the nine parts stop being a list of best practices; they become the stations where the change (and you) will need them.
@@ -31,6 +33,7 @@ Do not expect the loop to terminate. That the story ends where it began is not a
 | **[7. Evaluation: how to decide](evaluation.md)** | The loop closes: was it actually better, measured against a dataset you trust? |
 | **[8. Documentation & knowledge capture](documentation.md)** | What the change leaves behind: the trail that outlives the moment. |
 | **[9. Security, dependencies & supply chain](security-supply-chain.md)** | The standing obligation: safe code, accounted dependencies, a trustworthy pipeline. |
+| **[Troubleshooting](troubleshooting.md)** | The other entry point: from a symptom (it burns money, it hangs, it hallucinates) to the sections that fix it. |
 | **[Coda](coda.md)** | Closing words: the loop, and what stays. |
 
 ## Starting from zero

@@ -33,7 +33,8 @@ import re
 from pathlib import Path
 
 # (anchor id, markdown stem, sidebar label). Order defines the page order;
-# README is the intro section (#top), the nine parts follow, the coda closes.
+# README is the intro section (#top), the nine parts follow, then the
+# troubleshooting companion and the coda close.
 PARTS: list[tuple[str, str, str]] = [
     ("top", "README", "Overview &amp; the story"),
     ("p1", "lifecycle", "Development lifecycle"),
@@ -45,6 +46,7 @@ PARTS: list[tuple[str, str, str]] = [
     ("p7", "evaluation", "Evaluation"),
     ("p8", "documentation", "Documentation"),
     ("p9", "security-supply-chain", "Security &amp; supply chain"),
+    ("troubleshooting", "troubleshooting", "Troubleshooting"),
     ("coda", "coda", "Coda"),
 ]
 
@@ -115,7 +117,15 @@ def render_nav(parts: list[tuple[str, str, str]]) -> str:
     rows = []
     for i, (anchor, _, label) in enumerate(parts):
         lead = ' class="lead"' if anchor == "top" else ""
-        num = "§" if anchor == "top" else "∎" if anchor == "coda" else f"{i:02d}"
+        num = (
+            "§"
+            if anchor == "top"
+            else "∎"
+            if anchor == "coda"
+            else "✚"
+            if anchor == "troubleshooting"
+            else f"{i:02d}"
+        )
         rows.append(
             f'      <a href="#{anchor}"{lead}><span class="num">{num}</span>'
             f"<span>{label}</span></a>"

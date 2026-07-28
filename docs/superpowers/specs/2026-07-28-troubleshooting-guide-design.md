@@ -60,7 +60,7 @@ Cluster and entry ordering below is the shipping order. Routing names the actual
 - **`scripts/render_handbook_artifact.py`:** add one PARTS row for the `troubleshooting` stem between `p9` (security-supply-chain) and `coda`, so the artifact renders it after Part 9. Verify the LINKMAP mechanism picks up the new stem so links to and from `troubleshooting.md` rewrite to in-page anchors.
 - **`docs/README.md`:** extend the handbook blurb (line ~177) to mention the troubleshooting guide.
 - **Cross-links from parts:** none by default. The README pointer is the discovery path; the parts do not each grow a backlink. (If a specific part turns out to want one during implementation, at most one, where genuinely natural.)
-- **mkdocs:** `docs/engineering/` pages are picked up by the docs site; confirm the new page is reachable (no orphan) and `mkdocs build --strict` passes.
+- **mkdocs:** `docs/engineering/` is excluded from the built docs site (the handbook ships as its own standalone artifact; see the exclude list in `mkdocs.yml`), so the new page needs no nav entry and cannot orphan. `mkdocs build --strict` still runs as a regression gate.
 
 ## Constraints
 
