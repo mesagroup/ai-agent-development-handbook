@@ -224,6 +224,24 @@ def test_d2_preludes_cover_both_variants_and_clear_the_canvas():
         assert prelude.startswith("style.fill: transparent")
 
 
+def test_d2_preludes_shrink_the_label_font_in_both_variants():
+    # The label font sets d2's minimum box size, so it drives the whole
+    # diagram's footprint. Losing it from one variant would silently make that
+    # theme's diagrams larger than the other's.
+    for prelude in rh.D2_PRELUDES.values():
+        assert "**.style.font-size: 12" in prelude
+
+
+def test_d2_layout_pins_elk_with_a_tighter_rank_gap_than_dagre():
+    # dagre offers no rank-separation knob, which is why every diagram used to
+    # render taller than a laptop viewport. ELK's nodeNodeBetweenLayers is the
+    # fix, and it only helps below its own default of 70.
+    args = rh._D2_LAYOUT_ARGS
+    assert args[args.index("--layout") + 1] == "elk"
+    gap = int(args[args.index("--elk-nodeNodeBetweenLayers") + 1])
+    assert 0 < gap < 70
+
+
 def test_extract_d2_blocks_rejects_an_unclosed_fence():
     # An unclosed fence used to swallow every following paragraph up to the
     # next stray fence line, so the page lost content with nothing to notice.

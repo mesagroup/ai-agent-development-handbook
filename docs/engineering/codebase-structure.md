@@ -30,7 +30,7 @@ task: Task layer {
   a -> b: as_tool {style.stroke-dash: 4}
 }
 core: Reusable core {
-  grid-columns: 1
+  grid-rows: 2
   ev: Evaluation
   cap: Capabilities
   integ: External integrations
@@ -39,7 +39,7 @@ core: Reusable core {
   types: "Shared schemas / types"
 }
 task -> core: imports point at the core
-core -> task: never, and never in a cycle {style.stroke-dash: 4}
+core -> task: "never, and\nnever in a cycle" {style.stroke-dash: 4}
 ```
 
 Write the rule down explicitly for your project, which tier may import which, so it is enforceable, ideally by an import-boundary linter in CI rather than by memory ([import-linter](https://import-linter.readthedocs.io/) in Python, [dependency-cruiser](https://github.com/sverweij/dependency-cruiser) in the JavaScript ecosystem).

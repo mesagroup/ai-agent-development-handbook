@@ -21,22 +21,17 @@ Here the loop closes. What the measurement teaches (a new failure form, a surpri
 Do not expect the loop to terminate. That the story ends where it began is not a defect; it is how the system stays honest as the data, the models, and the team drift.
 
 ```d2 title="The story of a change"
+direction: right
 idea: An idea
 issue: Issue
-spec: Spec
+spec: "Spec\nhuman\napproves"
 plan: Plan
-build: Implement, task by task
-merge: Merge
-run: Observe in production
-decide: "Evaluate: is it actually better?"
-idea -> issue
-issue -> spec
-spec -> plan: human approves the spec
-plan -> build
-build -> merge: human approves the merge
-merge -> run
-run -> decide
-decide -> idea: what the measurement teaches becomes the next issue
+build: Build
+merge: "Merge\nhuman\napproves"
+run: Observe
+decide: Evaluate
+idea -> issue -> spec -> plan -> build -> merge -> run -> decide
+decide -> idea: the next issue
 ```
 
 ### The parts, at a glance

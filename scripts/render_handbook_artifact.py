@@ -63,6 +63,26 @@ PARTS: list[tuple[str, str, str]] = [
 # `<stem>.md` -> in-page anchor, used to turn repo cross-links into scroll links.
 LINKMAP: dict[str, str] = {stem + ".md": "#" + anchor for anchor, stem, _ in PARTS}
 
+# ELK rather than d2's default dagre, for one reason: dagre exposes no
+# rank-separation knob (only `--dagre-nodesep`, which is horizontal), and its
+# default vertical gap made every multi-step diagram taller than a laptop
+# viewport, forcing the reader to scroll a figure that is meant to be taken in
+# at a glance. ELK's `nodeNodeBetweenLayers` is exactly that knob: dropping it
+# from 70 to 15 cuts the tallest diagram roughly in half with no loss of
+# legibility, because the boxes were never the problem, the air between the
+# ranks was.
+_D2_LAYOUT_ARGS = [
+    "--layout", "elk",
+    "--elk-nodeNodeBetweenLayers", "15",
+    "--elk-edgeNodeBetweenLayers", "15",
+    "--elk-padding", "[top=20,left=20,bottom=20,right=20]",
+]  # fmt: skip
+
+# d2 defaults to 16px labels, which sets the minimum box size and so drives the
+# whole diagram's footprint. 12px reads as figure furniture next to the body
+# serif instead of competing with it, and shrinks every box in both axes.
+_D2_FONT_SIZE = "**.style.font-size: 12\n"
+
 # The handbook's own palette, prepended to every diagram's source so the
 # rendered SVG uses the same hex values as the artifact's CSS variables and the
 # diagrams read as page furniture rather than as pictures from another system.
@@ -70,8 +90,7 @@ LINKMAP: dict[str, str] = {stem + ".md": "#" + anchor for anchor, stem, _ in PAR
 # `prefers-color-scheme` query alone and the page carries a manual theme button.
 D2_PRELUDES: dict[str, str] = {
     "light": (
-        "style.fill: transparent\n"
-        '**.style.fill: "#f7f6f2"\n'
+        "style.fill: transparent\n" + _D2_FONT_SIZE + '**.style.fill: "#f7f6f2"\n'
         '**.style.stroke: "#c3bfb1"\n'
         '**.style.font-color: "#1c2024"\n'
         "**.style.shadow: false\n"
@@ -79,8 +98,7 @@ D2_PRELUDES: dict[str, str] = {
         '(** -> **)[*].style.font-color: "#4b5057"\n'
     ),
     "dark": (
-        "style.fill: transparent\n"
-        '**.style.fill: "#1e2126"\n'
+        "style.fill: transparent\n" + _D2_FONT_SIZE + '**.style.fill: "#1e2126"\n'
         '**.style.stroke: "#3a4048"\n'
         '**.style.font-color: "#e9e7df"\n'
         "**.style.shadow: false\n"
@@ -182,7 +200,7 @@ def run_d2(source: str, salt: str, variant: str) -> str:
         "--stdout-format", "svg",
         "--no-xml-tag",
         "--theme", "0",
-        "--layout", "dagre",
+        *_D2_LAYOUT_ARGS,
         "--pad", "10",
         "--salt", salt,
         "-", "-",
@@ -574,7 +592,11 @@ _HEAD = """<title>AI Agent Development Handbook</title>
   }
   .doc li.task.done::before { content: "\\2713"; color: var(--accent); font-size: .7rem; line-height: 13px; text-align: center; }
 
-  /* d2 diagrams: two rendered variants, toggled with the page theme */
+  /* d2 diagrams: two rendered variants, toggled with the page theme.
+     Diagrams are authored to fit the prose measure at their natural size, so
+     that `max-width: 100%` never has to scale one down: scaling shrinks the
+     labels with it, and a diagram whose text has gone small is worse than a
+     diagram that is merely narrow. */
   .doc figure.diagram { margin: 22px 0; }
   .doc figure.diagram svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
   .doc figure.diagram figcaption {
