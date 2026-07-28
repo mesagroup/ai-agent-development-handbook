@@ -17,8 +17,8 @@ tool: A tool runs
 ctx: Model context
 side: Side channel
 art: Run artifacts, persisted into production
-tool -> ctx: the result the model reads
-tool -> side: the metadata envelope
+tool -> ctx: "the result\nthe model reads"
+tool -> side: "the metadata\nenvelope"
 side -> art: timing, tokens, cost, utilization
 side -> ctx: never {style.stroke-dash: 4}
 ```
