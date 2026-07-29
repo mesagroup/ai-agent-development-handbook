@@ -43,6 +43,293 @@
     recommendation: extend-skill
     note: docs-audit has no dimension for an authoritative rules file or for doc-vs-doc contradiction; ci-audit's Gate enforcement checks that mismatch only for what CI claims to enforce.
 
+# --- Part 1: Development lifecycle ------------------------------------------
+
+- id: lifecycle/front-load-the-judgment-a
+  section: "Front-load the judgment"
+  claim: Put the human weight on the expensive, irreversible moments (what is being built, and shipping it) and delegate the mechanical ones to the cheapest agent that can do them.
+  class: process
+  note: How human attention is allocated across a run is a judgment call no snapshot can date.
+
+- id: lifecycle/front-load-the-judgment-b
+  section: "Front-load the judgment"
+  claim: Keep no scratch TODO list, and encode the whole run as a single reusable workflow that inlines brainstorming, plan-writing, subagent-driven implementation, review and merge.
+  class: static
+  gap:
+    recommendation: extend-skill
+    note: prompt-audit is the nearest owner - a lifecycle workflow is a prompt artifact - but its dimensions judge how a prompt is written, never whether the lifecycle is encoded as one at all, and nothing looks for a scratch TODO file.
+
+- id: lifecycle/front-load-the-judgment-c
+  section: "Front-load the judgment"
+  claim: Run task management on an issue tracker, and trace every piece of work to an issue.
+  class: artifact
+  gap:
+    recommendation: new-domain
+    note: no skill reads the issue tracker, so whether work traces to an issue sits outside the family's evidence base entirely.
+
+- id: lifecycle/keep-batches-small-and-the-flow-fast
+  section: "Keep batches small and the flow fast"
+  claim: Scope each issue narrowly enough that its diff stays reviewable (a hard diff-size cap is a backstop, not the mechanism), and measure the whole idea-to-production distance with the four DORA measures rather than the convenient commit-to-deploy part.
+  class: artifact
+  gap:
+    recommendation: new-domain
+    note: batch size and the DORA four measures are delivery-history evidence; ci-audit reads workflow definitions rather than delivery outcomes, and no skill reads pull-request or deployment history.
+
+- id: lifecycle/decide-the-human-in-the-loop-gates-up-front
+  section: "Decide the human-in-the-loop gates up front"
+  claim: Choose once and explicitly which optional gates are active, keep spec review and the merge gate always on (prepare-for-merge is not approval, and never bump a major version without asking), and announce any decision taken on the human's behalf when an optional gate is off.
+  class: process
+  note: Which gates were active for a run, and whether a human actually approved, is a decision the repo never records.
+
+- id: lifecycle/scale-involvement-to-criticality
+  section: "Scale involvement to criticality"
+  claim: Match how present the human is (in-, on-, or out-of-the-loop) to how much the code matters (core differentiator, supporting, commodity), scaling oversight rather than who types, while the two bookend gates never scale off and criticality stays a separate axis from reuse.
+  class: process
+
+- id: lifecycle/step-by-step-one-issue-end-to-end-a
+  section: "Step-by-step: one issue, end to end"
+  claim: Work the nine-station runbook - read the issue's comments before selecting it, brainstorm collaboratively and write no code in that phase, right-size each task to its own test cycle, dispatch a fresh implementer subagent per task behind a background keep-awake, and loop a two-stage spec-plus-quality review until both verdicts pass.
+  class: process
+  note: The station order and the human moments along it are the section's own claim, and neither the order nor the keep-awake leaves a trace in the repo. The artifacts each station does leave are carried by the -b, -c, -d and -e rows.
+
+- id: lifecycle/step-by-step-one-issue-end-to-end-b
+  section: "Step-by-step: one issue, end to end"
+  claim: Commit the spec and the plan as dated files in the docs tree, self-review each (the spec for placeholders, scope and ambiguity, the plan against every spec requirement), link the spec from the issue, and let no placeholder or TBD survive in a plan's code steps.
+  class: artifact
+  gap:
+    recommendation: extend-skill
+    note: docs-audit is the owner because specs and plans are docs-tree artifacts, but no dimension asks whether a change carries a committed spec and plan, nor scans a plan for placeholders.
+
+- id: lifecycle/step-by-step-one-issue-end-to-end-c
+  section: "Step-by-step: one issue, end to end"
+  claim: Keep the branch mechanics honest - cut from up-to-date main and never implement on it, open a draft pull request whose body names the issue it closes and carries a test-plan checklist, then merge with a rebase and delete the branch locally and remotely.
+  class: artifact
+  gap:
+    recommendation: new-domain
+    note: branch, pull-request and merge mechanics live in git and tracker history, which no skill in the family reads.
+
+- id: lifecycle/step-by-step-one-issue-end-to-end-d
+  section: "Step-by-step: one issue, end to end"
+  claim: Select the model per role explicitly and frugally - the least powerful tier that fits, always named because an omitted model inherits the session's expensive one, with a mid-tier floor for reviewers and the most capable tier for the final whole-branch review.
+  class: static
+  gap:
+    recommendation: extend-skill
+    note: no dimension inspects an agent or subagent definition for an explicit, right-sized model; the nearest is eval-audit's Reproducibility, which wants a pinned model version recorded for an eval run rather than a right-sized one chosen per role.
+
+- id: lifecycle/step-by-step-one-issue-end-to-end-e
+  section: "Step-by-step: one issue, end to end"
+  claim: Carry the standing subagent instructions in the dispatching prompt itself - tell every shell-capable subagent never to pass comment lines to the shell tool, because they can confuse a tool-permission subsystem, and scope each subagent to its brief so it does not act on the whole plan.
+  class: static
+  gap:
+    recommendation: extend-skill
+    note: prompt-audit is the owner because these are requirements on the text of a dispatching prompt, but no dimension checks a prompt for the operational instructions the project mandates - Tier A judges only the quality of what is already there.
+
+- id: lifecycle/after-the-merge
+  section: "After the merge"
+  claim: Close the trail after merging - verify each acceptance criterion was actually implemented before ticking it, post a release-notes-style comment, and set the issue's final status.
+  class: artifact
+  gap:
+    recommendation: new-domain
+    note: the post-merge trail is entirely tracker-side, so nothing in the family can see whether criteria were verified, ticked, or blind-checked.
+
+- id: lifecycle/make-the-standard-executable-and-audit-periodically-a
+  section: "Make the standard executable, and audit periodically"
+  claim: Ask of every fix what stops the problem coming back, and take the highest-leverage answer - encode the standard as an executable check wired into CI (and pre-commit) rather than leaving it to memory and review diligence.
+  class: static
+  checks:
+    - skill: ci-audit
+      dimension: "Gate enforcement"
+    - skill: eval-audit
+      dimension: "Smoke-test gate"
+  gap:
+    recommendation: extend-skill
+    note: Gate enforcement audits the gates that already exist; no dimension walks the project's binding rules to find the ones with no mechanical enforcer, and the local pre-commit half of the claim is unrepresented anywhere.
+
+- id: lifecycle/make-the-standard-executable-and-audit-periodically-b
+  section: "Make the standard executable, and audit periodically"
+  claim: Run the periodic audit as the counterpart to standing gates - an evidence-based sweep that cites the artifact behind each finding, marks tooling that cannot run as no-evidence rather than pass, and produces a report-only diagnosis before fixes land one dimension at a time.
+  class: artifact
+  gap:
+    recommendation: report-only
+    note: this is audit-core's own charter, but audit-core declares no dimensions so no row can cite it; audit cadence and past audit reports are outside every skill's evidence base.
+
+- id: lifecycle/pre-merge-checklist
+  section: "Pre-merge checklist"
+  claim: Fourteen-item recap gating the merge - issue trace, approved spec, fresh branch, placeholder-free plan, per-task review verdicts, tests and coverage, green required gates, review dispositions, the agent quality gate, docs, prompt-change rationale, explicit approval, involvement depth matched to criticality with the bookend gates on regardless, and the post-merge trail.
+  class: process
+  note: A recap, so what it adds is the act of working the list before merging. Every one of the fourteen items is owned by another Part 1 or Part 2 row - involvement depth by scale-involvement-to-criticality, the bookend gates by decide-the-human-in-the-loop-gates-up-front - which is why the row itself maps to nothing.
+
+- id: lifecycle/see-also
+  section: "See also"
+  claim: Cross-links to the stance and Parts 2, 3, 6, 7, 8 and 9.
+  class: informative
+
+# --- Part 2: Implementation disciplines -------------------------------------
+
+- id: implementation-disciplines/tdd-a
+  section: "TDD"
+  claim: Run the bite-sized loop for every feature and bugfix - failing test, see it fail, minimal code, see it pass, commit.
+  class: process
+  note: Test-first ordering is not datable from a snapshot, which sees only the finished commit. The residue it leaves - that the code arrived with tests, and that those tests bite - is carried by the -b row.
+
+- id: implementation-disciplines/tdd-b
+  section: "TDD"
+  claim: Ship new code with unit tests covering its deterministic logic (analysis and tooling scripts included) without lowering coverage, defer only true I/O edges to integration tests, allow a throwaway battery pinning current behaviour as scaffolding for a pure refactor or port and delete it once the old and new paths agree, and judge the suite by whether it fails when the code breaks - real assertions rather than tautologies or over-mocking, branch and diff coverage, deterministic tests.
+  class: static
+  checks:
+    - skill: test-audit
+      dimension: "TDD adherence / new-code coverage"
+    - skill: test-audit
+      dimension: "Coverage reach"
+    - skill: test-audit
+      dimension: "Assertion strength"
+    - skill: test-audit
+      dimension: "Determinism / flakiness"
+    - skill: test-audit
+      dimension: "Isolation & speed"
+    - skill: test-audit
+      dimension: "Effectiveness (optional)"
+
+- id: implementation-disciplines/prompt-and-sop-engineering-a
+  section: "Prompt and SOP engineering"
+  claim: Give an agent's SOP a fixed shape in a .sop.md file (Overview, Parameters, ordered Steps carrying Constraints), write constraints with RFC 2119 keywords and give every negative one its reason inline, name the completion criterion and the early exits, and run a periodic cognitive-load analysis of constraint density and redundancy.
+  class: static
+  checks:
+    - skill: prompt-audit
+      dimension: "Instruction precision"
+    - skill: prompt-audit
+      dimension: "Positive framing, prohibitions with reasons"
+    - skill: prompt-audit
+      dimension: "Role, objective & task framing"
+    - skill: prompt-audit
+      dimension: "Grounding & handling the unknown"
+    - skill: prompt-audit
+      dimension: "Cognitive load & focus"
+  gap:
+    recommendation: extend-skill
+    note: prompt-audit's Tier B does audit the SOP structural spec in full, but Tier B declares no bolded dimension bullets so no matrix row can cite it - the fix is to the skill's Dimensions section, not to its coverage.
+
+- id: implementation-disciplines/prompt-and-sop-engineering-b
+  section: "Prompt and SOP engineering"
+  claim: Explain in the commit message why a prompt changed, not just what, and keep prompt changes in their own commit separate from code.
+  class: artifact
+  gap:
+    recommendation: extend-skill
+    note: co-owned - prompt-audit's remediation section already states this rule verbatim as a convention it follows, and eval-audit's Prompt / SOP quality dimension owns prompt-change hygiene through its missing-versioning-or-changelog clause, but neither turns it into a check and nothing reads commit messages.
+
+- id: implementation-disciplines/prompt-and-sop-engineering-c
+  section: "Prompt and SOP engineering"
+  claim: Reserve the SOP for the judgment the model must exercise, and enforce any deterministically-checkable constraint in the harness instead - a schema on the output, a validator in the tool, a guard in the pipeline.
+  class: static
+  gap:
+    recommendation: extend-skill
+    note: prompt-audit is the owner but no dimension asks whether a constraint stated in the prompt could be enforced deterministically in code; its counterpart claim sits on ci-and-static-analysis-d.
+
+- id: implementation-disciplines/ci-and-static-analysis-a
+  section: "CI and static analysis"
+  claim: Treat format, lint and type-check as distinct complementary gates run on every push and pull request and locally before committing, annotate enough that the checker can actually fail, and count a gate only where branch protection requires it and the contributor guide matches what the workflows enforce.
+  class: static
+  checks:
+    - skill: ci-audit
+      dimension: "Gate enforcement"
+  gap:
+    recommendation: extend-skill
+    note: Gate enforcement asks whether the type-check runs and is required, never whether it can fail - no dimension measures annotation coverage or checker strictness, the type-checking analogue of test-audit's Assertion strength.
+
+- id: implementation-disciplines/ci-and-static-analysis-b
+  section: "CI and static analysis"
+  claim: Treat docstrings as a fourth checked surface - every public module and symbol carries one, audited for coverage and staleness.
+  class: static
+  gap:
+    recommendation: extend-skill
+    note: docs-audit does audit docstrings, but only as an opt-in sub-audit whose own coverage and staleness dimensions sit outside the citable Dimensions section; its Coverage dimension is prose docs per code component, not docstrings, and no dimension asks whether the check is wired into the gate.
+
+- id: implementation-disciplines/ci-and-static-analysis-c
+  section: "CI and static analysis"
+  claim: The gates are language-agnostic disciplines - only the toolchain changes, with a Python and a TypeScript equivalent given for each.
+  class: static
+  gap:
+    recommendation: extend-skill
+    target: "#519"
+    note: ci-audit, prompt-audit and eval-audit are already language-neutral, so a TypeScript project still gets its pipeline, prompt and behavioural audits; what it loses is tooling - arch, deps, docs, security and test all declare Python, leaving the lint, format, type-check, docstring, dependency, structure and test dimensions with no TS equivalent.
+
+- id: implementation-disciplines/ci-and-static-analysis-d
+  section: "CI and static analysis"
+  claim: Never spend an agent on what a linter, formatter, or type-checker already enforces deterministically.
+  class: static
+  gap:
+    recommendation: extend-skill
+    note: no dimension flags a review or audit agent pointed at work a deterministic tool already does; prompt-audit is the nearest owner, as on prompt-and-sop-engineering-c.
+
+- id: implementation-disciplines/the-code-review-protocol-a
+  section: "The code-review protocol"
+  claim: Treat review as the moment a human is forced to understand what ships and review what the change expresses - intent, design, whether it fits the system - leaving how the code is written to the CI gates; a review whose understanding one person silently absorbs has failed its primary purpose even when it catches a bug.
+  class: process
+  note: What review is for, and whether the understanding actually spread, is the one thing an approval never records. The mechanics that do leave a trail are carried by the -b row.
+
+- id: implementation-disciplines/the-code-review-protocol-b
+  section: "The code-review protocol"
+  claim: Run the whole-branch review as a deliberately adversarial multi-perspective pass over the checklist's angles, score every finding against a fixed rubric and one agreed confidence threshold, post and fix at-or-above-threshold findings before merge, report all findings with their disposition, and hold scope discipline rather than dismissing a finding as pre-existing or forking new code away from its siblings.
+  class: artifact
+  gap:
+    recommendation: new-domain
+    note: the review trail - inline pull-request comments and the findings table with its dispositions - is tracker-side evidence no skill reads, and no domain audits review discipline.
+
+- id: implementation-disciplines/coding-hygiene-rules-that-surface-at-review-a
+  section: "Coding-hygiene rules that surface at review"
+  claim: Swallow no exceptions - report every one to the consumer with type and message, log it at the right level, or re-raise it, so the error message alone says what went wrong.
+  class: static
+  checks:
+    - skill: security-audit
+      dimension: "Sensitive-data handling"
+  gap:
+    recommendation: extend-skill
+    target: "#516"
+    note: security-audit reaches only the security-relevant subset (broad handlers that hide security failures); the developer-facing half - an error collapsed into a generic internal error with no type or message - belongs to the observability domain the target issue creates.
+
+- id: implementation-disciplines/coding-hygiene-rules-that-surface-at-review-b
+  section: "Coding-hygiene rules that surface at review"
+  claim: Leave no backward-compatibility wrappers in a pre-1.0 codebase - remove the old API and update every caller in the same pull request, with no re-export stubs.
+  class: static
+  checks:
+    - skill: arch-audit
+      dimension: "Over-abstraction / speculative generality"
+
+- id: implementation-disciplines/coding-hygiene-rules-that-surface-at-review-c
+  section: "Coding-hygiene rules that surface at review"
+  claim: Commit no environment-specific values - no personal absolute paths, account or profile names, or hostnames in code, docs, or scripts - use placeholders and say what they resolve to, and fix them retroactively when touching a file that has them.
+  class: static
+  gap:
+    recommendation: extend-skill
+    note: security-audit's Secrets in code is the nearest dimension but is scoped to credentials, and a personal path or profile name is a portability leak rather than a secret, so nothing scans for one.
+
+- id: implementation-disciplines/coding-hygiene-rules-that-surface-at-review-d
+  section: "Coding-hygiene rules that surface at review"
+  claim: Describe every settings field, keep module docstrings current with the module's purpose and interface, and prefer explicit enums or non-null defaults for agent tool parameters where the provider handles nullable arguments poorly.
+  class: static
+  gap:
+    recommendation: extend-skill
+    note: docstring currency is a staleness question, and docs-audit reaches it only through its opt-in docstring sub-audit, outside the citable Dimensions section; self-documenting settings fields and provider-safe tool-argument types have no dimension anywhere.
+
+- id: implementation-disciplines/when-to-add-an-end-to-end-agent-quality-gate
+  section: "When to add an end-to-end agent quality gate"
+  claim: Give an agent a second gate above the unit tests - run it end to end on the branch against a frozen battery of representative queries in a cheap configuration, score against a checklist or judge rubric, and treat a drop below the pass bar as a blocking regression - for any change that can alter its behaviour, including the shared code on its import path.
+  class: static
+  checks:
+    - skill: eval-audit
+      dimension: "Smoke-test gate"
+    - skill: eval-audit
+      dimension: "Reproducibility"
+    - skill: eval-audit
+      dimension: "Regression tracking & cost"
+    - skill: ci-audit
+      dimension: "Gate enforcement"
+
+- id: implementation-disciplines/see-also
+  section: "See also"
+  claim: Cross-links to Parts 1, 6 and 7 and the handbook index.
+  class: informative
+
 # --- Part 7: Evaluation -----------------------------------------------------
 
 - id: evaluation/the-enemy-is-false-confidence
