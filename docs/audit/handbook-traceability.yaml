@@ -592,6 +592,79 @@
   claim: Cross-links to Parts 3, 6 and 7 and the handbook index.
   class: informative
 
+# --- Part 6: Observability --------------------------------------------------
+
+- id: observability/instrument-before-you-tune
+  section: "Instrument before you tune"
+  claim: Make the first move on any performance question adding the per-item metadata that measures what happens rather than running a parameter sweep, look upstream of the part you were about to optimize because the highest-leverage intervention frequently sits there, and distrust averages, since a healthy-looking overall number can mask a bimodal split whose real win is eliminating the low mode at its source.
+  class: process
+  note: The section's own claim is the order of moves in an investigation - instrument, then tune - which no snapshot can date. The instrumentation it demands is carried by capture-per-subagent-per-tool-usage.
+
+- id: observability/keep-observability-out-of-the-models-context
+  section: "Keep observability out of the model's context"
+  claim: Send analysis metadata through a side channel the model never sees - persist per-item timing, sizes, utilization and cost alongside the run in its artifacts rather than inside the prompt, and attach any bookkeeping a tool must carry to a metadata envelope the downstream code consumes rather than to the tool output the model reads.
+  class: static
+  checks:
+    - skill: prompt-audit
+      dimension: "Grounding & handling the unknown"
+  gap:
+    recommendation: new-domain
+    target: "#516"
+    note: mapped only where the metadata is visible in the prompt text, which Grounding flags as a pile of context the task does not need; the side channel itself - a metadata envelope consumed by downstream code and persisted into the run artifacts - is a runtime data path no dimension inspects.
+
+- id: observability/capture-per-subagent-per-tool-usage
+  section: "Capture per-(sub)agent, per-tool usage"
+  claim: Have the run harness produce a typed per-(sub)agent and per-tool usage record - tokens including cache read and write, wall-clock timing, agent-loop cycles, and per-tool total time and cost - so that utilization (how much of everything fetched actually informed the answer) and the stage a multi-agent run spends its time in both become visible.
+  class: static
+  gap:
+    recommendation: new-domain
+    target: "#516"
+    note: not one of the eight skills declares a dimension for run instrumentation; eval-audit's Regression tracking & cost is the nearest and asks whether eval results are tracked over time and cheap to produce, never whether a run emits a per-agent, per-tool usage record at all.
+
+- id: observability/account-for-the-full-cost-not-the-convenient-part
+  section: "Account for the full cost, not the convenient part"
+  claim: Take cost from actual billing rather than estimating it from token counts, count cache read and write tokens, sub-agent calls, latency and retries, price a component by its effect on the whole pipeline rather than by its local price, pair every efficiency number with an independent quality evaluation, and lead with absolute figures over percentages.
+  class: artifact
+  checks:
+    - skill: eval-audit
+      dimension: "Methodology soundness"
+  gap:
+    recommendation: extend-skill
+    target: "#516"
+    note: the pairing clause is mapped because an efficiency number reported on its own is exactly the gameable proxy Methodology soundness exists to catch; full-cost accounting is the same unmapped claim recorded on evaluation/measure-honestly-b, stated here from the observability side, and the target issue is the cost domain whose accounting rules the new eval-audit check should reuse.
+
+- id: observability/make-errors-diagnosable
+  section: "Make errors diagnosable"
+  claim: Swallow no exception - report each to the downstream consumer with its type and message at minimum, log it at the right level where it is actually visible during debugging, or re-raise it for a better-positioned caller - so the error message alone says what went wrong without reproducing the issue, a generic internal-error string being the opposite of observability.
+  class: static
+  checks:
+    - skill: security-audit
+      dimension: "Sensitive-data handling"
+  gap:
+    recommendation: extend-skill
+    target: "#516"
+    note: the same division as Part 2's coding-hygiene row, which states this rule as a review rule - security-audit reaches only the broad handlers that hide a security failure, and the developer-facing half, an exception collapsed into a generic string carrying neither type nor message, belongs to the observability domain the target issue creates.
+
+- id: observability/close-the-loop-production--development
+  section: "Close the loop: production → development"
+  claim: Persist the same per-(sub)agent usage record with each production interaction so a real-world session can be triaged after the fact - where a turn spent its time, whether it hung or merely ran long, which tool errored - because instrumentation that persists into production artifacts is what lets you debug the run you were not watching.
+  class: static
+  gap:
+    recommendation: new-domain
+    target: "#516"
+    note: no dimension asks whether instrumentation reaches the production path; every skill's evidence base stops at the repo and at eval runs, so a project whose dev runs are fully instrumented and whose production interactions record nothing passes each existing check.
+
+- id: observability/checklist-instrumenting-a-run
+  section: "Checklist: instrumenting a run"
+  claim: Eight-item recap for instrumenting a run - per-(sub)agent and per-tool usage recorded with cache read/write tokens, timing, loop cycles and per-tool cost, a typed record rather than a loose dict, analysis metadata on a side channel, utilization captured, cost from actual billing with the whole-pipeline effect included, every efficiency number paired with a quality number, no swallowed exceptions, and the same record persisted into production artifacts.
+  class: process
+  note: A recap, so what it adds is the act of working the list when a run is instrumented. Each of the eight items is owned by a Part 6 row above.
+
+- id: observability/see-also
+  section: "See also"
+  claim: Cross-links to Parts 2, 5 and 7 and the handbook index.
+  class: informative
+
 # --- Part 7: Evaluation -----------------------------------------------------
 
 - id: evaluation/the-enemy-is-false-confidence
@@ -744,6 +817,259 @@
 - id: evaluation/see-also
   section: "See also"
   claim: Cross-links to Parts 4, 6 and 8 and the handbook index.
+  class: informative
+
+# --- Part 8: Documentation & knowledge capture ------------------------------
+
+- id: documentation/aim-for-docs-that-stand-alone-drifted-docs-are-worse-than-none-a
+  section: "Aim for docs that stand alone; drifted docs are worse than none"
+  claim: Aim for docs that convey on their own what the system does and how it is built without reading the source, and hold every claim in them to the rule that governs a test - it must be verifiable and it must have been verified - because a drifted doc launders a stale belief into an authoritative-looking claim and so does more damage than a missing one, which makes finding and fixing a dead cross-link, an unresolvable import path or a renamed flag real work rather than tidying.
+  class: static
+  checks:
+    - skill: docs-audit
+      dimension: "Coverage"
+    - skill: docs-audit
+      dimension: "Cross-referencing"
+  gap:
+    recommendation: extend-skill
+    note: Coverage reaches the stand-alone standard as a per-component documented/partial/gap status and Cross-referencing reaches the dead cross-link, but drift itself has no column - a doc that confidently describes a flag the code renamed is neither a missing doc nor a broken link, so the doc-versus-source comparison the skill's evidence pass builds has nowhere to land.
+
+- id: documentation/aim-for-docs-that-stand-alone-drifted-docs-are-worse-than-none-b
+  section: "Aim for docs that stand alone; drifted docs are worse than none"
+  claim: Move a change and its documentation together in the same pull request, not later.
+  class: artifact
+  gap:
+    recommendation: new-domain
+    note: whether a code change carried its doc update in the same pull request is delivery-trail evidence, and no skill in the family reads commit or pull-request history.
+
+- id: documentation/keep-the-architecture-vs-research-split
+  section: "Keep the architecture-vs-research split"
+  claim: Keep two kinds of writing distinct - architecture docs, prescriptive and describing what is actually implemented, and research docs, background investigation marked explicitly not authoritative - cross-link the two when an investigation lands in code instead of letting transcripts accumulate among the prescriptive docs, and organize the whole tree by audience and concern behind a navigable index every docs pull request keeps current.
+  class: static
+  checks:
+    - skill: docs-audit
+      dimension: "Organization"
+    - skill: docs-audit
+      dimension: "Cross-referencing"
+  gap:
+    recommendation: extend-skill
+    note: partial - the placement and cross-linking halves are covered exactly, but the section also requires a research doc to be marked explicitly not authoritative for current behaviour, and no dimension reads a doc's labelling; Organization sees only where a doc sits, so a correctly filed but unmarked research doc passes both cited dimensions.
+  note: The split is one of docs-audit's own standing rules and Cross-referencing names the background-to-prescriptive reciprocal link outright, so the fit is close to exact on placement and linkage. The labelling residue is recorded as the gap above rather than left in this note.
+
+- id: documentation/keep-the-decision-trail-artifacts-a
+  section: "Keep the decision-trail artifacts"
+  claim: Keep the six records that make a decision and its evidence survive the moment - the forward-looking spec, plan and ADR, and the backward-looking story, experiment write-up and results log - reserving the ADR for a decision meant to outlive both a spec and a story, leaving implementation-level rationale in the story, and never skipping the story, which holds the why and the surprises a diff cannot.
+  class: artifact
+  checks:
+    - skill: eval-audit
+      dimension: "Regression tracking & cost"
+  gap:
+    recommendation: extend-skill
+    note: mapped only on the results log, which is the leaderboard-or-history record that dimension asks for; docs-audit owns the rest as docs-tree artifacts, yet no dimension asks whether a piece of work left its spec, plan, ADR, story or experiment write-up - its Coverage axis is per code component, not per decision - the same gap Part 1's step-by-step row records for the spec and the plan.
+
+- id: documentation/keep-the-decision-trail-artifacts-b
+  section: "Keep the decision-trail artifacts"
+  claim: Treat the data model itself as a first-class context artifact alongside the decision trail - a versioned, explicit description of the schemas the system works over plus their known quirks and invariants, that both people and agents are pointed at - because an agent left to infer it from scattered code reinvents it wrong and an undocumented quirk is a bug waiting for the next author.
+  class: static
+  checks:
+    - skill: docs-audit
+      dimension: "Coverage"
+  gap:
+    recommendation: extend-skill
+    note: partial - Coverage reaches presence and depth (a schema surface with no dedicated doc is a gap row, one documented without its quirks and invariants lands as partial), but the section also requires the description to be versioned, and no dimension asks whether a doc carries a version that tracks the schema it describes.
+
+- id: documentation/audit-docs-like-a-test-suite-a
+  section: "Audit docs like a test suite"
+  claim: Run periodic passes that re-read the documentation against the source and fix what has drifted, along three axes - organization (misfiled, duplicated or deprecated content, and the shape of the tree), cross-referencing (every internal link resolving, no orphans, reciprocal links present) and coverage (each code component documented, partial or a gap) - because the value is not the tidy diff but the guarantee that every claim was checked against reality.
+  class: static
+  checks:
+    - skill: docs-audit
+      dimension: "Organization"
+    - skill: docs-audit
+      dimension: "Cross-referencing"
+    - skill: docs-audit
+      dimension: "Coverage"
+  note: The three axes named here are docs-audit's three dimensions, which makes this the closest section-to-skill fit in Part 8. The cadence ("periodic") is the same audit-cadence question Part 1's make-the-standard-executable row records as sitting outside every skill's evidence base.
+
+- id: documentation/audit-docs-like-a-test-suite-b
+  section: "Audit docs like a test suite"
+  claim: Wire a link-and-index checker into CI as the cheapest guardrail, so a dead link or an unindexed doc fails the build instead of rotting quietly.
+  class: static
+  checks:
+    - skill: ci-audit
+      dimension: "Gate enforcement"
+  gap:
+    recommendation: extend-skill
+    note: Gate enforcement asks whether a checker that exists is actually required, so a project with no checker at all passes it; docs-audit is the owner and treats the checker as a deliverable it may propose rather than as a dimension it scores.
+
+- id: documentation/keep-the-living-docs-current-too-a
+  section: "Keep the living docs current too"
+  claim: Keep every module and public symbol carrying a docstring that says what it does and how to use it, updated whenever the purpose or interface changes and audited both ways, for coverage and for staleness, and route fixing one through the normal code gate rather than the lighter docs-only path.
+  class: static
+  gap:
+    recommendation: extend-skill
+    note: docs-audit does audit exactly this, as an opt-in docstring sub-audit declaring coverage, staleness and standard axes of its own, but those sit outside the citable Dimensions section - the fix is to declare them as dimensions, not to add the coverage - and nothing asks whether a docstring fix took the code gate.
+
+- id: documentation/keep-the-living-docs-current-too-b
+  section: "Keep the living docs current too"
+  claim: Hold the coding rules, review thresholds and git workflow in the project's binding-rules file, the one the team and the coding agents both read as authoritative, and maintain it - where it and this handbook disagree, the rules file wins and the handbook is the bug.
+  class: static
+  gap:
+    recommendation: extend-skill
+    note: the same unmapped claim as the README's where-the-binding-rules-live row, stated from the documentation side - docs-audit has no dimension for an authoritative rules file or for a doc-versus-doc contradiction, and ci-audit's Gate enforcement reads that mismatch only for what the file claims CI enforces.
+
+- id: documentation/keep-the-living-docs-current-too-c
+  section: "Keep the living docs current too"
+  claim: Document a prompt or SOP change in its commit message with the why rather than only the what, and keep it in its own commit where you can.
+  class: artifact
+  gap:
+    recommendation: extend-skill
+    note: the same unmapped claim as Part 2's prompt-and-sop-engineering row - eval-audit's Prompt / SOP quality owns prompt-change hygiene through its missing-versioning-or-changelog clause and prompt-audit states the convention in its own remediation section, but neither turns it into a check and nothing reads commit messages.
+
+- id: documentation/keep-the-living-docs-current-too-d
+  section: "Keep the living docs current too"
+  claim: Keep any generated diagram in a text metalanguage (Mermaid, PlantUML, D2) rather than a binary image and regenerate it from the source of truth on merge, so it cannot drift the way a hand-drawn or model-drawn one does and stays diffable in review like the rest of the source.
+  class: static
+  gap:
+    recommendation: extend-skill
+    note: docs-audit is the owner but no dimension reads the form a doc's assets take - a checked-in binary diagram is neither misfiled, unlinked, nor an undocumented component - and the regenerate-on-merge half becomes a ci-audit Gate enforcement question only once such a job already exists.
+
+- id: documentation/house-rule-dont-hard-wrap-markdown-source
+  section: "House rule: don't hard-wrap Markdown source"
+  claim: Write one paragraph as one line in the Markdown source and let the renderer wrap - never hard-wrap prose to a column and never reflow a code block or a diagram - so a one-word edit stays a one-line diff and the source reads well in tools that soft-wrap.
+  class: static
+  gap:
+    recommendation: extend-skill
+    note: mechanically checkable and entirely unmapped - docs-audit is the owner and reads what the docs say and where they sit, never how their source is formatted.
+
+- id: documentation/checklist-shipping-documentation
+  section: "Checklist: shipping documentation"
+  claim: Eight-item recap for shipping documentation - docs moved in the same pull request as the change, each path, flag, import and cross-link verified against the source, prescriptive content in architecture docs with superseded exploration in research docs cross-linked, the relevant decision-trail artifact present, touched docs reachable from an index with reciprocal links, docstrings updated for any changed purpose or interface, Markdown source not hard-wrapped, and a link-and-index checker guarding it in CI where possible.
+  class: process
+  note: A recap, so what it adds is the act of working the list before shipping. Each of the eight items is owned by a Part 8 row above.
+
+- id: documentation/see-also
+  section: "See also"
+  claim: Cross-links to Parts 1 and 7 and the handbook index.
+  class: informative
+
+# --- Part 9: Security, dependencies & supply chain --------------------------
+
+- id: security-supply-chain/first-party-code-trace-a-path-from-source-to-sink
+  section: "First-party code: trace a path from source to sink"
+  claim: Report a security finding as a path from an untrusted source to a dangerous sink and name both, counting model and tool outputs as untrusted sources alongside HTTP handlers, CLI arguments, file and object-store reads, message queues and the environment, then neutralize at the sink (parameterized queries, an argument-list subprocess with no shell, safe deserialization, hardened XML) and validate and canonicalize at the boundary (allowlists, path-containment checks, URL-host allowlisting).
+  class: static
+  checks:
+    - skill: security-audit
+      dimension: "Injection"
+    - skill: security-audit
+      dimension: "Dangerous calls / code execution"
+    - skill: security-audit
+      dimension: "Unsafe I/O & deserialization"
+  note: The three dimensions carry the sink taxonomy this section names, and tracing a verified source-to-sink path is the skill's own load-bearing evidence step. The agent-specific source - an LLM or tool output treated as untrusted rather than as trusted data - is declared in the skill's scope section rather than as a dimension, so it rides along with the dimensions above rather than being separately citable.
+
+- id: security-supply-chain/grant-the-agent-the-least-privilege-it-needs
+  section: "Grant the agent the least privilege it needs"
+  claim: Treat an agent's granted powers as an attack surface in their own right - never concentrate the lethal trifecta of private-data access, untrusted-content exposure and the ability to act on the outside world in one agent without a human gate on the acting edge, default a diagnostic, research or analysis agent to read-only tool and MCP access, and widen write access per tool and per purpose, never wholesale and never to production or the pipeline for convenience.
+  class: static
+  gap:
+    recommendation: extend-skill
+    note: security-audit is the owner, since prompt injection as application security is explicitly its surface, but none of its six dimensions reads an agent's granted tool and MCP surface; ci-audit's Permissions / secrets is the nearest and scopes least privilege to the pipeline token rather than to what an agent is allowed to do.
+
+- id: security-supply-chain/secrets-never-commit-them-and-rotate-dont-just-delete-a
+  section: "Secrets: never commit them, and rotate: don't just delete"
+  claim: Keep no credential in source, defaults, tests, fixtures or notebooks - a secret read from the environment is fine, a secret literal is not.
+  class: static
+  checks:
+    - skill: security-audit
+      dimension: "Secrets in code"
+  note: An exact fit - the dimension names defaults, tests, fixtures and notebooks in the same breath, and reading the line to tell an environment lookup from a literal is its stated verification step.
+
+- id: security-supply-chain/secrets-never-commit-them-and-rotate-dont-just-delete-b
+  section: "Secrets: never commit them, and rotate: don't just delete"
+  claim: Treat a committed secret as live until rotated - rotate the credential at its provider first, then remove the line, then purge history if it was ever pushed - and never merely suppress this one.
+  class: static
+  gap:
+    recommendation: extend-skill
+    note: purely a citeability gap, and a wide one - security-audit states this rule almost verbatim in three places outside its Dimensions section (the severity rubric refuses to suppress a confirmed secret and demands rotation, the fix patterns give the rotate-then-remove-then-purge order, and the review dimensions ask whether rotation was done rather than only deletion) and its git-history scan is an opt-in sub-audit - but Secrets in code, the one citable dimension, reads the working tree, so a credential deleted from current source and still live in history passes it. The fix is to declare the history-and-rotation coverage as a dimension.
+  note: Rotation at the provider is the half no snapshot can settle - a repo can show that the literal is gone and the history clean, never that the credential was actually retired.
+
+- id: security-supply-chain/depend-only-on-what-you-can-account-for-a
+  section: "Depend only on what you can account for"
+  claim: Know your third-party surface transitively and audit four things - licenses against your own license and distribution model, advisories affecting the resolved versions, freshness (outdated, yanked or end-of-life), and hygiene (declared-but-unused, used-but-undeclared, conflicting pins) - pinning direct dependencies and committing the lockfile as the record of what actually ran.
+  class: static
+  checks:
+    - skill: deps-audit
+      dimension: "License compatibility"
+    - skill: deps-audit
+      dimension: "Known vulnerabilities"
+    - skill: deps-audit
+      dimension: "Freshness"
+    - skill: deps-audit
+      dimension: "Hygiene"
+  note: An exact fit - the handbook's four axes are deps-audit's four core dimensions, transitivity is the resolved graph the skill takes as ground truth, and unpinned floating direct dependencies sit inside Freshness.
+
+- id: security-supply-chain/depend-only-on-what-you-can-account-for-b
+  section: "Depend only on what you can account for"
+  claim: Apply the same rule to the AI surface - treat the model and the provider as dependencies too, pinning model versions where the provider allows it and recording which model produced a given result, because a silent model upgrade is an unpinned dependency that can move your eval numbers out from under you.
+  class: static
+  checks:
+    - skill: eval-audit
+      dimension: "Reproducibility"
+  gap:
+    recommendation: extend-skill
+    note: Reproducibility asks for a pinned, recorded model version and so covers the eval surface exactly; deps-audit owns the wider claim and its inventory is the package graph, so a model or a provider never enters the dependency surface it accounts for.
+
+- id: security-supply-chain/depend-only-on-what-you-can-account-for-c
+  section: "Depend only on what you can account for"
+  claim: Know your providers' data-retention terms, and where you operate under a data-protection regime confirm that each provider processing personal data has the legal basis to - a signed DPA, acceptable residency and retention.
+  class: artifact
+  gap:
+    recommendation: new-domain
+    target: "#518"
+    note: nothing in the family reads provider terms, a processor register or a signed DPA, and the compliance evidence lives outside the repo entirely; this is squarely the data-protection domain the target issue creates.
+
+- id: security-supply-chain/treat-the-pipeline-as-a-privileged-environment
+  section: "Treat the pipeline as a privileged environment"
+  claim: Treat CI as a privileged runtime holding your secrets as well as the merge gate - default the pipeline token to read-only and widen only the single job that genuinely needs it, pin third-party actions to an immutable commit SHA rather than a mutable tag, never run untrusted pull-request code with secrets in scope, and prefer short-lived federated credentials over long-lived stored secrets.
+  class: static
+  checks:
+    - skill: ci-audit
+      dimension: "Permissions / secrets"
+    - skill: ci-audit
+      dimension: "Action supply chain"
+    - skill: ci-audit
+      dimension: "Trigger safety"
+  note: The second exact fit in Part 9 - each of the four clauses, federated credentials included, is named inside one of these three dimensions.
+
+- id: security-supply-chain/turn-every-fix-into-a-gate
+  section: "Turn every fix into a gate"
+  claim: Encode each class of safety fix as an executable check wired into CI and pre-commit - a SAST plus secret scan for first-party code, a CVE-plus-license gate for dependencies, a workflow linter and an action-pin checker for the pipeline - because every fix is one-time while the class of problem is forever.
+  class: static
+  checks:
+    - skill: ci-audit
+      dimension: "Gate enforcement"
+  gap:
+    recommendation: extend-skill
+    note: the same shape as Part 1's make-the-standard-executable row, applied to the safety surfaces - Gate enforcement audits the gates a project already has, while security-audit and deps-audit detect the available scanners only to choose their own tooling, so no dimension reports that a repo runs no secret scan and no CVE gate at all, and the pre-commit half is unrepresented anywhere.
+
+- id: security-supply-chain/verify-against-the-real-artifacts
+  section: "Verify against the real artifacts"
+  claim: Run the verification counterpart of this page as a standing check against the real artifacts - the first-party code, the resolved dependency graph, the workflow files and their branch-protection reality - report-only first to see where the repo hurts, then fix one surface at a time in its own reviewed change, judging severity by context and by whether a path is actually reachable and what it reaches.
+  class: artifact
+  gap:
+    recommendation: report-only
+    note: audit-core's own charter again, as on Part 1's make-the-standard-executable row - audit cadence and past audit reports sit outside every skill's evidence base, and the reachability-weighted severity rule is carried by security-audit's threat-context scoping and its severity rubric, neither of which is a dimension a row can cite.
+
+- id: security-supply-chain/checklist-a-security--supply-chain-sweep
+  section: "Checklist: a security & supply-chain sweep"
+  claim: Fifteen-item recap in six groups - first-party code (a verified source-to-sink path behind each finding, model and tool outputs treated as untrusted, sinks neutralized and input validated at the boundary), agent privileges (no lethal trifecta in one agent without a human gate, diagnostic and research agents read-only, no convenience write grants), secrets (no literals in source, tests, fixtures or notebooks, an exposed credential rotated then removed then purged), dependencies (transitive licenses, CVEs, freshness and hygiene, direct deps pinned with the lockfile committed, models and providers pinned and recorded with retention and DPA basis confirmed), pipeline (least-privilege token, actions pinned to commit SHAs, no untrusted pull-request code with secrets and federated credentials preferred), and standing (each class of fix now an executable gate).
+  class: process
+  note: A recap, so what it adds is the act of working the list during a sweep. Each of the fifteen items is owned by a Part 9 row above.
+
+- id: security-supply-chain/see-also
+  section: "See also"
+  claim: Cross-links to Parts 1, 2, 6 and 7 and the handbook index.
   class: informative
 
 # --- Troubleshooting guide --------------------------------------------------
