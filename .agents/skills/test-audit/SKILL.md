@@ -11,8 +11,6 @@ A domain specialization of **[audit-core](../audit-core/SKILL.md)** — read tha
 
 **Announce:** "I'm using the test-audit skill (on the audit-core engine) to audit the test suite."
 
-**Bash rule:** never pass a line starting with `#` to the Bash tool (you or any subagent).
-
 ## When to use
 
 - Before relying on the suite as a merge safety net, or after a bug slipped through with tests green (a sign of weak assertions or an uncovered branch).
@@ -43,7 +41,7 @@ Slice the parallel evidence pass **by package/module** — one read-only agent p
 
 ## 3. Evidence sources & tooling
 
-**Detect** what the project has (check `pyproject.toml` / config): the runner (`pytest`), coverage (`pytest-cov` / `coverage.py`), diff-coverage (`diff-cover`), flakiness/order tools (`pytest-randomly`, `pytest-rerunfailures`), timeouts (`pytest-timeout`), property-based testing (`hypothesis`), and mutation (`mutmut` / `cosmic-ray`). Prefer a tool the project already runs; fall back otherwise. Instruct subagents: never pass `#`-comment lines to Bash.
+**Detect** what the project has (check `pyproject.toml` / config): the runner (`pytest`), coverage (`pytest-cov` / `coverage.py`), diff-coverage (`diff-cover`), flakiness/order tools (`pytest-randomly`, `pytest-rerunfailures`), timeouts (`pytest-timeout`), property-based testing (`hypothesis`), and mutation (`mutmut` / `cosmic-ray`). Prefer a tool the project already runs; fall back otherwise.
 
 Run in the parallel evidence pass:
 - **Coverage (with branches):** `pytest --cov=<pkg> --cov-branch --cov-report=term-missing` (or `coverage run -m pytest` + `coverage report --show-missing`). Branch coverage is the signal; capture the missing line/branch ranges per module as the evidence pointer.

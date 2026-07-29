@@ -11,8 +11,6 @@ A domain specialization of **[audit-core](../audit-core/SKILL.md)** — read tha
 
 **Announce:** "I'm using the arch-audit skill (on the audit-core engine) to audit the project structure."
 
-**Bash rule:** never pass a line starting with `#` to the Bash tool (you or any subagent).
-
 ## When to use
 
 - A package tree grew organically and no one is sure the layering still holds (a low tier importing a high one, a service reaching into an agent).
@@ -53,7 +51,7 @@ Do **not** fan a cheap local check (file sizes, per-function complexity) out to 
 
 ## 3. Evidence sources & tooling
 
-**Detect** what the project already has (check `pyproject.toml` / config): a layering enforcer (`import-linter` / `tach`), a graph tool (`pydeps` / `grimp`), a complexity linter (`ruff` `C901` / `radon` / `xenon`), a dead-code finder (`vulture`), and an import-hygiene tool (`deptry`). Prefer a tool the project already runs; fall back otherwise. Instruct subagents: never pass `#`-comment lines to Bash.
+**Detect** what the project already has (check `pyproject.toml` / config): a layering enforcer (`import-linter` / `tach`), a graph tool (`pydeps` / `grimp`), a complexity linter (`ruff` `C901` / `radon` / `xenon`), a dead-code finder (`vulture`), and an import-hygiene tool (`deptry`). Prefer a tool the project already runs; fall back otherwise.
 
 Run in the parallel evidence pass:
 - **Layering:** `import-linter` if a `.importlinter` contract exists, or `tach`. If neither, build the ground-truth edge set yourself — parse each module's `import` / `from ... import` statements (`grimp`, or an AST/`ast`-based walk, or a scoped grep) and check every cross-tier edge against the §1 rules. Record the offending `file:line` for each violation.

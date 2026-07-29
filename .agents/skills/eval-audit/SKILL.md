@@ -11,8 +11,6 @@ A domain specialization of **[audit-core](../audit-core/SKILL.md)** — read tha
 
 **Announce:** "I'm using the eval-audit skill (on the audit-core engine) to audit the evals, prompts, and smoke tests."
 
-**Bash rule:** never pass a line starting with `#` to the Bash tool (you or any subagent).
-
 ## When to use
 
 - Before trusting an eval score or a leaderboard to make a model/prompt decision.
@@ -44,7 +42,7 @@ Slice the parallel evidence pass **by capability or by asset type** — one read
 
 ## 3. Evidence sources & tooling
 
-**Detect** the project's eval stack (a `eval/` package with its own runner/report, or `promptfoo` / `deepeval` / `ragas` / `langsmith` / OpenAI Evals) and how evals are invoked, plus where prompts live and any prompt-analysis skill the project ships. Prefer the project's own harness; don't impose a framework it doesn't use. Instruct subagents: never pass `#`-comment lines to Bash.
+**Detect** the project's eval stack (a `eval/` package with its own runner/report, or `promptfoo` / `deepeval` / `ragas` / `langsmith` / OpenAI Evals) and how evals are invoked, plus where prompts live and any prompt-analysis skill the project ships. Prefer the project's own harness; don't impose a framework it doesn't use.
 
 Gather in the parallel evidence pass:
 - **Coverage map (the load-bearing step):** list the behaviors-that-matter from §1, then map each to the eval(s) that exercise it by reading the eval configs/datasets — not by trusting a summary. The unmapped behaviors are the gap rows. A capability with a leaderboard entry but no test case for its key failure mode is still a gap.

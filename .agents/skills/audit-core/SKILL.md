@@ -11,8 +11,6 @@ Every `*-audit` skill is the **same loop** applied through a different lens. Thi
 
 **Announce (from the domain skill):** "I'm using the `<domain>-audit` skill (on the audit-core engine) to audit `<subject>`."
 
-**Bash rule (you and every subagent you dispatch):** never pass a line starting with `#` to the Bash tool — hash comments confuse the tool-permission subsystem. Put commit messages in heredoc files or use `-m`.
-
 ## The loop
 
 Runs in order; each step feeds the next.
@@ -34,7 +32,7 @@ Runs in order; each step feeds the next.
    - Ground each task in the Phase-1 evidence (exact `file:line` / tool findings) so the implementer verifies rather than guesses.
 
 4. **Apply fixes — subagent-driven with per-item review.** Work one task at a time, tracking progress in a durable ledger (so the run survives interruption):
-   1. Dispatch a **fresh implementer subagent** with: where the fix fits, the task brief + evidence, the global constraints, the report-file path, and the Bash-no-`#` reminder. It makes the change, re-runs the domain gate to green, commits, and self-reviews.
+   1. Dispatch a **fresh implementer subagent** with: where the fix fits, the task brief + evidence, the global constraints and the report-file path. It makes the change, re-runs the domain gate to green, commits, and self-reviews.
    2. **Review against evidence:** a reviewer subagent (or inline if subagents are unstable) verifies the fix actually resolves the finding *against the real artifact/tool output* — not just that it looks plausible. Spec compliance + quality.
    3. **Resolve findings:** fix Critical/Important before advancing; apply easy correct Minor fixes; resolve any "can't verify from the diff" item yourself against the evidence.
    4. Record the task complete in the ledger. **One implementer at a time** (parallel implementers collide on shared files).

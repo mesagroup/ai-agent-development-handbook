@@ -13,8 +13,6 @@ The split from its closest sibling is deliberate and mirrors `test-audit` vs `ev
 
 **Announce:** "I'm using the prompt-audit skill (on the audit-core engine) to audit the prompts and SOPs."
 
-**Bash rule:** never pass a line starting with `#` to the Bash tool (you or any subagent) — hash comments confuse the tool-permission subsystem.
-
 ## When to use
 
 - Before trusting a new or heavily edited prompt / SOP that drives real agent behavior.

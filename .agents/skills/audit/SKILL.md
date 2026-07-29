@@ -13,8 +13,6 @@ The front door to the `*-audit` family. It runs several domain audits **at once*
 
 **Announce:** "I'm using the audit skill to run a multi-domain audit sweep (report-only) and consolidate the findings."
 
-**Bash rule (you and every subagent you dispatch):** never pass a line starting with `#` to the Bash tool — hash comments confuse the tool-permission subsystem.
-
 ## When to use
 
 - A whole-repo health check: "is this shippable / where are the problems?"
@@ -35,7 +33,7 @@ The front door to the `*-audit` family. It runs several domain audits **at once*
 Dispatch all selected domains **concurrently** (a barrier — collect the matrices before consolidating; a domain that errors does **not** block the others). Give each subagent:
 - The repo root and the one line: "Read `.agents/skills/<domain>-audit/SKILL.md` and `.agents/skills/audit-core/SKILL.md`, then execute that audit on THIS repo in REPORT-ONLY mode, through the findings-matrix step only."
 - Any repo-specific grounding the domain needs (declared architecture rules for arch, the eval stack location for eval, the workflow list for ci, etc.) — a short pointer, not a pasted lens.
-- The hard constraints: **do NOT edit/create/delete any file, do NOT create branches/commits/PRs, report-only**; the Bash-no-`#` reminder; "keep raw tool output OUT of your final answer — return the matrix (**capped to the significant rows**), counts, top findings, and a one-line-per-tool ran/fell-back log."
+- The hard constraints: **do NOT edit/create/delete any file, do NOT create branches/commits/PRs, report-only**; "keep raw tool output OUT of your final answer — return the matrix (**capped to the significant rows**), counts, top findings, and a one-line-per-tool ran/fell-back log."
 - Instruction to run the domain's detection tooling ephemerally (`uv run --with <tool> …`) with the domain skill's fallbacks, and to **verify each finding against the real artifact** (source→sink, `file:line`, tool output) so scanner artifacts don't become findings. **If every fallback for a dimension fails (no network, tool won't install), mark that dimension `no-evidence` — never `pass`** — so absence of tooling is not reported as absence of findings.
 
 One subagent per domain; do not split a single domain across subagents here (that's the domain skill's own internal concern).

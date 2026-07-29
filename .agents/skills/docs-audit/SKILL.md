@@ -11,8 +11,6 @@ A domain specialization of **[audit-core](../audit-core/SKILL.md)** — read tha
 
 **Announce:** "I'm using the docs-audit skill (on the audit-core engine) to audit and complete the documentation."
 
-**Bash rule:** never pass a line starting with `#` to the Bash tool (you or any subagent).
-
 ## When to use
 
 - Documentation has drifted from the code (stale entry points, removed APIs still documented, wrong defaults).

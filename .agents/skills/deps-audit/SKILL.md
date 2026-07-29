@@ -9,8 +9,6 @@ A domain specialization of **[audit-core](../audit-core/SKILL.md)** — read tha
 
 **Announce:** "I'm using the deps-audit skill (on the audit-core engine) to audit the dependency surface."
 
-**Bash rule:** never pass a line starting with `#` to the Bash tool (you or any subagent).
-
 ## 1. Subject & scope
 
 The project's declared and resolved dependency graph, and the licenses/vulnerabilities/freshness/usage of every node in it. Establish two things first, because they change the verdicts:
@@ -32,7 +30,7 @@ Slice the parallel evidence pass by dependency group (main / dev / optional-extr
 
 **Detect** the project's package manager (`uv` / `pip` / `poetry` — check for `uv.lock`, `poetry.lock`, `requirements*.txt`) and use its resolved graph as ground truth (transitive deps matter — most CVEs and copyleft licenses arrive transitively).
 
-Run in the parallel evidence pass (prefer a tool the project already has; fall back otherwise). Instruct subagents: never pass `#`-comment lines to Bash.
+Run in the parallel evidence pass (prefer a tool the project already has; fall back otherwise).
 - **Licenses:** `pip-licenses` (with `--format` for SPDX-ish output), or read each installed dist's `*.dist-info/METADATA` (`License` + `Classifier: License ::`). Map to SPDX ids; flag `UNKNOWN`.
 - **Vulnerabilities:** `pip-audit` (PyPA, reads the environment or a requirements/lock file) or `safety`. Capture advisory id, affected range, and fixed version.
 - **Freshness:** `uv pip list --outdated` / `pip list --outdated`; check the lockfile for floating direct pins; check PyPI for yanked releases.

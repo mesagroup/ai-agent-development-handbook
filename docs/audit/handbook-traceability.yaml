@@ -122,7 +122,7 @@
 
 - id: lifecycle/step-by-step-one-issue-end-to-end-e
   section: "Step-by-step: one issue, end to end"
-  claim: Carry the standing subagent instructions in the dispatching prompt itself - tell every shell-capable subagent never to pass comment lines to the shell tool, because they can confuse a tool-permission subsystem, and scope each subagent to its brief so it does not act on the whole plan.
+  claim: Keep a long subagent run awake with a background keep-awake killed on completion, scope each subagent to its brief so it does not act on the whole plan, and carry any standing instruction of that kind in the dispatching prompt, since a subagent inherits none of the conventions the dispatcher works under.
   class: static
   gap:
     recommendation: extend-skill

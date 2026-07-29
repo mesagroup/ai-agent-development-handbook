@@ -11,8 +11,6 @@ A domain specialization of **[audit-core](../audit-core/SKILL.md)** — read tha
 
 **Announce:** "I'm using the security-audit skill (on the audit-core engine) to audit the first-party code for security weaknesses."
 
-**Bash rule:** never pass a line starting with `#` to the Bash tool (you or any subagent).
-
 ## When to use
 
 - Before a release, or before making a repo public / open-source (secret history matters here — see §7).
@@ -42,7 +40,7 @@ Slice the parallel evidence pass by top-level package/entry point, or by dimensi
 
 ## 3. Evidence sources & tooling
 
-**Detect** what the project has (check `pyproject.toml` / config / pre-commit): a SAST scanner (`bandit`, or `ruff` with the `S` = flake8-bandit ruleset, or `semgrep`), a secret scanner (`detect-secrets`, `gitleaks`, `trufflehog`), and any type checker (a strict typechecker catches some misuse). Prefer a tool the project already runs; fall back otherwise. Instruct subagents: never pass `#`-comment lines to Bash.
+**Detect** what the project has (check `pyproject.toml` / config / pre-commit): a SAST scanner (`bandit`, or `ruff` with the `S` = flake8-bandit ruleset, or `semgrep`), a secret scanner (`detect-secrets`, `gitleaks`, `trufflehog`), and any type checker (a strict typechecker catches some misuse). Prefer a tool the project already runs; fall back otherwise.
 
 Run in the parallel evidence pass:
 - **SAST:** `bandit -r <pkg>` (captures test id like `B602`, severity, confidence, `file:line`), or `ruff check --select S` if the project standardizes on ruff, or `semgrep --config p/python` for dataflow-aware rules. Record test id + `file:line` per hit.

@@ -11,8 +11,6 @@ A domain specialization of **[audit-core](../audit-core/SKILL.md)** — read tha
 
 **Announce:** "I'm using the ci-audit skill (on the audit-core engine) to audit the CI/CD pipelines."
 
-**Bash rule:** never pass a line starting with `#` to the Bash tool (you or any subagent).
-
 ## When to use
 
 - Before trusting CI as the merge gate ("green means safe"): confirm the gates are required and actually run on the paths that matter.
@@ -44,7 +42,7 @@ Slice the parallel evidence pass **by workflow file** — one read-only agent pe
 
 ## 3. Evidence sources & tooling
 
-**Detect** what the platform offers and what the project already uses: for GitHub Actions, `actionlint` (workflow correctness + shellcheck of `run:` blocks), `zizmor` (GHA security auditor — trigger safety, injection, permissions, unpinned actions), `pinact`/`ratchet` (action-pin checking), and the GitHub API/CLI (`gh`) for branch-protection and run history. For other platforms, use their native linter (`glab ci lint`, `circleci config validate`) plus manual review. Prefer a tool the project already runs; fall back to careful manual reading of every workflow. Instruct subagents: never pass `#`-comment lines to Bash.
+**Detect** what the platform offers and what the project already uses: for GitHub Actions, `actionlint` (workflow correctness + shellcheck of `run:` blocks), `zizmor` (GHA security auditor — trigger safety, injection, permissions, unpinned actions), `pinact`/`ratchet` (action-pin checking), and the GitHub API/CLI (`gh`) for branch-protection and run history. For other platforms, use their native linter (`glab ci lint`, `circleci config validate`) plus manual review. Prefer a tool the project already runs; fall back to careful manual reading of every workflow.
 
 Run in the parallel evidence pass:
 - **Correctness:** `actionlint` (catches syntax, expression, and shell-quoting errors), or the platform's config validator.
