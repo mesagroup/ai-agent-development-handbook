@@ -292,6 +292,23 @@ def test_d2_layout_pins_elk_with_a_tighter_rank_gap_than_dagre():
     assert 0 < gap < 70
 
 
+def test_no_handbook_diagram_sizes_nodes_inside_a_grid():
+    # d2's grid layout forces every cell to the row's largest height, silently
+    # discarding a per-node `height`. The screening funnel shipped that way for
+    # one commit: it asked for six tapering stages, rendered six equal ones, and
+    # the overall bbox was identical either way, so nothing downstream noticed.
+    source_dir = Path(rh.__file__).resolve().parent.parent / "docs" / "engineering"
+    offenders = []
+    for path in sorted(source_dir.glob("*.md")):
+        _, blocks = rh.extract_d2_blocks(path.read_text(), path.stem)
+        for block in blocks:
+            if re.search(r"^grid-(rows|columns):", block.source, re.M) and re.search(
+                r"\b(width|height):\s*\d", block.source
+            ):
+                offenders.append(f"{path.name}: {block.title}")
+    assert not offenders, f"grid layout ignores explicit node sizes in {offenders}"
+
+
 def test_extract_d2_blocks_rejects_an_unclosed_fence():
     # An unclosed fence used to swallow every following paragraph up to the
     # next stray fence line, so the page lost content with nothing to notice.
