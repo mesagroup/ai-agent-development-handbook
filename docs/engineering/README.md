@@ -20,7 +20,7 @@ Here the loop closes. What the measurement teaches (a new failure form, a surpri
 
 Do not expect the loop to terminate. That the story ends where it began is not a defect; it is how the system stays honest as the data, the models, and the team drift.
 
-```d2 title="One turn of the loop, whose last step raises the next issue; the marked steps are its human gates"
+```d2 title="The story of a change; the marked steps are its human gates"
 direction: right
 *.class: step
 **.width: 70
@@ -34,6 +34,7 @@ merge: Merge {class: human}
 run: Observe
 decide: Evaluate
 idea -> issue -> spec -> plan -> build -> merge -> run -> decide
+decide -> idea: the next issue
 ```
 
 ### The parts, at a glance
