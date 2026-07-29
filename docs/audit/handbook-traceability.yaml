@@ -585,7 +585,8 @@
   class: static
   gap:
     recommendation: new-domain
-    note: "production-reliability bounding has no owner anywhere in the family - not one of the eight skills declares a dimension for timeouts, retry safety, circuit breakers, loop or payload caps. The planned performance/cost and observability lenses in #516 are the nearest and would see the symptoms (a hung run, an unattributed spend, an undiagnosable failure) while their scope is measurement and diagnosability rather than the harness-level bounds themselves, so this needs its own home or an explicit widening of that issue."
+    target: "#516"
+    note: "production-reliability bounding has no owner anywhere in the family - not one of the eight skills declares a dimension for timeouts, retry safety, circuit breakers, loop or payload caps. The planned performance/cost and observability lenses in #516 are the nearest: they would see the symptoms (a hung run, an unattributed spend, an undiagnosable failure) but their stated scope is measurement and diagnosability, not the harness-level bounds that prevent them. Folded into #516 by decision on 2026-07-29, widening that issue from measuring the symptom to auditing the bound - the alternative, a ninth reliability domain, would split one dependency call between two lenses."
 
 - id: agent-harness/checklist-standing-up-a-new-agent
   section: "Checklist: standing up a new agent"
