@@ -113,49 +113,108 @@ def test_validate_accepts_the_valid_fixture(tmp_path):
 
 def test_validate_catches_each_rule(tmp_path):
     headings, dims = _fixture_dirs(tmp_path)
+    # (mutation, expected message fragment, expected total error count) - the
+    # count pins over-firing: a rule that also flags something else fails here.
+    # A count of 2 means the mutation additionally orphans a real heading.
     cases = [
         (
             lambda r: r[0].update(id="alpha/mapped-section", section="Wrong text"),
             "does not match heading",
+            1,
         ),
-        (lambda r: r[0].update(id="nowhere/mapped-section"), "unknown handbook part"),
-        (lambda r: r[0].update(id="alpha/no-such-anchor"), "does not resolve"),
-        (lambda r: r[0].update(**{"class": "bogus"}), "class must be one of"),
-        (lambda r: r[0].pop("checks"), "needs checks or a gap"),
+        (
+            lambda r: r[0].update(id="nowhere/mapped-section"),
+            "unknown handbook part",
+            2,
+        ),
+        (lambda r: r[0].update(id="alpha/no-such-anchor"), "does not resolve", 2),
+        (lambda r: r[0].update(**{"class": "bogus"}), "class must be one of", 1),
+        (lambda r: r[0].pop("checks"), "needs checks or a gap", 1),
         (
             lambda r: r[3].update(
                 checks=[{"skill": "demo-audit", "dimension": "Injection"}]
             ),
             "must not carry checks",
+            1,
         ),
-        (lambda r: r[0]["checks"][0].update(skill="ghost-audit"), "unknown skill"),
+        (lambda r: r[0]["checks"][0].update(skill="ghost-audit"), "unknown skill", 1),
         (
             lambda r: r[0]["checks"][0].update(dimension="Ghost dimension"),
             "no dimension",
+            1,
         ),
         (
             lambda r: r[1]["gap"].update(recommendation="wontfix"),
             "recommendation must be one of",
+            1,
         ),
-        (lambda r: r.append(dict(r[0])), "duplicate id"),
-        (lambda r: r.pop(3), "coda.md has no whole-part row"),
-        (lambda r: (r.pop(1), r.pop(1)), "has no matrix row"),
+        (lambda r: r.append(dict(r[0])), "duplicate id", 1),
+        (lambda r: r.pop(3), "coda.md has no whole-part row", 1),
+        (lambda r: (r.pop(1), r.pop(1)), "has no matrix row", 1),
     ]
-    for mutate, expected in cases:
+    for mutate, expected, count in cases:
         rows = _valid_rows()
         mutate(rows)
         errors = rht.validate(rows, headings, dims)
         assert any(expected in e for e in errors), f"{expected!r} not in {errors}"
+        assert len(errors) == count, f"{expected!r} produced {errors}"
+
+
+_ALPHA_URL = f"{rht.HANDBOOK_URL}/alpha.md"
 
 
 def test_render_produces_tables_gap_list_and_summary():
     rows = _valid_rows()
     out = rht.render(rows)
     assert "generated file" in out.lower()
-    assert "[Mapped section](../engineering/alpha.md#mapped-section)" in out
+    # Absolute GitHub URL: the handbook is excluded from the built site, so a
+    # relative link would 404 there and fail the site link crawler.
+    assert f"[Mapped section]({_ALPHA_URL}#mapped-section)<br>c1" in out
+    assert "../engineering/" not in out
     assert "`demo-audit` / Injection" in out
     assert "### new-domain" in out and "#516" in out
     assert "| static | 1 |" in out
+
+
+def test_render_marks_split_rows_and_links_gap_entries():
+    out = rht.render(_valid_rows())
+    # Both slices of a split section link to the same anchor, distinguished by
+    # the marker; the claim is what tells them apart.
+    assert f"[Split section]({_ALPHA_URL}#split-section) (a)<br>c2a" in out
+    assert f"[Split section]({_ALPHA_URL}#split-section) (b)<br>c2b" in out
+    # A whole-part row (no ## headings) links to the file, with no marker.
+    assert f"[Coda]({rht.HANDBOOK_URL}/coda.md)<br>closing words |" in out
+    # Every gap entry links back to its handbook section, marker included.
+    assert (
+        f"- [`alpha/split-section-a`]({_ALPHA_URL}#split-section) (a) (#516) - no lens yet"
+        in out
+    )
+
+
+def test_render_reports_full_and_partial_coverage_apart():
+    rows = _valid_rows()
+    # A row that carries both a check and a residual gap is partial, not mapped.
+    rows[0]["gap"] = {"recommendation": "extend-skill", "note": "residue"}
+    out = rht.render(rows)
+    assert "**0 fully mapped** (0%), **1 partially mapped**" in out
+    assert "**1 unmapped**" in out
+    assert "2 rows carry a gap entry in total" in out
+
+
+def test_render_shows_row_notes_in_the_notes_column():
+    rows = _valid_rows()
+    rows[2]["note"] = "Process | culture:\nnot datable from a snapshot."
+    out = rht.render(rows)
+    assert "| Section / claim | Class | Mapped checks | Gap | Notes |" in out
+    # Pipes escaped and the note folded onto the row's single table line.
+    assert (
+        "| process | - | - | Process \\| culture: not datable from a snapshot. |" in out
+    )
+    # A row without a note still renders a placeholder cell.
+    assert (
+        f"[Coda]({rht.HANDBOOK_URL}/coda.md)<br>closing words | informative | - | - | - |"
+        in out
+    )
 
 
 def test_main_check_detects_a_stale_md(tmp_path, monkeypatch):
@@ -180,30 +239,21 @@ def test_main_check_detects_a_stale_md(tmp_path, monkeypatch):
     assert rht.main(["--check"]) == 1
 
 
-def test_allow_pending_parts_tolerates_unwalked_parts_only(tmp_path, monkeypatch):
+def test_main_fails_on_an_uncovered_handbook_part(tmp_path, monkeypatch):
     import yaml as _yaml
 
     _fixture_dirs(tmp_path)
     _write(tmp_path / "handbook" / "beta.md", "# Beta\n\n## Unwalked section\n\ntext\n")
     yaml_path = tmp_path / "handbook-traceability.yaml"
-    md_path = tmp_path / "handbook-traceability.md"
     yaml_path.write_text(
         _yaml.safe_dump(_valid_rows(), sort_keys=False, allow_unicode=True)
     )
     monkeypatch.setattr(rht, "HANDBOOK_DIR", tmp_path / "handbook")
     monkeypatch.setattr(rht, "SKILLS_DIR", tmp_path / "skills")
     monkeypatch.setattr(rht, "YAML_PATH", yaml_path)
-    monkeypatch.setattr(rht, "MD_PATH", md_path)
+    monkeypatch.setattr(rht, "MD_PATH", tmp_path / "handbook-traceability.md")
     monkeypatch.setattr(rht, "REPO_ROOT", tmp_path)
-    assert rht.main([]) == 1  # beta.md uncovered -> strict fails
-    assert rht.main(["--allow-pending-parts"]) == 0
-    assert md_path.exists()
-    rows = _valid_rows()
-    del rows[
-        0
-    ]  # alpha stays walked but now misses a section -> fails even with the flag
-    yaml_path.write_text(_yaml.safe_dump(rows, sort_keys=False, allow_unicode=True))
-    assert rht.main(["--allow-pending-parts"]) == 1
+    assert rht.main([]) == 1  # beta.md has no rows -> coverage hole, no escape hatch
 
 
 def test_validate_reports_malformed_shapes_without_crashing(tmp_path):

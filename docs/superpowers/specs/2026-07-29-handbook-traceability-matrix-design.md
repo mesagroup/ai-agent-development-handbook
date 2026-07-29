@@ -77,9 +77,11 @@ Slugging matches the handbook's own heading-anchor convention (GitHub-style: low
 ## Rendered md layout
 
 1. Generated-file header (edit the YAML, run the renderer) + legend explaining the four classes, including the absence-is-a-finding semantics of `artifact`.
-2. One table per handbook part, in the handbook's own reading order: columns *Section / Class / Mapped checks / Gap*.
-3. **Gap list** — the consolidated section that re-scopes downstream work: all `gap` entries grouped by `recommendation` (`extend-skill` / `new-domain` / `report-only`), each with its row ID and target issue.
-4. **Coverage summary** — row counts per class, mapped percentage of auditable rows, and the count of process-only rows (the honest record of what cannot be audited from a snapshot).
+2. One table per handbook part, in the handbook's own reading order: columns *Section / claim / Class / Mapped checks / Gap / Notes*. The first cell carries the linked heading, the split marker (`(a)`, `(b)`, …) and the row's `claim`, so a split row says what it covers without opening the YAML; the last carries the row's `note`, the rationale for its class and for what a mapping deliberately leaves to the gap.
+3. **Gap list** — the consolidated section that re-scopes downstream work: all `gap` entries grouped by `recommendation` (`extend-skill` / `new-domain` / `report-only`), each with its row ID (linked to the handbook section) and target issue.
+4. **Coverage summary** — row counts per class, then the auditable rows split three ways: fully mapped (checks, no gap), partially mapped (checks *and* a residual gap), and unmapped. Counting a partial row as mapped would overstate coverage, so the headline percentage is the fully-mapped one. Closes with the non-auditable `process` + `informative` counts — the honest record of what cannot be audited from a snapshot.
+
+Handbook links are absolute GitHub URLs (`https://github.com/lidia-tech/lidia-agents/blob/main/docs/engineering/…`), not repo-relative ones: `mkdocs.yml` excludes `docs/engineering/` from the built site, so a relative link resolves on GitHub but 404s on the site. `mkdocs build --strict` logs that at INFO rather than failing, so the guard is `scripts/check_site_links.py`, which CI runs separately.
 
 ## Content rules for the walk
 

@@ -7,6 +7,8 @@ description: "Run a broad, parallel, report-only audit sweep across multiple qua
 
 The front door to the `*-audit` family. It runs several domain audits **at once**, each as a read-only subagent, and consolidates their findings into a single report. It does not add a new lens of its own — it orchestrates the existing ones (`docs-audit`, `deps-audit`, `arch-audit`, `security-audit`, `ci-audit`, `test-audit`, `eval-audit`, `prompt-audit`), all built on **[audit-core](../audit-core/SKILL.md)**.
 
+**Coverage record:** which clauses of the [engineering handbook](../../../docs/engineering/README.md) each domain skill actually checks is recorded clause by clause in [`docs/audit/handbook-traceability.md`](../../../docs/audit/handbook-traceability.md), and the gaps in domain coverage — what no skill can see yet, and which issue would fix it — are tracked there.
+
 **Core principle:** a sweep is for *breadth* — surface where the repo hurts across every dimension, cheaply and in parallel, without changing anything. Depth and fixes are a deliberate follow-up, one domain at a time. So this skill defaults to **report-only** and fans out; it never runs fixes in parallel (see "Fixes are delegated").
 
 **Announce:** "I'm using the audit skill to run a multi-domain audit sweep (report-only) and consolidate the findings."

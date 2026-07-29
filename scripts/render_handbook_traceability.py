@@ -1,18 +1,23 @@
 """Render and verify the handbook traceability matrix (#543).
 
-``docs/audit/handbook-traceability.yaml`` is the hand-maintained source of
-truth mapping every ``##`` section of the engineering handbook
-(``docs/engineering/``) onto the ``*-audit`` skill family
-(``.agents/skills/``). This script validates that mapping against the real
+`docs/audit/handbook-traceability.yaml` is the hand-maintained source of
+truth mapping every `##` section of the engineering handbook
+(`docs/engineering/`) onto the `*-audit` skill family
+(`.agents/skills/`). This script validates that mapping against the real
 handbook headings and skill dimensions, and renders the committed Markdown
-view ``docs/audit/handbook-traceability.md``.
+view `docs/audit/handbook-traceability.md`.
+
+Handbook links are rendered as absolute GitHub URLs: `docs/engineering/` is
+excluded from the built docs site (the handbook ships as a standalone HTML
+artifact), so a relative link into it resolves on GitHub but 404s on the
+site and fails `scripts/check_site_links.py`.
 
 Usage:
     uv run python scripts/render_handbook_traceability.py          # validate + write the md
     uv run python scripts/render_handbook_traceability.py --check  # validate; fail if the md is stale
 
 Exit code 0 on success; 1 with one message per problem on validation
-failure or staleness. The pytest gate in ``tests/scripts/`` runs ``--check``
+failure or staleness. The pytest gate in `tests/scripts/` runs `--check`
 so CI guards staleness with no workflow change.
 
 Design: docs/superpowers/specs/2026-07-29-handbook-traceability-matrix-design.md
@@ -33,6 +38,10 @@ HANDBOOK_DIR = REPO_ROOT / "docs" / "engineering"
 SKILLS_DIR = REPO_ROOT / ".agents" / "skills"
 YAML_PATH = REPO_ROOT / "docs" / "audit" / "handbook-traceability.yaml"
 MD_PATH = REPO_ROOT / "docs" / "audit" / "handbook-traceability.md"
+
+# The handbook is excluded from the built site, so links into it must be
+# absolute to resolve both on GitHub and on the site.
+HANDBOOK_URL = "https://github.com/lidia-tech/lidia-agents/blob/main/docs/engineering"
 
 PART_ORDER = [
     "README",
@@ -74,17 +83,17 @@ _SPLIT_SUFFIX_RE = re.compile(r"-([a-z])$")
 
 
 def slugify(heading: str) -> str:
-    """GitHub-style anchor: lowercase, keep ``[a-z0-9 _-]``, spaces to hyphens."""
+    """GitHub-style anchor: lowercase, keep `[a-z0-9 _-]`, spaces to hyphens."""
     text = heading.strip().lower().replace("`", "")
     text = re.sub(r"[^a-z0-9 _-]", "", text)
     return text.replace(" ", "-")
 
 
 def handbook_headings(handbook_dir: Path) -> dict[str, list[str]]:
-    """Map each handbook part stem to its ordered ``##`` heading texts.
+    """Map each handbook part stem to its ordered `##` heading texts.
 
     Only level-2 headings count (the row unit per the design spec); fenced
-    code blocks are skipped so a ``##`` inside an example is not a section.
+    code blocks are skipped so a `##` inside an example is not a section.
     """
     parts: dict[str, list[str]] = {}
     for md in sorted(handbook_dir.glob("*.md")):
@@ -106,7 +115,7 @@ def handbook_headings(handbook_dir: Path) -> dict[str, list[str]]:
 def skill_dimensions(skills_dir: Path) -> dict[str, list[str]]:
     """Map each skill directory name to the bolded lead phrases of its Dimensions bullets.
 
-    A skill without a numbered ``## N. Dimensions`` heading (audit-core, the
+    A skill without a numbered `## N. Dimensions` heading (audit-core, the
     audit front door, non-audit skills) is simply absent from the result.
     """
     dims: dict[str, list[str]] = {}
@@ -234,7 +243,9 @@ _HEADER = """<!-- GENERATED FILE - do not edit. Source: handbook-traceability.ya
 
 # Handbook traceability matrix
 
-Maps every ``##`` section of the [engineering handbook](../engineering/README.md) onto the ``*-audit`` skill family. Source of truth: [`handbook-traceability.yaml`](handbook-traceability.yaml). Issue: #543.
+Maps every `##` section of the [engineering handbook](https://github.com/lidia-tech/lidia-agents/blob/main/docs/engineering/README.md) onto the `*-audit` skill family. Source of truth: [`handbook-traceability.yaml`](handbook-traceability.yaml). Issue: #543.
+
+Section links are absolute GitHub URLs because the handbook is excluded from the built docs site (it ships as a standalone HTML artifact).
 
 | Class | Meaning |
 |---|---|
@@ -242,6 +253,16 @@ Maps every ``##`` section of the [engineering handbook](../engineering/README.md
 | `artifact` | Auditable only via artifacts (eval runs, CI history, issue/PR trail). Absence of the artifact is itself a finding - never a pass. |
 | `process` | Process/culture; not verifiable from the repo. Audit-report prose and adoption recommendations, never fake-automated. |
 | `informative` | Non-normative (spine, coda, symptom index); accounted for, maps to nothing. |
+
+Each row's first cell links to the handbook section and restates the claim the row covers; where one section's claims fall into different classes or map to different skills, the row is split and the split is marked `(a)`, `(b)`, ... The **Notes** column carries the row's rationale - why a class was chosen, what a mapping reaches, what it deliberately leaves to the gap.
+
+## Maintenance rules
+
+Two rules keep the walk reproducible. Apply them when adding or revising a row.
+
+**Gap taxonomy.** `extend-skill` when an existing skill is the natural owner and the fix is one new dimension inside it - or a declaration of coverage it already has outside its `## Dimensions` section. `new-domain` when no existing skill is a natural owner and the capability itself is missing; a note that says the claim "belongs to the domain the target issue creates" is `new-domain`, never `extend-skill`. `report-only` when the claim is auditable but belongs in report prose against the handbook's own checklist rather than in any skill's matrix. Every `extend-skill` gap names its owning skill in the note; every `new-domain` gap carries the issue that would create the domain, or says explicitly that none exists yet.
+
+**Near-miss mappings.** Map a dimension that only partly reaches a claim when it would *flag* the handbook's violation, and record the residue as a gap on the same row. Refuse it - and gap the whole claim - when it would *pass* the violation. Worked example: an inline hard-coded model ID is more pinned than an alias, so `eval-audit` / Reproducibility is satisfied by exactly what Part 5 forbids; that row maps nothing and gaps everything.
 """
 
 
@@ -268,17 +289,39 @@ def _gap_cell(row: dict[str, Any]) -> str:
     return " - ".join(parts)
 
 
-def _section_cell(row: dict[str, Any]) -> str:
+def _note_cell(row: dict[str, Any]) -> str:
+    """Row-level rationale, whitespace-normalized so it fits one table cell."""
+    note = row.get("note")
+    if not note:
+        return "-"
+    return _md_escape(" ".join(str(note).split()))
+
+
+def handbook_link(row: dict[str, Any]) -> tuple[str, str]:
+    """Absolute GitHub URL for the row's handbook section, plus its split marker.
+
+    The marker is `" (a)"`-style for a row that covers one slice of a split
+    section, and empty otherwise.
+
+    Returns:
+        A `(url, marker)` pair.
+    """
     part, anchor = row["id"].split("/", 1)
-    label = _md_escape(row.get("section", anchor))
-    if anchor == part:
-        return f"[{label}](../engineering/{part}.md)"
+    if anchor == part:  # whole-part row (a part with no ## headings)
+        return f"{HANDBOOK_URL}/{part}.md", ""
     if slugify(row.get("section", "")) == anchor:
-        return f"[{label}](../engineering/{part}.md#{anchor})"
+        return f"{HANDBOOK_URL}/{part}.md#{anchor}", ""
     m = _SPLIT_SUFFIX_RE.search(anchor)
     base = _SPLIT_SUFFIX_RE.sub("", anchor) if m else anchor
-    marker = f" ({m.group(1)})" if m else ""
-    return f"[{label}](../engineering/{part}.md#{base}){marker}"
+    return f"{HANDBOOK_URL}/{part}.md#{base}", f" ({m.group(1)})" if m else ""
+
+
+def _section_cell(row: dict[str, Any]) -> str:
+    """Linked section heading with its split marker, over the row's claim."""
+    url, marker = handbook_link(row)
+    label = _md_escape(row.get("section", row["id"].split("/", 1)[1]))
+    claim = _md_escape(" ".join(str(row.get("claim", "")).split()))
+    return f"[{label}]({url}){marker}" + (f"<br>{claim}" if claim else "")
 
 
 def render(rows: list[dict[str, Any]]) -> str:
@@ -292,11 +335,12 @@ def render(rows: list[dict[str, Any]]) -> str:
     for part in ordered_parts:
         title = PART_TITLES.get(part, part)
         out.append(f"\n## {title}\n")
-        out.append("| Section | Class | Mapped checks | Gap |")
-        out.append("|---|---|---|---|")
+        out.append("| Section / claim | Class | Mapped checks | Gap | Notes |")
+        out.append("|---|---|---|---|---|")
         for row in by_part[part]:
             out.append(
-                f"| {_section_cell(row)} | {row['class']} | {_checks_cell(row)} | {_gap_cell(row)} |"
+                f"| {_section_cell(row)} | {row['class']} | {_checks_cell(row)} "
+                f"| {_gap_cell(row)} | {_note_cell(row)} |"
             )
 
     gaps = [r for r in rows if r.get("gap")]
@@ -309,14 +353,17 @@ def render(rows: list[dict[str, Any]]) -> str:
             continue
         out.append(f"\n### {rec}\n")
         for r in group:
+            url, marker = handbook_link(r)
             target = f" ({r['gap']['target']})" if r["gap"].get("target") else ""
             note = f" - {r['gap']['note']}" if r["gap"].get("note") else ""
-            out.append(f"- `{r['id']}`{target}{note}")
+            out.append(f"- [`{r['id']}`]({url}){marker}{target}{note}")
 
     counts = {cls: sum(1 for r in rows if r["class"] == cls) for cls in CLASSES}
     auditable = [r for r in rows if r["class"] in ("static", "artifact")]
-    mapped = [r for r in auditable if r.get("checks")]
-    pct = round(100 * len(mapped) / len(auditable)) if auditable else 0
+    full = [r for r in auditable if r.get("checks") and not r.get("gap")]
+    partial = [r for r in auditable if r.get("checks") and r.get("gap")]
+    unmapped = [r for r in auditable if not r.get("checks")]
+    pct = round(100 * len(full) / len(auditable)) if auditable else 0
     out.append("\n## Coverage summary\n")
     out.append("| Class | Rows |")
     out.append("|---|---|")
@@ -324,7 +371,13 @@ def render(rows: list[dict[str, Any]]) -> str:
         out.append(f"| {cls} | {counts[cls]} |")
     out.append("")
     out.append(
-        f"{len(rows)} rows total; {len(mapped)}/{len(auditable)} auditable rows mapped ({pct}%); {len(gaps)} gap rows; {counts['process']} process-only rows."
+        f"{len(rows)} rows total. Of the {len(auditable)} auditable rows "
+        f"({counts['static']} static + {counts['artifact']} artifact): "
+        f"**{len(full)} fully mapped** ({pct}%), **{len(partial)} partially mapped** "
+        f"(a check that reaches part of the claim, with the residue recorded as a gap), "
+        f"and **{len(unmapped)} unmapped**. {len(gaps)} rows carry a gap entry in total. "
+        f"The remaining {counts['process']} process and {counts['informative']} informative "
+        f"rows are not auditable by design - the honest record of what a snapshot cannot settle."
     )
     return "\n".join(out) + "\n"
 
@@ -338,11 +391,6 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="validate and fail if the committed md is stale, without writing",
     )
-    parser.add_argument(
-        "--allow-pending-parts",
-        action="store_true",
-        help="staged content walk: coverage holes in parts with no rows yet warn instead of failing",
-    )
     args = parser.parse_args(argv)
 
     rows = yaml.safe_load(YAML_PATH.read_text())
@@ -352,21 +400,6 @@ def main(argv: list[str] | None = None) -> int:
     errors = validate(
         rows, handbook_headings(HANDBOOK_DIR), skill_dimensions(SKILLS_DIR)
     )
-    if args.allow_pending_parts:
-        walked = {
-            r["id"].split("/", 1)[0]
-            for r in rows
-            if isinstance(r.get("id"), str) and "/" in r["id"]
-        }
-        pending = [
-            e
-            for e in errors
-            if e.startswith("coverage hole: ")
-            and e.split(" ")[2].removesuffix(".md") not in walked
-        ]
-        errors = [e for e in errors if e not in pending]
-        for w in pending:
-            print(f"pending: {w}", file=sys.stderr)
     if errors:
         for e in errors:
             print(e, file=sys.stderr)
