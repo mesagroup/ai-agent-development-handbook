@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.util
 import re
 import sys
+from itertools import pairwise
 from pathlib import Path
 
 import pytest
@@ -137,33 +138,33 @@ def test_build_output_is_pure_ascii(tmp_path: Path):
     assert "&#183;" in html  # the brand middle dot rendered as an entity
 
 
-def test_extract_d2_blocks_replaces_fence_with_placeholder():
+def test_extract_diagram_blocks_replaces_fence_with_placeholder():
     md = 'intro\n\n```d2 title="The TDD loop"\na -> b\n```\n\noutro\n'
-    out, blocks = rh.extract_d2_blocks(md, "implementation-disciplines")
-    assert '<div class="d2ph" data-i="0"></div>' in out
+    out, blocks = rh.extract_diagram_blocks(md, "implementation-disciplines")
+    assert '<div class="dgph" data-i="0"></div>' in out
     assert "```d2" not in out
     assert len(blocks) == 1
     assert blocks[0].title == "The TDD loop"
     assert blocks[0].source == "a -> b\n"
 
 
-def test_extract_d2_blocks_numbers_multiple_fences():
+def test_extract_diagram_blocks_numbers_multiple_fences():
     md = '```d2 title="One"\na\n```\n\ntext\n\n```d2 title="Two"\nb\n```\n'
-    out, blocks = rh.extract_d2_blocks(md, "x")
+    out, blocks = rh.extract_diagram_blocks(md, "x")
     assert [b.index for b in blocks] == [0, 1]
     assert [b.title for b in blocks] == ["One", "Two"]
     assert 'data-i="0"' in out
     assert 'data-i="1"' in out
 
 
-def test_extract_d2_blocks_requires_a_title():
+def test_extract_diagram_blocks_requires_a_title():
     with pytest.raises(ValueError, match="title"):
-        rh.extract_d2_blocks("```d2\na -> b\n```\n", "lifecycle")
+        rh.extract_diagram_blocks("```d2\na -> b\n```\n", "lifecycle")
 
 
-def test_extract_d2_blocks_leaves_other_fences_alone():
+def test_extract_diagram_blocks_leaves_other_fences_alone():
     md = "```python\nprint(1)\n```\n"
-    out, blocks = rh.extract_d2_blocks(md, "x")
+    out, blocks = rh.extract_diagram_blocks(md, "x")
     assert out == md
     assert blocks == []
 
@@ -184,7 +185,9 @@ def test_prepare_svg_rejects_output_without_a_viewbox():
 
 
 def test_diagram_figure_carries_both_variants_and_one_caption():
-    block = rh.D2Block(index=0, title="The three layers", source="a -> b\n")
+    block = rh.DiagramBlock(
+        index=0, kind="d2", title="The three layers", source="a -> b\n"
+    )
     svg = '<svg viewBox="0 0 10 20"></svg>'
     out = rh.diagram_figure("three-layer-model", block, svg, svg)
     assert out.count("<svg") == 2
@@ -195,19 +198,19 @@ def test_diagram_figure_carries_both_variants_and_one_caption():
     )
 
 
-def test_substitute_d2_replaces_placeholders_by_index():
+def test_substitute_diagrams_replaces_placeholders_by_index():
     html = (
-        '<p>a</p><div class="d2ph" data-i="1"></div><div class="d2ph" data-i="0"></div>'
+        '<p>a</p><div class="dgph" data-i="1"></div><div class="dgph" data-i="0"></div>'
     )
-    out = rh.substitute_d2(
+    out = rh.substitute_diagrams(
         html, {0: "<figure>zero</figure>", 1: "<figure>one</figure>"}
     )
     assert out == "<p>a</p><figure>one</figure><figure>zero</figure>"
 
 
-def test_substitute_d2_raises_on_a_missing_figure():
+def test_substitute_diagrams_raises_on_a_missing_figure():
     with pytest.raises(ValueError, match="3"):
-        rh.substitute_d2('<div class="d2ph" data-i="3"></div>', {})
+        rh.substitute_diagrams('<div class="dgph" data-i="3"></div>', {})
 
 
 def test_count_em_dashes_sees_the_entity_form():
@@ -300,8 +303,10 @@ def test_no_handbook_diagram_sizes_nodes_inside_a_grid():
     source_dir = Path(rh.__file__).resolve().parent.parent / "docs" / "engineering"
     offenders = []
     for path in sorted(source_dir.glob("*.md")):
-        _, blocks = rh.extract_d2_blocks(path.read_text(), path.stem)
+        _, blocks = rh.extract_diagram_blocks(path.read_text(), path.stem)
         for block in blocks:
+            if block.kind != "d2":
+                continue
             if re.search(r"^grid-(rows|columns):", block.source, re.M) and re.search(
                 r"\b(width|height):\s*\d", block.source
             ):
@@ -309,43 +314,165 @@ def test_no_handbook_diagram_sizes_nodes_inside_a_grid():
     assert not offenders, f"grid layout ignores explicit node sizes in {offenders}"
 
 
-def test_extract_d2_blocks_rejects_an_unclosed_fence():
+def test_extract_diagram_blocks_recognises_a_funnel_fence():
+    md = '```funnel title="The funnel"\nMany candidates 100\nThe one 1\n```\n'
+    out, blocks = rh.extract_diagram_blocks(md, "evaluation")
+    assert '<div class="dgph" data-i="0"></div>' in out
+    assert [(b.kind, b.title) for b in blocks] == [("funnel", "The funnel")]
+
+
+def test_extract_diagram_blocks_rejects_an_unrecognised_funnel_fence():
+    # Same trap as the d2 fence: left unmatched it would ship as a code block.
+    with pytest.raises(ValueError, match="funnel"):
+        rh.extract_diagram_blocks('```funnel title="x"\nA 10\n', "evaluation")
+
+
+def test_parse_funnel_reads_the_count_off_the_end_of_each_line():
+    stages = rh.parse_funnel(
+        "Many candidates              10_000\nThe one you ship   1\n", "evaluation"
+    )
+    assert [(s.label, s.count) for s in stages] == [
+        ("Many candidates", 10000),
+        ("The one you ship", 1),
+    ]
+
+
+def test_parse_funnel_rejects_a_line_with_no_count():
+    with pytest.raises(ValueError, match="does not end in a count"):
+        rh.parse_funnel("Many candidates\nThe one you ship 1\n", "evaluation")
+
+
+def test_parse_funnel_rejects_a_funnel_that_widens():
+    # A funnel that grows is a typo, and the drawing would assert it as fact.
+    with pytest.raises(ValueError, match="admits more items"):
+        rh.parse_funnel("First 10\nSecond 50\n", "evaluation")
+
+
+def test_parse_funnel_rejects_a_single_stage():
+    with pytest.raises(ValueError, match="at least two stages"):
+        rh.parse_funnel("Only one 10\n", "evaluation")
+
+
+def test_funnel_bands_shrink_monotonically_and_stay_visible():
+    # The log scale exists so the tail stays legible: on a linear scale a stage
+    # of 1 against a first stage of 10000 is a sub-pixel sliver.
+    stages = rh.parse_funnel("A 10000\nB 2000\nC 400\nD 60\nE 8\nF 1\n", "evaluation")
+    svg = rh.funnel_svg(stages, "light")
+    heights = [float(h) for h in re.findall(r'<rect[^>]*height="([\d.]+)"', svg)]
+    assert len(heights) == 6
+    assert heights == sorted(heights, reverse=True)
+    assert heights[0] == rh._FUNNEL_BAND_MAX
+    assert heights[-1] == rh._FUNNEL_BAND_MIN
+    # Every stage stays thick enough to read as a band rather than a rule, which
+    # is the property a linear scale loses: there, 1 against 10000 is 0.01px.
+    assert min(heights) >= 12
+
+
+def test_funnel_bands_are_log_spaced_not_linear():
+    # Equal ratios between counts must give equal steps in height. That is what
+    # "log scale" means here, and it is what a linear fallback would lose.
+    stages = rh.parse_funnel("A 10000\nB 1000\nC 100\nD 10\nE 1\n", "evaluation")
+    svg = rh.funnel_svg(stages, "light")
+    heights = [float(h) for h in re.findall(r'<rect[^>]*height="([\d.]+)"', svg)]
+    steps = [a - b for a, b in pairwise(heights)]
+    assert max(steps) - min(steps) < 0.5
+
+
+def test_funnel_lifts_the_count_off_a_band_too_thin_to_hold_it():
+    # The tail of a log funnel is thinner than its own digits, so a centred
+    # count would straddle the band's edges instead of sitting in it.
+    stages = rh.parse_funnel("A 10000\nB 1\n", "evaluation")
+    svg = rh.funnel_svg(stages, "light")
+    rects = re.findall(r'<rect[^>]*y="([\d.]+)"[^>]*height="([\d.]+)"', svg)
+    counts = [float(y) for y in re.findall(r'<text[^>]*y="([\d.]+)"[^>]*700"', svg)]
+    thin_y, thin_h = (float(v) for v in rects[-1])
+    assert thin_h < rh._FUNNEL_COUNT_INSIDE_MIN
+    assert counts[-1] < thin_y  # lifted clear of the band's top edge
+
+
+def test_funnel_svg_fits_the_prose_measure_and_names_no_size():
+    stages = rh.parse_funnel("A 100\nB 1\n", "evaluation")
+    svg = rh.funnel_svg(stages, "light")
+    width, height = re.search(r'viewBox="0 0 (\d+) (\d+)"', svg).groups()
+    assert int(width) == rh._FUNNEL_WIDTH <= 771  # the artifact's measure
+    assert int(height) > 0
+    # prepare_svg adds width/height; emitting them here would duplicate them.
+    assert 'width="' not in svg.split(">")[0]
+
+
+def test_funnel_svg_draws_each_theme_in_its_own_palette():
+    stages = rh.parse_funnel("A 100\nB 1\n", "evaluation")
+    light, dark = rh.funnel_svg(stages, "light"), rh.funnel_svg(stages, "dark")
+    assert rh.PALETTE["light"]["surface"] in light
+    assert rh.PALETTE["light"]["surface"] not in dark
+    assert rh.PALETTE["dark"]["surface"] in dark
+
+
+def test_funnel_svg_emits_pure_ascii():
+    # to_ascii_entities never looks inside a rendered SVG, so a literal thin
+    # space in a grouped number would reach the browser as mojibake.
+    stages = rh.parse_funnel("Many candidates 10000\nThe one 1\n", "evaluation")
+    svg = rh.funnel_svg(stages, "light")
+    svg.encode("ascii")
+    assert "10&#8201;000" in svg
+
+
+def test_funnel_labels_wrap_to_the_slab_width():
+    assert rh.wrap_label("Semantic scoring, LLM judge", 12) == [
+        "Semantic",
+        "scoring, LLM",
+        "judge",
+    ]
+    assert rh.wrap_label("Short", 12) == ["Short"]
+
+
+def test_d2_preludes_and_the_funnel_read_from_one_palette():
+    # A figure that drifts from the page's own colours reads as a picture from
+    # another system, which is the thing the shared palette exists to prevent.
+    for variant, colours in rh.PALETTE.items():
+        assert colours["surface"] in rh.D2_PRELUDES[variant]
+        assert colours["accent"] in rh.D2_PRELUDES[variant]
+
+
+def test_extract_diagram_blocks_rejects_an_unclosed_fence():
     # An unclosed fence used to swallow every following paragraph up to the
     # next stray fence line, so the page lost content with nothing to notice.
     md = '```d2 title="One"\na -> b\n\nSome prose that must not be swallowed.\n'
     with pytest.raises(ValueError, match="unrecognised"):
-        rh.extract_d2_blocks(md, "lifecycle")
+        rh.extract_diagram_blocks(md, "lifecycle")
 
 
-def test_extract_d2_blocks_rejects_an_indented_fence():
+def test_extract_diagram_blocks_rejects_an_indented_fence():
     md = '1. A step:\n\n   ```d2 title="One"\n   a -> b\n   ```\n'
     with pytest.raises(ValueError, match="column 0"):
-        rh.extract_d2_blocks(md, "lifecycle")
+        rh.extract_diagram_blocks(md, "lifecycle")
 
 
-def test_extract_d2_blocks_does_not_overrun_a_following_fence():
+def test_extract_diagram_blocks_does_not_overrun_a_following_fence():
     md = (
         '```d2 title="One"\na -> b\n```\n\ntext\n\n'
         "```python\nprint(1)\n```\n\nmore text\n"
     )
-    out, blocks = rh.extract_d2_blocks(md, "x")
+    out, blocks = rh.extract_diagram_blocks(md, "x")
     assert len(blocks) == 1
     assert blocks[0].source == "a -> b\n"
     assert "```python\nprint(1)\n```" in out  # untouched, not absorbed
     assert "more text" in out
 
 
-def test_extract_d2_blocks_rejects_a_title_with_escaped_quotes():
+def test_extract_diagram_blocks_rejects_a_title_with_escaped_quotes():
     # Silently truncating to `Foo \` would ship a wrong caption; erroring is
     # what makes the mistake visible.
     with pytest.raises(ValueError, match="title"):
-        rh.extract_d2_blocks('```d2 title="Foo \\"Bar\\""\na\n```\n', "x")
+        rh.extract_diagram_blocks('```d2 title="Foo \\"Bar\\""\na\n```\n', "x")
 
 
 def test_diagram_figure_escapes_the_caption():
     # to_ascii_entities only rewrites non-ASCII, so an unescaped & or < in a
     # title would reach the browser intact and corrupt the markup after it.
-    block = rh.D2Block(index=0, title="Retrieve & rerank <2s", source="a\n")
+    block = rh.DiagramBlock(
+        index=0, kind="d2", title="Retrieve & rerank <2s", source="a\n"
+    )
     svg = '<svg viewBox="0 0 1 2"></svg>'
     out = rh.diagram_figure("evaluation", block, svg, svg)
     assert "Retrieve &amp; rerank &lt;2s" in out

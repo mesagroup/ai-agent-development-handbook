@@ -27,21 +27,31 @@ The output is a fragment (``<title> + <style> + <body> markup + <script>``)
 suitable for publishing as a Claude artifact, and it also renders as a complete
 page when opened directly in a browser.
 
+Two diagram fences are recognised. A ```d2 fence is laid out by the d2 CLI. A
+```funnel fence is drawn here instead, from one `label count` line per stage,
+because a staged funnel wants exact label placement and a chosen scale, and no
+layout engine offers either. Both render to a light and a dark SVG and are
+wrapped in the same ``<figure>``.
+
 NOT a CI test. The pure transforms (``rewrite_links``, ``wrap_tables``,
-``mark_task_items``, ``extract_d2_blocks``, ``prepare_svg``, ``diagram_figure``,
-``substitute_d2``, ``count_em_dashes``) are unit-tested in ``tests/scripts/``.
-``run_d2`` shells out to the CLI and is deliberately left to the manual render.
+``mark_task_items``, ``extract_diagram_blocks``, ``parse_funnel``,
+``wrap_label``, ``funnel_svg``, ``prepare_svg``, ``diagram_figure``,
+``substitute_diagrams``, ``count_em_dashes``) are unit-tested in
+``tests/scripts/``. ``run_d2`` shells out to the CLI and is deliberately left
+to the manual render.
 """
 
 from __future__ import annotations
 
 import argparse
+import math
 import re
 import subprocess
 import tempfile
 from dataclasses import dataclass
 from functools import cache
 from html import escape as html_escape
+from itertools import pairwise
 from pathlib import Path
 
 # (anchor id, markdown stem, sidebar label). Order defines the page order;
@@ -123,7 +133,30 @@ _D2_ICON_BLANK = (
     '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"'
     ' viewBox="0 0 24 24"></svg>'
 )
-_D2_ICON_STROKE = {"light": "#6f4c12", "dark": "#d9a441"}
+# One source for the hex values every rendered figure uses. These mirror the
+# artifact's CSS custom properties, and the point of naming them once is that a
+# figure cannot drift from the page it sits on: d2's preludes, the person icon,
+# and the funnel renderer all read from here.
+PALETTE: dict[str, dict[str, str]] = {
+    "light": {
+        "surface": "#f7f6f2", "line": "#c3bfb1", "ink": "#1c2024",
+        "ink_soft": "#4b5057", "accent": "#9a6a1c", "accent_ink": "#6f4c12",
+        "accent_wash": "#ece2cd",
+    },
+    "dark": {
+        "surface": "#1e2126", "line": "#3a4048", "ink": "#e9e7df",
+        "ink_soft": "#adaaa0", "accent": "#d9a441", "accent_ink": "#e7bd6c",
+        "accent_wash": "#2a2519",
+    },
+}  # fmt: skip
+
+# Not the same palette slot in both themes: the icon is a hairline drawing, so
+# it takes the darker accent on the light background and the brighter one on the
+# dark background, where `accent_ink` would be too close to the panel fill.
+_D2_ICON_STROKE = {
+    "light": PALETTE["light"]["accent_ink"],
+    "dark": PALETTE["dark"]["accent"],
+}
 # Held for the process lifetime so the files outlive every d2 call; its
 # finalizer removes the directory at interpreter exit.
 _D2_ICON_TMPDIR: tempfile.TemporaryDirectory[str] | None = None
@@ -134,35 +167,53 @@ _D2_ICON_TMPDIR: tempfile.TemporaryDirectory[str] | None = None
 # Two variants rather than d2's own `--dark-theme`, because that follows the
 # `prefers-color-scheme` query alone and the page carries a manual theme button.
 D2_PRELUDES: dict[str, str] = {
-    "light": (
-        "style.fill: transparent\n" + _D2_FONT_SIZE + '**.style.fill: "#f7f6f2"\n'
-        '**.style.stroke: "#c3bfb1"\n'
-        '**.style.font-color: "#1c2024"\n'
+    variant: (
+        "style.fill: transparent\n"
+        + _D2_FONT_SIZE
+        + f'**.style.fill: "{p["surface"]}"\n'
+        f'**.style.stroke: "{p["line"]}"\n'
+        f'**.style.font-color: "{p["ink"]}"\n'
         "**.style.shadow: false\n"
-        '(** -> **)[*].style.stroke: "#9a6a1c"\n'
-        '(** -> **)[*].style.font-color: "#4b5057"\n'
-    ),
-    "dark": (
-        "style.fill: transparent\n" + _D2_FONT_SIZE + '**.style.fill: "#1e2126"\n'
-        '**.style.stroke: "#3a4048"\n'
-        '**.style.font-color: "#e9e7df"\n'
-        "**.style.shadow: false\n"
-        '(** -> **)[*].style.stroke: "#d9a441"\n'
-        '(** -> **)[*].style.font-color: "#adaaa0"\n'
-    ),
+        f'(** -> **)[*].style.stroke: "{p["accent"]}"\n'
+        f'(** -> **)[*].style.font-color: "{p["ink_soft"]}"\n'
+    )
+    for variant, p in PALETTE.items()
 }
 
+# Funnel geometry, in SVG user units, which are CSS pixels here because the
+# figure is drawn at its natural size. The width sits inside the 771px prose
+# measure so the page never has to scale the figure down, which would shrink its
+# labels with it. `CHAR_W` is the measured average advance of the artifact's
+# sans at 12px, used only to choose where labels wrap.
+_FUNNEL_WIDTH = 700
+_FUNNEL_BAND_MAX = 118
+_FUNNEL_BAND_MIN = 13
+_FUNNEL_GAP = 26
+_FUNNEL_PAD = 26
+_FUNNEL_PAD_TOP = 10
+_FUNNEL_CHAR_W = 6.15
+_FUNNEL_LINE_H = 14
+# A 13px band cannot hold a 13px digit; below this the count goes above it.
+_FUNNEL_COUNT_INSIDE_MIN = 18
+
+# The two fence kinds a page may carry. `d2` is laid out by the d2 CLI; `funnel`
+# is drawn here, coordinate by coordinate, because a staged funnel wants exact
+# label placement and a deliberate scale, and no layout engine will give either.
+_DIAGRAM_KINDS = ("d2", "funnel")
+
 # The body admits no line of its own that opens with a fence, so an unclosed
-# ```d2 block fails to match instead of swallowing the prose and headings that
-# follow it up to the next stray ``` line. `extract_d2_blocks` then turns that
+# block fails to match instead of swallowing the prose and headings that follow
+# it up to the next stray ``` line. `extract_diagram_blocks` then turns that
 # non-match into a loud error rather than a page with content silently missing.
-_D2_FENCE_RE = re.compile(
-    r"^```d2(?P<meta>[^\n]*)\n(?P<body>(?:(?!```)[^\n]*\n)*)^```[ \t]*$", re.MULTILINE
+_DIAGRAM_FENCE_RE = re.compile(
+    rf"^```(?P<kind>{'|'.join(_DIAGRAM_KINDS)})(?P<meta>[^\n]*)\n"
+    r"(?P<body>(?:(?!```)[^\n]*\n)*)^```[ \t]*$",
+    re.MULTILINE,
 )
 # Anchored to the whole meta, so `title="Foo \"Bar\""` fails to match and is
 # reported as a missing title, rather than being truncated to a wrong caption.
-_D2_TITLE_RE = re.compile(r'^\s*title="([^"]+)"\s*$')
-_D2_PLACEHOLDER_RE = re.compile(r'<div class="d2ph" data-i="(\d+)"></div>')
+_DIAGRAM_TITLE_RE = re.compile(r'^\s*title="([^"]+)"\s*$')
+_DIAGRAM_PLACEHOLDER_RE = re.compile(r'<div class="dgph" data-i="(\d+)"></div>')
 # Seven small diagrams render in well under a second; a bound this loose only
 # ever fires on a d2 that has genuinely wedged.
 _D2_TIMEOUT_S = 60
@@ -171,16 +222,17 @@ _VIEWBOX_RE = re.compile(r'viewBox="[-\d.]+ [-\d.]+ ([\d.]+) ([\d.]+)"')
 
 
 @dataclass(frozen=True)
-class D2Block:
-    """One ```d2 fence lifted out of a handbook page."""
+class DiagramBlock:
+    """One diagram fence lifted out of a handbook page."""
 
     index: int
+    kind: str
     title: str
     source: str
 
 
-def extract_d2_blocks(md: str, stem: str) -> tuple[str, list[D2Block]]:
-    """Replace every ```d2 fence with a placeholder and return the blocks.
+def extract_diagram_blocks(md: str, stem: str) -> tuple[str, list[DiagramBlock]]:
+    """Replace every diagram fence with a placeholder and return the blocks.
 
     Fences are lifted out of the Markdown *before* the converter runs, so the
     rendered SVG never has to be recovered from an entity-escaped `<pre><code>`
@@ -195,34 +247,212 @@ def extract_d2_blocks(md: str, stem: str) -> tuple[str, list[D2Block]]:
         extracted blocks in document order.
 
     Raises:
-        ValueError: A fence carries no `title="..."`, or a `d2` fence was left
-            unrecognised (unclosed, indented, or containing a fence of its own).
+        ValueError: A fence carries no `title="..."`, or a diagram fence was
+            left unrecognised (unclosed, indented, or containing a fence of its
+            own).
     """
-    blocks: list[D2Block] = []
+    blocks: list[DiagramBlock] = []
 
     def repl(match: re.Match[str]) -> str:
-        title = _D2_TITLE_RE.match(match.group("meta"))
+        kind = match.group("kind")
+        title = _DIAGRAM_TITLE_RE.match(match.group("meta"))
         if title is None:
             raise ValueError(
-                f'{stem}.md: a ```d2 fence has no title="..."; the title becomes '
-                "the figure caption and the diagram's accessible name, so an "
-                "untitled diagram would ship unlabeled."
+                f'{stem}.md: a ```{kind} fence has no title="..."; the title '
+                "becomes the figure caption and the diagram's accessible name, "
+                "so an untitled diagram would ship unlabeled."
             )
         index = len(blocks)
         blocks.append(
-            D2Block(index=index, title=title.group(1), source=match.group("body"))
+            DiagramBlock(
+                index=index,
+                kind=kind,
+                title=title.group(1),
+                source=match.group("body"),
+            )
         )
-        return f'<div class="d2ph" data-i="{index}"></div>'
+        return f'<div class="dgph" data-i="{index}"></div>'
 
-    out = _D2_FENCE_RE.sub(repl, md)
-    if "```d2" in out:
-        raise ValueError(
-            f"{stem}.md: a ```d2 fence was left unrecognised. A fence must begin "
-            "at column 0, must carry a closing ``` line, and must contain no ``` "
-            "line of its own. Left alone it would render as a literal code block "
-            "and the diagram would go missing without any gate noticing."
-        )
+    out = _DIAGRAM_FENCE_RE.sub(repl, md)
+    for kind in _DIAGRAM_KINDS:
+        if f"```{kind}" in out:
+            raise ValueError(
+                f"{stem}.md: a ```{kind} fence was left unrecognised. A fence "
+                "must begin at column 0, must carry a closing ``` line, and must "
+                "contain no ``` line of its own. Left alone it would render as a "
+                "literal code block and the diagram would go missing without any "
+                "gate noticing."
+            )
     return out, blocks
+
+
+@dataclass(frozen=True)
+class FunnelStage:
+    """One stage of a `funnel` fence: what it is, and how many reach it."""
+
+    label: str
+    count: int
+
+
+def parse_funnel(body: str, stem: str) -> list[FunnelStage]:
+    """Read a `funnel` fence body into stages.
+
+    One stage per line, the count last: `Cheap deterministic gates    2000`.
+    Digits may be grouped with `_` or `,` for readability in the source.
+
+    Args:
+        body: The fence body.
+        stem: The page's filename stem, used in error messages.
+
+    Returns:
+        The stages in the order the source lists them.
+
+    Raises:
+        ValueError: A line carries no count, the funnel has fewer than two
+            stages, a count is below 1, or the counts are not monotonically
+            non-increasing.
+    """
+    stages: list[FunnelStage] = []
+    for raw in body.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        label, _, count = line.rpartition(" ")
+        digits = count.strip().replace("_", "").replace(",", "")
+        if not label.strip() or not digits.isdigit():
+            raise ValueError(
+                f"{stem}.md: funnel line {raw!r} does not end in a count. Each "
+                "line is a label followed by the number of items reaching that "
+                "stage."
+            )
+        value = int(digits)
+        if value < 1:
+            raise ValueError(
+                f"{stem}.md: funnel stage {label.strip()!r} has a count of "
+                f"{value}. Stages are placed on a log scale, which has no room "
+                "for zero; drop the stage instead."
+            )
+        stages.append(FunnelStage(label.strip(), value))
+    if len(stages) < 2:
+        raise ValueError(f"{stem}.md: a funnel needs at least two stages")
+    for earlier, later in pairwise(stages):
+        if later.count > earlier.count:
+            raise ValueError(
+                f"{stem}.md: funnel stage {later.label!r} admits more items "
+                f"({later.count}) than {earlier.label!r} ({earlier.count}). A "
+                "funnel that widens is a typo in the counts, and the drawing "
+                "would state it as fact."
+            )
+    return stages
+
+
+def wrap_label(text: str, budget: int) -> list[str]:
+    """Greedy-wrap a stage label to at most `budget` characters per line."""
+    lines: list[str] = []
+    current = ""
+    for word in text.split():
+        candidate = f"{current} {word}".strip()
+        if current and len(candidate) > budget:
+            lines.append(current)
+            current = word
+        else:
+            current = candidate
+    if current:
+        lines.append(current)
+    return lines
+
+
+def group_digits(n: int) -> str:
+    """Group thousands with a thin space, as an entity.
+
+    `to_ascii_entities` rewrites non-ASCII on the way out of the page, but it
+    never sees inside a rendered SVG, so a literal U+2009 here would reach the
+    browser as mojibake.
+    """
+    return f"{n:,}".replace(",", "&#8201;")
+
+
+def funnel_svg(stages: list[FunnelStage], variant: str) -> str:
+    """Draw a staged funnel: a tapering band, each stage carrying its count.
+
+    Every coordinate is computed here rather than by a layout engine, which is
+    the whole reason this fence exists: labels sit under the band where nothing
+    can collide with them, and the vertical scale is a decision rather than an
+    accident.
+
+    The scale is logarithmic. A screening funnel spans orders of magnitude, and
+    on a linear scale every stage after the first two collapses into a hairline,
+    so the drawing would be honest and unreadable at the same time. Log keeps
+    the taper legible; the printed count is what carries the exact magnitude.
+
+    Args:
+        stages: The stages, largest first.
+        variant: Which palette to draw in, `light` or `dark`.
+
+    Returns:
+        An `<svg>` element with a viewBox and no width or height; `prepare_svg`
+        adds those along with the accessible name.
+    """
+    p = PALETTE[variant]
+    counts = [s.count for s in stages]
+    hi, lo = max(counts), min(counts)
+    span = math.log(hi) - math.log(lo)
+
+    def band_height(count: int) -> float:
+        if span == 0:
+            return _FUNNEL_BAND_MAX
+        t = (math.log(count) - math.log(lo)) / span
+        return _FUNNEL_BAND_MIN + t * (_FUNNEL_BAND_MAX - _FUNNEL_BAND_MIN)
+
+    n = len(stages)
+    slab = (_FUNNEL_WIDTH - 2 * _FUNNEL_PAD - _FUNNEL_GAP * (n - 1)) / n
+    budget = max(8, int(slab / _FUNNEL_CHAR_W))
+    wrapped = [wrap_label(s.label, budget) for s in stages]
+
+    mid = _FUNNEL_PAD_TOP + _FUNNEL_BAND_MAX / 2
+    label_top = _FUNNEL_PAD_TOP + _FUNNEL_BAND_MAX + 18
+    total_h = int(label_top + max(map(len, wrapped)) * _FUNNEL_LINE_H + 12)
+
+    parts: list[str] = []
+    for i, stage in enumerate(stages):
+        x = _FUNNEL_PAD + i * (slab + _FUNNEL_GAP)
+        h = band_height(stage.count)
+        parts.append(
+            f'<rect x="{x:.1f}" y="{mid - h / 2:.1f}" width="{slab:.1f}"'
+            f' height="{h:.1f}" fill="{p["surface"]}" stroke="{p["line"]}"'
+            ' stroke-width="1.5"/>'
+        )
+        if i + 1 < n:
+            h2 = band_height(stages[i + 1].count)
+            edge = x + slab
+            far = edge + _FUNNEL_GAP
+            parts.append(
+                f'<path d="M {edge:.1f} {mid - h / 2:.1f} L {far:.1f}'
+                f" {mid - h2 / 2:.1f} L {far:.1f} {mid + h2 / 2:.1f} L {edge:.1f}"
+                f' {mid + h / 2:.1f} Z" fill="{p["accent_wash"]}"'
+                f' stroke="{p["line"]}" stroke-width="1"/>'
+            )
+        cx = x + slab / 2
+        # The tail stages are thinner than their own digits, so the count sits
+        # above the band there rather than straddling its edges.
+        inside = h >= _FUNNEL_COUNT_INSIDE_MIN
+        count_y = mid + 4 if inside else mid - h / 2 - 6
+        parts.append(
+            f'<text x="{cx:.1f}" y="{count_y:.1f}" text-anchor="middle"'
+            f' fill="{p["accent_ink"]}" font-size="13" font-weight="700"'
+            f' font-variant-numeric="tabular-nums">{group_digits(stage.count)}</text>'
+        )
+        for j, line in enumerate(wrapped[i]):
+            parts.append(
+                f'<text x="{cx:.1f}" y="{label_top + j * _FUNNEL_LINE_H:.1f}"'
+                f' text-anchor="middle" fill="{p["ink"]}" font-size="12"'
+                f' font-weight="600">{html_escape(line)}</text>'
+            )
+
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" class="funnel"'
+        f' viewBox="0 0 {_FUNNEL_WIDTH} {total_h}">' + "".join(parts) + "</svg>"
+    )
 
 
 @cache
@@ -316,7 +546,7 @@ def prepare_svg(svg: str, caption_id: str) -> str:
     dimensions are copied onto the tag as `width`/`height`.
 
     Args:
-        svg: Raw d2 output.
+        svg: Raw renderer output.
         caption_id: The `id` of the `<figcaption>` that names this diagram.
 
     Returns:
@@ -327,7 +557,7 @@ def prepare_svg(svg: str, caption_id: str) -> str:
     """
     opening = _SVG_OPEN_RE.search(svg)
     if opening is None:
-        raise ValueError("d2 produced output with no <svg> element")
+        raise ValueError("the renderer produced output with no <svg> element")
     tag = opening.group(0)
     viewbox = _VIEWBOX_RE.search(tag)
     if viewbox is None:
@@ -339,7 +569,7 @@ def prepare_svg(svg: str, caption_id: str) -> str:
     return svg[: opening.start()] + sized + svg[opening.end() :]
 
 
-def diagram_figure(stem: str, block: D2Block, light: str, dark: str) -> str:
+def diagram_figure(stem: str, block: DiagramBlock, light: str, dark: str) -> str:
     """Wrap both rendered variants and their caption in one `<figure>`.
 
     The title is escaped on the way in: `to_ascii_entities` later rewrites only
@@ -356,8 +586,8 @@ def diagram_figure(stem: str, block: D2Block, light: str, dark: str) -> str:
     )
 
 
-def substitute_d2(html: str, figures: dict[int, str]) -> str:
-    """Replace each d2 placeholder with its rendered figure.
+def substitute_diagrams(html: str, figures: dict[int, str]) -> str:
+    """Replace each diagram placeholder with its rendered figure.
 
     Raises:
         ValueError: A placeholder has no matching figure.
@@ -366,10 +596,10 @@ def substitute_d2(html: str, figures: dict[int, str]) -> str:
     def repl(match: re.Match[str]) -> str:
         index = int(match.group(1))
         if index not in figures:
-            raise ValueError(f"no rendered figure for d2 placeholder {index}")
+            raise ValueError(f"no rendered figure for diagram placeholder {index}")
         return figures[index]
 
-    return _D2_PLACEHOLDER_RE.sub(repl, html)
+    return _DIAGRAM_PLACEHOLDER_RE.sub(repl, html)
 
 
 def count_em_dashes(html: str) -> int:
@@ -436,23 +666,29 @@ def render_doc(
     import markdown  # lazy: keeps the pure helpers importable without the dep
 
     md = (docs_dir / f"{stem}.md").read_text()
-    md, blocks = extract_d2_blocks(md, stem)
+    md, blocks = extract_diagram_blocks(md, stem)
     html = markdown.markdown(md, extensions=["tables", "fenced_code", "sane_lists"])
     html, unmapped = post_process(html, linkmap)
     if blocks:
-        html = substitute_d2(
+        html = substitute_diagrams(
             html,
             {
-                block.index: diagram_figure(
-                    stem,
-                    block,
-                    run_d2(block.source, f"{stem}-{block.index}-light", "light"),
-                    run_d2(block.source, f"{stem}-{block.index}-dark", "dark"),
-                )
+                block.index: diagram_figure(stem, block, *render_variants(block, stem))
                 for block in blocks
             },
         )
     return html, unmapped
+
+
+def render_variants(block: DiagramBlock, stem: str) -> tuple[str, str]:
+    """Render one block's light and dark SVGs, dispatching on its fence kind."""
+    if block.kind == "funnel":
+        stages = parse_funnel(block.source, stem)
+        return funnel_svg(stages, "light"), funnel_svg(stages, "dark")
+    return (
+        run_d2(block.source, f"{stem}-{block.index}-light", "light"),
+        run_d2(block.source, f"{stem}-{block.index}-dark", "dark"),
+    )
 
 
 def render_nav(parts: list[tuple[str, str, str]]) -> str:
@@ -671,6 +907,8 @@ _HEAD = """<title>AI Agent Development Handbook</title>
      diagram that is merely narrow. */
   .doc figure.diagram { margin: 22px 0; }
   .doc figure.diagram svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+  /* d2 embeds its own font; funnels are drawn here and take the page's. */
+  .doc figure.diagram svg.funnel text { font-family: var(--sans); }
   .doc figure.diagram figcaption {
     margin-top: 10px; text-align: center; font-family: var(--mono);
     font-size: .7rem; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint);

@@ -61,19 +61,13 @@ The approaches are not interchangeable; each answers a different question. Reach
 
 The funnel exists precisely so you spend expensive semantic evaluation only on candidates that already cleared the cheap gates.
 
-```d2 title="The staged screening funnel; each stage is sized by what survives it"
-direction: right
-c: "Many\ncandidates" {width: 100; height: 132}
-g1: "Cheap\ndeterministic\ngates" {width: 106; height: 104}
-g2: "Composite\nscore" {width: 96; height: 80}
-g3: "Semantic\nscoring,\nLLM judge" {width: 96; height: 62}
-h: "Human\nadjudication" {width: 104; height: 46}
-ship: "The one\nyou ship" {width: 88; height: 34}
-c -> g1
-g1 -> g2
-g2 -> g3
-g3 -> h
-h -> ship
+```funnel title="The staged screening funnel, on a log scale; the counts are illustrative"
+Many candidates              10000
+Cheap deterministic gates     2000
+Composite score                400
+Semantic scoring, LLM judge     60
+Human adjudication               8
+The one you ship                 1
 ```
 
 ## Grow the eval into a gate
