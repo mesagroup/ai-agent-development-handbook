@@ -330,6 +330,268 @@
   claim: Cross-links to Parts 1, 6 and 7 and the handbook index.
   class: informative
 
+# --- Part 3: Codebase structure ---------------------------------------------
+
+- id: codebase-structure/order-the-tiers-by-reuse
+  section: "Order the tiers by reuse"
+  claim: Sort the code by how much of it carries over to the next agent or task and let dependencies run only from the task-shaped code toward the reusable core, never the other way and never in a cycle; each project picks its own tier list, the ordering principle being what matters, and the handbook's typical layering runs shared schemas and types, core infrastructure, configuration, external integrations, capabilities, evaluation, then agents and applications.
+  class: static
+  checks:
+    - skill: arch-audit
+      dimension: "Layering / dependency-rule conformance"
+    - skill: arch-audit
+      dimension: "Cycles"
+  note: arch-audit's layering dimension is explicitly at its strongest when the project documents its tiers, so it audits conformance to whichever tier list the project declares. What it does not second-guess is the ordering principle behind that list - sort by reuse - which is a design judgment rather than a graph property.
+
+- id: codebase-structure/point-every-dependency-toward-the-core-and-never-cycle-a
+  section: "Point every dependency toward the core, and never cycle"
+  claim: Hold one invariant - an import may only point at a more-reusable tier than the one it lives in, and the graph has no cycles - so core infrastructure never imports an application's types, and cross-application reuse goes through composition (exposing one agent to another as a tool) rather than reaching into another application's internals.
+  class: static
+  checks:
+    - skill: arch-audit
+      dimension: "Layering / dependency-rule conformance"
+    - skill: arch-audit
+      dimension: "Cycles"
+
+- id: codebase-structure/point-every-dependency-toward-the-core-and-never-cycle-b
+  section: "Point every dependency toward the core, and never cycle"
+  claim: Write the project's tier-import rule down explicitly, which tier may import which, so it is enforceable by an import-boundary linter in CI rather than by memory.
+  class: static
+  checks:
+    - skill: ci-audit
+      dimension: "Gate enforcement"
+  gap:
+    recommendation: extend-skill
+    note: arch-audit is the owner, but its layering dimension presupposes that the project has documented its tiers rather than asking whether it has, and no dimension looks for an import-boundary contract at all; ci-audit's Gate enforcement reaches only the case where such a workflow already exists and asks whether it is required.
+
+- id: codebase-structure/why-the-rule-matters-a
+  section: "Why the rule matters"
+  claim: Keep a convenience that a single application needs inside that application rather than migrating it down into the core, where it would bake one workflow's assumptions into shared code and couple every other consumer to them.
+  class: static
+  checks:
+    - skill: arch-audit
+      dimension: "Over-abstraction / speculative generality"
+  gap:
+    recommendation: extend-skill
+    note: partial - Over-abstraction reaches the migrated convenience only while it still has a single consumer, and what it measures there is the unused generality rather than the coupling. The case the handbook warns about hardest, a core convenience that has since acquired a second consumer and now binds both to one workflow's assumptions, reads as justified generality to that dimension and is invisible to every other one.
+  note: Mapped through the dimension's one-consumer tell - a shared unit whose anticipated second caller never arrived - which is a real but partial reach; the residue is recorded as the gap above.
+
+- id: codebase-structure/why-the-rule-matters-b
+  section: "Why the rule matters"
+  claim: Read an import that would violate the rule as a design smell rather than a lint nuisance - the concept is in the wrong tier, or it is two concepts that need splitting - which is how the shape pays off in independently testable tiers, local churn and an integration tax paid once.
+  class: process
+  note: What a team does with a flagged import - relocate the concept, split it, or silence the rule - is a disposition the repo never records, and the three payoffs are explanatory prose.
+
+- id: codebase-structure/watch-for-structural-decay-beyond-layering
+  section: "Watch for structural decay beyond layering"
+  claim: Periodically measure the declared architecture against the real import graph and watch five further decay signals - cycles (a warning within a package, a real break across one), coupling and cohesion (hub modules and grab-bag utils, split along cohesion seams), complexity, dead code (verified truly unreachable before deletion), and outsized files - as health signals rather than absolutes.
+  class: static
+  checks:
+    - skill: arch-audit
+      dimension: "Layering / dependency-rule conformance"
+    - skill: arch-audit
+      dimension: "Cycles"
+    - skill: arch-audit
+      dimension: "Coupling & cohesion"
+    - skill: arch-audit
+      dimension: "Complexity"
+    - skill: arch-audit
+      dimension: "Dead code"
+    - skill: arch-audit
+      dimension: "File / module size"
+  note: The closest section-to-skill fit anywhere in the handbook - arch-audit declares a dimension for every signal named here, and adds Hidden coupling for the edges an import graph misses. The cadence ("periodically") is process, and the closing pointer to an import-linter contract in CI is carried by point-every-dependency-toward-the-core-and-never-cycle-b.
+
+- id: codebase-structure/compose-agents-with-typed-hooks-over-a-generic-runner-a
+  section: "Compose agents with typed hooks over a generic runner"
+  claim: Don't fork a base agent - give the core tier a generic runner that owns the run lifecycle and exposes a small set of hook methods (create the agent, build the collector, format the query, post-process the result), customize each application by overriding those hooks, and narrow the runner's loose metadata into typed sub-models so run records are self-describing.
+  class: static
+  gap:
+    recommendation: extend-skill
+    note: arch-audit is the nearest owner, but no dimension detects plumbing duplicated once per application - the tell is repetition across agents, not a bad import - and its axes point the other way, since a generic runner with one implementer reads as Over-abstraction, so composition-over-forking stays invisible until the fork produces a cycle or a layering break.
+
+- id: codebase-structure/compose-agents-with-typed-hooks-over-a-generic-runner-b
+  section: "Compose agents with typed hooks over a generic runner"
+  claim: Build multi-agent systems by exposing one agent to another as a tool, the only sanctioned cross-application dependency, and design the split so it reflects a genuine data dependency between sub-agents rather than an arbitrary partition.
+  class: static
+  checks:
+    - skill: arch-audit
+      dimension: "Layering / dependency-rule conformance"
+  gap:
+    recommendation: extend-skill
+    note: "the as_tool rule is a dependency-rule question arch-audit can see; whether a sub-agent boundary corresponds to a real hand-off is not. Coupling & cohesion's over-decomposition axis is the nearest, and it reads the module import graph rather than the agent-composition graph, where a spurious split shows up as added latency - the concern of the performance domain in #516."
+
+- id: codebase-structure/dispatch-on-a-discriminator-not-a-type
+  section: "Dispatch on a discriminator, not a type"
+  claim: Select interchangeable backends through a polymorphic configuration - a base config carrying a mode discriminator, each concrete variant in its own module, dispatch by match or switch on the discriminator literal and never by a runtime type test - with a settings library resolving environment variables per variant and one provider-agnostic entry point returning a uniform result type.
+  class: static
+  checks:
+    - skill: arch-audit
+      dimension: "Layering / dependency-rule conformance"
+  gap:
+    recommendation: extend-skill
+    note: mapped only on the consequence the handbook names, a type-test chain that couples the dispatcher to every concrete class and so breaks a tier boundary; no dimension flags isinstance/instanceof dispatch as such, nor asks for a single provider-agnostic entry point or declarative per-variant settings resolution.
+
+- id: codebase-structure/name-every-configuration-worth-reusing
+  section: "Name every configuration worth reusing"
+  claim: Treat a configuration as the full bundle that pins a run - model, its parameters, tool and feature toggles, budgets and limits - and give any combination worth reusing a name as a machine-readable profile, selectable by name and discoverable by listing, so scripts, eval harnesses and agents reference it by name instead of reconstructing a pile of flags per call site.
+  class: static
+  gap:
+    recommendation: extend-skill
+    note: eval-audit's Reproducibility is the nearest and asks that a run's config be recorded, which a reconstructed flag pile satisfies; nothing asks whether reusable configurations are named, listable and referenced by name. Part 5's bundle-configuration-into-named-profiles carries the same claim from the harness side.
+
+- id: codebase-structure/checklist-placing-new-code--reviewing-an-import
+  section: "Checklist: placing new code / reviewing an import"
+  claim: Seven-item recap for placing code or reviewing an import - most reusable tier that fully contains the concerns, every import pointing at a more-reusable tier, no new cycle, single-application conveniences left in place, cross-application reuse by composition, discriminator dispatch, and the layering rule enforced by an import-linter contract in CI.
+  class: process
+  note: A recap, so what it adds is the act of working the list at review time. Each of the seven items is owned by a Part 3 row above.
+
+- id: codebase-structure/see-also
+  section: "See also"
+  claim: Cross-links to Parts 4 and 5 and the handbook index.
+  class: informative
+
+# --- Part 4: The three-layer document model ---------------------------------
+
+- id: three-layer-model/a-document-has-no-privileged-decomposition
+  section: "A document has no privileged decomposition"
+  claim: Resist modelling a document type once and reusing that schema forever - importance is relative to the question, so no view-from-nowhere schema exists - while conceding that the reusable core is real, since intrinsic structure fully generalizes and a thin vocabulary of domain entities partially does, leaving only the task decomposition use-relative.
+  class: process
+  note: The premise of the part - a modelling stance about where generality is real - which no snapshot can date. Its operational form, three explicit layers with different reuse profiles, is carried by the rows below.
+
+- id: three-layer-model/know-the-three-layers
+  section: "Know the three layers"
+  claim: Split document knowledge into three layers with distinct reuse profiles and epistemic status - Layer 1 intrinsic structure (fully reusable, perception), Layer 2 domain entities (partially reusable, grounding), Layer 3 workflow knowledge (not reusable, inference) - a decomposition that is domain-general rather than domain-specific.
+  class: static
+  gap:
+    recommendation: report-only
+    note: whether a document system's data model separates the three layers is visible in a snapshot, but no dimension owns it - arch-audit's layering axis reads module tiers, not data layers, and mapping this to it would audit the wrong graph. An auditor diagnoses it in report prose against Part 4's checklist.
+
+- id: three-layer-model/never-skip-a-layer
+  section: "Never skip a layer"
+  claim: Never put the raw document into the prompt and ask the final Layer-3 question directly - the shortcut collapses three distinct error sites into one opaque call, so a failure stops being localizable to a layer - noting that re-reading a span the lower layers point at is navigation rather than skipping, and re-explaining the rule at the code review of every new agent.
+  class: static
+  gap:
+    recommendation: report-only
+    note: a pipeline that dumps a raw document into the final prompt is visible in a snapshot, yet no dimension audits it; prompt-audit's Grounding & handling the unknown is the nearest and asks whether the prompt supplies the context the task needs, never whether that context arrived through the lower layers. The review-ritual clause is process.
+
+- id: three-layer-model/hold-the-contracts-that-make-layering-pay-off-a
+  section: "Hold the contracts that make layering pay off"
+  claim: Make Layer 1 a single engine-agnostic representation - typed blocks, a containment hierarchy, provenance on every block, engine identity in the metadata rather than in the block shape - populated by a thin per-engine builder, with everything downstream reading the representation and never a raw engine output.
+  class: static
+  checks:
+    - skill: arch-audit
+      dimension: "Layering / dependency-rule conformance"
+  gap:
+    recommendation: extend-skill
+    note: the anti-corruption boundary is a dependency rule (only the builder may import an engine's schema) that arch-audit enforces once the project declares it among its layering rules; the representation's own requirements - typed blocks, containment, per-block provenance, engine identity kept out of the block shape - are schema properties no dimension inspects.
+
+- id: three-layer-model/hold-the-contracts-that-make-layering-pay-off-b
+  section: "Hold the contracts that make layering pay off"
+  claim: Hold the three remaining contracts - derive every block id from content rather than position, canonicalizing before hashing and treating cross-engine stability as an alignment problem rather than a property of the hash; run refinements as versioned, additive passes over an immutable base, keyed by those ids and stamped with implementation and version; and keep Layer 2 to task-independent domain facts while task-shaped judgments stay in each workflow's Layer 3.
+  class: static
+  gap:
+    recommendation: report-only
+    note: identity stability, additive enrichment over an immutable base, and the Layer-2/Layer-3 boundary are document-model design contracts with no dimension anywhere; the closest analogue is arch-audit's Over-abstraction axis reading the same keep-the-core-sparse rule in the module graph (Part 3's why-the-rule-matters-a), which cannot see it in data. An auditor diagnoses these against Part 4's checklist in report prose.
+
+- id: three-layer-model/compose-typed-tools-over-one-fuzzy-lookup
+  section: "Compose typed tools over one fuzzy lookup"
+  claim: Give an agent precise, typed operations over a layered document - structural navigation, clause search, entity-in-context, and semantic search over clean anchored units, each optionally following resolved references - instead of one similarity search, make choosing and composing the right tool the agent's job, and rest every tool on identifiers that survive re-extraction.
+  class: static
+  gap:
+    recommendation: report-only
+    note: no skill audits the shape of an agent's tool surface; eval-audit's Prompt / SOP quality reaches tools only as drift between a prompt and the tools that exist, and prompt-audit judges the text of a prompt rather than what it is given to call.
+
+- id: three-layer-model/why-this-is-the-organizing-principle-not-just-a-document-feature
+  section: "Why this is the organizing principle, not just a document feature"
+  claim: Keep the reusable core sparse and stable and the task layer rich and disposable is the document-model rule and the module-dependency rule at once, and because the layers are separable they are separately evaluable - a golden dataset per layer instead of one ill-defined end-to-end number.
+  class: static
+  checks:
+    - skill: eval-audit
+      dimension: "Eval coverage"
+  note: Mapped on the per-layer dataset claim, the document-side twin of Part 7's unit-by-unit rule - a layer visible only inside an end-to-end score is an uncovered capability. The code-shape half is Part 3's rows.
+
+- id: three-layer-model/checklist-reviewing-a-document-capability
+  section: "Checklist: reviewing a document capability"
+  claim: Six-item recap for reviewing a document capability - the Layer-3 answer reached through Layers 1 and 2, downstream code reading the engine-agnostic representation, content-derived ids with alignment across engines, versioned additive passes over an immutable base, Layer 2 holding only task-independent facts, and a failure localizable to one separately evaluable layer.
+  class: process
+  note: A recap, so what it adds is the act of working the list at the review of a document capability. Each of the six items is owned by a Part 4 row above.
+
+- id: three-layer-model/see-also
+  section: "See also"
+  claim: Cross-links to Parts 3 and 7 and the handbook index.
+  class: informative
+
+# --- Part 5: The extended agent harness -------------------------------------
+
+- id: agent-harness/build-the-harness-dont-inline-the-plumbing
+  section: "Build the harness, don't inline the plumbing"
+  claim: Solve model access, configuration, headless execution and reliability once in the shared core and configuration tiers instead of wiring them into each agent module, so the marginal agent is mostly its prompt and its tools, and put the production-reliability decisions in the harness so bounding is the default rather than an afterthought each author reinvents.
+  class: static
+  gap:
+    recommendation: extend-skill
+    note: arch-audit is the nearest owner but has no dimension for plumbing duplicated once per agent - the tell is repetition across applications, not a bad import - and nothing audits which tier the reliability defaults live in; the bounding half of the claim is carried by make-bounding-the-default.
+
+- id: agent-harness/resolve-models-through-aliases-never-hard-coded-ids
+  section: "Resolve models through aliases, never hard-coded IDs"
+  claim: Never name a concrete provider model inline - take a short alias whose prefix encodes the provider and resolve it through a central catalog that stays the single place knowing real model IDs, regions and credentials - so switching the model a run uses is a one-token change and screening a dozen candidates never touches the agent.
+  class: static
+  gap:
+    recommendation: extend-skill
+    note: no dimension scans call sites for inline provider model IDs; eval-audit's Reproducibility is the nearest and wants a run's model version pinned and recorded, which an inline ID satisfies perfectly well, and security-audit's Secrets in code sees only the credentials half of what the catalog centralizes.
+
+- id: agent-harness/expose-model-parameters-as-optional-defaulted-flags
+  section: "Expose model parameters as optional, defaulted flags"
+  claim: Make generation parameters (temperature, top-p, penalties) optional flags that fall back to provider defaults, expose reasoning or extended thinking as a budget flag where the model supports it, and settle whether any such change is an improvement as a hypothesis measured against a frozen benchmark, one variable at a time.
+  class: static
+  gap:
+    recommendation: extend-skill
+    note: the section's own claim is wholly unmapped - no dimension asks whether generation parameters are exposed as optional flags falling back to provider defaults, nor whether a reasoning budget flag exists where the model supports one.
+  note: The closing clause - treat a parameter change as a hypothesis measured against a frozen benchmark, one variable at a time - is a cross-reference to Part 7 and is already owned by evaluation/measure-honestly-c, which classes it artifact and carries eval-audit's Methodology soundness and Reproducibility. This row keeps only the harness-side claim, the same division offer-cheap-and-mock-backends uses for its Part 7 clauses.
+
+- id: agent-harness/bundle-configuration-into-named-profiles
+  section: "Bundle configuration into named profiles"
+  claim: Have the configuration tier bundle a model, its parameters and feature toggles into a named profile that is selectable by name, discoverable by listing and machine-readable, so scripts and eval harnesses reference a configuration by name and "run the cheap profile" becomes an unambiguous shared instruction.
+  class: static
+  gap:
+    recommendation: extend-skill
+    note: the same unmapped claim as Part 3's name-every-configuration-worth-reusing, stated from the harness side - eval-audit's Reproducibility is the nearest and is satisfied by a recorded flag pile, and no dimension asks for named, listable, machine-readable profiles.
+
+- id: agent-harness/ship-every-agent-with-a-headless-cli
+  section: "Ship every agent with a headless CLI"
+  claim: Give every agent a headless command-line entry point that takes a query and writes its artifacts to an output directory, make it the same path an eval harness drives as a subprocess so no separate eval mode can diverge from production, land artifacts in a dated subfolder that names what produced the run, and build any interactive UI as that CLI's peer rather than a second implementation.
+  class: static
+  gap:
+    recommendation: extend-skill
+    note: eval-audit is the owner, because this is the precondition for its entire evidence base and an eval driving a code path production never takes is a validity threat next door to Contamination / leakage; still, no dimension asks whether a headless artifact-producing entry point exists, whether the eval path is the production path, or whether run artifacts are named and kept so a result stays findable months later.
+
+- id: agent-harness/offer-cheap-and-mock-backends-a-fast-inner-loop-is-a-discipline
+  section: "Offer cheap and mock backends: a fast inner loop is a discipline"
+  claim: Offer cheaper flag-selected backends - a mock backend such as a small model over a fixed knowledge base, or a lighter real one for the same capability - that keep the loop fast without changing the agent, treat the cheap inner loop as a first-class capability because it is what buys a variance band instead of an anecdote, and compare backends on full cost including the downstream context a stand-in inflates.
+  class: static
+  checks:
+    - skill: eval-audit
+      dimension: "Regression tracking & cost"
+  note: "Regression tracking & cost names a cheap/mock eval mode outright, so this is the most direct mapping in Part 5. The two clauses it does not reach inherit gaps already recorded in Part 7 - the variance band on evaluation/measure-honestly-a (#517) and full-cost accounting on evaluation/measure-honestly-b (#516)."
+
+- id: agent-harness/make-bounding-the-default
+  section: "Make bounding the default"
+  claim: Bake six reliability defaults into the harness rather than into each agent - wall-clock and idle timeouts on turns and streaming loops, a hardened outbound HTTP client (explicit connect and read timeouts, bounded retries, keep-alive) whose retries wrap only operations safe to repeat, a circuit breaker on a dependency that keeps failing, a cycle and token budget cap on the agent loop, a size strategy for oversized tool results, and time-bounded teardown of external resources - because an unbounded call, cycle or payload each exhaust a resource.
+  class: static
+  gap:
+    recommendation: new-domain
+    note: "production-reliability bounding has no owner anywhere in the family - not one of the eight skills declares a dimension for timeouts, retry safety, circuit breakers, loop or payload caps. The planned performance/cost and observability lenses in #516 are the nearest and would see the symptoms (a hung run, an unattributed spend, an undiagnosable failure) while their scope is measurement and diagnosability rather than the harness-level bounds themselves, so this needs its own home or an explicit widening of that issue."
+
+- id: agent-harness/checklist-standing-up-a-new-agent
+  section: "Checklist: standing up a new agent"
+  claim: Eight-item recap for standing up an agent - model alias through the catalog, optional defaulted parameter flags, a named profile, a headless CLI that is the eval path, dated self-describing artifact folders, a flag-selectable cheap or mock backend, time-bounded external calls with retries only on repeatable operations, and bounded loop, payload and failing dependencies.
+  class: process
+  note: A recap, so what it adds is the act of working the list when a new agent is stood up. Each of the eight items is owned by a Part 5 row above.
+
+- id: agent-harness/see-also
+  section: "See also"
+  claim: Cross-links to Parts 3, 6 and 7 and the handbook index.
+  class: informative
+
 # --- Part 7: Evaluation -----------------------------------------------------
 
 - id: evaluation/the-enemy-is-false-confidence
