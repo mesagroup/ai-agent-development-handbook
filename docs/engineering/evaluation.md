@@ -61,7 +61,7 @@ The approaches are not interchangeable; each answers a different question. Reach
 
 The funnel exists precisely so you spend expensive semantic evaluation only on candidates that already cleared the cheap gates.
 
-```funnel title="The staged screening funnel, on a log scale; the counts are illustrative"
+```funnel title="The staged screening funnel, log scale; counts illustrative"
 Many candidates              10000
 Cheap deterministic gates     2000
 Composite score                400
