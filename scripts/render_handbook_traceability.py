@@ -80,6 +80,8 @@ _FENCE_RE = re.compile(r"^(```|~~~)")
 _DIMENSIONS_HEADING_RE = re.compile(r"^## \d+\. Dimensions\b")
 _DIM_BULLET_RE = re.compile(r"^- \*\*(.+?)\*\*")
 _SPLIT_SUFFIX_RE = re.compile(r"-([a-z])$")
+_PART_NUMBER_RE = re.compile(r"^# Part (\d+)\.")
+_TITLE_NUMBER_RE = re.compile(r"^Part (\d+):")
 
 
 def slugify(heading: str) -> str:
@@ -94,22 +96,78 @@ def handbook_headings(handbook_dir: Path) -> dict[str, list[str]]:
 
     Only level-2 headings count (the row unit per the design spec); fenced
     code blocks are skipped so a `##` inside an example is not a section.
+
+    A fence left open swallows every heading after it, and a swallowed
+    heading is invisible to the coverage check below — no row is demanded
+    for a section nobody can see. So an unclosed fence raises here rather
+    than quietly shrinking the matrix, the same contract
+    `render_handbook_artifact.py` settled on in 722f5eda. A fence closed
+    with the other marker (``` opened, ~~~ closed) never closes, and so
+    surfaces as the same error.
+
+    Args:
+        handbook_dir: Directory holding the handbook's `*.md` parts.
+
+    Returns:
+        Part stem mapped to its `##` heading texts, in document order.
+
+    Raises:
+        ValueError: A part leaves a fence unclosed at end of file.
     """
     parts: dict[str, list[str]] = {}
     for md in sorted(handbook_dir.glob("*.md")):
         headings: list[str] = []
-        in_fence = False
-        for line in md.read_text().splitlines():
-            if _FENCE_RE.match(line):
-                in_fence = not in_fence
+        fence_marker: str | None = None
+        fence_line = 0
+        for lineno, line in enumerate(md.read_text().splitlines(), 1):
+            m_fence = _FENCE_RE.match(line)
+            if m_fence:
+                marker = m_fence.group(1)[0]
+                if fence_marker is None:
+                    fence_marker, fence_line = marker, lineno
+                elif marker == fence_marker:
+                    fence_marker = None
                 continue
-            if in_fence:
+            if fence_marker is not None:
                 continue
             m = _HEADING_RE.match(line)
             if m:
                 headings.append(m.group(1))
+        if fence_marker is not None:
+            raise ValueError(
+                f"{md.name}: the {fence_marker * 3} fence opened at line "
+                f"{fence_line} is never closed, so every '##' heading after "
+                "it would drop out of the matrix unnoticed. Close it, or "
+                "match the marker it was opened with."
+            )
         parts[md.stem] = headings
     return parts
+
+
+def handbook_part_numbers(handbook_dir: Path) -> dict[str, int | None]:
+    """Map each handbook part stem to the number in its `# Part N.` H1.
+
+    The stems the matrix orders and titles are hardcoded, but the handbook
+    renumbers (becac52a, 262f16f7 — twice in one week, the second of which
+    had to hand-fix the sibling renderer's equivalent list). Reading the
+    real number back lets `validate` catch the desync.
+
+    Args:
+        handbook_dir: Directory holding the handbook's `*.md` parts.
+
+    Returns:
+        Part stem mapped to its part number, or `None` for the unnumbered
+        parts (README, troubleshooting, coda).
+    """
+    numbers: dict[str, int | None] = {}
+    for md in sorted(handbook_dir.glob("*.md")):
+        numbers[md.stem] = None
+        for line in md.read_text().splitlines():
+            if line.startswith("# "):
+                m = _PART_NUMBER_RE.match(line)
+                numbers[md.stem] = int(m.group(1)) if m else None
+                break
+    return numbers
 
 
 def skill_dimensions(skills_dir: Path) -> dict[str, list[str]]:
@@ -117,24 +175,89 @@ def skill_dimensions(skills_dir: Path) -> dict[str, list[str]]:
 
     A skill without a numbered `## N. Dimensions` heading (audit-core, the
     audit front door, non-audit skills) is simply absent from the result.
+    That absence is legitimate; a skill that *has* the heading but whose
+    bullets no longer parse is not, and would otherwise be indistinguishable
+    from it — every check citing that skill would fail as "unknown skill",
+    pointing at the matrix instead of at the reformatted bullet. So an
+    empty Dimensions section raises.
+
+    Args:
+        skills_dir: Directory holding one subdirectory per skill.
+
+    Returns:
+        Skill directory name mapped to its dimensions' bolded lead phrases.
+
+    Raises:
+        ValueError: A skill declares a Dimensions section with no bullet
+            the `- **Name** — …` parser recognises.
     """
     dims: dict[str, list[str]] = {}
     for skill_md in sorted(skills_dir.glob("*/SKILL.md")):
         names: list[str] = []
         in_section = False
+        found_section = False
         for line in skill_md.read_text().splitlines():
             if _DIMENSIONS_HEADING_RE.match(line):
-                in_section = True
+                in_section = found_section = True
                 continue
             if in_section and line.startswith("## "):
-                break
+                in_section = False
+                continue
             if in_section:
                 m = _DIM_BULLET_RE.match(line)
                 if m:
                     names.append(m.group(1))
+        if found_section and not names:
+            raise ValueError(
+                f"{skill_md.parent.name}: has a '## N. Dimensions' section but no "
+                "bullet matching '- **Name**'. Every check citing this skill would "
+                "fail as an unknown skill and blame the matrix for a formatting "
+                "change in the skill."
+            )
         if names:
             dims[skill_md.parent.name] = names
     return dims
+
+
+def validate_parts(part_numbers: dict[str, int | None]) -> list[str]:
+    """Check the hardcoded part order and titles against the handbook on disk.
+
+    `validate` guarantees every section of every *known* part has a row. It
+    cannot see a part the constants forgot, nor notice that Part 5 became
+    Part 6 upstream, because `render` falls back to the raw file stem for an
+    unknown part rather than failing.
+
+    Args:
+        part_numbers: Part stem mapped to its `# Part N.` number, or `None`
+            where the part carries no number.
+
+    Returns:
+        One message per mismatch; empty when the constants are in sync.
+    """
+    errors: list[str] = []
+    on_disk = set(part_numbers)
+    known = set(PART_ORDER)
+
+    for stem in sorted(on_disk - known):
+        errors.append(f"{stem}: handbook part is missing from PART_ORDER")
+    for stem in sorted(known - on_disk):
+        errors.append(f"{stem}: PART_ORDER names a part with no file on disk")
+    for stem in sorted(known - set(PART_TITLES)):
+        errors.append(f"{stem}: PART_ORDER entry has no PART_TITLES title")
+    for stem in sorted(set(PART_TITLES) - known):
+        errors.append(f"{stem}: PART_TITLES entry is not in PART_ORDER")
+
+    for stem in sorted(on_disk & known & set(PART_TITLES)):
+        m = _TITLE_NUMBER_RE.match(PART_TITLES[stem])
+        titled = int(m.group(1)) if m else None
+        actual = part_numbers[stem]
+        if titled != actual:
+            errors.append(
+                f"{stem}: PART_TITLES says part {titled}, the handbook H1 says "
+                f"{actual}. The handbook renumbered; update PART_ORDER and "
+                "PART_TITLES to match."
+            )
+    return errors
 
 
 def _resolve(anchor: str, by_slug: dict[str, str]) -> str | None:
@@ -150,7 +273,19 @@ def validate(
     headings: dict[str, list[str]],
     dims: dict[str, list[str]],
 ) -> list[str]:
-    """Check every schema rule from the design spec; return one message per violation."""
+    """Check every schema rule from the design spec.
+
+    Args:
+        rows: The raw matrix rows as loaded from YAML, unvalidated.
+        headings: Part stem mapped to its `##` heading texts, from
+            `handbook_headings`.
+        dims: Skill name mapped to its dimension names, from
+            `skill_dimensions`.
+
+    Returns:
+        One message per violation, so a single run reports every problem;
+        empty when the matrix is sound.
+    """
     errors: list[str] = []
     seen_ids: set[str] = set()
     covered: set[tuple[str, str]] = set()
@@ -217,9 +352,12 @@ def validate(
                 errors.append(f"{rid}: check entries must be mappings")
                 continue
             skill = check.get("skill")
-            dim = check.get("dimension", "")
+            dim = check.get("dimension")
             if skill not in norm_dims:
                 errors.append(f"{rid}: unknown skill {skill!r}")
+                continue
+            if not isinstance(dim, str):
+                errors.append(f"{rid}: check dimension must be a string, got {dim!r}")
                 continue
             if " ".join(dim.split()).lower() not in norm_dims[skill]:
                 errors.append(f"{rid}: {skill} has no dimension {dim!r}")
@@ -270,6 +408,22 @@ def _md_escape(text: str) -> str:
     return text.replace("|", "\\|")
 
 
+def _oneline(value: Any) -> str:
+    """Collapse a YAML scalar to one line, leaving Markdown punctuation alone."""
+    return " ".join(str(value).split())
+
+
+def _flat(value: Any) -> str:
+    """Collapse a YAML scalar to one table-safe line.
+
+    A newline ends a GFM table row and a bare pipe opens a column, so any
+    hand-written field reaching a cell has to lose both. `--check` is no
+    safety net here: it compares a fresh render against the committed one,
+    and both would carry the same broken table.
+    """
+    return _md_escape(_oneline(value))
+
+
 def _checks_cell(row: dict[str, Any]) -> str:
     checks = row.get("checks") or []
     if not checks:
@@ -283,9 +437,9 @@ def _gap_cell(row: dict[str, Any]) -> str:
         return "-"
     parts = [f"**{gap['recommendation']}**"]
     if gap.get("target"):
-        parts.append(gap["target"])
+        parts.append(_flat(gap["target"]))
     if gap.get("note"):
-        parts.append(_md_escape(gap["note"]))
+        parts.append(_flat(gap["note"]))
     return " - ".join(parts)
 
 
@@ -294,7 +448,7 @@ def _note_cell(row: dict[str, Any]) -> str:
     note = row.get("note")
     if not note:
         return "-"
-    return _md_escape(" ".join(str(note).split()))
+    return _flat(note)
 
 
 def handbook_link(row: dict[str, Any]) -> tuple[str, str]:
@@ -302,6 +456,9 @@ def handbook_link(row: dict[str, Any]) -> tuple[str, str]:
 
     The marker is `" (a)"`-style for a row that covers one slice of a split
     section, and empty otherwise.
+
+    Args:
+        row: A matrix row; its `id` and `section` locate the heading.
 
     Returns:
         A `(url, marker)` pair.
@@ -319,12 +476,24 @@ def handbook_link(row: dict[str, Any]) -> tuple[str, str]:
 def _section_cell(row: dict[str, Any]) -> str:
     """Linked section heading with its split marker, over the row's claim."""
     url, marker = handbook_link(row)
-    label = _md_escape(row.get("section", row["id"].split("/", 1)[1]))
-    claim = _md_escape(" ".join(str(row.get("claim", "")).split()))
+    label = _flat(row.get("section", row["id"].split("/", 1)[1]))
+    claim = _flat(row.get("claim", "")) if row.get("claim") else ""
     return f"[{label}]({url}){marker}" + (f"<br>{claim}" if claim else "")
 
 
 def render(rows: list[dict[str, Any]]) -> str:
+    """Render the whole matrix document from the validated rows.
+
+    Emits the generated-file header and legend, one table per handbook part
+    in the handbook's own reading order, the gap list grouped by
+    recommendation, and the coverage summary.
+
+    Args:
+        rows: Matrix rows, already through `validate`.
+
+    Returns:
+        The complete Markdown document, newline-terminated.
+    """
     by_part: dict[str, list[dict[str, Any]]] = {}
     for row in rows:
         by_part.setdefault(row["id"].split("/", 1)[0], []).append(row)
@@ -354,8 +523,11 @@ def render(rows: list[dict[str, Any]]) -> str:
         out.append(f"\n### {rec}\n")
         for r in group:
             url, marker = handbook_link(r)
-            target = f" ({r['gap']['target']})" if r["gap"].get("target") else ""
-            note = f" - {r['gap']['note']}" if r["gap"].get("note") else ""
+            # A bullet, not a cell: a pipe is harmless here, a newline is not.
+            target = (
+                f" ({_oneline(r['gap']['target'])})" if r["gap"].get("target") else ""
+            )
+            note = f" - {_oneline(r['gap']['note'])}" if r["gap"].get("note") else ""
             out.append(f"- [`{r['id']}`]({url}){marker}{target}{note}")
 
     counts = {cls: sum(1 for r in rows if r["class"] == cls) for cls in CLASSES}
@@ -375,7 +547,9 @@ def render(rows: list[dict[str, Any]]) -> str:
         f"({counts['static']} static + {counts['artifact']} artifact): "
         f"**{len(full)} fully mapped** ({pct}%), **{len(partial)} partially mapped** "
         f"(a check that reaches part of the claim, with the residue recorded as a gap), "
-        f"and **{len(unmapped)} unmapped**. {len(gaps)} rows carry a gap entry in total. "
+        f"and **{len(unmapped)} unmapped** (no check reaches the claim; every one of "
+        f"them still carries a gap entry saying so and why, which the schema requires). "
+        f"{len(gaps)} rows carry a gap entry in total. "
         f"The remaining {counts['process']} process and {counts['informative']} informative "
         f"rows are not auditable by design - the honest record of what a snapshot cannot settle."
     )
@@ -383,6 +557,15 @@ def render(rows: list[dict[str, Any]]) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Validate the matrix and either write the Markdown or check it is current.
+
+    Args:
+        argv: Command-line arguments; `None` reads `sys.argv`.
+
+    Returns:
+        `0` on success, `1` on any validation error or, under `--check`, a
+        stale committed Markdown file.
+    """
     parser = argparse.ArgumentParser(
         description="Render/verify the handbook traceability matrix."
     )
@@ -397,7 +580,8 @@ def main(argv: list[str] | None = None) -> int:
     if not isinstance(rows, list):
         print(f"{YAML_PATH.name}: top level must be a list of rows", file=sys.stderr)
         return 1
-    errors = validate(
+    errors = validate_parts(handbook_part_numbers(HANDBOOK_DIR))
+    errors += validate(
         rows, handbook_headings(HANDBOOK_DIR), skill_dimensions(SKILLS_DIR)
     )
     if errors:

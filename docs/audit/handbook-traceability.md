@@ -296,4 +296,4 @@ Two rules keep the walk reproducible. Apply them when adding or revising a row.
 | process | 21 |
 | informative | 16 |
 
-124 rows total. Of the 87 auditable rows (67 static + 20 artifact): **20 fully mapped** (23%), **21 partially mapped** (a check that reaches part of the claim, with the residue recorded as a gap), and **46 unmapped**. 67 rows carry a gap entry in total. The remaining 21 process and 16 informative rows are not auditable by design - the honest record of what a snapshot cannot settle.
+124 rows total. Of the 87 auditable rows (67 static + 20 artifact): **20 fully mapped** (23%), **21 partially mapped** (a check that reaches part of the claim, with the residue recorded as a gap), and **46 unmapped** (no check reaches the claim; every one of them still carries a gap entry saying so and why, which the schema requires). 67 rows carry a gap entry in total. The remaining 21 process and 16 informative rows are not auditable by design - the honest record of what a snapshot cannot settle.

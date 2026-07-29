@@ -4,6 +4,8 @@ import importlib.util
 import sys
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 _SCRIPT = REPO_ROOT / "scripts" / "render_handbook_traceability.py"
 
@@ -37,6 +39,69 @@ def test_handbook_headings_skips_fences_and_deeper_levels(tmp_path):
     _write(tmp_path / "coda.md", "# Coda\n\nno sections here\n")
     headings = rht.handbook_headings(tmp_path)
     assert headings == {"alpha": ["First section", "Second section"], "coda": []}
+
+
+def test_handbook_headings_raises_on_an_unclosed_fence(tmp_path):
+    # A stuck fence would swallow "Second section", and the coverage check
+    # cannot miss a heading it never saw - so this has to fail loudly.
+    _write(
+        tmp_path / "alpha.md",
+        "# Alpha\n\n## First section\n\n```\nunclosed\n\n## Second section\n",
+    )
+    with pytest.raises(ValueError, match="never closed"):
+        rht.handbook_headings(tmp_path)
+
+
+def test_handbook_headings_raises_when_a_fence_closes_with_the_other_marker(tmp_path):
+    _write(
+        tmp_path / "alpha.md",
+        "# Alpha\n\n```\nopened with backticks\n~~~\n\n## Orphaned section\n",
+    )
+    with pytest.raises(ValueError, match="never closed"):
+        rht.handbook_headings(tmp_path)
+
+
+def test_handbook_headings_accepts_both_markers_matched(tmp_path):
+    _write(
+        tmp_path / "alpha.md",
+        "# Alpha\n\n~~~\n## not a heading\n~~~\n\n## Real section\n",
+    )
+    assert rht.handbook_headings(tmp_path) == {"alpha": ["Real section"]}
+
+
+def test_handbook_part_numbers_reads_the_h1_number(tmp_path):
+    _write(tmp_path / "alpha.md", "# Part 5. The Extended Agent Harness\n\n## S\n")
+    _write(tmp_path / "coda.md", "# Coda\n\ntext\n")
+    assert rht.handbook_part_numbers(tmp_path) == {"alpha": 5, "coda": None}
+
+
+def test_validate_parts_catches_renumbering_and_missing_parts(monkeypatch):
+    monkeypatch.setattr(rht, "PART_ORDER", ["alpha", "ghost"])
+    monkeypatch.setattr(
+        rht, "PART_TITLES", {"alpha": "Part 5: Alpha", "ghost": "Part 9: Ghost"}
+    )
+    # alpha renumbered upstream 5 -> 6; ghost has no file; beta is new on disk.
+    errors = rht.validate_parts({"alpha": 6, "beta": 2})
+    assert any("PART_TITLES says part 5, the handbook H1 says 6" in e for e in errors)
+    assert any("beta: handbook part is missing from PART_ORDER" in e for e in errors)
+    assert any("ghost: PART_ORDER names a part with no file" in e for e in errors)
+    assert len(errors) == 3
+
+
+def test_validate_parts_passes_on_the_real_handbook():
+    assert rht.validate_parts(rht.handbook_part_numbers(rht.HANDBOOK_DIR)) == []
+
+
+def test_skill_dimensions_raises_on_an_unparseable_dimensions_section(tmp_path):
+    # Reformatted bullets must not read as "this skill has no dimensions":
+    # every check citing it would then fail as an unknown skill, blaming the
+    # matrix for a change made in the skill.
+    _write(
+        tmp_path / "demo-audit" / "SKILL.md",
+        "## 2. Dimensions (findings-matrix columns)\n\n* _Injection_ - reformatted.\n",
+    )
+    with pytest.raises(ValueError, match="no bullet matching"):
+        rht.skill_dimensions(tmp_path)
 
 
 def test_skill_dimensions_reads_bolded_bullets_until_next_heading(tmp_path):
@@ -143,6 +208,12 @@ def test_validate_catches_each_rule(tmp_path):
             "no dimension",
             1,
         ),
+        # A bare `dimension:` parses to None; it must name the row, not raise.
+        (
+            lambda r: r[0]["checks"][0].update(dimension=None),
+            "dimension must be a string",
+            1,
+        ),
         (
             lambda r: r[1]["gap"].update(recommendation="wontfix"),
             "recommendation must be one of",
@@ -217,9 +288,70 @@ def test_render_shows_row_notes_in_the_notes_column():
     )
 
 
+def test_render_joins_multiple_checks_and_a_gap_without_a_target():
+    rows = _valid_rows()
+    rows[0]["checks"].append({"skill": "demo-audit", "dimension": "Secrets"})
+    rows[1]["gap"].pop("target")
+    out = rht.render(rows)
+    # Two checks share one cell, separated by a break rather than a newline.
+    assert "`demo-audit` / Injection<br>`demo-audit` / Secrets" in out
+    # A target-less gap renders no empty parentheses, in cell and in bullet.
+    assert "**new-domain** - no lens yet" in out
+    assert (
+        f"- [`alpha/split-section-a`]({_ALPHA_URL}#split-section) (a) - no lens yet"
+        in out
+    )
+    assert "()" not in out
+
+
+def test_render_keeps_gap_fields_from_breaking_the_table():
+    rows = _valid_rows()
+    rows[1]["gap"]["target"] = "#516 | #548"
+    rows[1]["gap"]["note"] = "two lenses:\nneither owns the bound."
+    out = rht.render(rows)
+    # In a table cell both the pipe and the newline are fatal; escape and fold.
+    assert (
+        "**new-domain** - #516 \\| #548 - two lenses: neither owns the bound. |" in out
+    )
+    # In the gap-list bullet a pipe is harmless, but the newline still is not.
+    assert "(#516 | #548) - two lenses: neither owns the bound." in out
+    for line in out.splitlines():
+        if line.startswith("| ["):
+            assert line.endswith(" |"), line
+
+
+def _patch_paths(monkeypatch, tmp_path, parts):
+    monkeypatch.setattr(rht, "PART_ORDER", list(parts))
+    monkeypatch.setattr(rht, "PART_TITLES", {p: p.title() for p in parts})
+    monkeypatch.setattr(rht, "HANDBOOK_DIR", tmp_path / "handbook")
+    monkeypatch.setattr(rht, "SKILLS_DIR", tmp_path / "skills")
+    monkeypatch.setattr(rht, "YAML_PATH", tmp_path / "handbook-traceability.yaml")
+    monkeypatch.setattr(rht, "MD_PATH", tmp_path / "handbook-traceability.md")
+    monkeypatch.setattr(rht, "REPO_ROOT", tmp_path)
+
+
+def test_main_fails_when_the_handbook_renumbers_under_the_constants(
+    tmp_path, monkeypatch
+):
+    import yaml as _yaml
+
+    _fixture_dirs(tmp_path)
+    _patch_paths(monkeypatch, tmp_path, ["alpha", "coda"])
+    monkeypatch.setattr(rht, "PART_TITLES", {"alpha": "Part 5: Alpha", "coda": "Coda"})
+    (tmp_path / "handbook" / "alpha.md").write_text(
+        "# Part 6. Alpha\n\n## Mapped section\n\ntext\n\n## Split section\n\ntext\n"
+    )
+    (tmp_path / "handbook-traceability.yaml").write_text(
+        _yaml.safe_dump(_valid_rows(), sort_keys=False, allow_unicode=True)
+    )
+    assert rht.main([]) == 1
+
+
 def test_main_check_detects_a_stale_md(tmp_path, monkeypatch):
     headings_dir = tmp_path / "handbook"
     _fixture_dirs(tmp_path)
+    monkeypatch.setattr(rht, "PART_ORDER", ["alpha", "coda"])
+    monkeypatch.setattr(rht, "PART_TITLES", {"alpha": "Alpha", "coda": "Coda"})
     yaml_path = tmp_path / "handbook-traceability.yaml"
     md_path = tmp_path / "handbook-traceability.md"
     import yaml as _yaml
@@ -244,15 +376,11 @@ def test_main_fails_on_an_uncovered_handbook_part(tmp_path, monkeypatch):
 
     _fixture_dirs(tmp_path)
     _write(tmp_path / "handbook" / "beta.md", "# Beta\n\n## Unwalked section\n\ntext\n")
-    yaml_path = tmp_path / "handbook-traceability.yaml"
-    yaml_path.write_text(
+    # beta is a known part, so the only thing wrong is its missing row.
+    _patch_paths(monkeypatch, tmp_path, ["alpha", "beta", "coda"])
+    (tmp_path / "handbook-traceability.yaml").write_text(
         _yaml.safe_dump(_valid_rows(), sort_keys=False, allow_unicode=True)
     )
-    monkeypatch.setattr(rht, "HANDBOOK_DIR", tmp_path / "handbook")
-    monkeypatch.setattr(rht, "SKILLS_DIR", tmp_path / "skills")
-    monkeypatch.setattr(rht, "YAML_PATH", yaml_path)
-    monkeypatch.setattr(rht, "MD_PATH", tmp_path / "handbook-traceability.md")
-    monkeypatch.setattr(rht, "REPO_ROOT", tmp_path)
     assert rht.main([]) == 1  # beta.md has no rows -> coverage hole, no escape hatch
 
 

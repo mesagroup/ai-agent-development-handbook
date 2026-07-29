@@ -70,6 +70,8 @@ Validation rules enforced by the renderer:
 
 `uv run python scripts/render_handbook_traceability.py` (no args) reads the YAML, verifies, and writes the md. `--check` verifies without writing and additionally fails if the committed md differs from a fresh render. Failure modes, each with its own message: handbook section with no row (coverage hole), row anchor with no heading (stale row), schema violation (rules above), md out of date.
 
+Two parser-level failures are raised rather than returned, because they would otherwise shrink the matrix without anyone noticing: a handbook part that leaves a fence unclosed (every `##` heading after it would vanish, and a heading the parser never saw cannot be reported as a coverage hole), and a skill that declares a Dimensions section whose bullets no longer parse (indistinguishable from a skill that has no dimensions, so every check citing it would fail as "unknown skill" and blame the matrix for a change made in the skill). `validate_parts` separately checks the hardcoded `PART_ORDER` / `PART_TITLES` against the handbook's own `# Part N.` H1s, since the handbook renumbered twice in the week before this work and the rendered title otherwise falls back silently to the raw file stem.
+
 The pytest test runs the `--check` path, so CI guards staleness with no workflow change. Pure helpers (YAML row validation, anchor slugging, heading extraction from the handbook files, dimension lookup in skills, table rendering) are unit-tested via the `importlib.util.spec_from_file_location` pattern used by the other `scripts/` tests.
 
 Slugging matches the handbook's own heading-anchor convention (GitHub-style: lowercase, punctuation stripped, spaces to hyphens) so row IDs and md heading links agree.
