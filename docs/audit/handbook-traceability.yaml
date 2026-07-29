@@ -1,0 +1,228 @@
+# Handbook traceability matrix (#543) - hand-maintained source of truth.
+#
+# Maps every "##" section of docs/engineering/ onto the *-audit skill family.
+# Render the committed Markdown view after every edit:
+#     uv run python scripts/render_handbook_traceability.py
+# Schema and classification rules:
+#     docs/superpowers/specs/2026-07-29-handbook-traceability-matrix-design.md
+#
+# Classes: static (auditable from a repo snapshot) | artifact (auditable only
+# via produced artifacts; absence is itself a finding) | process (not
+# verifiable from the repo) | informative (non-normative).
+
+# --- The README spine -------------------------------------------------------
+
+- id: README/the-story-of-a-change
+  section: "The story of a change"
+  claim: Narrates the life of a single change through the nine parts and marks its human gates.
+  class: informative
+  note: Spine prose; every directive it alludes to is owned by the part it points at.
+
+- id: README/starting-from-zero
+  section: "Starting from zero"
+  claim: Greenfield is the story of the first change, so the parts become a build order - thin end-to-end slice, tier skeleton, minimal harness, eval dataset and metric, rules file and gates from the first commit.
+  class: process
+  note: The section's own claim is the ordering, which no snapshot can date; the artifacts it lists are audited by the Part 3, 5, 7, 8 and 9 rows.
+
+- id: README/the-four-throughlines
+  section: "The four throughlines"
+  claim: Four principles (evidence over intuition, capture the trail, reusable core vs. disposable task layer, executable standards) generate the directives and decide the cases they do not literally cover.
+  class: process
+  note: Each throughline's operational form belongs to its home part's rows; what this section adds is the disposition to apply them, which is culture rather than repo state.
+
+- id: README/how-to-use-this-handbook
+  section: "How to use this handbook"
+  claim: Reading instructions - follow the imperatives, work from the checklists, treat the reasons as load-bearing, enter at any part.
+  class: informative
+
+- id: README/where-the-binding-rules-live
+  section: "Where the binding rules live"
+  claim: The binding project-specific rules live in the project's rules file, which both the team and the coding agents read as authoritative and which wins over the handbook; a mismatch between the two is a docs bug.
+  class: static
+  gap:
+    recommendation: extend-skill
+    note: docs-audit has no dimension for an authoritative rules file or for doc-vs-doc contradiction; ci-audit's Gate enforcement checks that mismatch only for what CI claims to enforce.
+
+# --- Part 7: Evaluation -----------------------------------------------------
+
+- id: evaluation/the-enemy-is-false-confidence
+  section: "The enemy is false confidence"
+  claim: Treat every non-trivial change as a hypothesis and keep the decision falsifiable - the dataset and the metric must exist before the decision they settle.
+  class: process
+  note: The ordering (yardstick before decision) is not datable from a snapshot; its auditable residue - gold independence and a frozen dataset - is carried by the build-a-dataset-you-can-trust row.
+
+- id: evaluation/run-the-loop-a
+  section: "Run the loop"
+  claim: Run the loop and do not stop at shipping - re-measure afterwards, because the change surfaces new failure forms that become the next dataset extension.
+  class: process
+
+- id: evaluation/run-the-loop-b
+  section: "Run the loop"
+  claim: Record each decision and its evidence where the next person can find it.
+  class: artifact
+  checks:
+    - skill: eval-audit
+      dimension: "Regression tracking & cost"
+
+- id: evaluation/measure-the-behaviors-that-matter-a
+  section: "Measure the behaviors that matter"
+  claim: Enumerate the behaviors the product depends on - accuracy, grounding, format, refusals, latency and cost, the specific failure modes, and adversarial injection-resistance - and map each to an eval, because an unevaluated capability is an unmonitored one.
+  class: static
+  checks:
+    - skill: eval-audit
+      dimension: "Eval coverage"
+    - skill: eval-audit
+      dimension: "Prompt / SOP quality"
+
+- id: evaluation/measure-the-behaviors-that-matter-b
+  section: "Measure the behaviors that matter"
+  claim: Match the grader to the behavior - code-graded assertions, judge-graded rubrics, and trajectory graders that assert on the path the run took rather than only on its answer.
+  class: static
+  checks:
+    - skill: eval-audit
+      dimension: "Methodology soundness"
+  gap:
+    recommendation: extend-skill
+    note: Methodology soundness reaches the wrong-grader case as "a metric that is a gameable proxy", but it never asks which grader *type* the behavior needs, and trajectory grading - asserting on the path a run took rather than on its answer - is unrepresented anywhere in the family.
+
+- id: evaluation/build-a-dataset-you-can-trust
+  section: "Build a dataset you can trust"
+  claim: Draw candidates from a source independent of the system under test, choose the dataset shape that supplies that independence, measure prevalence before planning the harvest, and freeze the set for the duration of a comparison.
+  class: static
+  checks:
+    - skill: eval-audit
+      dimension: "Contamination / leakage"
+    - skill: eval-audit
+      dimension: "Methodology soundness"
+    - skill: eval-audit
+      dimension: "Reproducibility"
+
+- id: evaluation/measure-honestly-a
+  section: "Measure honestly"
+  claim: A single run of a stochastic system is an anecdote - run each candidate several times and report the spread, per-case k-of-N reliability bands and the strict pass^N aggregate.
+  class: artifact
+  gap:
+    recommendation: extend-skill
+    target: "#517"
+    note: no eval-audit dimension requires repeated runs or a reported variance band; the target issue exists to add exactly this one.
+
+- id: evaluation/measure-honestly-b
+  section: "Measure honestly"
+  claim: Settle quality/cost trade-offs on full cost taken from actual billing - cache read/write tokens, sub-agent calls, latency and retries included - and lead with absolute figures.
+  class: artifact
+  gap:
+    recommendation: extend-skill
+    target: "#516"
+    note: extend eval-audit - its Regression tracking & cost dimension is about the cost of running evals, not about pricing a candidate comparison honestly; the target issue is the cost domain whose accounting rules the new eval-audit check should reuse, not itself the thing being extended.
+
+- id: evaluation/measure-honestly-c
+  section: "Measure honestly"
+  claim: Keep comparisons like-for-like by changing one variable at a time, bucket refusals and API errors apart from quality failures, and make every reported number regenerable from a pinned model, a recorded config and kept artifacts.
+  class: artifact
+  checks:
+    - skill: eval-audit
+      dimension: "Methodology soundness"
+    - skill: eval-audit
+      dimension: "Reproducibility"
+
+- id: evaluation/pick-the-approach-that-fits-the-decision
+  section: "Pick the approach that fits the decision"
+  claim: Match the approach to the decision's shape - screening funnel, blind paired A/B, ground-truth evaluation, anchor-based recall probe, golden-set benchmark - and reach for the cheapest that actually answers your question.
+  class: static
+  gap:
+    recommendation: extend-skill
+    note: no dimension asks whether the eval approach fits the decision it settles, nor whether expensive semantic scoring is staged behind cheap deterministic gates.
+
+- id: evaluation/grow-the-eval-into-a-gate
+  section: "Grow the eval into a gate"
+  claim: An eval earns merge-blocking authority in rungs - offline, then shadow mode on production traffic, then a required CI gate - and a miss it lets through becomes a new case in the dataset.
+  class: static
+  checks:
+    - skill: eval-audit
+      dimension: "Smoke-test gate"
+    - skill: ci-audit
+      dimension: "Gate enforcement"
+  gap:
+    recommendation: extend-skill
+    note: the middle rung - "run it in shadow mode on production traffic, blocking nothing, before it can block a merge" - has no dimension anywhere; eval-audit is the owner, and its Smoke-test gate covers only the promoted, merge-blocking end of the ladder.
+
+- id: evaluation/use-the-llm-judge-only-where-it-agrees-with-the-human
+  section: "Use the LLM judge only where it agrees with the human"
+  claim: Trust an LLM judge only on the dimensions where measured human correlation shows it tracks the expert, pair efficiency metrics with an independent quality measure, and treat a gold label as a revisable verdict rather than bedrock.
+  class: artifact
+  checks:
+    - skill: eval-audit
+      dimension: "Methodology soundness"
+
+- id: evaluation/evaluate-a-multi-agent-system-unit-by-unit
+  section: "Evaluate a multi-agent system unit by unit"
+  claim: Score a multi-agent system unit by unit, each against its own golden dataset and metric, instead of one end-to-end number that cannot say which unit failed.
+  class: static
+  checks:
+    - skill: eval-audit
+      dimension: "Eval coverage"
+  note: Mapped as coverage - a unit visible only inside an end-to-end score is an uncovered capability. The "units exposed as separately-runnable pieces" half of the claim belongs to the Part 3 and Part 5 rows.
+
+- id: evaluation/build-escalation-ladders-spend-measurement-where-it-pays
+  section: "Build escalation ladders: spend measurement where it pays"
+  claim: Let a cheap high-precision method settle the common case and escalate only the residual, with the precision/recall crossover located by measurement because a rule set is a precision floor, not a recall guarantee.
+  class: static
+  gap:
+    recommendation: extend-skill
+    note: no dimension asks whether a fast-path/escalation threshold was justified by an independent recall probe at the crossover rather than set by feel.
+
+- id: evaluation/step-by-step-running-an-evaluation
+  section: "Step-by-step: running an evaluation"
+  claim: Runbook for one evaluation - name the decision, establish and freeze an independent dataset, fix the harness, change one variable, run each candidate several times, score quality with full cost, calibrate the judge, then decide, record and re-measure.
+  class: process
+  note: A procedure a snapshot cannot show was followed; each substantive step is mapped by the rows above.
+
+- id: evaluation/name-the-anti-patterns-out-loud
+  section: "Name the anti-patterns out loud"
+  claim: Scan every result for the six named anti-patterns - grading your own homework, "we added more patterns", the single run, quality without cost, moving the goalposts mid-experiment, demo-driven selection.
+  class: artifact
+  checks:
+    - skill: eval-audit
+      dimension: "Contamination / leakage"
+    - skill: eval-audit
+      dimension: "Eval coverage"
+    - skill: eval-audit
+      dimension: "Methodology soundness"
+    - skill: eval-audit
+      dimension: "Reproducibility"
+  note: Two of the six - the single run and quality without cost - inherit the gaps recorded on measure-honestly-a and measure-honestly-b.
+
+- id: evaluation/see-also
+  section: "See also"
+  claim: Cross-links to Parts 4, 6 and 8 and the handbook index.
+  class: informative
+
+# --- Troubleshooting guide --------------------------------------------------
+
+- id: troubleshooting/cost-and-latency
+  section: "Cost and latency"
+  claim: Symptom index for unattributable token spend and slow runs, routing each differential cause to the observability, harness and evaluation parts.
+  class: informative
+  note: Symptom-to-section router; the directives it routes to are owned by the target parts' rows.
+
+- id: troubleshooting/reliability
+  section: "Reliability"
+  claim: Symptom index for hangs during tool calls, intermittent external failures and loops without progress, routing each cause to bounding, error-surfacing and SOP directives.
+  class: informative
+
+- id: troubleshooting/output-quality
+  section: "Output quality"
+  claim: Symptom index for out-of-context errors, hallucination, faulty reasoning from correct facts, ignored SOPs, tool misuse, and results that differ from run to run.
+  class: informative
+
+- id: troubleshooting/measurement-and-change
+  section: "Measurement and change"
+  claim: Symptom index for the demo-versus-production gap, prompt edits you cannot evaluate, distrusted eval numbers and numbers that moved on their own.
+  class: informative
+
+# --- Coda -------------------------------------------------------------------
+
+- id: coda/coda
+  section: "Coda"
+  claim: Closing words - keep the four throughlines; the tools age, the loop is what stays.
+  class: informative

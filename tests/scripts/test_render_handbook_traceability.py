@@ -239,3 +239,23 @@ def test_validate_reports_malformed_shapes_without_crashing(tmp_path):
     assert "check entries must be mappings" in str(errors)
     assert "gap must be a mapping" in str(errors)
     assert len(errors) == 5
+
+
+def test_real_matrix_has_no_errors_beyond_pending_parts():
+    """Staleness + schema gate on the real repo files.
+
+    Until the content walk completes (plan Tasks 4-6), parts not yet walked
+    produce 'coverage hole' errors; anything else is a real defect. Task 6
+    replaces this test with the strict main(["--check"]) == 0 form.
+    """
+    import yaml as _yaml
+
+    rows = _yaml.safe_load(rht.YAML_PATH.read_text())
+    errors = rht.validate(
+        rows,
+        rht.handbook_headings(rht.HANDBOOK_DIR),
+        rht.skill_dimensions(rht.SKILLS_DIR),
+    )
+    real = [e for e in errors if "coverage hole" not in e]
+    assert real == []
+    assert rht.MD_PATH.read_text() == rht.render(rows)
