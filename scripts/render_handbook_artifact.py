@@ -33,12 +33,14 @@ because a staged funnel wants exact label placement and a chosen scale, and no
 layout engine offers either. Both render to a light and a dark SVG and are
 wrapped in the same ``<figure>``.
 
-NOT a CI test. The pure transforms (``rewrite_links``, ``wrap_tables``,
+NOT a CI test. Everything except ``run_d2`` is unit-tested in
+``tests/scripts/``: the pure transforms (``rewrite_links``, ``wrap_tables``,
 ``mark_task_items``, ``extract_diagram_blocks``, ``parse_funnel``,
-``wrap_label``, ``funnel_svg``, ``prepare_svg``, ``diagram_figure``,
-``substitute_diagrams``, ``count_em_dashes``) are unit-tested in
-``tests/scripts/``. ``run_d2`` shells out to the CLI and is deliberately left
-to the manual render.
+``wrap_label``, ``group_digits``, ``funnel_svg``, ``prepare_svg``,
+``diagram_figure``, ``substitute_diagrams``, ``count_em_dashes``), the
+per-fence dispatch (``render_variants``), and ``d2_icon_classes``, which
+writes files but is deterministic given the theme. ``run_d2`` shells out to
+the CLI and is deliberately left to the manual render.
 """
 
 from __future__ import annotations
@@ -195,6 +197,14 @@ _FUNNEL_CHAR_W = 6.15
 _FUNNEL_LINE_H = 14
 # A 13px band cannot hold a 13px digit; below this the count goes above it.
 _FUNNEL_COUNT_INSIDE_MIN = 18
+# Stages share a fixed width, so past some count the bands are narrower than
+# the shortest label that fits in them, and beyond that the arithmetic turns
+# negative and emits rects of negative width. Bound it at the point the label
+# stops fitting, and derive the bound so it tracks the geometry above.
+_FUNNEL_MIN_SLAB = 8 * _FUNNEL_CHAR_W
+_FUNNEL_MAX_STAGES = int(
+    (_FUNNEL_WIDTH - 2 * _FUNNEL_PAD + _FUNNEL_GAP) / (_FUNNEL_MIN_SLAB + _FUNNEL_GAP)
+)
 
 # The two fence kinds a page may carry. `d2` is laid out by the d2 CLI; `funnel`
 # is drawn here, coordinate by coordinate, because a staged funnel wants exact
@@ -214,8 +224,9 @@ _DIAGRAM_FENCE_RE = re.compile(
 # reported as a missing title, rather than being truncated to a wrong caption.
 _DIAGRAM_TITLE_RE = re.compile(r'^\s*title="([^"]+)"\s*$')
 _DIAGRAM_PLACEHOLDER_RE = re.compile(r'<div class="dgph" data-i="(\d+)"></div>')
-# Seven small diagrams render in well under a second; a bound this loose only
-# ever fires on a d2 that has genuinely wedged.
+# The six d2 diagrams render in well under a second; a bound this loose only
+# ever fires on a d2 that has genuinely wedged. (The seventh figure, the
+# screening funnel, is a `funnel` fence and never reaches the CLI.)
 _D2_TIMEOUT_S = 60
 _SVG_OPEN_RE = re.compile(r"<svg\b[^>]*>")
 _VIEWBOX_RE = re.compile(r'viewBox="[-\d.]+ [-\d.]+ ([\d.]+) ([\d.]+)"')
@@ -309,8 +320,8 @@ def parse_funnel(body: str, stem: str) -> list[FunnelStage]:
 
     Raises:
         ValueError: A line carries no count, the funnel has fewer than two
-            stages, a count is below 1, or the counts are not monotonically
-            non-increasing.
+            stages or more than `_FUNNEL_MAX_STAGES`, a count is below 1, or
+            the counts are not monotonically non-increasing.
     """
     stages: list[FunnelStage] = []
     for raw in body.splitlines():
@@ -335,6 +346,12 @@ def parse_funnel(body: str, stem: str) -> list[FunnelStage]:
         stages.append(FunnelStage(label.strip(), value))
     if len(stages) < 2:
         raise ValueError(f"{stem}.md: a funnel needs at least two stages")
+    if len(stages) > _FUNNEL_MAX_STAGES:
+        raise ValueError(
+            f"{stem}.md: a funnel of {len(stages)} stages does not fit "
+            f"{_FUNNEL_WIDTH}px; at most {_FUNNEL_MAX_STAGES} stages leave a "
+            "band wide enough to label. Group the tail stages instead."
+        )
     for earlier, later in pairwise(stages):
         if later.count > earlier.count:
             raise ValueError(
@@ -365,9 +382,10 @@ def wrap_label(text: str, budget: int) -> list[str]:
 def group_digits(n: int) -> str:
     """Group thousands with a thin space, as an entity.
 
-    `to_ascii_entities` rewrites non-ASCII on the way out of the page, but it
-    never sees inside a rendered SVG, so a literal U+2009 here would reach the
-    browser as mojibake.
+    `build` runs `to_ascii_entities` over the assembled page, SVGs included, so
+    a literal U+2009 would survive that route. The entity is written here so
+    the SVG is self-sufficient: `funnel_svg` is also called on its own, by the
+    tests and by anything that embeds one figure without the page around it.
     """
     return f"{n:,}".replace(",", "&#8201;")
 
@@ -579,8 +597,8 @@ def diagram_figure(stem: str, block: DiagramBlock, light: str, dark: str) -> str
     caption_id = f"dcap-{stem}-{block.index}"
     return (
         '<figure class="diagram">'
-        f'<span class="d2var d2-light">{prepare_svg(light, caption_id)}</span>'
-        f'<span class="d2var d2-dark">{prepare_svg(dark, caption_id)}</span>'
+        f'<span class="dgvar dg-light">{prepare_svg(light, caption_id)}</span>'
+        f'<span class="dgvar dg-dark">{prepare_svg(dark, caption_id)}</span>'
         f'<figcaption id="{caption_id}">{html_escape(block.title)}</figcaption>'
         "</figure>"
     )
@@ -900,7 +918,7 @@ _HEAD = """<title>AI Agent Development Handbook</title>
   }
   .doc li.task.done::before { content: "\\2713"; color: var(--accent); font-size: .7rem; line-height: 13px; text-align: center; }
 
-  /* d2 diagrams: two rendered variants, toggled with the page theme.
+  /* Diagrams: two rendered variants, toggled with the page theme.
      Diagrams are authored to fit the prose measure at their natural size, so
      that `max-width: 100%` never has to scale one down: scaling shrinks the
      labels with it, and a diagram whose text has gone small is worse than a
@@ -913,13 +931,13 @@ _HEAD = """<title>AI Agent Development Handbook</title>
     margin-top: 10px; text-align: center; font-family: var(--mono);
     font-size: .7rem; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint);
   }
-  .d2var { display: block; }
-  .d2-dark { display: none; }
-  @media (prefers-color-scheme: dark) { .d2-light { display: none; } .d2-dark { display: block; } }
-  :root[data-theme="light"] .d2-light { display: block; }
-  :root[data-theme="light"] .d2-dark { display: none; }
-  :root[data-theme="dark"] .d2-light { display: none; }
-  :root[data-theme="dark"] .d2-dark { display: block; }
+  .dgvar { display: block; }
+  .dg-dark { display: none; }
+  @media (prefers-color-scheme: dark) { .dg-light { display: none; } .dg-dark { display: block; } }
+  :root[data-theme="light"] .dg-light { display: block; }
+  :root[data-theme="light"] .dg-dark { display: none; }
+  :root[data-theme="dark"] .dg-light { display: none; }
+  :root[data-theme="dark"] .dg-dark { display: block; }
 
   footer { max-width: var(--measure); margin: 70px 0 0; padding-top: 24px; border-top: 1px solid var(--line); font-size: .82rem; color: var(--ink-faint); }
   footer code { font-family: var(--mono); background: var(--surface-2); padding: 1px 5px; border-radius: 3px; }

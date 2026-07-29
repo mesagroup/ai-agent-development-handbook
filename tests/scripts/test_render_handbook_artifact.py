@@ -191,8 +191,8 @@ def test_diagram_figure_carries_both_variants_and_one_caption():
     svg = '<svg viewBox="0 0 10 20"></svg>'
     out = rh.diagram_figure("three-layer-model", block, svg, svg)
     assert out.count("<svg") == 2
-    assert 'class="d2var d2-light"' in out
-    assert 'class="d2var d2-dark"' in out
+    assert 'class="dgvar dg-light"' in out
+    assert 'class="dgvar dg-dark"' in out
     assert (
         '<figcaption id="dcap-three-layer-model-0">The three layers</figcaption>' in out
     )
@@ -295,21 +295,61 @@ def test_d2_layout_pins_elk_with_a_tighter_rank_gap_than_dagre():
     assert 0 < gap < 70
 
 
+_GRID_RE = re.compile(r"\bgrid-(rows|columns):")
+_SIZE_RE = re.compile(r"\b(width|height):\s*\d")
+
+
+def sizes_a_node_inside_a_grid(source: str) -> bool:
+    """Does this d2 source set an explicit size on a node under a grid?
+
+    Brace-scoped rather than a flat search, in both directions. A container
+    declares its `grid-rows` indented, so an anchored match never fires; and a
+    sized node in a *sibling* container is fine, so a whole-block match would
+    cry wolf on the tier diagram, which has both and is correct.
+    """
+    depth = 0
+    grid_depths: set[int] = set()
+    for line in source.splitlines():
+        if _GRID_RE.search(line):
+            grid_depths.add(depth)
+        if _SIZE_RE.search(line) and any(d <= depth for d in grid_depths):
+            return True
+        depth += line.count("{") - line.count("}")
+        grid_depths = {d for d in grid_depths if d <= depth}
+    return False
+
+
+def test_sizes_a_node_inside_a_grid_sees_through_container_indentation():
+    # The idiomatic form: the grid is declared inside a container, so it is
+    # indented and an anchored `^grid-` would miss it entirely.
+    assert sizes_a_node_inside_a_grid(
+        "core: Reusable core {\n  grid-rows: 2\n  a: Alpha { width: 240 }\n}\n"
+    )
+    assert sizes_a_node_inside_a_grid("grid-rows: 1\na: Alpha { width: 240 }\n")
+
+
+def test_sizes_a_node_inside_a_grid_leaves_a_sibling_container_alone():
+    # A sized node beside a grid, not under it, is exactly what the tier
+    # diagram does. Flagging it would make the guard unusable.
+    assert not sizes_a_node_inside_a_grid(
+        "task: Task layer {\n  width: 240\n  a: Agent A\n}\n"
+        "core: Reusable core {\n  grid-rows: 2\n  b: Beta\n}\n"
+    )
+
+
 def test_no_handbook_diagram_sizes_nodes_inside_a_grid():
     # d2's grid layout forces every cell to the row's largest height, silently
     # discarding a per-node `height`. The screening funnel shipped that way for
     # one commit: it asked for six tapering stages, rendered six equal ones, and
     # the overall bbox was identical either way, so nothing downstream noticed.
+    # The funnel has since moved off d2 onto its own fence, so it can no longer
+    # regress this way; the guard stands for every d2 fence that follows it.
     source_dir = Path(rh.__file__).resolve().parent.parent / "docs" / "engineering"
     offenders = []
     for path in sorted(source_dir.glob("*.md")):
         _, blocks = rh.extract_diagram_blocks(path.read_text(), path.stem)
         for block in blocks:
-            if block.kind != "d2":
-                continue
-            if re.search(r"^grid-(rows|columns):", block.source, re.M) and re.search(
-                r"\b(width|height):\s*\d", block.source
-            ):
+            if block.kind == "d2" and sizes_a_node_inside_a_grid(block.source):
                 offenders.append(f"{path.name}: {block.title}")
     assert not offenders, f"grid layout ignores explicit node sizes in {offenders}"
 
@@ -477,3 +517,59 @@ def test_diagram_figure_escapes_the_caption():
     out = rh.diagram_figure("evaluation", block, svg, svg)
     assert "Retrieve &amp; rerank &lt;2s" in out
     assert "<2s" not in out
+
+
+def test_render_variants_draws_a_funnel_without_reaching_for_the_cli():
+    # The dispatch is the only thing standing between a `funnel` fence and the
+    # d2 subprocess. Route it wrong and every funnel would be fed to a CLI that
+    # cannot parse it, so the branch is worth a test of its own.
+    called = []
+    block = rh.DiagramBlock(
+        index=0, kind="funnel", title="Funnel", source="Many 100\nOne 1\n"
+    )
+    light, dark = rh.render_variants(block, "evaluation")
+    assert not called
+    assert 'class="funnel"' in light and 'class="funnel"' in dark
+    assert light != dark  # the two palettes
+
+
+def test_render_variants_sends_a_d2_fence_to_the_cli(monkeypatch):
+    calls = []
+
+    def fake_run_d2(source, salt, variant):
+        calls.append((source, salt, variant))
+        return f"<svg data-v='{variant}'></svg>"
+
+    monkeypatch.setattr(rh, "run_d2", fake_run_d2)
+    block = rh.DiagramBlock(index=3, kind="d2", title="Arc", source="a -> b\n")
+    light, dark = rh.render_variants(block, "README")
+    assert [c[1] for c in calls] == ["README-3-light", "README-3-dark"]
+    assert [c[2] for c in calls] == ["light", "dark"]
+    assert "light" in light and "dark" in dark
+
+
+def test_group_digits_separates_thousands_with_an_ascii_entity():
+    assert rh.group_digits(1) == "1"
+    assert rh.group_digits(999) == "999"
+    assert rh.group_digits(1000) == "1&#8201;000"
+    assert rh.group_digits(10000) == "10&#8201;000"
+    assert rh.group_digits(1234567) == "1&#8201;234&#8201;567"
+    assert rh.group_digits(1000).isascii()
+
+
+def test_parse_funnel_rejects_more_stages_than_fit_the_width():
+    # Stages share a fixed width; past the bound the slab is narrower than its
+    # own label, and further out the rect width goes negative.
+    n = rh._FUNNEL_MAX_STAGES + 1
+    body = "".join(f"Stage {i} {n - i}\n" for i in range(n))
+    with pytest.raises(ValueError, match="does not fit"):
+        rh.parse_funnel(body, "evaluation")
+
+
+def test_funnel_bands_stay_positive_at_the_maximum_stage_count():
+    n = rh._FUNNEL_MAX_STAGES
+    stages = rh.parse_funnel("".join(f"Stage {i} {n - i}\n" for i in range(n)), "x")
+    svg = rh.funnel_svg(stages, "light")
+    widths = [float(w) for w in re.findall(r'<rect\b[^>]*?\swidth="([-\d.]+)"', svg)]
+    assert len(widths) == n
+    assert all(w >= rh._FUNNEL_MIN_SLAB for w in widths)
