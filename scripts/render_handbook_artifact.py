@@ -228,6 +228,7 @@ _DIAGRAM_PLACEHOLDER_RE = re.compile(r'<div class="dgph" data-i="(\d+)"></div>')
 # ever fires on a d2 that has genuinely wedged. (The seventh figure, the
 # screening funnel, is a `funnel` fence and never reaches the CLI.)
 _D2_TIMEOUT_S = 60
+_SCHEME_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*:|^//")
 _SVG_OPEN_RE = re.compile(r"<svg\b[^>]*>")
 _VIEWBOX_RE = re.compile(r'viewBox="[-\d.]+ [-\d.]+ ([\d.]+) ([\d.]+)"')
 
@@ -742,12 +743,28 @@ def to_ascii_entities(html: str) -> str:
 
 
 def build(docs_dir: Path, parts: list[tuple[str, str, str]] = PARTS) -> str:
-    """Render the full handbook artifact HTML from ``docs_dir``."""
+    """Render the full handbook artifact HTML from ``docs_dir``.
+
+    Raises:
+        ValueError: If a page carries a relative `.md` link the linkmap
+            cannot resolve. Such a link resolves on GitHub and is dead in
+            this artifact, and neither `mkdocs build --strict` nor
+            `check_site_links.py` can catch it because `docs/engineering/`
+            is excluded from the site - so a warning here would be a
+            silent pass. Absolute URLs are unmapped by design and pass.
+    """
     linkmap = {stem + ".md": "#" + anchor for anchor, stem, _ in parts}
     sections = []
     for anchor, stem, _ in parts:
         cls = "part intro" if anchor == "top" else "part"
         html, unmapped = render_doc(docs_dir, stem, linkmap)
+        dead = [h for h in unmapped if not _SCHEME_RE.match(h)]
+        if dead:
+            raise ValueError(
+                f"{stem}.md: relative link(s) the artifact cannot resolve: "
+                + ", ".join(dead)
+                + ". Link outside the handbook with an absolute URL."
+            )
         for href in unmapped:
             print(f"  WARNING unmapped link in {stem}.md: {href}")
         sections.append(

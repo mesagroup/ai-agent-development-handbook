@@ -573,3 +573,30 @@ def test_funnel_bands_stay_positive_at_the_maximum_stage_count():
     widths = [float(w) for w in re.findall(r'<rect\b[^>]*?\swidth="([-\d.]+)"', svg)]
     assert len(widths) == n
     assert all(w >= rh._FUNNEL_MIN_SLAB for w in widths)
+
+
+def _one_part_docs(tmp_path: Path, body: str) -> Path:
+    (tmp_path / "solo.md").write_text(body)
+    return tmp_path
+
+
+def test_build_rejects_a_relative_link_the_artifact_cannot_resolve(tmp_path):
+    # A relative link out of the handbook resolves on GitHub and is dead in
+    # the single-page artifact, and no site gate sees it because
+    # docs/engineering/ is excluded from the build - so warning alone would
+    # be a silent pass.
+    docs = _one_part_docs(tmp_path, "[notes](../engineering-notes.md)\n")
+    with pytest.raises(ValueError, match=r"relative link\(s\)"):
+        rh.build(docs, [("top", "solo", "Solo")])
+
+
+def test_build_accepts_an_absolute_md_url_and_in_handbook_links(tmp_path):
+    # Absolute URLs are unmapped by design: they are meant to leave the page.
+    docs = _one_part_docs(
+        tmp_path,
+        "[notes](https://github.com/o/r/blob/main/docs/engineering-notes.md)\n"
+        "and [self](solo.md)\n",
+    )
+    html = rh.build(docs, [("top", "solo", "Solo")])
+    assert "engineering-notes.md" in html
+    assert 'href="#top"' in html
