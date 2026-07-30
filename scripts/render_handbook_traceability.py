@@ -16,6 +16,14 @@ which also may not carry a `gap` - together that is what keeps the three
 severity groups of the rendered gap list exhaustive, so no gap row can
 drop off the page unnoticed.
 
+Within a severity group, a gap entry is one of three kinds: `unchecked` (an
+auditable row nothing checks), `residue` (the part of a claim a mapped
+check does not reach), and `process` (a claim no snapshot can settle).
+They are different work downstream, so each entry carries its kind as a
+tag rather than relying on its position in the list, and each band states
+its own split. A band's unchecked count is by construction the same number
+as its Unmapped column in the severity x coverage cross-tab.
+
 Handbook links are rendered as absolute GitHub URLs: `docs/engineering/` is
 excluded from the built docs site (the handbook ships as a standalone HTML
 artifact), so a relative link into it resolves on GitHub but 404s on the
@@ -31,6 +39,7 @@ so CI guards staleness with no workflow change.
 
 Design: docs/superpowers/specs/2026-07-29-handbook-traceability-matrix-design.md
         docs/superpowers/plans/2026-07-30-matrix-severity-axis.md (severity axis)
+        docs/superpowers/specs/2026-07-30-gap-entry-kinds-design.md (gap-entry kinds)
 """
 
 from __future__ import annotations
@@ -596,8 +605,14 @@ def render(rows: list[dict[str, Any]]) -> str:
     """Render the whole matrix document from the validated rows.
 
     Emits the generated-file header and legend, one table per handbook part
-    in the handbook's own reading order, the gap list grouped by severity,
-    and the coverage summary with its severity x coverage cross-tab.
+    in the handbook's own reading order, the gap list grouped by severity
+    and then by gap-entry kind, and the coverage summary with its severity x
+    coverage cross-tab and the sentence reconciling the gap total against
+    those components.
+
+    Every severity band is emitted whenever the matrix has any gap at all,
+    including one that carries none, so a band that clears its gaps says so
+    rather than disappearing from the page.
 
     Args:
         rows: Matrix rows, already through `validate`.
@@ -645,10 +660,16 @@ def render(rows: list[dict[str, Any]]) -> str:
             "[cross-tab](#severity-x-coverage) Unmapped column."
         )
     for sev in SEVERITIES:
+        if not gaps:
+            break
         group = [r for r in gaps if r.get("severity") == sev]
-        if not group:
-            continue
         out.append(f"\n### {SEVERITY_LABELS[sev]}\n")
+        if not group:
+            # State the clear band rather than omitting it. A band that drops
+            # off the page is indistinguishable from a rendering fault, and
+            # the good news is exactly what a triager is looking for.
+            out.append(f"No {SEVERITY_LABELS[sev]} clause carries a gap.")
+            continue
         out.append(_kind_split_line(group))
         out.append("")
         for kind in KINDS:

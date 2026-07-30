@@ -137,6 +137,28 @@ def _fixture_dirs(tmp_path):
     )
 
 
+def _fixture_dirs_with_extra_sections(tmp_path):
+    """`_fixture_dirs` plus two more alpha sections, for multi-entry bands.
+
+    A band needs more than one entry of a kind to exercise the plural
+    branches, and every row must resolve to a real heading or `validate`
+    rejects it.
+    """
+    _write(
+        tmp_path / "handbook" / "alpha.md",
+        "# Alpha\n\n## Mapped section\n\ntext\n\n## Split section\n\ntext\n"
+        "\n## Second unmapped\n\ntext\n\n## Second process\n\ntext\n",
+    )
+    _write(tmp_path / "handbook" / "coda.md", "# Coda\n\nno sections\n")
+    _write(
+        tmp_path / "skills" / "demo-audit" / "SKILL.md",
+        "## 2. Dimensions (findings-matrix columns)\n\n- **Injection** — text.\n",
+    )
+    return rht.handbook_headings(tmp_path / "handbook"), rht.skill_dimensions(
+        tmp_path / "skills"
+    )
+
+
 def _valid_rows():
     return [
         {
@@ -313,6 +335,68 @@ def test_render_reconciles_the_gap_total_when_a_process_row_gaps():
     assert "the other 1 sits on a process row" in out
 
 
+def test_render_reconciles_the_gap_total_in_the_plural(tmp_path):
+    # Both branches alternate on count, and the singular fixtures above pin
+    # only one side of each alternation. The real matrix does exercise the
+    # plural today, but only through the golden .md - which is regenerated
+    # by this same renderer, so it would ratify a typo rather than catch it.
+    headings, dims = _fixture_dirs_with_extra_sections(tmp_path)
+    rows = _valid_rows()
+    rows[0]["gap"] = {"recommendation": "extend-skill", "note": "residue"}
+    rows[2]["gap"] = {"recommendation": "report-only", "note": "prose only"}
+    rows.append(
+        {
+            "id": "alpha/second-unmapped",
+            "section": "Second unmapped",
+            "claim": "c3",
+            "class": "static",
+            "severity": "minor",
+            "gap": {"recommendation": "new-domain", "note": "no owner"},
+        }
+    )
+    rows.append(
+        {
+            "id": "alpha/second-process",
+            "section": "Second process",
+            "claim": "c4",
+            "class": "process",
+            "severity": "minor",
+            "gap": {"recommendation": "report-only", "note": "prose only"},
+        }
+    )
+    # The fixture stays schema-valid, so the arithmetic it pins is reachable.
+    assert rht.validate(rows, headings, dims) == []
+    out = rht.render(rows)
+    assert "3 of the 5 gap entries sit on auditable rows" in out
+    assert "all 2 unmapped" in out
+    assert "the other 2 sit on process rows" in out
+
+
+def test_render_states_a_severity_band_that_carries_no_gap():
+    # A band that clears its gaps must say so. Omitting the heading is
+    # indistinguishable from a rendering fault, and this is the one piece of
+    # good news the page can report.
+    rows = _valid_rows()
+    rows[1].pop("gap")
+    rows[1]["checks"] = [{"skill": "demo-audit", "dimension": "Injection"}]
+    rows[0]["gap"] = {"recommendation": "extend-skill", "note": "residue"}
+    out = rht.render(rows)
+    assert "### Critical\n\nNo Critical clause carries a gap.\n" in out
+    assert "### Important\n\n1 residue.\n" in out
+
+
+def test_render_emits_no_band_headings_when_nothing_gaps():
+    # The whole-document empty state stands on its own; three "no gap"
+    # bands under it would be noise.
+    rows = _valid_rows()
+    rows[1].pop("gap")
+    rows[1]["checks"] = [{"skill": "demo-audit", "dimension": "Injection"}]
+    out = rht.render(rows)
+    assert "No gaps: every auditable row is mapped." in out
+    assert "### Critical" not in out
+    assert "### Important" not in out
+
+
 def test_render_shows_row_notes_in_the_notes_column():
     rows = _valid_rows()
     rows[2]["note"] = "Process | culture:\nnot datable from a snapshot."
@@ -426,14 +510,19 @@ def test_kind_split_line_pluralizes_a_kind_with_more_than_one_entry():
     # confusing "handbook-traceability.md is stale" message rather than
     # pointing at the bug. A direct fixture with two residues in one band
     # pins the plural wording itself.
+    # The rows carry a gap because that is the precondition the function
+    # documents; it never reads the field, but a fixture that violates the
+    # stated contract stops being evidence about the real call site.
     group = [
         {
             "class": "static",
             "checks": [{"skill": "demo-audit", "dimension": "Injection"}],
+            "gap": {"recommendation": "extend-skill", "note": "residue"},
         },
         {
             "class": "static",
             "checks": [{"skill": "demo-audit", "dimension": "Secrets"}],
+            "gap": {"recommendation": "extend-skill", "note": "residue"},
         },
     ]
     assert rht._kind_split_line(group) == "2 residues."
