@@ -199,12 +199,14 @@
   section: "TDD"
   claim: Run the bite-sized loop for every feature and bugfix - failing test, see it fail, minimal code, see it pass, commit.
   class: process
+  severity: important
   note: Test-first ordering is not datable from a snapshot, which sees only the finished commit. The residue it leaves - that the code arrived with tests, and that those tests bite - is carried by the -b row.
 
 - id: implementation-disciplines/tdd-b
   section: "TDD"
   claim: Ship new code with unit tests covering its deterministic logic (analysis and tooling scripts included) without lowering coverage, defer only true I/O edges to integration tests, allow a throwaway battery pinning current behaviour as scaffolding for a pure refactor or port and delete it once the old and new paths agree, and judge the suite by whether it fails when the code breaks - real assertions rather than tautologies or over-mocking, branch and diff coverage, deterministic tests.
   class: static
+  severity: important
   checks:
     - skill: test-audit
       dimension: "TDD adherence / new-code coverage"
@@ -223,6 +225,7 @@
   section: "Prompt and SOP engineering"
   claim: Give an agent's SOP a fixed shape in a .sop.md file (Overview, Parameters, ordered Steps carrying Constraints), write constraints with RFC 2119 keywords and give every negative one its reason inline, name the completion criterion and the early exits, and run a periodic cognitive-load analysis of constraint density and redundancy.
   class: static
+  severity: important
   checks:
     - skill: prompt-audit
       dimension: "Instruction precision"
@@ -242,6 +245,7 @@
   section: "Prompt and SOP engineering"
   claim: Explain in the commit message why a prompt changed, not just what, and keep prompt changes in their own commit separate from code.
   class: artifact
+  severity: minor
   gap:
     recommendation: extend-skill
     note: co-owned - prompt-audit's remediation section already states this rule verbatim as a convention it follows, and eval-audit's Prompt / SOP quality dimension owns prompt-change hygiene through its missing-versioning-or-changelog clause, but neither turns it into a check and nothing reads commit messages, which is the evidence base the delivery-trail domain (#548) would supply.
@@ -250,6 +254,7 @@
   section: "Prompt and SOP engineering"
   claim: Reserve the SOP for the judgment the model must exercise, and enforce any deterministically-checkable constraint in the harness instead - a schema on the output, a validator in the tool, a guard in the pipeline.
   class: static
+  severity: important
   gap:
     recommendation: extend-skill
     note: prompt-audit is the owner but no dimension asks whether a constraint stated in the prompt could be enforced deterministically in code; its counterpart claim sits on ci-and-static-analysis-d.
@@ -258,6 +263,7 @@
   section: "CI and static analysis"
   claim: Treat format, lint and type-check as distinct complementary gates run on every push and pull request and locally before committing, annotate enough that the checker can actually fail, and count a gate only where branch protection requires it and the contributor guide matches what the workflows enforce.
   class: static
+  severity: important
   checks:
     - skill: ci-audit
       dimension: "Gate enforcement"
@@ -269,6 +275,7 @@
   section: "CI and static analysis"
   claim: Treat docstrings as a fourth checked surface - every public module and symbol carries one, audited for coverage and staleness.
   class: static
+  severity: minor
   gap:
     recommendation: extend-skill
     note: "docs-audit does audit docstrings, but only as an opt-in sub-audit whose own coverage and staleness dimensions sit outside the citable Dimensions section; its Coverage dimension is prose docs per code component, not docstrings, and no dimension asks whether the check is wired into the gate. One of three rows stating the docstring rule (with coding-hygiene-rules-that-surface-at-review-d and documentation/keep-the-living-docs-current-too-a): the handbook says it in three places, so the matrix records it three times, but declaring the sub-audit's axes as dimensions closes all three at once."
@@ -277,6 +284,7 @@
   section: "CI and static analysis"
   claim: The gates are language-agnostic disciplines - only the toolchain changes, with a Python and a TypeScript equivalent given for each.
   class: static
+  severity: minor
   gap:
     recommendation: extend-skill
     target: "#519"
@@ -286,6 +294,7 @@
   section: "CI and static analysis"
   claim: Never spend an agent on what a linter, formatter, or type-checker already enforces deterministically.
   class: static
+  severity: minor
   gap:
     recommendation: extend-skill
     note: no dimension flags a review or audit agent pointed at work a deterministic tool already does; prompt-audit is the nearest owner, as on prompt-and-sop-engineering-c.
@@ -294,12 +303,14 @@
   section: "The code-review protocol"
   claim: Treat review as the moment a human is forced to understand what ships and review what the change expresses - intent, design, whether it fits the system - leaving how the code is written to the CI gates; a review whose understanding one person silently absorbs has failed its primary purpose even when it catches a bug.
   class: process
+  severity: important
   note: What review is for, and whether the understanding actually spread, is the one thing an approval never records. The mechanics that do leave a trail are carried by the -b row.
 
 - id: implementation-disciplines/the-code-review-protocol-b
   section: "The code-review protocol"
   claim: Run the whole-branch review as a deliberately adversarial multi-perspective pass over the checklist's angles, score every finding against a fixed rubric and one agreed confidence threshold, post and fix at-or-above-threshold findings before merge, report all findings with their disposition, and hold scope discipline rather than dismissing a finding as pre-existing or forking new code away from its siblings.
   class: artifact
+  severity: important
   gap:
     recommendation: new-domain
     target: "#548"
@@ -309,6 +320,7 @@
   section: "Coding-hygiene rules that surface at review"
   claim: Swallow no exceptions - report every one to the consumer with type and message, log it at the right level, or re-raise it, so the error message alone says what went wrong.
   class: static
+  severity: important
   checks:
     - skill: security-audit
       dimension: "Sensitive-data handling"
@@ -321,6 +333,7 @@
   section: "Coding-hygiene rules that surface at review"
   claim: Leave no backward-compatibility wrappers in a pre-1.0 codebase - remove the old API and update every caller in the same pull request, with no re-export stubs.
   class: static
+  severity: minor
   checks:
     - skill: arch-audit
       dimension: "Over-abstraction / speculative generality"
@@ -329,6 +342,7 @@
   section: "Coding-hygiene rules that surface at review"
   claim: Commit no environment-specific values - no personal absolute paths, account or profile names, or hostnames in code, docs, or scripts - use placeholders and say what they resolve to, and fix them retroactively when touching a file that has them.
   class: static
+  severity: important
   gap:
     recommendation: extend-skill
     note: security-audit is the owner, since its Secrets in code pass already walks every literal in the tree, but that dimension is scoped to credentials and a personal path or profile name is a portability leak rather than a secret, so nothing scans for one.
@@ -337,6 +351,7 @@
   section: "Coding-hygiene rules that surface at review"
   claim: Describe every settings field, keep module docstrings current with the module's purpose and interface, and prefer explicit enums or non-null defaults for agent tool parameters where the provider handles nullable arguments poorly.
   class: static
+  severity: minor
   gap:
     recommendation: extend-skill
     note: "docstring currency is a staleness question, and docs-audit reaches it only through its opt-in docstring sub-audit, outside the citable Dimensions section - the same citeability gap as ci-and-static-analysis-b and documentation/keep-the-living-docs-current-too-a, closed by one fix for all three. Not a duplicate of those rows despite the shared clause: the two claims either side of it, self-documenting settings fields and provider-safe tool-argument types, have no dimension anywhere."
@@ -345,6 +360,7 @@
   section: "When to add an end-to-end agent quality gate"
   claim: Give an agent a second gate above the unit tests - run it end to end on the branch against a frozen battery of representative queries in a cheap configuration, score against a checklist or judge rubric, and treat a drop below the pass bar as a blocking regression - for any change that can alter its behaviour, including the shared code on its import path.
   class: static
+  severity: important
   checks:
     - skill: eval-audit
       dimension: "Smoke-test gate"
@@ -366,6 +382,7 @@
   section: "Order the tiers by reuse"
   claim: Sort the code by how much of it carries over to the next agent or task and let dependencies run only from the task-shaped code toward the reusable core, never the other way and never in a cycle; each project picks its own tier list, the ordering principle being what matters, and the handbook's typical layering runs shared schemas and types, core infrastructure, configuration, external integrations, capabilities, evaluation, then agents and applications.
   class: static
+  severity: minor
   checks:
     - skill: arch-audit
       dimension: "Layering / dependency-rule conformance"
@@ -377,6 +394,7 @@
   section: "Point every dependency toward the core, and never cycle"
   claim: Hold one invariant - an import may only point at a more-reusable tier than the one it lives in, and the graph has no cycles - so core infrastructure never imports an application's types, and cross-application reuse goes through composition (exposing one agent to another as a tool) rather than reaching into another application's internals.
   class: static
+  severity: important
   checks:
     - skill: arch-audit
       dimension: "Layering / dependency-rule conformance"
@@ -387,6 +405,7 @@
   section: "Point every dependency toward the core, and never cycle"
   claim: Write the project's tier-import rule down explicitly, which tier may import which, so it is enforceable by an import-boundary linter in CI rather than by memory.
   class: static
+  severity: minor
   checks:
     - skill: ci-audit
       dimension: "Gate enforcement"
@@ -398,6 +417,7 @@
   section: "Why the rule matters"
   claim: Keep a convenience that a single application needs inside that application rather than migrating it down into the core, where it would bake one workflow's assumptions into shared code and couple every other consumer to them.
   class: static
+  severity: important
   checks:
     - skill: arch-audit
       dimension: "Over-abstraction / speculative generality"
@@ -410,12 +430,14 @@
   section: "Why the rule matters"
   claim: Read an import that would violate the rule as a design smell rather than a lint nuisance - the concept is in the wrong tier, or it is two concepts that need splitting - which is how the shape pays off in independently testable tiers, local churn and an integration tax paid once.
   class: process
+  severity: minor
   note: What a team does with a flagged import - relocate the concept, split it, or silence the rule - is a disposition the repo never records, and the three payoffs are explanatory prose.
 
 - id: codebase-structure/watch-for-structural-decay-beyond-layering
   section: "Watch for structural decay beyond layering"
   claim: Periodically measure the declared architecture against the real import graph and watch five further decay signals - cycles (a warning within a package, a real break across one), coupling and cohesion (hub modules and grab-bag utils, split along cohesion seams), complexity, dead code (verified truly unreachable before deletion), and outsized files - as health signals rather than absolutes.
   class: static
+  severity: minor
   checks:
     - skill: arch-audit
       dimension: "Layering / dependency-rule conformance"
@@ -435,6 +457,7 @@
   section: "Compose agents with typed hooks over a generic runner"
   claim: Don't fork a base agent - give the core tier a generic runner that owns the run lifecycle and exposes a small set of hook methods (create the agent, build the collector, format the query, post-process the result), customize each application by overriding those hooks, and narrow the runner's loose metadata into typed sub-models so run records are self-describing.
   class: static
+  severity: minor
   gap:
     recommendation: extend-skill
     note: arch-audit is the nearest owner, but no dimension detects plumbing duplicated once per application - the tell is repetition across agents, not a bad import - and its axes point the other way, since a generic runner with one implementer reads as Over-abstraction, so composition-over-forking stays invisible until the fork produces a cycle or a layering break.
@@ -443,6 +466,7 @@
   section: "Compose agents with typed hooks over a generic runner"
   claim: Build multi-agent systems by exposing one agent to another as a tool, the only sanctioned cross-application dependency, and design the split so it reflects a genuine data dependency between sub-agents rather than an arbitrary partition.
   class: static
+  severity: important
   checks:
     - skill: arch-audit
       dimension: "Layering / dependency-rule conformance"
@@ -454,6 +478,7 @@
   section: "Dispatch on a discriminator, not a type"
   claim: Select interchangeable backends through a polymorphic configuration - a base config carrying a mode discriminator, each concrete variant in its own module, dispatch by match or switch on the discriminator literal and never by a runtime type test - with a settings library resolving environment variables per variant and one provider-agnostic entry point returning a uniform result type.
   class: static
+  severity: minor
   checks:
     - skill: arch-audit
       dimension: "Layering / dependency-rule conformance"
@@ -465,6 +490,7 @@
   section: "Name every configuration worth reusing"
   claim: Treat a configuration as the full bundle that pins a run - model, its parameters, tool and feature toggles, budgets and limits - and give any combination worth reusing a name as a machine-readable profile, selectable by name and discoverable by listing, so scripts, eval harnesses and agents reference it by name instead of reconstructing a pile of flags per call site.
   class: static
+  severity: important
   gap:
     recommendation: extend-skill
     note: eval-audit is the owner, and its Reproducibility dimension is the nearest existing one but asks only that a run's config be recorded, which a reconstructed flag pile satisfies; nothing asks whether reusable configurations are named, listable and referenced by name. Part 5's bundle-configuration-into-named-profiles carries the same claim from the harness side.
@@ -473,6 +499,7 @@
   section: "Checklist: placing new code / reviewing an import"
   claim: Seven-item recap for placing code or reviewing an import - most reusable tier that fully contains the concerns, every import pointing at a more-reusable tier, no new cycle, single-application conveniences left in place, cross-application reuse by composition, discriminator dispatch, and the layering rule enforced by an import-linter contract in CI.
   class: process
+  severity: important
   note: A recap, so what it adds is the act of working the list at review time. Each of the seven items is owned by a Part 3 row above.
 
 - id: codebase-structure/see-also
