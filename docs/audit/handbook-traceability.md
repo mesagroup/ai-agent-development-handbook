@@ -319,7 +319,7 @@ Ordered by severity - the risk a violation carries - then by handbook order. Eac
 
 ### Severity x coverage
 
-The actionable question: which high-risk clauses does nothing check? Auditable rows only in the first four columns; the process column counts rows that carry a severity but can never be checked from a snapshot, and so belong in report prose and an adoption roadmap.
+The actionable question: which high-risk clauses does nothing check? The four data columns before the Process one count auditable rows only; the Process column counts rows that carry a severity but can never be checked from a snapshot, and so belong in report prose and an adoption roadmap rather than in any skill's matrix.
 
 | Severity | Fully mapped | Partial | Unmapped | Auditable total | Process |
 |---|---|---|---|---|---|

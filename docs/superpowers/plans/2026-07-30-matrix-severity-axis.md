@@ -595,7 +595,7 @@ Replace the gap-list block in `render()` (from `gaps = [...]` down to the end of
             out.append(f"- [`{r['id']}`]({url}){marker} - " + " - ".join(bits))
 ```
 
-Validation guarantees every gap row is `static` or `artifact` and so carries a severity, which is what makes these three groups exhaustive — the `informative`-no-gap rule added in Step 3 is what closes the one hole that would silently drop a row from this list.
+These three groups are exhaustive because validation guarantees two things together: every non-`informative` row carries a severity, and an `informative` row may not carry a gap. So a gap row always has a severity and always lands in one of the three. Stating it as "every gap row is `static` or `artifact`" would be wrong — a `process` row may carry a `report-only` gap, and does so legitimately; it simply has a severity too, which is what the grouping needs. The `informative`-no-gap rule added in Step 4 is the half that closes the hole where a row would silently drop out of this list.
 
 - [ ] **Step 10: Add the cross-tab to the coverage summary**
 
@@ -605,9 +605,10 @@ In `render()`, after the existing per-class count table and before the closing p
     out.append("\n### Severity x coverage\n")
     out.append(
         "The actionable question: which high-risk clauses does nothing check? "
-        "Auditable rows only in the first four columns; the process column counts "
-        "rows that carry a severity but can never be checked from a snapshot, and "
-        "so belong in report prose and an adoption roadmap."
+        "The four data columns before the Process one count auditable rows only; "
+        "the Process column counts rows that carry a severity but can never be "
+        "checked from a snapshot, and so belong in report prose and an adoption "
+        "roadmap rather than in any skill's matrix."
     )
     out.append("")
     out.append("| Severity | Fully mapped | Partial | Unmapped | Auditable total | Process |")
