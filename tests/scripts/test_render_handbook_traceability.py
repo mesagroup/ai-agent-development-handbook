@@ -272,7 +272,7 @@ def test_render_marks_split_rows_and_links_gap_entries():
     assert f"[Coda]({rht.HANDBOOK_URL}/coda.md)<br>closing words |" in out
     # Every gap entry links back to its handbook section, marker included.
     assert (
-        f"- [`alpha/split-section-a`]({_ALPHA_URL}#split-section) (a) - "
+        f"- [`alpha/split-section-a`]({_ALPHA_URL}#split-section) (a) (unchecked) - "
         "**new-domain** - #516 - no lens yet" in out
     )
 
@@ -314,7 +314,7 @@ def test_render_joins_multiple_checks_and_a_gap_without_a_target():
     # A target-less gap renders no empty parentheses, in cell and in bullet.
     assert "**new-domain** - no lens yet" in out
     assert (
-        f"- [`alpha/split-section-a`]({_ALPHA_URL}#split-section) (a) - "
+        f"- [`alpha/split-section-a`]({_ALPHA_URL}#split-section) (a) (unchecked) - "
         "**new-domain** - no lens yet" in out
     )
     assert "()" not in out
@@ -358,20 +358,51 @@ def test_render_groups_the_gap_list_by_severity_worst_first():
     assert "### extend-skill" not in out
 
 
-def test_render_states_whether_the_critical_band_is_all_unchecked():
-    # The band being partial-free is what lets a reader treat every Critical
-    # entry as unchecked. It is a property of the data, so the page has to
-    # stop claiming it the moment a Critical row gains a check - a hardcoded
-    # sentence here would be the stale-count bug this matrix exists to catch.
+def _rows_with_all_three_kinds():
+    # One band holding all three kinds at once, so tags, counts, and ordering
+    # are all observable from a single render.
     rows = _valid_rows()
-    out = rht.render(rows)
-    assert "The Critical band has no partials, so all 1 of its entries" in out
+    rows[0]["severity"] = "critical"
+    rows[0]["gap"] = {"recommendation": "extend-skill", "note": "residue"}
+    rows[2]["severity"] = "critical"
+    rows[2]["gap"] = {"recommendation": "report-only", "note": "prose only"}
+    return rows
 
-    # Give the Critical row a check: its gap becomes a residue, not a hole.
-    rows[1]["checks"] = [{"skill": "demo-audit", "dimension": "Injection"}]
-    out = rht.render(rows)
-    assert "no partials" not in out
-    assert "mixes 0 unchecked clauses with 1 whose residue" in out
+
+def test_render_tags_each_gap_bullet_with_its_kind():
+    # A bullet has to carry its own kind: #546 emits issues from single
+    # entries, and a position in a list does not survive extraction.
+    out = rht.render(_rows_with_all_three_kinds())
+    assert "- [`alpha/mapped-section`](" in out
+    assert "#mapped-section) (residue) - **extend-skill**" in out
+    assert "#split-section) (a) (unchecked) - **new-domain**" in out
+    assert "#split-section) (b) (process) - **report-only**" in out
+
+
+def test_render_opens_each_band_with_its_kind_split():
+    out = rht.render(_rows_with_all_three_kinds())
+    assert "### Critical\n\n1 unchecked, 1 residue, 1 process row.\n" in out
+
+
+def test_render_suppresses_zero_terms_in_the_kind_split():
+    # A band with one kind states that kind alone, rather than padding two
+    # zeroes a reader has to skip.
+    out = rht.render(_valid_rows())
+    assert "### Critical\n\n1 unchecked.\n" in out
+    assert "0 residue" not in out
+    assert "0 process" not in out
+
+
+def test_render_orders_gap_bullets_unchecked_then_residue_then_process():
+    out = rht.render(_rows_with_all_three_kinds())
+    # Anchors keep the closing paren + tag + " - " separator so they only
+    # match a bullet's own kind tag, not the preamble prose naming the same
+    # three tags (which would otherwise satisfy the index() check on its own).
+    assert (
+        out.index(") (a) (unchecked) - ")
+        < out.index(") (residue) - ")
+        < out.index(") (b) (process) - ")
+    )
 
 
 def test_render_cross_tabs_severity_against_mapped_status():

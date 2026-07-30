@@ -89,6 +89,14 @@ SEVERITY_LABELS = {"critical": "Critical", "important": "Important", "minor": "M
 # Classes that make a normative claim, so a violation carries a risk worth rating.
 ASSESSABLE = ("static", "artifact", "process")
 
+KINDS = ("unchecked", "residue", "process")
+# Singular and plural for the per-band count line; "unchecked" is invariant.
+KIND_LABELS = {
+    "unchecked": ("unchecked", "unchecked"),
+    "residue": ("residue", "residues"),
+    "process": ("process row", "process rows"),
+}
+
 _HEADING_RE = re.compile(r"^## (.+?)\s*$")
 _FENCE_RE = re.compile(r"^(```|~~~)")
 _DIMENSIONS_HEADING_RE = re.compile(r"^## \d+\. Dimensions\b")
@@ -493,34 +501,47 @@ def _gap_cell(row: dict[str, Any]) -> str:
     return " - ".join(parts)
 
 
-def _critical_purity_note(rows: list[dict[str, Any]]) -> str:
-    """One sentence on whether the Critical band's gap entries are all unchecked.
+def _gap_kind(row: dict[str, Any]) -> str:
+    """Which of the three gap-entry kinds a gap-carrying row is.
 
-    The band being free of partially-mapped rows is what lets a reader treat
-    its every entry as unchecked, but that is a property of today's data, not
-    a guarantee. Computing the sentence rather than asserting it means the
-    page stops making the claim the moment a Critical row gains a check.
+    The three are not interchangeable downstream: an unchecked clause needs
+    new capability, a residue widens something that already runs, and a
+    process claim closes in report prose rather than in any skill's matrix.
+    They also land in different cross-tab columns, so a two-way split would
+    file a process gap under Unmapped and break the band arithmetic.
 
     Args:
-        rows: Matrix rows, already through `validate`.
+        row: A gap-carrying matrix row, already through `validate`.
 
     Returns:
-        A sentence for the gap list's preamble.
+        One of `"unchecked"`, `"residue"`, `"process"`.
     """
-    crit = [r for r in rows if r.get("severity") == "critical" and r.get("gap")]
-    partial = [r for r in crit if r.get("checks")]
-    if not crit:
-        return "No Critical clause carries a gap."
-    if not partial:
-        return (
-            f"The Critical band has no partials, so all {len(crit)} of its "
-            "entries are clauses nothing checks - the head of the queue."
-        )
-    return (
-        f"The Critical band mixes {len(crit) - len(partial)} unchecked "
-        f"clauses with {len(partial)} whose residue is recorded here; the "
-        "unchecked ones are the head of the queue."
-    )
+    if row["class"] == "process":
+        return "process"
+    return "residue" if row.get("checks") else "unchecked"
+
+
+def _kind_split_line(group: list[dict[str, Any]]) -> str:
+    """The band's own split across the three kinds, zero terms omitted.
+
+    Printing the split is what makes the band's unchecked figure readable
+    rather than a counting exercise: it is the same number as the band's
+    Unmapped column in the cross-tab.
+
+    Args:
+        group: The gap-carrying rows of one severity band.
+
+    Returns:
+        A sentence such as `"30 unchecked, 17 residues."`.
+    """
+    parts = []
+    for kind in KINDS:
+        n = sum(1 for r in group if _gap_kind(r) == kind)
+        if not n:
+            continue
+        singular, plural = KIND_LABELS[kind]
+        parts.append(f"{n} {singular if n == 1 else plural}")
+    return ", ".join(parts) + "."
 
 
 def _severity_cell(row: dict[str, Any]) -> str:
@@ -610,29 +631,39 @@ def render(rows: list[dict[str, Any]]) -> str:
         out.append("No gaps: every auditable row is mapped.")
     else:
         out.append(
-            "Ordered by severity - the risk a violation carries - then by handbook "
-            "order. Each entry names its recommendation (`extend-skill` / "
-            "`new-domain` / `report-only`) and, where one exists, the issue that "
-            "would close it. A band mixes two kinds of entry: rows nothing checks "
-            "at all, and rows a check partly reaches whose residue is recorded "
-            "here. The [cross-tab](#severity-x-coverage) below gives the split "
-            "per band. " + _critical_purity_note(rows)
+            "Ordered by severity - the risk a violation carries - then by kind, "
+            "then by handbook order. Each entry names its kind, its "
+            "recommendation (`extend-skill` / `new-domain` / `report-only`) and, "
+            "where one exists, the issue that would close it. Three kinds "
+            "appear, and they are different work: `(unchecked)` is a clause "
+            "nothing checks, so closing it means new capability; `(residue)` is "
+            "the part of a claim a mapped check does not reach, so closing it "
+            "widens something that already runs; `(process)` is a claim no "
+            "snapshot can settle, which closes in report prose and an adoption "
+            "roadmap rather than in any skill's matrix. Each band opens with its "
+            "own split, and a band's unchecked count is the same number as its "
+            "[cross-tab](#severity-x-coverage) Unmapped column."
         )
     for sev in SEVERITIES:
         group = [r for r in gaps if r.get("severity") == sev]
         if not group:
             continue
         out.append(f"\n### {SEVERITY_LABELS[sev]}\n")
-        for r in group:
-            url, marker = handbook_link(r)
-            gap = r["gap"]
-            # Bullets, not cells: a pipe is harmless here, a newline is not.
-            bits = [f"**{gap['recommendation']}**"]
-            if gap.get("target"):
-                bits.append(_oneline(gap["target"]))
-            if gap.get("note"):
-                bits.append(_oneline(gap["note"]))
-            out.append(f"- [`{r['id']}`]({url}){marker} - " + " - ".join(bits))
+        out.append(_kind_split_line(group))
+        out.append("")
+        for kind in KINDS:
+            for r in (g for g in group if _gap_kind(g) == kind):
+                url, marker = handbook_link(r)
+                gap = r["gap"]
+                # Bullets, not cells: a pipe is harmless here, a newline is not.
+                bits = [f"**{gap['recommendation']}**"]
+                if gap.get("target"):
+                    bits.append(_oneline(gap["target"]))
+                if gap.get("note"):
+                    bits.append(_oneline(gap["note"]))
+                out.append(
+                    f"- [`{r['id']}`]({url}){marker} ({kind}) - " + " - ".join(bits)
+                )
 
     counts = {cls: sum(1 for r in rows if r["class"] == cls) for cls in CLASSES}
     auditable = [r for r in rows if r["class"] in ("static", "artifact")]
@@ -649,7 +680,8 @@ def render(rows: list[dict[str, Any]]) -> str:
     out.append(
         "The actionable question: which high-risk clauses does nothing check? "
         "The Unmapped column is the answer, and the rows behind each count are "
-        "listed by name under the matching heading in the [gap list](#gap-list) "
+        "listed by name, tagged `(unchecked)`, under the matching heading in the "
+        "[gap list](#gap-list) "
         "above. Read a Critical unmapped count as the head of the queue. "
         "The four data columns before the Process one count auditable rows only; "
         "the Process column counts rows that carry a severity but can never be "
