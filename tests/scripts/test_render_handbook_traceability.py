@@ -143,6 +143,7 @@ def _valid_rows():
             "section": "Mapped section",
             "claim": "c1",
             "class": "static",
+            "severity": "important",
             "checks": [{"skill": "demo-audit", "dimension": "Injection"}],
         },
         {
@@ -150,6 +151,7 @@ def _valid_rows():
             "section": "Split section",
             "claim": "c2a",
             "class": "artifact",
+            "severity": "critical",
             "gap": {
                 "recommendation": "new-domain",
                 "target": "#516",
@@ -161,6 +163,7 @@ def _valid_rows():
             "section": "Split section",
             "claim": "c2b",
             "class": "process",
+            "severity": "minor",
         },
         {
             "id": "coda/coda",
@@ -222,6 +225,18 @@ def test_validate_catches_each_rule(tmp_path):
         (lambda r: r.append(dict(r[0])), "duplicate id", 1),
         (lambda r: r.pop(3), "coda.md has no whole-part row", 1),
         (lambda r: (r.pop(1), r.pop(1)), "has no matrix row", 1),
+        (lambda r: r[0].pop("severity"), "needs severity one of", 1),
+        (lambda r: r[2].update(severity="blocker"), "needs severity one of", 1),
+        (
+            lambda r: r[3].update(severity="minor"),
+            "informative rows carry no severity",
+            1,
+        ),
+        (
+            lambda r: r[3].update(gap={"recommendation": "extend-skill", "note": "x"}),
+            "informative row must not carry a gap",
+            1,
+        ),
     ]
     for mutate, expected, count in cases:
         rows = _valid_rows()
@@ -243,7 +258,7 @@ def test_render_produces_tables_gap_list_and_summary():
     assert f"[Mapped section]({_ALPHA_URL}#mapped-section)<br>c1" in out
     assert "../engineering/" not in out
     assert "`demo-audit` / Injection" in out
-    assert "### new-domain" in out and "#516" in out
+    assert "### Critical" in out and "#516" in out
     assert "| static | 1 |" in out
 
 
@@ -257,8 +272,8 @@ def test_render_marks_split_rows_and_links_gap_entries():
     assert f"[Coda]({rht.HANDBOOK_URL}/coda.md)<br>closing words |" in out
     # Every gap entry links back to its handbook section, marker included.
     assert (
-        f"- [`alpha/split-section-a`]({_ALPHA_URL}#split-section) (a) (#516) - no lens yet"
-        in out
+        f"- [`alpha/split-section-a`]({_ALPHA_URL}#split-section) (a) - "
+        "**new-domain** - #516 - no lens yet" in out
     )
 
 
@@ -276,14 +291,15 @@ def test_render_shows_row_notes_in_the_notes_column():
     rows = _valid_rows()
     rows[2]["note"] = "Process | culture:\nnot datable from a snapshot."
     out = rht.render(rows)
-    assert "| Section / claim | Class | Mapped checks | Gap | Notes |" in out
+    assert "| Section / claim | Class | Severity | Mapped checks | Gap | Notes |" in out
     # Pipes escaped and the note folded onto the row's single table line.
     assert (
-        "| process | - | - | Process \\| culture: not datable from a snapshot. |" in out
+        "| process | Minor | - | - | Process \\| culture: not datable from a snapshot. |"
+        in out
     )
     # A row without a note still renders a placeholder cell.
     assert (
-        f"[Coda]({rht.HANDBOOK_URL}/coda.md)<br>closing words | informative | - | - | - |"
+        f"[Coda]({rht.HANDBOOK_URL}/coda.md)<br>closing words | informative | - | - | - | - |"
         in out
     )
 
@@ -298,8 +314,8 @@ def test_render_joins_multiple_checks_and_a_gap_without_a_target():
     # A target-less gap renders no empty parentheses, in cell and in bullet.
     assert "**new-domain** - no lens yet" in out
     assert (
-        f"- [`alpha/split-section-a`]({_ALPHA_URL}#split-section) (a) - no lens yet"
-        in out
+        f"- [`alpha/split-section-a`]({_ALPHA_URL}#split-section) (a) - "
+        "**new-domain** - no lens yet" in out
     )
     assert "()" not in out
 
@@ -314,10 +330,48 @@ def test_render_keeps_gap_fields_from_breaking_the_table():
         "**new-domain** - #516 \\| #548 - two lenses: neither owns the bound. |" in out
     )
     # In the gap-list bullet a pipe is harmless, but the newline still is not.
-    assert "(#516 | #548) - two lenses: neither owns the bound." in out
+    assert "- **new-domain** - #516 | #548 - two lenses: neither owns the bound." in out
     for line in out.splitlines():
         if line.startswith("| ["):
             assert line.endswith(" |"), line
+
+
+def test_render_emits_a_severity_column():
+    out = rht.render(_valid_rows())
+    assert "| Section / claim | Class | Severity | Mapped checks | Gap | Notes |" in out
+    assert "| static | Important |" in out
+    assert "| artifact | Critical |" in out
+    # The informative row carries no severity and renders a placeholder.
+    assert "| informative | - |" in out
+
+
+def test_render_groups_the_gap_list_by_severity_worst_first():
+    rows = _valid_rows()
+    # A second gap, one level down, so the ordering is observable.
+    rows[0]["gap"] = {"recommendation": "extend-skill", "note": "residue"}
+    out = rht.render(rows)
+    assert out.index("### Critical") < out.index("### Important")
+    # The Critical row's bullet precedes the Important heading.
+    assert out.index("`alpha/split-section-a`") < out.index("### Important")
+    # Grouping is by severity now, not by recommendation.
+    assert "### new-domain" not in out
+    assert "### extend-skill" not in out
+
+
+def test_render_cross_tabs_severity_against_mapped_status():
+    out = rht.render(_valid_rows())
+    assert "### Severity x coverage" in out
+    # Critical: the artifact row, gapped and unmapped. Important: the static
+    # row, fully mapped. Minor: the process row, auditable of neither kind.
+    assert "| Critical | 0 | 0 | 1 | 1 | 0 |" in out
+    assert "| Important | 1 | 0 | 0 | 1 | 0 |" in out
+    assert "| Minor | 0 | 0 | 0 | 0 | 1 |" in out
+
+
+def test_render_states_both_interpretation_rules_in_the_legend():
+    out = rht.render(_valid_rows())
+    assert "**Baseline, not verdict.**" in out
+    assert "Only `informative` rows have none." in out
 
 
 def _patch_paths(monkeypatch, tmp_path, parts):
@@ -392,12 +446,14 @@ def test_validate_reports_malformed_shapes_without_crashing(tmp_path):
             "id": "alpha/mapped-section",
             "section": "Mapped section",
             "class": "static",
+            "severity": "important",
             "checks": "not a list",
         },
         {
             "id": "alpha/split-section-a",
             "section": "Split section",
             "class": "artifact",
+            "severity": "critical",
             "checks": [
                 "not a dict",
                 {"skill": "demo-audit", "dimension": "Injection"},

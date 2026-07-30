@@ -9,6 +9,11 @@
 # Classes: static (auditable from a repo snapshot) | artifact (auditable only
 # via produced artifacts; absence is itself a finding) | process (not
 # verifiable from the repo) | informative (non-normative).
+#
+# Severity: critical | important | minor - the risk a violation carries, not
+# this repo's compliance with it. Required on static/artifact/process rows,
+# absent on informative ones. Reuses audit-core's scale so a matrix row and an
+# audit finding speak the same language. See the rendered legend for the tests.
 
 # --- The README spine -------------------------------------------------------
 

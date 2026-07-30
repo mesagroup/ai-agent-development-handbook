@@ -74,6 +74,10 @@ PART_TITLES = {
 
 CLASSES = ("static", "artifact", "process", "informative")
 RECOMMENDATIONS = ("extend-skill", "new-domain", "report-only")
+SEVERITIES = ("critical", "important", "minor")
+SEVERITY_LABELS = {"critical": "Critical", "important": "Important", "minor": "Minor"}
+# Classes that make a normative claim, so a violation carries a risk worth rating.
+ASSESSABLE = ("static", "artifact", "process")
 
 _HEADING_RE = re.compile(r"^## (.+?)\s*$")
 _FENCE_RE = re.compile(r"^(```|~~~)")
@@ -332,6 +336,17 @@ def validate(
         cls = row.get("class")
         if cls not in CLASSES:
             errors.append(f"{rid}: class must be one of {CLASSES}, got {cls!r}")
+        sev = row.get("severity")
+        if cls in ASSESSABLE and sev not in SEVERITIES:
+            errors.append(
+                f"{rid}: {cls} row needs severity one of {SEVERITIES}, got {sev!r}"
+            )
+        if cls == "informative" and sev is not None:
+            errors.append(
+                f"{rid}: informative rows carry no severity (got {sev!r}); "
+                "severity is the risk of violating a normative claim, and an "
+                "informative row makes none"
+            )
         checks_raw = row.get("checks")
         if checks_raw and not isinstance(checks_raw, list):
             errors.append(f"{rid}: checks must be a list")
@@ -342,6 +357,11 @@ def validate(
         if gap is not None and not isinstance(gap, dict):
             errors.append(f"{rid}: gap must be a mapping")
             gap = None
+        if cls == "informative" and gap:
+            errors.append(
+                f"{rid}: informative row must not carry a gap; the rendered gap "
+                "list groups by severity, which an informative row has none of"
+            )
 
         if cls in ("static", "artifact") and not checks and not gap:
             errors.append(f"{rid}: auditable row needs checks or a gap entry")
@@ -391,6 +411,26 @@ Section links are absolute GitHub URLs because the handbook is excluded from the
 | `artifact` | Auditable only via artifacts (eval runs, CI history, issue/PR trail). Absence of the artifact is itself a finding - never a pass. |
 | `process` | Process/culture; not verifiable from the repo. Audit-report prose and adoption recommendations, never fake-automated. |
 | `informative` | Non-normative (spine, coda, symptom index); accounted for, maps to nothing. |
+
+| Severity | Violating the clause means | Test |
+|---|---|---|
+| `critical` | Exposure that is hard to undo or reaches beyond the team: credentials or personal data leaked, licence or legal exposure, data loss, wrong output shipped to users unnoticed. | Could this appear in an incident report or a legal review? |
+| `important` | You can still ship, but you can no longer tell whether what you shipped is right: silent incorrectness, unreproducible results, undiagnosable production failure, unbounded cost. | Does ignoring it destroy your ability to know the system works? |
+| `minor` | Comfort, tidiness, or local velocity, with no effect on correctness, safety, or measurability. | Is the worst case "mildly annoying" or "harder to read"? |
+
+Severity is orthogonal to class: class is *can we check it*, severity is *how bad if it is violated*. The scale is audit-core's own Critical / Important / Minor, so a matrix row and an audit finding speak the same language. Two rules govern how to read the column:
+
+**Baseline, not verdict.** A row records the severity a violation *inherently* carries, independent of any repo's current state. An auditor may raise or lower it for a specific instance with a stated reason - a load-bearing production prompt and a throwaway eval prompt violate the same clause at different cost.
+
+**`process` rows carry a severity too.** "Spec before code" cannot be checked from a snapshot but is not thereby harmless, and an adoption roadmap needs to know what to sequence first. Only `informative` rows have none.
+
+**Band counts per part do not rank the parts.** A part's distribution reflects how its clauses are cut into rows as much as what it is about: where a section bundles a consequential clause with hygiene, the row takes the higher band and the hygiene becomes invisible, so a part whose sections cut single-clause rows shows Minors that an otherwise similar part does not. Read the severity column per row, not per part.
+
+**Two documentation-currency rows sit in different bands on purpose.** A currency clause is `important` when the stale claim is the reader's only access to the truth, and `minor` when the truth sits beside the claim: the prose tree exists to be read *instead of* the source, so a false claim in it is unfalsifiable where it is read, while a docstring or a commit-message rationale is read *beside* the artifact it describes and its staleness surfaces at the call site.
+
+**Gate-shaped clauses land in more than one band.** A gate is rated on the harm it is the sole detector for, not on the subject it guards: encoding a class of security fix as a CI gate is `important` because the fixes themselves are the Critical part and the gate is one step removed, while a link-and-index checker guards a `minor` property and stays there.
+
+**Three of the twelve `critical` rows are checklist recaps.** A recap row takes the maximum severity of everything it recaps, so it inherits its band rather than adding risk surface of its own. Anyone triaging the Critical band should expect roughly a quarter of it to be recaps pointing at rows already in the list.
 
 Each row's first cell links to the handbook section and restates the claim the row covers; where one section's claims fall into different classes or map to different skills, the row is split and the split is marked `(a)`, `(b)`, ... The **Notes** column carries the row's rationale - why a class was chosen, what a mapping reaches, what it deliberately leaves to the gap.
 
@@ -443,6 +483,11 @@ def _gap_cell(row: dict[str, Any]) -> str:
     return " - ".join(parts)
 
 
+def _severity_cell(row: dict[str, Any]) -> str:
+    """Title-cased severity, or `-` for the informative rows that carry none."""
+    return SEVERITY_LABELS.get(row.get("severity", ""), "-")
+
+
 def _note_cell(row: dict[str, Any]) -> str:
     """Row-level rationale, whitespace-normalized so it fits one table cell."""
     note = row.get("note")
@@ -485,8 +530,8 @@ def render(rows: list[dict[str, Any]]) -> str:
     """Render the whole matrix document from the validated rows.
 
     Emits the generated-file header and legend, one table per handbook part
-    in the handbook's own reading order, the gap list grouped by
-    recommendation, and the coverage summary.
+    in the handbook's own reading order, the gap list grouped by severity,
+    and the coverage summary with its severity x coverage cross-tab.
 
     Args:
         rows: Matrix rows, already through `validate`.
@@ -504,31 +549,42 @@ def render(rows: list[dict[str, Any]]) -> str:
     for part in ordered_parts:
         title = PART_TITLES.get(part, part)
         out.append(f"\n## {title}\n")
-        out.append("| Section / claim | Class | Mapped checks | Gap | Notes |")
-        out.append("|---|---|---|---|---|")
+        out.append(
+            "| Section / claim | Class | Severity | Mapped checks | Gap | Notes |"
+        )
+        out.append("|---|---|---|---|---|---|")
         for row in by_part[part]:
             out.append(
-                f"| {_section_cell(row)} | {row['class']} | {_checks_cell(row)} "
-                f"| {_gap_cell(row)} | {_note_cell(row)} |"
+                f"| {_section_cell(row)} | {row['class']} | {_severity_cell(row)} "
+                f"| {_checks_cell(row)} | {_gap_cell(row)} | {_note_cell(row)} |"
             )
 
     gaps = [r for r in rows if r.get("gap")]
     out.append("\n## Gap list\n")
     if not gaps:
         out.append("No gaps: every auditable row is mapped.")
-    for rec in RECOMMENDATIONS:
-        group = [r for r in gaps if r["gap"]["recommendation"] == rec]
+    else:
+        out.append(
+            "Ordered by severity - the risk a violation carries - then by handbook "
+            "order. Each entry names its recommendation (`extend-skill` / "
+            "`new-domain` / `report-only`) and, where one exists, the issue that "
+            "would close it."
+        )
+    for sev in SEVERITIES:
+        group = [r for r in gaps if r.get("severity") == sev]
         if not group:
             continue
-        out.append(f"\n### {rec}\n")
+        out.append(f"\n### {SEVERITY_LABELS[sev]}\n")
         for r in group:
             url, marker = handbook_link(r)
-            # A bullet, not a cell: a pipe is harmless here, a newline is not.
-            target = (
-                f" ({_oneline(r['gap']['target'])})" if r["gap"].get("target") else ""
-            )
-            note = f" - {_oneline(r['gap']['note'])}" if r["gap"].get("note") else ""
-            out.append(f"- [`{r['id']}`]({url}){marker}{target}{note}")
+            gap = r["gap"]
+            # Bullets, not cells: a pipe is harmless here, a newline is not.
+            bits = [f"**{gap['recommendation']}**"]
+            if gap.get("target"):
+                bits.append(_oneline(gap["target"]))
+            if gap.get("note"):
+                bits.append(_oneline(gap["note"]))
+            out.append(f"- [`{r['id']}`]({url}){marker} - " + " - ".join(bits))
 
     counts = {cls: sum(1 for r in rows if r["class"] == cls) for cls in CLASSES}
     auditable = [r for r in rows if r["class"] in ("static", "artifact")]
@@ -541,6 +597,29 @@ def render(rows: list[dict[str, Any]]) -> str:
     out.append("|---|---|")
     for cls in CLASSES:
         out.append(f"| {cls} | {counts[cls]} |")
+    out.append("\n### Severity x coverage\n")
+    out.append(
+        "The actionable question: which high-risk clauses does nothing check? "
+        "Auditable rows only in the first four columns; the process column counts "
+        "rows that carry a severity but can never be checked from a snapshot, and "
+        "so belong in report prose and an adoption roadmap."
+    )
+    out.append("")
+    out.append(
+        "| Severity | Fully mapped | Partial | Unmapped | Auditable total | Process |"
+    )
+    out.append("|---|---|---|---|---|---|")
+    for sev in SEVERITIES:
+        aud = [r for r in auditable if r.get("severity") == sev]
+        n_full = sum(1 for r in aud if r.get("checks") and not r.get("gap"))
+        n_partial = sum(1 for r in aud if r.get("checks") and r.get("gap"))
+        n_proc = sum(
+            1 for r in rows if r["class"] == "process" and r.get("severity") == sev
+        )
+        out.append(
+            f"| {SEVERITY_LABELS[sev]} | {n_full} | {n_partial} "
+            f"| {len(aud) - n_full - n_partial} | {len(aud)} | {n_proc} |"
+        )
     out.append("")
     out.append(
         f"{len(rows)} rows total. Of the {len(auditable)} auditable rows "
