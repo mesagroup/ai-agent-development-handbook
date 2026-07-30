@@ -231,9 +231,9 @@
   claim: Decide the unit-test coverage floor upfront rather than assuming a number - state a required floor and what it is measured over, record both somewhere executable (coverage config or CI gate) rather than aspirational, treat exclusions as part of the decision and never exclude load-bearing deterministic logic, justify a deliberately low floor, and pair the whole-project floor with a floor on changed lines.
   class: static
   severity: important
-  checks:
-    - skill: test-audit
-      dimension: "Coverage reach"
+  gap:
+    recommendation: extend-skill
+    note: "test-audit is the owner and already carries the floor concept outside its dimensions - scope asks what floor the contributor guide or CI enforces, and the status scale reads meets-floor/below-floor - but no dimension bullet checks whether a floor was stated, recorded executably, or justified. Coverage reach measures reach, so it would pass a project that never decided a floor, and pass one that omits its parsers from the denominator because excluded code is absent rather than uncovered. Mapping it would satisfy the claim with exactly what the clause forbids, so this row maps nothing. The declaration belongs to that skill's wave-1 sweep pass (#544 + #519 + #545)."
 
 - id: implementation-disciplines/prompt-and-sop-engineering-a
   section: "Prompt and SOP engineering"
