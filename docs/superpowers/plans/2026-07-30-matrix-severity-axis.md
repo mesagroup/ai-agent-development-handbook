@@ -56,7 +56,8 @@ These bind every task. Copied from #552 and the repo's conventions.
 
 1. *A clause another row owns does not raise this row; it raises that one.* A cross-reference ("the bookend gates never scale off") scopes this row's own rule and is not ownership.
 2. *A pure recap row owns nothing of its own and takes the max of everything it recaps* — because violating "work the list" is violating every item on it. Checklist rows are the case this covers.
-3. *A second imperative statement of the same rule is ownership, not a cross-reference.* Where the handbook states one rule in two sections and the matrix records both as citation units, both rows own it and both take the same severity. Qualifier 1 covers a mention that scopes this row's own rule; it does not cover the handbook asserting the same imperative twice. (The docstring rule is stated three times, the reach-in rule twice.)
+3. *A matrix note that divides the claim settles ownership.* Where a row's note states that part of its claim is carried by another row, the row is not the citation unit for that part and is rated on the residue. This is qualifier 1, not qualifier 4, even where the handbook states the clause twice. The note must divide the *claim*; a note that only discusses which skill covers what does not move ownership.
+4. *A second imperative statement of the same rule is ownership, not a cross-reference.* Where the handbook states one rule in two sections and the matrix records both as citation units, both rows own it and both take the same severity. Qualifier 1 covers a mention that scopes this row's own rule; it does not cover the handbook asserting the same imperative twice. (The docstring rule is stated three times, the reach-in rule twice.)
 
 Max rather than mean because severity is a baseline an auditor may lower with a stated reason, which makes the two errors asymmetric: over-rating surfaces a row in a band where a reader sees it and can lower it, while under-rating buries a high-risk clause where the severity × coverage cross-tab will never surface it. When the deliverable is a risk-ordered work queue, the safe direction is up. The ownership qualifier is what stops bare max from filling the Critical bucket with rows that add no new risk surface, which would destroy the discriminating power the axis exists to provide. (Settled in the Task 1 review; batch A is the worked precedent.)
 
@@ -283,6 +284,14 @@ Read `docs/engineering/evaluation.md` and `docs/engineering/documentation.md` in
 - [ ] **Step 2: Assign a severity to every non-informative row in the batch**
 
 Same format and rules as Task 1 Step 2.
+
+**Three pre-committed handoffs to check first.** Batch C rated three of its rows on the residue left after handing a clause to a Part 7 row you are about to rate, under the note-divides-claim qualifier. Verify each receiving row actually carries the clause, and rate it accordingly — these are constraints on consistency, not pre-assigned values:
+
+- `evaluation/measure-honestly-a` receives the variance-band clause from `agent-harness/offer-cheap-and-mock-backends` (`important`).
+- `evaluation/measure-honestly-b` receives full-cost accounting from `observability/account-for-the-full-cost-not-the-convenient-part` (`important`, and named in that row's gap note).
+- `evaluation/measure-honestly-c` receives the frozen-benchmark, one-variable-at-a-time clause from `agent-harness/expose-model-parameters-as-optional-defaulted-flags`, whose `minor` depends on this handoff landing somewhere.
+
+If a receiving row lands below the sending row's band, the same clause is rated two ways across batches, which is the cross-batch inconsistency the anchors exist to prevent. If you conclude a receiving row genuinely does not carry the clause, say so explicitly in the report rather than rating around it — that is a finding about batch C, not about your batch.
 
 Notes for this batch: evaluation clauses divide sharply. A clause about *trusting a number that is wrong* (contaminated test set, judge never validated against human labels, a metric that does not measure the thing) is Important at least, because the whole point of the harness is knowing whether the system works — and where a bad number would ship a wrong answer to users unnoticed, weigh Critical against the Critical test rather than assuming evaluation caps at Important. A clause about how results are filed or named is Minor. In Part 8, `aim-for-docs-that-stand-alone…-a` argues a drifted doc is worse than none because it launders a stale belief; rate the drift clause on that harm, not on the tidiness of the fix.
 
