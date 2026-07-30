@@ -437,7 +437,7 @@
   section: "Watch for structural decay beyond layering"
   claim: Periodically measure the declared architecture against the real import graph and watch five further decay signals - cycles (a warning within a package, a real break across one), coupling and cohesion (hub modules and grab-bag utils, split along cohesion seams), complexity, dead code (verified truly unreachable before deletion), and outsized files - as health signals rather than absolutes.
   class: static
-  severity: minor
+  severity: important
   checks:
     - skill: arch-audit
       dimension: "Layering / dependency-rule conformance"
