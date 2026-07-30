@@ -52,7 +52,7 @@ These bind every task. Copied from #552 and the repo's conventions.
 | `implementation-disciplines/ci-and-static-analysis-d` | `minor` | Spending an agent on what a linter enforces wastes money and time; nothing ships wrong. |
 | `implementation-disciplines/prompt-and-sop-engineering-b` | `minor` | A commit message that omits *why* a prompt changed costs a future reader some archaeology. |
 
-**Rating a row whose claim bundles several clauses: max over owned clauses.** Rate a row at the highest severity among the clauses the row is the matrix's citation unit for, and name that clause in the report. Never average, never take the modal clause, and never discount a severe clause because the row also bundles hygiene. Two qualifiers:
+**Rating a row whose claim bundles several clauses: max over owned clauses.** Rate a row at the highest severity among the clauses the row is the matrix's citation unit for, and name that clause in the report. Never average, never take the modal clause, and never discount a severe clause because the row also bundles hygiene. Four qualifiers, the last three added as later batches hit cases the first did not settle:
 
 1. *A clause another row owns does not raise this row; it raises that one.* A cross-reference ("the bookend gates never scale off") scopes this row's own rule and is not ownership.
 2. *A pure recap row owns nothing of its own and takes the max of everything it recaps* — because violating "work the list" is violating every item on it. Checklist rows are the case this covers.
@@ -636,7 +636,7 @@ In `_HEADER`, immediately after the existing Class table, insert:
 | `important` | You can still ship, but you can no longer tell whether what you shipped is right: silent incorrectness, unreproducible results, undiagnosable production failure, unbounded cost. | Does ignoring it destroy your ability to know the system works? |
 | `minor` | Comfort, tidiness, or local velocity, with no effect on correctness, safety, or measurability. | Is the worst case "mildly annoying" or "harder to read"? |
 
-Severity is orthogonal to class: class is *can we check it*, severity is *how bad if it is violated*. The scale is audit-core's own Critical / Important / Minor, so a matrix row and an audit finding speak the same language. Two rules govern how to read the column:
+Severity is orthogonal to class: class is *can we check it*, severity is *how bad if it is violated*. The scale is audit-core's own Critical / Important / Minor, so a matrix row and an audit finding speak the same language. Six notes govern how to read the column - the first two are interpretation rules, the rest explain splits a reader would otherwise take for errors:
 
 **Baseline, not verdict.** A row records the severity a violation *inherently* carries, independent of any repo's current state. An auditor may raise or lower it for a specific instance with a stated reason - a load-bearing production prompt and a throwaway eval prompt violate the same clause at different cost.
 

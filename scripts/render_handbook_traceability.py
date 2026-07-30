@@ -418,7 +418,7 @@ Section links are absolute GitHub URLs because the handbook is excluded from the
 | `important` | You can still ship, but you can no longer tell whether what you shipped is right: silent incorrectness, unreproducible results, undiagnosable production failure, unbounded cost. | Does ignoring it destroy your ability to know the system works? |
 | `minor` | Comfort, tidiness, or local velocity, with no effect on correctness, safety, or measurability. | Is the worst case "mildly annoying" or "harder to read"? |
 
-Severity is orthogonal to class: class is *can we check it*, severity is *how bad if it is violated*. The scale is audit-core's own Critical / Important / Minor, so a matrix row and an audit finding speak the same language. Two rules govern how to read the column:
+Severity is orthogonal to class: class is *can we check it*, severity is *how bad if it is violated*. The scale is audit-core's own Critical / Important / Minor, so a matrix row and an audit finding speak the same language. Six notes govern how to read the column - the first two are interpretation rules, the rest explain splits a reader would otherwise take for errors:
 
 **Baseline, not verdict.** A row records the severity a violation *inherently* carries, independent of any repo's current state. An auditor may raise or lower it for a specific instance with a stated reason - a load-bearing production prompt and a throwaway eval prompt violate the same clause at different cost.
 
