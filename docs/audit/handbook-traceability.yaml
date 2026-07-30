@@ -22,12 +22,14 @@
   section: "Starting from zero"
   claim: Greenfield is the story of the first change, so the parts become a build order - thin end-to-end slice, tier skeleton, minimal harness, eval dataset and metric, rules file and gates from the first commit.
   class: process
+  severity: important
   note: The section's own claim is the ordering, which no snapshot can date; the artifacts it lists are audited by the Part 3, 5, 7, 8 and 9 rows.
 
 - id: README/the-four-throughlines
   section: "The four throughlines"
   claim: Four principles (evidence over intuition, capture the trail, reusable core vs. disposable task layer, executable standards) generate the directives and decide the cases they do not literally cover.
   class: process
+  severity: important
   note: Each throughline's operational form belongs to its home part's rows; what this section adds is the disposition to apply them, which is culture rather than repo state.
 
 - id: README/how-to-use-this-handbook
@@ -39,6 +41,7 @@
   section: "Where the binding rules live"
   claim: The binding project-specific rules live in the project's rules file, which both the team and the coding agents read as authoritative and which wins over the handbook; a mismatch between the two is a docs bug.
   class: static
+  severity: important
   gap:
     recommendation: extend-skill
     note: docs-audit is the owner and has no dimension for an authoritative rules file or for doc-vs-doc contradiction; ci-audit's Gate enforcement checks that mismatch only for what CI claims to enforce.
@@ -49,12 +52,14 @@
   section: "Front-load the judgment"
   claim: Put the human weight on the expensive, irreversible moments (what is being built, and shipping it) and delegate the mechanical ones to the cheapest agent that can do them.
   class: process
+  severity: important
   note: How human attention is allocated across a run is a judgment call no snapshot can date.
 
 - id: lifecycle/front-load-the-judgment-b
   section: "Front-load the judgment"
   claim: Keep no scratch TODO list, and encode the whole run as a single reusable workflow that inlines brainstorming, plan-writing, subagent-driven implementation, review and merge.
   class: static
+  severity: important
   gap:
     recommendation: new-domain
     target: "#548"
@@ -65,6 +70,7 @@
   section: "Front-load the judgment"
   claim: Run task management on an issue tracker, and trace every piece of work to an issue.
   class: artifact
+  severity: important
   gap:
     recommendation: new-domain
     target: "#548"
@@ -74,6 +80,7 @@
   section: "Keep batches small and the flow fast"
   claim: Scope each issue narrowly enough that its diff stays reviewable (a hard diff-size cap is a backstop, not the mechanism), and measure the whole idea-to-production distance with the four DORA measures rather than the convenient commit-to-deploy part.
   class: artifact
+  severity: important
   gap:
     recommendation: new-domain
     target: "#548"
@@ -83,24 +90,28 @@
   section: "Decide the human-in-the-loop gates up front"
   claim: Choose once and explicitly which optional gates are active, keep spec review and the merge gate always on (prepare-for-merge is not approval, and never bump a major version without asking), and announce any decision taken on the human's behalf when an optional gate is off.
   class: process
+  severity: critical
   note: Which gates were active for a run, and whether a human actually approved, is a decision the repo never records.
 
 - id: lifecycle/scale-involvement-to-criticality
   section: "Scale involvement to criticality"
   claim: Match how present the human is (in-, on-, or out-of-the-loop) to how much the code matters (core differentiator, supporting, commodity), scaling oversight rather than who types, while the two bookend gates never scale off and criticality stays a separate axis from reuse.
   class: process
+  severity: important
   note: Which criticality tier the team judged a change into, and how present a human actually was for it, are judgments the repo never records; the bookend gates the section refuses to scale off are owned by decide-the-human-in-the-loop-gates-up-front, and the reuse axis it separates criticality from is Part 3's.
 
 - id: lifecycle/step-by-step-one-issue-end-to-end-a
   section: "Step-by-step: one issue, end to end"
   claim: Work the nine-station runbook - read the issue's comments before selecting it, brainstorm collaboratively and write no code in that phase, right-size each task to its own test cycle, dispatch a fresh implementer subagent per task behind a background keep-awake, and loop a two-stage spec-plus-quality review until both verdicts pass.
   class: process
+  severity: important
   note: The station order and the human moments along it are the section's own claim, and neither the order nor the keep-awake leaves a trace in the repo. The artifacts each station does leave are carried by the -b, -c, -d and -e rows.
 
 - id: lifecycle/step-by-step-one-issue-end-to-end-b
   section: "Step-by-step: one issue, end to end"
   claim: Commit the spec and the plan as dated files in the docs tree, self-review each (the spec for placeholders, scope and ambiguity, the plan against every spec requirement), link the spec from the issue, and let no placeholder or TBD survive in a plan's code steps.
   class: artifact
+  severity: important
   gap:
     recommendation: extend-skill
     note: docs-audit is the owner because specs and plans are docs-tree artifacts, but no dimension asks whether a change carries a committed spec and plan, nor scans a plan for placeholders; the per-change and linked-from-the-issue halves need the delivery-trail evidence base (#548).
@@ -109,6 +120,7 @@
   section: "Step-by-step: one issue, end to end"
   claim: Keep the branch mechanics honest - cut from up-to-date main and never implement on it, open a draft pull request whose body names the issue it closes and carries a test-plan checklist, then merge with a rebase and delete the branch locally and remotely.
   class: artifact
+  severity: important
   gap:
     recommendation: new-domain
     target: "#548"
@@ -118,6 +130,7 @@
   section: "Step-by-step: one issue, end to end"
   claim: Select the model per role explicitly and frugally - the least powerful tier that fits, always named because an omitted model inherits the session's expensive one, with a mid-tier floor for reviewers and the most capable tier for the final whole-branch review.
   class: static
+  severity: important
   gap:
     recommendation: new-domain
     target: "#548"
@@ -128,6 +141,7 @@
   section: "Step-by-step: one issue, end to end"
   claim: Keep a long subagent run awake with a background keep-awake killed on completion, scope each subagent to its brief so it does not act on the whole plan, and carry any standing instruction of that kind in the dispatching prompt, since a subagent inherits none of the conventions the dispatcher works under.
   class: static
+  severity: important
   gap:
     recommendation: new-domain
     target: "#548"
@@ -138,6 +152,7 @@
   section: "After the merge"
   claim: Close the trail after merging - verify each acceptance criterion was actually implemented before ticking it, post a release-notes-style comment, and set the issue's final status.
   class: artifact
+  severity: important
   gap:
     recommendation: new-domain
     target: "#548"
@@ -147,6 +162,7 @@
   section: "Make the standard executable, and audit periodically"
   claim: Ask of every fix what stops the problem coming back, and take the highest-leverage answer - encode the standard as an executable check wired into CI (and pre-commit) rather than leaving it to memory and review diligence.
   class: static
+  severity: important
   checks:
     - skill: ci-audit
       dimension: "Gate enforcement"
@@ -160,6 +176,7 @@
   section: "Make the standard executable, and audit periodically"
   claim: Run the periodic audit as the counterpart to standing gates - an evidence-based sweep that cites the artifact behind each finding, marks tooling that cannot run as no-evidence rather than pass, and produces a report-only diagnosis before fixes land one dimension at a time.
   class: artifact
+  severity: important
   gap:
     recommendation: report-only
     note: this is audit-core's own charter, but audit-core declares no dimensions so no row can cite it; audit cadence and past audit reports are outside every skill's evidence base.
@@ -168,6 +185,7 @@
   section: "Pre-merge checklist"
   claim: Fourteen-item recap gating the merge - issue trace, approved spec, fresh branch, placeholder-free plan, per-task review verdicts, tests and coverage, green required gates, review dispositions, the agent quality gate, docs, prompt-change rationale, explicit approval, involvement depth matched to criticality with the bookend gates on regardless, and the post-merge trail.
   class: process
+  severity: important
   note: A recap, so what it adds is the act of working the list before merging. Every one of the fourteen items is owned by another Part 1 or Part 2 row - involvement depth by scale-involvement-to-criticality, the bookend gates by decide-the-human-in-the-loop-gates-up-front - which is why the row itself maps to nothing.
 
 - id: lifecycle/see-also
