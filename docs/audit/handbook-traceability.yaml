@@ -1071,6 +1071,7 @@
   section: "First-party code: trace a path from source to sink"
   claim: Report a security finding as a path from an untrusted source to a dangerous sink and name both, counting model and tool outputs as untrusted sources alongside HTTP handlers, CLI arguments, file and object-store reads, message queues and the environment, then neutralize at the sink (parameterized queries, an argument-list subprocess with no shell, safe deserialization, hardened XML) and validate and canonicalize at the boundary (allowlists, path-containment checks, URL-host allowlisting).
   class: static
+  severity: critical
   checks:
     - skill: security-audit
       dimension: "Injection"
@@ -1084,6 +1085,7 @@
   section: "Grant the agent the least privilege it needs"
   claim: Treat an agent's granted powers as an attack surface in their own right - never concentrate the lethal trifecta of private-data access, untrusted-content exposure and the ability to act on the outside world in one agent without a human gate on the acting edge, default a diagnostic, research or analysis agent to read-only tool and MCP access, and widen write access per tool and per purpose, never wholesale and never to production or the pipeline for convenience.
   class: static
+  severity: critical
   gap:
     recommendation: extend-skill
     note: security-audit is the owner, since prompt injection as application security is explicitly its surface, but none of its six dimensions reads an agent's granted tool and MCP surface; ci-audit's Permissions / secrets is the nearest and scopes least privilege to the pipeline token rather than to what an agent is allowed to do.
@@ -1092,6 +1094,7 @@
   section: "Secrets: never commit them, and rotate: don't just delete"
   claim: Keep no credential in source, defaults, tests, fixtures or notebooks - a secret read from the environment is fine, a secret literal is not.
   class: static
+  severity: critical
   checks:
     - skill: security-audit
       dimension: "Secrets in code"
@@ -1101,6 +1104,7 @@
   section: "Secrets: never commit them, and rotate: don't just delete"
   claim: Treat a committed secret as live until rotated - rotate the credential at its provider first, then remove the line, then purge history if it was ever pushed - and never merely suppress this one.
   class: static
+  severity: critical
   gap:
     recommendation: extend-skill
     note: purely a citeability gap, and a wide one - security-audit states this rule almost verbatim in three places outside its Dimensions section (the severity rubric refuses to suppress a confirmed secret and demands rotation, the fix patterns give the rotate-then-remove-then-purge order, and the review dimensions ask whether rotation was done rather than only deletion) and its git-history scan is an opt-in sub-audit - but Secrets in code, the one citable dimension, reads the working tree, so a credential deleted from current source and still live in history passes it. The fix is to declare the history-and-rotation coverage as a dimension.
@@ -1110,6 +1114,7 @@
   section: "Depend only on what you can account for"
   claim: Know your third-party surface transitively and audit four things - licenses against your own license and distribution model, advisories affecting the resolved versions, freshness (outdated, yanked or end-of-life), and hygiene (declared-but-unused, used-but-undeclared, conflicting pins) - pinning direct dependencies and committing the lockfile as the record of what actually ran.
   class: static
+  severity: critical
   checks:
     - skill: deps-audit
       dimension: "License compatibility"
@@ -1125,6 +1130,7 @@
   section: "Depend only on what you can account for"
   claim: Apply the same rule to the AI surface - treat the model and the provider as dependencies too, pinning model versions where the provider allows it and recording which model produced a given result, because a silent model upgrade is an unpinned dependency that can move your eval numbers out from under you.
   class: static
+  severity: important
   checks:
     - skill: eval-audit
       dimension: "Reproducibility"
@@ -1136,6 +1142,7 @@
   section: "Depend only on what you can account for"
   claim: Know your providers' data-retention terms, and where you operate under a data-protection regime confirm that each provider processing personal data has the legal basis to - a signed DPA, acceptable residency and retention.
   class: artifact
+  severity: critical
   gap:
     recommendation: new-domain
     target: "#518"
@@ -1145,6 +1152,7 @@
   section: "Treat the pipeline as a privileged environment"
   claim: Treat CI as a privileged runtime holding your secrets as well as the merge gate - default the pipeline token to read-only and widen only the single job that genuinely needs it, pin third-party actions to an immutable commit SHA rather than a mutable tag, never run untrusted pull-request code with secrets in scope, and prefer short-lived federated credentials over long-lived stored secrets.
   class: static
+  severity: critical
   checks:
     - skill: ci-audit
       dimension: "Permissions / secrets"
@@ -1158,6 +1166,7 @@
   section: "Turn every fix into a gate"
   claim: Encode each class of safety fix as an executable check wired into CI and pre-commit - a SAST plus secret scan for first-party code, a CVE-plus-license gate for dependencies, a workflow linter and an action-pin checker for the pipeline - because every fix is one-time while the class of problem is forever.
   class: static
+  severity: important
   checks:
     - skill: ci-audit
       dimension: "Gate enforcement"
@@ -1169,6 +1178,7 @@
   section: "Verify against the real artifacts"
   claim: Run the verification counterpart of this page as a standing check against the real artifacts - the first-party code, the resolved dependency graph, the workflow files and their branch-protection reality - report-only first to see where the repo hurts, then fix one surface at a time in its own reviewed change, judging severity by context and by whether a path is actually reachable and what it reaches.
   class: artifact
+  severity: important
   gap:
     recommendation: report-only
     note: audit-core's own charter again, as on Part 1's make-the-standard-executable row - audit cadence and past audit reports sit outside every skill's evidence base, and the reachability-weighted severity rule is carried by security-audit's threat-context scoping and its severity rubric, neither of which is a dimension a row can cite.
@@ -1177,6 +1187,7 @@
   section: "Checklist: a security & supply-chain sweep"
   claim: Fifteen-item recap in six groups - first-party code (a verified source-to-sink path behind each finding, model and tool outputs treated as untrusted, sinks neutralized and input validated at the boundary), agent privileges (no lethal trifecta in one agent without a human gate, diagnostic and research agents read-only, no convenience write grants), secrets (no literals in source, tests, fixtures or notebooks, an exposed credential rotated then removed then purged), dependencies (transitive licenses, CVEs, freshness and hygiene, direct deps pinned with the lockfile committed, models and providers pinned and recorded with retention and DPA basis confirmed), pipeline (least-privilege token, actions pinned to commit SHAs, no untrusted pull-request code with secrets and federated credentials preferred), and standing (each class of fix now an executable gate).
   class: process
+  severity: critical
   note: A recap, so what it adds is the act of working the list during a sweep. Each of the fifteen items is owned by a Part 9 row above.
 
 - id: security-supply-chain/see-also
