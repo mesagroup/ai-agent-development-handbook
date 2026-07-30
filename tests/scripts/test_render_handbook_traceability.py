@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 import pytest
+import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 _SCRIPT = REPO_ROOT / "scripts" / "render_handbook_traceability.py"
@@ -284,7 +285,32 @@ def test_render_reports_full_and_partial_coverage_apart():
     out = rht.render(rows)
     assert "**0 fully mapped** (0%), **1 partially mapped**" in out
     assert "**1 unmapped**" in out
-    assert "2 rows carry a gap entry in total" in out
+
+
+def test_render_reconciles_the_gap_total_when_no_process_row_gaps():
+    rows = _valid_rows()
+    rows[0]["gap"] = {"recommendation": "extend-skill", "note": "residue"}
+    out = rht.render(rows)
+    assert (
+        "All 2 gap entries sit on auditable rows: the 1 unmapped one plus "
+        "the 1 partial." in out
+    )
+    # The unreconciled phrasing is gone.
+    assert "rows carry a gap entry in total" not in out
+
+
+def test_render_reconciles_the_gap_total_when_a_process_row_gaps():
+    # The case #554 names: the closing total counted a population the
+    # components above it never included. It is absent from today's matrix,
+    # so only a fixture can hold the arithmetic honest.
+    rows = _valid_rows()
+    rows[0]["gap"] = {"recommendation": "extend-skill", "note": "residue"}
+    rows[2]["gap"] = {"recommendation": "report-only", "note": "prose only"}
+    out = rht.render(rows)
+    assert "2 of the 3 gap entries sit on auditable rows" in out
+    assert "all 1 unmapped" in out
+    assert "plus the 1 partial" in out
+    assert "the other 1 sits on a process row" in out
 
 
 def test_render_shows_row_notes_in_the_notes_column():
@@ -391,6 +417,26 @@ def test_render_suppresses_zero_terms_in_the_kind_split():
     assert "### Critical\n\n1 unchecked.\n" in out
     assert "0 residue" not in out
     assert "0 process" not in out
+
+
+def test_kind_split_line_pluralizes_a_kind_with_more_than_one_entry():
+    # Task 1's plural branches ("residues", "process rows") were exercised
+    # only indirectly, via the golden-file comparison in
+    # test_real_matrix_passes_the_strict_check - which fails with a
+    # confusing "handbook-traceability.md is stale" message rather than
+    # pointing at the bug. A direct fixture with two residues in one band
+    # pins the plural wording itself.
+    group = [
+        {
+            "class": "static",
+            "checks": [{"skill": "demo-audit", "dimension": "Injection"}],
+        },
+        {
+            "class": "static",
+            "checks": [{"skill": "demo-audit", "dimension": "Secrets"}],
+        },
+    ]
+    assert rht._kind_split_line(group) == "2 residues."
 
 
 def test_render_orders_gap_bullets_unchecked_then_residue_then_process():
@@ -524,3 +570,29 @@ def test_validate_reports_malformed_shapes_without_crashing(tmp_path):
 
 def test_real_matrix_passes_the_strict_check():
     assert rht.main(["--check"]) == 0
+
+
+def test_real_matrix_band_unchecked_counts_match_the_cross_tab():
+    # #553's second criterion, made mechanical rather than a counting
+    # exercise: a band's printed unchecked figure is the same number as its
+    # Unmapped column, and stays so as rows are added. Both are read out of
+    # the rendered page, so a renderer that drifts them apart fails here.
+    import re
+
+    rows = yaml.safe_load(rht.YAML_PATH.read_text())
+    out = rht.render(rows)
+
+    printed = {}
+    for sev in ("Critical", "Important", "Minor"):
+        m = re.search(rf"### {sev}\n\n([^\n]+)\n", out)
+        assert m, f"no kind-split line under ### {sev}"
+        n = re.search(r"(\d+) unchecked", m.group(1))
+        printed[sev] = int(n.group(1)) if n else 0
+
+    cross_tab = {}
+    for sev in ("Critical", "Important", "Minor"):
+        m = re.search(rf"\| {sev} \| \d+ \| \d+ \| (\d+) \|", out)
+        assert m, f"no cross-tab row for {sev}"
+        cross_tab[sev] = int(m.group(1))
+
+    assert printed == cross_tab

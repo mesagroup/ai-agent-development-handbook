@@ -670,6 +670,7 @@ def render(rows: list[dict[str, Any]]) -> str:
     full = [r for r in auditable if r.get("checks") and not r.get("gap")]
     partial = [r for r in auditable if r.get("checks") and r.get("gap")]
     unmapped = [r for r in auditable if not r.get("checks")]
+    process_gaps = [r for r in gaps if _gap_kind(r) == "process"]
     pct = round(100 * len(full) / len(auditable)) if auditable else 0
     out.append("\n## Coverage summary\n")
     out.append("| Class | Rows |")
@@ -705,6 +706,23 @@ def render(rows: list[dict[str, Any]]) -> str:
             f"| {len(aud) - n_full - n_partial} | {len(aud)} | {n_proc} |"
         )
     out.append("")
+    if process_gaps:
+        n = len(process_gaps)
+        reconciliation = (
+            f"{len(gaps) - n} of the {len(gaps)} gap entries sit on auditable "
+            f"rows (all {len(unmapped)} unmapped, plus the {len(partial)} "
+            f"partial); the other {n} "
+            + ("sits on a process row" if n == 1 else "sit on process rows")
+            + ", whose claim is auditable in principle but belongs in report "
+            "prose rather than in any skill's matrix. "
+        )
+    else:
+        reconciliation = (
+            f"All {len(gaps)} gap entries sit on auditable rows: the "
+            f"{len(unmapped)} unmapped "
+            + ("one" if len(unmapped) == 1 else "ones")
+            + f" plus the {len(partial)} partial. "
+        )
     out.append(
         f"{len(rows)} rows total. Of the {len(auditable)} auditable rows "
         f"({counts['static']} static + {counts['artifact']} artifact): "
@@ -712,8 +730,8 @@ def render(rows: list[dict[str, Any]]) -> str:
         f"(a check that reaches part of the claim, with the residue recorded as a gap), "
         f"and **{len(unmapped)} unmapped** (no check reaches the claim; every one of "
         f"them still carries a gap entry saying so and why, which the schema requires). "
-        f"{len(gaps)} rows carry a gap entry in total. "
-        f"The remaining {counts['process']} process and {counts['informative']} informative "
+        + reconciliation
+        + f"The remaining {counts['process']} process and {counts['informative']} informative "
         f"rows are not auditable by design - the honest record of what a snapshot cannot settle."
     )
     return "\n".join(out) + "\n"
