@@ -107,10 +107,10 @@
 
 - id: lifecycle/step-by-step-one-issue-end-to-end-a
   section: "Step-by-step: one issue, end to end"
-  claim: Work the nine-station runbook - read the issue's comments before selecting it, brainstorm collaboratively and write no code in that phase, right-size each task to its own test cycle, dispatch a fresh implementer subagent per task behind a background keep-awake, and loop a two-stage spec-plus-quality review until both verdicts pass.
+  claim: Work the nine-station runbook - read the issue's comments before selecting it, brainstorm collaboratively and write no code in that phase, right-size each task to its own test cycle, dispatch a fresh implementer subagent per task, and loop a two-stage spec-plus-quality review until both verdicts pass.
   class: process
   severity: important
-  note: The station order and the human moments along it are the section's own claim, and neither the order nor the keep-awake leaves a trace in the repo. The artifacts each station does leave are carried by the -b, -c, -d and -e rows.
+  note: The station order and the human moments along it are the section's own claim, and the order leaves no trace in the repo. The artifacts each station does leave are carried by the -b, -c, -d and -e rows.
 
 - id: lifecycle/step-by-step-one-issue-end-to-end-b
   section: "Step-by-step: one issue, end to end"
@@ -144,7 +144,7 @@
 
 - id: lifecycle/step-by-step-one-issue-end-to-end-e
   section: "Step-by-step: one issue, end to end"
-  claim: Keep a long subagent run awake with a background keep-awake killed on completion, scope each subagent to its brief so it does not act on the whole plan, and carry any standing instruction of that kind in the dispatching prompt, since a subagent inherits none of the conventions the dispatcher works under.
+  claim: Scope each subagent to its brief so it does not act on the whole plan, and carry any standing instruction of that kind in the dispatching prompt, since a subagent inherits none of the conventions the dispatcher works under.
   class: static
   severity: important
   gap:

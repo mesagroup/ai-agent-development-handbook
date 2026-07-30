@@ -52,6 +52,7 @@ decide -> idea: the next issue
 | **[9. Security, dependencies & supply chain](security-supply-chain.md)** | The standing obligation: safe code, accounted dependencies, a trustworthy pipeline. |
 | **[Troubleshooting](troubleshooting.md)** | The other entry point: from a symptom (it burns money, it hangs, it hallucinates) to the sections that fix it. |
 | **[Coda](coda.md)** | Closing words: the loop, and what stays. |
+| **[Engineering notes](../engineering-notes.md)** (`docs/engineering-notes.md`) | *Not part of the handbook.* An advisory sidecar, outside this tree, for practices too contingent on one execution environment to be normative here, kept with the reason each was cut. |
 
 ## Starting from zero
 
