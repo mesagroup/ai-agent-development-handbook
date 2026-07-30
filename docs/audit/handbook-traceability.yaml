@@ -513,12 +513,14 @@
   section: "A document has no privileged decomposition"
   claim: Resist modelling a document type once and reusing that schema forever - importance is relative to the question, so no view-from-nowhere schema exists - while conceding that the reusable core is real, since intrinsic structure fully generalizes and a thin vocabulary of domain entities partially does, leaving only the task decomposition use-relative.
   class: process
+  severity: minor
   note: The premise of the part - a modelling stance about where generality is real - which no snapshot can date. Its operational form, three explicit layers with different reuse profiles, is carried by the rows below.
 
 - id: three-layer-model/know-the-three-layers
   section: "Know the three layers"
   claim: Split document knowledge into three layers with distinct reuse profiles and epistemic status - Layer 1 intrinsic structure (fully reusable, perception), Layer 2 domain entities (partially reusable, grounding), Layer 3 workflow knowledge (not reusable, inference) - a decomposition that is domain-general rather than domain-specific.
   class: static
+  severity: important
   gap:
     recommendation: report-only
     note: whether a document system's data model separates the three layers is visible in a snapshot, but no dimension owns it - arch-audit's layering axis reads module tiers, not data layers, and mapping this to it would audit the wrong graph. An auditor diagnoses it in report prose against Part 4's checklist.
@@ -527,6 +529,7 @@
   section: "Never skip a layer"
   claim: Never put the raw document into the prompt and ask the final Layer-3 question directly - the shortcut collapses three distinct error sites into one opaque call, so a failure stops being localizable to a layer - noting that re-reading a span the lower layers point at is navigation rather than skipping, and re-explaining the rule at the code review of every new agent.
   class: static
+  severity: important
   gap:
     recommendation: report-only
     note: a pipeline that dumps a raw document into the final prompt is visible in a snapshot, yet no dimension audits it; prompt-audit's Grounding & handling the unknown is the nearest and asks whether the prompt supplies the context the task needs, never whether that context arrived through the lower layers. The review-ritual clause is process.
@@ -535,6 +538,7 @@
   section: "Hold the contracts that make layering pay off"
   claim: Make Layer 1 a single engine-agnostic representation - typed blocks, a containment hierarchy, provenance on every block, engine identity in the metadata rather than in the block shape - populated by a thin per-engine builder, with everything downstream reading the representation and never a raw engine output.
   class: static
+  severity: minor
   checks:
     - skill: arch-audit
       dimension: "Layering / dependency-rule conformance"
@@ -546,6 +550,7 @@
   section: "Hold the contracts that make layering pay off"
   claim: Hold the three remaining contracts - derive every block id from content rather than position, canonicalizing before hashing and treating cross-engine stability as an alignment problem rather than a property of the hash; run refinements as versioned, additive passes over an immutable base, keyed by those ids and stamped with implementation and version; and keep Layer 2 to task-independent domain facts while task-shaped judgments stay in each workflow's Layer 3.
   class: static
+  severity: important
   gap:
     recommendation: report-only
     note: identity stability, additive enrichment over an immutable base, and the Layer-2/Layer-3 boundary are document-model design contracts with no dimension anywhere; the closest analogue is arch-audit's Over-abstraction axis reading the same keep-the-core-sparse rule in the module graph (Part 3's why-the-rule-matters-a), which cannot see it in data. An auditor diagnoses these against Part 4's checklist in report prose.
@@ -554,6 +559,7 @@
   section: "Compose typed tools over one fuzzy lookup"
   claim: Give an agent precise, typed operations over a layered document - structural navigation, clause search, entity-in-context, and semantic search over clean anchored units, each optionally following resolved references - instead of one similarity search, make choosing and composing the right tool the agent's job, and rest every tool on identifiers that survive re-extraction.
   class: static
+  severity: important
   gap:
     recommendation: report-only
     note: no skill audits the shape of an agent's tool surface; eval-audit's Prompt / SOP quality reaches tools only as drift between a prompt and the tools that exist, and prompt-audit judges the text of a prompt rather than what it is given to call. An auditor diagnoses the tool surface in report prose against Part 4's checklist, as on the other Part 4 rows.
@@ -562,6 +568,7 @@
   section: "Why this is the organizing principle, not just a document feature"
   claim: Keep the reusable core sparse and stable and the task layer rich and disposable is the document-model rule and the module-dependency rule at once, and because the layers are separable they are separately evaluable - a golden dataset per layer instead of one ill-defined end-to-end number.
   class: static
+  severity: important
   checks:
     - skill: eval-audit
       dimension: "Eval coverage"
@@ -571,6 +578,7 @@
   section: "Checklist: reviewing a document capability"
   claim: Six-item recap for reviewing a document capability - the Layer-3 answer reached through Layers 1 and 2, downstream code reading the engine-agnostic representation, content-derived ids with alignment across engines, versioned additive passes over an immutable base, Layer 2 holding only task-independent facts, and a failure localizable to one separately evaluable layer.
   class: process
+  severity: important
   note: A recap, so what it adds is the act of working the list at the review of a document capability. Each of the six items is owned by a Part 4 row above.
 
 - id: three-layer-model/see-also
@@ -584,6 +592,7 @@
   section: "Build the harness, don't inline the plumbing"
   claim: Solve model access, configuration, headless execution and reliability once in the shared core and configuration tiers instead of wiring them into each agent module, so the marginal agent is mostly its prompt and its tools, and put the production-reliability decisions in the harness so bounding is the default rather than an afterthought each author reinvents.
   class: static
+  severity: minor
   gap:
     recommendation: extend-skill
     note: arch-audit is the nearest owner but has no dimension for plumbing duplicated once per agent - the tell is repetition across applications, not a bad import - and nothing audits which tier the reliability defaults live in; the bounding half of the claim is carried by make-bounding-the-default.
@@ -592,6 +601,7 @@
   section: "Resolve models through aliases, never hard-coded IDs"
   claim: Never name a concrete provider model inline - take a short alias whose prefix encodes the provider and resolve it through a central catalog that stays the single place knowing real model IDs, regions and credentials - so switching the model a run uses is a one-token change and screening a dozen candidates never touches the agent.
   class: static
+  severity: minor
   gap:
     recommendation: extend-skill
     note: eval-audit is the owner, since model identity is its surface, but no dimension scans call sites for inline provider model IDs; its Reproducibility dimension is the nearest and wants a run's model version pinned and recorded, which an inline ID satisfies perfectly well - the worked example of the near-miss rule, mapping it would pass exactly what the handbook forbids - and security-audit's Secrets in code sees only the credentials half of what the catalog centralizes.
@@ -600,6 +610,7 @@
   section: "Expose model parameters as optional, defaulted flags"
   claim: Make generation parameters (temperature, top-p, penalties) optional flags that fall back to provider defaults, expose reasoning or extended thinking as a budget flag where the model supports it, and settle whether any such change is an improvement as a hypothesis measured against a frozen benchmark, one variable at a time.
   class: static
+  severity: minor
   gap:
     recommendation: extend-skill
     note: eval-audit is the owner, since the generation-parameter surface is exactly what a like-for-like comparison varies one variable at a time, but the section's own claim is wholly unmapped - no dimension asks whether generation parameters are exposed as optional flags falling back to provider defaults, nor whether a reasoning budget flag exists where the model supports one.
@@ -609,6 +620,7 @@
   section: "Bundle configuration into named profiles"
   claim: Have the configuration tier bundle a model, its parameters and feature toggles into a named profile that is selectable by name, discoverable by listing and machine-readable, so scripts and eval harnesses reference a configuration by name and "run the cheap profile" becomes an unambiguous shared instruction.
   class: static
+  severity: important
   gap:
     recommendation: extend-skill
     note: the same unmapped claim and the same owner as Part 3's name-every-configuration-worth-reusing, stated from the harness side - eval-audit's Reproducibility is the nearest existing dimension and is satisfied by a recorded flag pile, and no dimension asks for named, listable, machine-readable profiles.
@@ -617,6 +629,7 @@
   section: "Ship every agent with a headless CLI"
   claim: Give every agent a headless command-line entry point that takes a query and writes its artifacts to an output directory, make it the same path an eval harness drives as a subprocess so no separate eval mode can diverge from production, land artifacts in a dated subfolder that names what produced the run, and build any interactive UI as that CLI's peer rather than a second implementation.
   class: static
+  severity: important
   gap:
     recommendation: extend-skill
     note: eval-audit is the owner, because this is the precondition for its entire evidence base and an eval driving a code path production never takes is a validity threat next door to Contamination / leakage; still, no dimension asks whether a headless artifact-producing entry point exists, whether the eval path is the production path, or whether run artifacts are named and kept so a result stays findable months later.
@@ -625,6 +638,7 @@
   section: "Offer cheap and mock backends: a fast inner loop is a discipline"
   claim: Offer cheaper flag-selected backends - a mock backend such as a small model over a fixed knowledge base, or a lighter real one for the same capability - that keep the loop fast without changing the agent, treat the cheap inner loop as a first-class capability because it is what buys a variance band instead of an anecdote, and compare backends on full cost including the downstream context a stand-in inflates.
   class: static
+  severity: important
   checks:
     - skill: eval-audit
       dimension: "Regression tracking & cost"
@@ -634,6 +648,7 @@
   section: "Make bounding the default"
   claim: Bake six reliability defaults into the harness rather than into each agent - wall-clock and idle timeouts on turns and streaming loops, a hardened outbound HTTP client (explicit connect and read timeouts, bounded retries, keep-alive) whose retries wrap only operations safe to repeat, a circuit breaker on a dependency that keeps failing, a cycle and token budget cap on the agent loop, a size strategy for oversized tool results, and time-bounded teardown of external resources - because an unbounded call, cycle or payload each exhaust a resource.
   class: static
+  severity: critical
   gap:
     recommendation: new-domain
     target: "#516"
@@ -643,6 +658,7 @@
   section: "Checklist: standing up a new agent"
   claim: Eight-item recap for standing up an agent - model alias through the catalog, optional defaulted parameter flags, a named profile, a headless CLI that is the eval path, dated self-describing artifact folders, a flag-selectable cheap or mock backend, time-bounded external calls with retries only on repeatable operations, and bounded loop, payload and failing dependencies.
   class: process
+  severity: critical
   note: A recap, so what it adds is the act of working the list when a new agent is stood up. Each of the eight items is owned by a Part 5 row above.
 
 - id: agent-harness/see-also
@@ -656,12 +672,14 @@
   section: "Instrument before you tune"
   claim: Make the first move on any performance question adding the per-item metadata that measures what happens rather than running a parameter sweep, look upstream of the part you were about to optimize because the highest-leverage intervention frequently sits there, and distrust averages, since a healthy-looking overall number can mask a bimodal split whose real win is eliminating the low mode at its source.
   class: process
+  severity: important
   note: The section's own claim is the order of moves in an investigation - instrument, then tune - which no snapshot can date. The instrumentation it demands is carried by capture-per-subagent-per-tool-usage.
 
 - id: observability/keep-observability-out-of-the-models-context
   section: "Keep observability out of the model's context"
   claim: Send analysis metadata through a side channel the model never sees - persist per-item timing, sizes, utilization and cost alongside the run in its artifacts rather than inside the prompt, and attach any bookkeeping a tool must carry to a metadata envelope the downstream code consumes rather than to the tool output the model reads.
   class: static
+  severity: important
   checks:
     - skill: prompt-audit
       dimension: "Grounding & handling the unknown"
@@ -674,6 +692,7 @@
   section: "Capture per-(sub)agent, per-tool usage"
   claim: Have the run harness produce a typed per-(sub)agent and per-tool usage record - tokens including cache read and write, wall-clock timing, agent-loop cycles, and per-tool total time and cost - so that utilization (how much of everything fetched actually informed the answer) and the stage a multi-agent run spends its time in both become visible.
   class: static
+  severity: important
   gap:
     recommendation: new-domain
     target: "#516"
@@ -683,6 +702,7 @@
   section: "Account for the full cost, not the convenient part"
   claim: Take cost from actual billing rather than estimating it from token counts, count cache read and write tokens, sub-agent calls, latency and retries, price a component by its effect on the whole pipeline rather than by its local price, pair every efficiency number with an independent quality evaluation, and lead with absolute figures over percentages.
   class: artifact
+  severity: important
   checks:
     - skill: eval-audit
       dimension: "Methodology soundness"
@@ -695,6 +715,7 @@
   section: "Make errors diagnosable"
   claim: Swallow no exception - report each to the downstream consumer with its type and message at minimum, log it at the right level where it is actually visible during debugging, or re-raise it for a better-positioned caller - so the error message alone says what went wrong without reproducing the issue, a generic internal-error string being the opposite of observability.
   class: static
+  severity: important
   checks:
     - skill: security-audit
       dimension: "Sensitive-data handling"
@@ -707,6 +728,7 @@
   section: "Close the loop: production → development"
   claim: Persist the same per-(sub)agent usage record with each production interaction so a real-world session can be triaged after the fact - where a turn spent its time, whether it hung or merely ran long, which tool errored - because instrumentation that persists into production artifacts is what lets you debug the run you were not watching.
   class: static
+  severity: important
   gap:
     recommendation: new-domain
     target: "#516"
@@ -716,6 +738,7 @@
   section: "Checklist: instrumenting a run"
   claim: Eight-item recap for instrumenting a run - per-(sub)agent and per-tool usage recorded with cache read/write tokens, timing, loop cycles and per-tool cost, a typed record rather than a loose dict, analysis metadata on a side channel, utilization captured, cost from actual billing with the whole-pipeline effect included, every efficiency number paired with a quality number, no swallowed exceptions, and the same record persisted into production artifacts.
   class: process
+  severity: important
   note: A recap, so what it adds is the act of working the list when a run is instrumented. Each of the eight items is owned by a Part 6 row above.
 
 - id: observability/see-also
