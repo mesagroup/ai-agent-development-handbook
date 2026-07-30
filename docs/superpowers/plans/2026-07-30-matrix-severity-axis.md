@@ -56,8 +56,21 @@ These bind every task. Copied from #552 and the repo's conventions.
 
 1. *A clause another row owns does not raise this row; it raises that one.* A cross-reference ("the bookend gates never scale off") scopes this row's own rule and is not ownership.
 2. *A pure recap row owns nothing of its own and takes the max of everything it recaps* — because violating "work the list" is violating every item on it. Checklist rows are the case this covers.
+3. *A second imperative statement of the same rule is ownership, not a cross-reference.* Where the handbook states one rule in two sections and the matrix records both as citation units, both rows own it and both take the same severity. Qualifier 1 covers a mention that scopes this row's own rule; it does not cover the handbook asserting the same imperative twice. (The docstring rule is stated three times, the reach-in rule twice.)
 
 Max rather than mean because severity is a baseline an auditor may lower with a stated reason, which makes the two errors asymmetric: over-rating surfaces a row in a band where a reader sees it and can lower it, while under-rating buries a high-risk clause where the severity × coverage cross-tab will never surface it. When the deliverable is a risk-ordered work queue, the safe direction is up. The ownership qualifier is what stops bare max from filling the Critical bucket with rows that add no new risk surface, which would destroy the discriminating power the axis exists to provide. (Settled in the Task 1 review; batch A is the worked precedent.)
+
+**"Unbounded cost" in the Important band means one run or process that can run away with no ceiling** — an agent with no completion criterion, an unmetered budget, a retry loop with no cap. It does not mean an engineering tax that recurs. Bounded, visible, billable waste is `minor`; cost you cannot see the end of inside a single execution is `important`. (Settled in the Task 1 review, reaffirmed in Task 2's.)
+
+**Structural clauses.** Rate a clause `minor` when its violation only makes future change more expensive — coupling, cycles, tier drift, duplicated plumbing, a blast radius that is harder to enumerate, a test that needs more scaffolding to run — however much that expense compounds. The Minor band's qualifier is not "small", it is "no effect on correctness, safety, or measurability", and erosion clears that bar: the code runs identically, the suite still bites, no number moves. A structural clause rises to `important` only when the violation makes a **behavioural change invisible to a party that depends on it**. Three shapes qualify:
+
+1. a convenience migrated into shared code, so a second consumer is silently bound to the first workflow's assumptions;
+2. one application reaching into another's internals, so a change inside B moves A with nothing in B's diff showing it;
+3. a live path removed because the static signal lied — the case the handbook guards with "verify true unreachability before deleting".
+
+Note that a coupled test is not a false-passing test: a test that transitively drags in a higher tier still fails when the code breaks, and the Important band's false-pass family is defined by the check being *incapable* of failing. (Settled in the Task 2 review; Part 4's layer boundaries and Part 5's harness composition are the same shape of clause.)
+
+**Gates and sole detectors.** A gate clause is `critical` only when the harm it is the sole detector for is *itself* Critical — external, irreversible. When a gate is the sole detector for an Important-grade harm, the gate is `important`, and "other barriers still stand between the change and users" is not available as a reason, because by definition none do. Rate on the harm's own band instead. (Settled in the Task 2 review; Part 7 is full of this shape.)
 
 **The knowability test, before writing `important`.** Name the specific thing you can no longer tell after the violation. If the only honest answer is "it costs more, takes longer, or reads worse", it is `minor`. `important` is the largest band and the easiest default; this is the check that keeps it from becoming one.
 
