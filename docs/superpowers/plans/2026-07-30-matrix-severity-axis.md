@@ -52,6 +52,15 @@ These bind every task. Copied from #552 and the repo's conventions.
 | `implementation-disciplines/ci-and-static-analysis-d` | `minor` | Spending an agent on what a linter enforces wastes money and time; nothing ships wrong. |
 | `implementation-disciplines/prompt-and-sop-engineering-b` | `minor` | A commit message that omits *why* a prompt changed costs a future reader some archaeology. |
 
+**Rating a row whose claim bundles several clauses: max over owned clauses.** Rate a row at the highest severity among the clauses the row is the matrix's citation unit for, and name that clause in the report. Never average, never take the modal clause, and never discount a severe clause because the row also bundles hygiene. Two qualifiers:
+
+1. *A clause another row owns does not raise this row; it raises that one.* A cross-reference ("the bookend gates never scale off") scopes this row's own rule and is not ownership.
+2. *A pure recap row owns nothing of its own and takes the max of everything it recaps* — because violating "work the list" is violating every item on it. Checklist rows are the case this covers.
+
+Max rather than mean because severity is a baseline an auditor may lower with a stated reason, which makes the two errors asymmetric: over-rating surfaces a row in a band where a reader sees it and can lower it, while under-rating buries a high-risk clause where the severity × coverage cross-tab will never surface it. When the deliverable is a risk-ordered work queue, the safe direction is up. The ownership qualifier is what stops bare max from filling the Critical bucket with rows that add no new risk surface, which would destroy the discriminating power the axis exists to provide. (Settled in the Task 1 review; batch A is the worked precedent.)
+
+**The knowability test, before writing `important`.** Name the specific thing you can no longer tell after the violation. If the only honest answer is "it costs more, takes longer, or reads worse", it is `minor`. `important` is the largest band and the easiest default; this is the check that keeps it from becoming one.
+
 **Two calibration traps.**
 
 - *Do not inherit severity from the part's subject.* Part 9 is the security part, but not every clause in it is Critical — `verify-against-the-real-artifacts` is about running the sweep, which is Important. Part 2 is the disciplines part, but `tdd-b` (ship tests, do not lower coverage) is Important, not Minor: without it you cannot tell whether the code works.
@@ -747,9 +756,16 @@ In `docs/engineering/lifecycle.md`, edit the blockquote to drop the keep-awake s
 
 Add a line to the spine in `docs/engineering/README.md` pointing at `../engineering-notes.md`, describing it as advisory and explicitly not part of the handbook. Add an index entry in `docs/README.md` matching the format the neighbouring entries use.
 
-- [ ] **Step 5: Re-scope the matrix row**
+- [ ] **Step 5: Re-scope both matrix rows that cite the deleted clause**
 
-In `docs/audit/handbook-traceability.yaml`, edit `lifecycle/step-by-step-one-issue-end-to-end-e` so its `claim` no longer mentions the keep-awake and describes only the clauses that remain. Re-check the row's `severity` against the narrowed claim and adjust if the deletion changed it. Leave every other field alone.
+Two rows reference the keep-awake, not one. Leaving either would have the matrix asserting coverage of handbook prose that no longer exists — the drift failure Part 8 warns about, inside the document whose job is to prevent it.
+
+In `docs/audit/handbook-traceability.yaml`:
+
+- `lifecycle/step-by-step-one-issue-end-to-end-e` — edit the `claim` so it no longer mentions the keep-awake and describes only the two clauses that remain (scope each subagent to its brief; carry standing instructions in the dispatching prompt).
+- `lifecycle/step-by-step-one-issue-end-to-end-a` — the keep-awake appears in **both** its `claim` ("dispatch a fresh implementer subagent per task behind a background keep-awake") and its `note` ("neither the order nor the keep-awake leaves a trace in the repo"). Remove it from both, leaving the rest of each field intact.
+
+Re-check both rows' `severity` against the narrowed claims. Neither should change — the keep-awake is not what carries either row — but confirm rather than assume, and say so in the report. Leave every other field and every other row alone.
 
 - [ ] **Step 6: Verify**
 
@@ -757,10 +773,10 @@ In `docs/audit/handbook-traceability.yaml`, edit `lifecycle/step-by-step-one-iss
 uv run python scripts/render_handbook_traceability.py
 uv run pytest tests/scripts/ -v
 uv run mkdocs build --strict && uv run python scripts/check_site_links.py site
-grep -rn "caffeinate\|keep-awake\|keep the host awake" docs/engineering/ || echo "clean"
+grep -rn "caffeinate\|keep-awake\|keep the host awake" docs/engineering/ docs/audit/ || echo "clean"
 ```
 
-Expected: renderer green (the section still exists, so no coverage hole), tests green, docs gates green, and the grep finding nothing under `docs/engineering/`.
+Expected: renderer green (the section still exists, so no coverage hole), tests green, docs gates green, and the grep finding nothing under either `docs/engineering/` or `docs/audit/`. The `docs/audit/` half is what catches a matrix row left citing the deleted prose — a `docs/engineering/`-only grep passes while the matrix still asserts coverage of a clause that is gone.
 
 Also confirm `docs/engineering-notes.md` is reachable: `mkdocs build --strict` fails on an orphaned page, and `check_site_links.py` catches a directory-style link that `--strict` misses.
 
