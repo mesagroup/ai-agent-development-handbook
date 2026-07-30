@@ -11,6 +11,8 @@ Every `*-audit` skill is the **same loop** applied through a different lens. Thi
 
 **Announce (from the domain skill):** "I'm using the `<domain>-audit` skill (on the audit-core engine) to audit `<subject>`."
 
+**Pin every subagent to the working tree you are in.** When the audit runs from a git worktree, a dispatched agent given a bare or main-repo-rooted path can silently operate on the *primary* checkout instead, often many commits stale. Both directions fail quietly. A read-only evidence agent then reports ground truth from a tree nobody is auditing, which is the stale-source failure the core principle above forbids. An implementer's edit lands where `git status` in your worktree will never show it, so the fix drops out of the commit and reads afterwards as though the agent simply missed it. Resolve `git rev-parse --show-toplevel` once, pass that absolute root in every dispatch, and require each agent to confirm its own `--show-toplevel` matches before it reads or edits.
+
 ## The loop
 
 Runs in order; each step feeds the next.
