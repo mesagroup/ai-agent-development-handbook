@@ -230,7 +230,7 @@ Two rules keep the walk reproducible. Apply them when adding or revising a row.
 
 ## Gap list
 
-Ordered by severity - the risk a violation carries - then by handbook order. Each entry names its recommendation (`extend-skill` / `new-domain` / `report-only`) and, where one exists, the issue that would close it.
+Ordered by severity - the risk a violation carries - then by handbook order. Each entry names its recommendation (`extend-skill` / `new-domain` / `report-only`) and, where one exists, the issue that would close it. A band mixes two kinds of entry: rows nothing checks at all, and rows a check partly reaches whose residue is recorded here. The [cross-tab](#severity-x-coverage) below gives the split per band. The Critical band has no partials, so all 4 of its entries are clauses nothing checks - the head of the queue.
 
 ### Critical
 
@@ -319,7 +319,7 @@ Ordered by severity - the risk a violation carries - then by handbook order. Eac
 
 ### Severity x coverage
 
-The actionable question: which high-risk clauses does nothing check? The four data columns before the Process one count auditable rows only; the Process column counts rows that carry a severity but can never be checked from a snapshot, and so belong in report prose and an adoption roadmap rather than in any skill's matrix.
+The actionable question: which high-risk clauses does nothing check? The Unmapped column is the answer, and the rows behind each count are listed by name under the matching heading in the [gap list](#gap-list) above. Read a Critical unmapped count as the head of the queue. The four data columns before the Process one count auditable rows only; the Process column counts rows that carry a severity but can never be checked from a snapshot, and so belong in report prose and an adoption roadmap rather than in any skill's matrix.
 
 | Severity | Fully mapped | Partial | Unmapped | Auditable total | Process |
 |---|---|---|---|---|---|

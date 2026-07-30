@@ -358,6 +358,22 @@ def test_render_groups_the_gap_list_by_severity_worst_first():
     assert "### extend-skill" not in out
 
 
+def test_render_states_whether_the_critical_band_is_all_unchecked():
+    # The band being partial-free is what lets a reader treat every Critical
+    # entry as unchecked. It is a property of the data, so the page has to
+    # stop claiming it the moment a Critical row gains a check - a hardcoded
+    # sentence here would be the stale-count bug this matrix exists to catch.
+    rows = _valid_rows()
+    out = rht.render(rows)
+    assert "The Critical band has no partials, so all 1 of its entries" in out
+
+    # Give the Critical row a check: its gap becomes a residue, not a hole.
+    rows[1]["checks"] = [{"skill": "demo-audit", "dimension": "Injection"}]
+    out = rht.render(rows)
+    assert "no partials" not in out
+    assert "mixes 0 unchecked clauses with 1 whose residue" in out
+
+
 def test_render_cross_tabs_severity_against_mapped_status():
     out = rht.render(_valid_rows())
     assert "### Severity x coverage" in out

@@ -483,6 +483,36 @@ def _gap_cell(row: dict[str, Any]) -> str:
     return " - ".join(parts)
 
 
+def _critical_purity_note(rows: list[dict[str, Any]]) -> str:
+    """One sentence on whether the Critical band's gap entries are all unchecked.
+
+    The band being free of partially-mapped rows is what lets a reader treat
+    its every entry as unchecked, but that is a property of today's data, not
+    a guarantee. Computing the sentence rather than asserting it means the
+    page stops making the claim the moment a Critical row gains a check.
+
+    Args:
+        rows: Matrix rows, already through `validate`.
+
+    Returns:
+        A sentence for the gap list's preamble.
+    """
+    crit = [r for r in rows if r.get("severity") == "critical" and r.get("gap")]
+    partial = [r for r in crit if r.get("checks")]
+    if not crit:
+        return "No Critical clause carries a gap."
+    if not partial:
+        return (
+            f"The Critical band has no partials, so all {len(crit)} of its "
+            "entries are clauses nothing checks - the head of the queue."
+        )
+    return (
+        f"The Critical band mixes {len(crit) - len(partial)} unchecked "
+        f"clauses with {len(partial)} whose residue is recorded here; the "
+        "unchecked ones are the head of the queue."
+    )
+
+
 def _severity_cell(row: dict[str, Any]) -> str:
     """Title-cased severity, or `-` for the informative rows that carry none."""
     return SEVERITY_LABELS.get(row.get("severity", ""), "-")
@@ -568,7 +598,10 @@ def render(rows: list[dict[str, Any]]) -> str:
             "Ordered by severity - the risk a violation carries - then by handbook "
             "order. Each entry names its recommendation (`extend-skill` / "
             "`new-domain` / `report-only`) and, where one exists, the issue that "
-            "would close it."
+            "would close it. A band mixes two kinds of entry: rows nothing checks "
+            "at all, and rows a check partly reaches whose residue is recorded "
+            "here. The [cross-tab](#severity-x-coverage) below gives the split "
+            "per band. " + _critical_purity_note(rows)
         )
     for sev in SEVERITIES:
         group = [r for r in gaps if r.get("severity") == sev]
@@ -600,6 +633,9 @@ def render(rows: list[dict[str, Any]]) -> str:
     out.append("\n### Severity x coverage\n")
     out.append(
         "The actionable question: which high-risk clauses does nothing check? "
+        "The Unmapped column is the answer, and the rows behind each count are "
+        "listed by name under the matching heading in the [gap list](#gap-list) "
+        "above. Read a Critical unmapped count as the head of the queue. "
         "The four data columns before the Process one count auditable rows only; "
         "the Process column counts rows that carry a severity but can never be "
         "checked from a snapshot, and so belong in report prose and an adoption "
