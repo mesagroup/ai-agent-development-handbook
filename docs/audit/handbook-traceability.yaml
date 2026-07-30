@@ -226,6 +226,15 @@
     - skill: test-audit
       dimension: "Effectiveness (optional)"
 
+- id: implementation-disciplines/tdd-c
+  section: "TDD"
+  claim: Decide the unit-test coverage floor upfront rather than assuming a number - state a required floor and what it is measured over, record both somewhere executable (coverage config or CI gate) rather than aspirational, treat exclusions as part of the decision and never exclude load-bearing deterministic logic, justify a deliberately low floor, and pair the whole-project floor with a floor on changed lines.
+  class: static
+  severity: important
+  checks:
+    - skill: test-audit
+      dimension: "Coverage reach"
+
 - id: implementation-disciplines/prompt-and-sop-engineering-a
   section: "Prompt and SOP engineering"
   claim: Give an agent's SOP a fixed shape in a .sop.md file (Overview, Parameters, ordered Steps carrying Constraints), write constraints with RFC 2119 keywords and give every negative one its reason inline, name the completion criterion and the early exits, and run a periodic cognitive-load analysis of constraint density and redundancy.
