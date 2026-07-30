@@ -73,6 +73,8 @@ Note that a coupled test is not a false-passing test: a test that transitively d
 
 **Gates and sole detectors.** A gate clause is `critical` only when the harm it is the sole detector for is *itself* Critical — external, irreversible. When a gate is the sole detector for an Important-grade harm, the gate is `important`, and "other barriers still stand between the change and users" is not available as a reason, because by definition none do. Rate on the harm's own band instead. (Settled in the Task 2 review; Part 7 is full of this shape.)
 
+**Documentation-currency clauses.** A currency clause is `important` when the stale claim is the reader's only access to the truth, and `minor` when the truth sits beside the claim. The prose tree, the architecture/research split and the decision trail exist to be read *instead of* the source, so a false claim in them is unfalsifiable in place and installs a belief with the docs' authority behind it. A docstring, a commit-message rationale and a diagram fence are read *beside* the artifact they describe, so the corrective is in the reader's hand and the failure announces itself at the call site. This is the discriminator the three pinned `minor` docstring and prompt-rationale anchors already encode; it is not something the `important` rows are rated around. (Settled in the Task 4 review; it decides four rows across batches.)
+
 **The knowability test, before writing `important`.** Name the specific thing you can no longer tell after the violation. If the only honest answer is "it costs more, takes longer, or reads worse", it is `minor`. `important` is the largest band and the easiest default; this is the check that keeps it from becoming one.
 
 **Two calibration traps.**
@@ -639,6 +641,10 @@ Severity is orthogonal to class: class is *can we check it*, severity is *how ba
 **Baseline, not verdict.** A row records the severity a violation *inherently* carries, independent of any repo's current state. An auditor may raise or lower it for a specific instance with a stated reason - a load-bearing production prompt and a throwaway eval prompt violate the same clause at different cost.
 
 **`process` rows carry a severity too.** "Spec before code" cannot be checked from a snapshot but is not thereby harmless, and an adoption roadmap needs to know what to sequence first. Only `informative` rows have none.
+
+**Band counts per part do not rank the parts.** A part's distribution reflects how its clauses are cut into rows as much as what it is about: where a section bundles a consequential clause with hygiene, the row takes the higher band and the hygiene becomes invisible, so a part whose sections cut single-clause rows shows Minors that an otherwise similar part does not. Read the severity column per row, not per part.
+
+**Two documentation-currency rows sit in different bands on purpose.** A currency clause is `important` when the stale claim is the reader's only access to the truth, and `minor` when the truth sits beside the claim: the prose tree exists to be read *instead of* the source, so a false claim in it is unfalsifiable where it is read, while a docstring or a commit-message rationale is read *beside* the artifact it describes and its staleness surfaces at the call site.
 ```
 
 - [ ] **Step 12: Update the four existing render tests the new output breaks**
