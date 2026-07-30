@@ -7,6 +7,15 @@ truth mapping every `##` section of the engineering handbook
 handbook headings and skill dimensions, and renders the committed Markdown
 view `docs/audit/handbook-traceability.md`.
 
+Each row carries two orthogonal axes. `class` (`static` | `artifact` |
+`process` | `informative`) says whether the clause can be checked at all;
+`severity` (`critical` | `important` | `minor`) says what violating it
+costs, reusing audit-core's scale. Validation requires `severity` on
+`static`/`artifact`/`process` rows and forbids it on `informative` ones,
+which also may not carry a `gap` - together that is what keeps the three
+severity groups of the rendered gap list exhaustive, so no gap row can
+drop off the page unnoticed.
+
 Handbook links are rendered as absolute GitHub URLs: `docs/engineering/` is
 excluded from the built docs site (the handbook ships as a standalone HTML
 artifact), so a relative link into it resolves on GitHub but 404s on the
@@ -21,6 +30,7 @@ failure or staleness. The pytest gate in `tests/scripts/` runs `--check`
 so CI guards staleness with no workflow change.
 
 Design: docs/superpowers/specs/2026-07-29-handbook-traceability-matrix-design.md
+        docs/superpowers/plans/2026-07-30-matrix-severity-axis.md (severity axis)
 """
 
 from __future__ import annotations
@@ -426,11 +436,11 @@ Severity is orthogonal to class: class is *can we check it*, severity is *how ba
 
 **Band counts per part do not rank the parts.** A part's distribution reflects how its clauses are cut into rows as much as what it is about: where a section bundles a consequential clause with hygiene, the row takes the higher band and the hygiene becomes invisible, so a part whose sections cut single-clause rows shows Minors that an otherwise similar part does not. Read the severity column per row, not per part.
 
-**Two documentation-currency rows sit in different bands on purpose.** A currency clause is `important` when the stale claim is the reader's only access to the truth, and `minor` when the truth sits beside the claim: the prose tree exists to be read *instead of* the source, so a false claim in it is unfalsifiable where it is read, while a docstring or a commit-message rationale is read *beside* the artifact it describes and its staleness surfaces at the call site.
+**Documentation-currency clauses sit in different bands on purpose.** A currency clause is `important` when the stale claim is the reader's only access to the truth, and `minor` when the truth sits beside the claim: the prose tree exists to be read *instead of* the source, so a false claim in it is unfalsifiable where it is read, while a docstring or a commit-message rationale is read *beside* the artifact it describes and its staleness surfaces at the call site.
 
 **Gate-shaped clauses land in more than one band.** A gate is rated on the harm it is the sole detector for, not on the subject it guards: encoding a class of security fix as a CI gate is `important` because the fixes themselves are the Critical part and the gate is one step removed, while a link-and-index checker guards a `minor` property and stays there.
 
-**Three of the twelve `critical` rows are checklist recaps.** A recap row takes the maximum severity of everything it recaps, so it inherits its band rather than adding risk surface of its own. Anyone triaging the Critical band should expect roughly a quarter of it to be recaps pointing at rows already in the list.
+**A checklist recap inherits its band.** A recap row takes the maximum severity of everything it recaps, so it adds no risk surface of its own. Where one lands in the Critical band, it points at rows already in the list rather than widening it, so a triager should read past it to the rows it recaps.
 
 Each row's first cell links to the handbook section and restates the claim the row covers; where one section's claims fall into different classes or map to different skills, the row is split and the split is marked `(a)`, `(b)`, ... The **Notes** column carries the row's rationale - why a class was chosen, what a mapping reaches, what it deliberately leaves to the gap.
 
@@ -514,7 +524,12 @@ def _critical_purity_note(rows: list[dict[str, Any]]) -> str:
 
 
 def _severity_cell(row: dict[str, Any]) -> str:
-    """Title-cased severity, or `-` for the informative rows that carry none."""
+    """Title-cased severity, or `-` for a row carrying none of the three.
+
+    On validated rows that fallback means `informative`. An out-of-enum
+    value renders the same way, so the cell is only truthful for rows that
+    have been through `validate`.
+    """
     return SEVERITY_LABELS.get(row.get("severity", ""), "-")
 
 

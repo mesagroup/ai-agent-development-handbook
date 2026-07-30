@@ -2,7 +2,7 @@
 
 Practices that were true enough to write down and not universal enough to keep in the engineering handbook (browse its source under `engineering/`; it ships as a standalone HTML artifact rather than as part of this site).
 
-The handbook's value is that everything in it is normative and auditable, which is what justifies the [traceability matrix](audit/handbook-traceability.md) demanding a row for every section. A practice that is Minor *and* contingent on one execution environment fails that bar: a different but legitimate setup makes it meaningless rather than merely differently-implemented. It is still often true, so it lands here rather than in the bin.
+The handbook's value is that its directives are normative and universal, which is what justifies the [traceability matrix](audit/handbook-traceability.md) demanding a row for every section. A practice that is Minor *and* contingent on one execution environment fails that bar: a different but legitimate setup makes it meaningless rather than merely differently-implemented. It is still often true, so it lands here rather than in the bin.
 
 Each entry names the practice, the environment it applies to, and why it is not normative. That last part is the point: this is the cutting-room floor with reasons, so a deleted clause is not re-proposed into the handbook a year later.
 
