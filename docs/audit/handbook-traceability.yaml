@@ -185,7 +185,7 @@
   section: "Pre-merge checklist"
   claim: Fourteen-item recap gating the merge - issue trace, approved spec, fresh branch, placeholder-free plan, per-task review verdicts, tests and coverage, green required gates, review dispositions, the agent quality gate, docs, prompt-change rationale, explicit approval, involvement depth matched to criticality with the bookend gates on regardless, and the post-merge trail.
   class: process
-  severity: important
+  severity: critical
   note: A recap, so what it adds is the act of working the list before merging. Every one of the fourteen items is owned by another Part 1 or Part 2 row - involvement depth by scale-involvement-to-criticality, the bookend gates by decide-the-human-in-the-loop-gates-up-front - which is why the row itself maps to nothing.
 
 - id: lifecycle/see-also
