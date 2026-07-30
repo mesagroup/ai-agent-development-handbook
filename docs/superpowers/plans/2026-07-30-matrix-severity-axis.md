@@ -811,7 +811,7 @@ grep -rn "caffeinate\|keep-awake\|keep the host awake" docs/engineering/ docs/au
 
 Expected: renderer green (the section still exists, so no coverage hole), tests green, docs gates green, and the grep finding nothing under either `docs/engineering/` or `docs/audit/`. The `docs/audit/` half is what catches a matrix row left citing the deleted prose — a `docs/engineering/`-only grep passes while the matrix still asserts coverage of a clause that is gone.
 
-Also confirm `docs/engineering-notes.md` is reachable: `mkdocs build --strict` fails on an orphaned page, and `check_site_links.py` catches a directory-style link that `--strict` misses.
+Also confirm `docs/engineering-notes.md` is reachable. Note that neither gate proves this on its own: `mkdocs build --strict` does **not** fail on a page missing from the nav (verified during the Task 7 review — removing the nav entry exits 0 with an INFO), and `check_site_links.py` catches broken links rather than absent ones. The site uses an explicit `awesome-nav` list, so the page must be added to `docs/.nav.yml` or it builds successfully and is simply invisible in the sidebar. Check the rendered nav by eye.
 
 - [ ] **Step 7: Report the deletion-candidate batch**
 
