@@ -223,6 +223,7 @@ def test_the_real_checks_tree_loads_clean():
     assert errors == []
     assert sorted(checks) == [
         "arch/complexity",
+        "arch/complexity-gate",
         "arch/coupling",
         "arch/cycles",
         "arch/dead-code",
