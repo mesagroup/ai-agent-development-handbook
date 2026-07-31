@@ -924,10 +924,8 @@
   class: static
   severity: important
   checks:
-    - skill: docs-audit
-      dimension: "Coverage"
-    - skill: docs-audit
-      dimension: "Cross-referencing"
+    - docs/coverage
+    - docs/cross-referencing
   gap:
     recommendation: extend-skill
     note: docs-audit is the owner - its Coverage dimension reaches the stand-alone standard as a per-component documented/partial/gap status and Cross-referencing reaches the dead cross-link, but drift itself has no column - a doc that confidently describes a flag the code renamed is neither a missing doc nor a broken link, so the doc-versus-source comparison the skill's evidence pass builds has nowhere to land.
@@ -948,10 +946,8 @@
   class: static
   severity: important
   checks:
-    - skill: docs-audit
-      dimension: "Organization"
-    - skill: docs-audit
-      dimension: "Cross-referencing"
+    - docs/organization
+    - docs/cross-referencing
   gap:
     recommendation: extend-skill
     note: partial - docs-audit is the owner, the placement and cross-linking halves are covered exactly, but the section also requires a research doc to be marked explicitly not authoritative for current behaviour, and no dimension reads a doc's labelling; Organization sees only where a doc sits, so a correctly filed but unmarked research doc passes both cited dimensions.
@@ -975,8 +971,7 @@
   class: static
   severity: important
   checks:
-    - skill: docs-audit
-      dimension: "Coverage"
+    - docs/coverage
   gap:
     recommendation: extend-skill
     note: partial - docs-audit is the owner, and its Coverage dimension reaches presence and depth (a schema surface with no dedicated doc is a gap row, one documented without its quirks and invariants lands as partial), but the section also requires the description to be versioned, and no dimension asks whether a doc carries a version that tracks the schema it describes.
@@ -987,12 +982,9 @@
   class: static
   severity: important
   checks:
-    - skill: docs-audit
-      dimension: "Organization"
-    - skill: docs-audit
-      dimension: "Cross-referencing"
-    - skill: docs-audit
-      dimension: "Coverage"
+    - docs/organization
+    - docs/cross-referencing
+    - docs/coverage
   note: The three axes named here are docs-audit's three dimensions, which makes this the closest section-to-skill fit in Part 8. The cadence ("periodic") is the same audit-cadence question Part 1's make-the-standard-executable row records as sitting outside every skill's evidence base.
 
 - id: documentation/audit-docs-like-a-test-suite-b

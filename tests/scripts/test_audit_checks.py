@@ -239,10 +239,19 @@ def test_the_real_checks_tree_loads_clean():
         "deps/licenses",
         "deps/transitive-licenses",
         "deps/vulnerabilities",
+        "docs/coverage",
+        "docs/cross-referencing",
+        "docs/docstring-coverage",
+        "docs/docstring-staleness",
+        "docs/docstring-standard",
+        "docs/organization",
     ]
     assert {c.locality for c in checks.values()} == {"local", "global"}
     assert [c.id for c in checks.values() if c.optin] == [
         "arch/martin-metrics",
         "deps/inventory",
         "deps/transitive-licenses",
+        "docs/docstring-coverage",
+        "docs/docstring-staleness",
+        "docs/docstring-standard",
     ]
