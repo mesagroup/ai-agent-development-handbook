@@ -4,15 +4,16 @@ domain: ci
 locality: global
 handbook: []
 handbook_note: >-
-  The handbook's one mention of "deploy" (lifecycle.md, the DORA-measures
-  sentence) is about measuring deployment frequency as a throughput metric,
-  not about the safety controls around a deploy - a different question
-  about the same word, not a near miss. Nothing in Part 9's pipeline
-  checklist or elsewhere asks for an environment-approval gate, a rollback
-  path, or required-status enforcement specifically on the release
-  workflow; that section stops at pinning, permissions and trigger safety
-  for the pipeline in general and never singles out the deploy/release
-  step.
+  The handbook names deploy/deployment in exactly one sentence
+  (lifecycle.md's DORA-measures sentence, "commit-to-deploy" and
+  "deployment frequency"), and that sentence is about measuring
+  deployment frequency as a throughput metric, not about the safety
+  controls around a deploy - a different question about the same word,
+  not a near miss. Nothing in Part 9's pipeline checklist or elsewhere
+  asks for an environment-approval gate, a rollback path, or
+  required-status enforcement specifically on the release workflow; that
+  section stops at pinning, permissions and trigger safety for the
+  pipeline in general and never singles out the deploy/release step.
 ---
 
 # Deploy safety

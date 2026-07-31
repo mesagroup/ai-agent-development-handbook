@@ -6,12 +6,12 @@ handbook: []
 handbook_note: >-
   No clause anywhere in the handbook addresses pipeline performance. The
   only "cache" and "caching" hits in docs/engineering/ are in
-  observability.md and troubleshooting.md, and both mean the LLM
-  prompt-cache read/write tokens on a model call - a full-cost-accounting
-  concern, not the CI dependency-cache this check looks for. Same word,
-  unrelated subject, so it is not a near miss of an existing clause; the
-  handbook simply never discusses workflow runtime, matrix sizing, or
-  run-cancellation.
+  evaluation.md, observability.md, and troubleshooting.md, and all three
+  mean the LLM prompt-cache read/write tokens on a model call - a
+  full-cost-accounting concern, not the CI dependency-cache this check
+  looks for. Same word, unrelated subject, so it is not a near miss of an
+  existing clause; the handbook simply never discusses workflow runtime,
+  matrix sizing, or run-cancellation.
 ---
 
 # Efficiency

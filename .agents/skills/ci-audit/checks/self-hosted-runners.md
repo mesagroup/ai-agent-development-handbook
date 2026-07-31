@@ -5,12 +5,14 @@ locality: global
 optin: true
 handbook: []
 handbook_note: >-
-  The word "runner" appears in the handbook exactly twice, both in
-  codebase-structure.md and agent-harness.md, and both name the shared
-  agent-runner class the core tier exposes - a homonym, not a near miss of
-  a CI concept. Nothing anywhere distinguishes hosted from self-hosted
-  execution, and Part 9's pipeline checklist covers the token, the action
-  pins and the trigger, never the machine the job actually runs on.
+  The word "runner" appears in the handbook five times, in exactly two
+  files: four in codebase-structure.md (its heading and body, naming the
+  core tier's generic agent-Runner abstraction) and one in
+  agent-harness.md ("an A/B runner", an eval-harness script). Neither
+  file names a CI execution environment - a homonym, not a near miss.
+  Nothing anywhere distinguishes hosted from self-hosted execution, and
+  Part 9's pipeline checklist covers the token, the action pins and the
+  trigger, never the machine the job actually runs on.
 ---
 
 # Self-hosted-runner hardening
