@@ -45,15 +45,13 @@ Runs in order; each step feeds the next.
 
 ## Authoring a new auditing skill
 
-A `<domain>-audit` skill is thin: it states the lens and defers the loop above to this engine. It must define these seven slots:
+A `<domain>-audit` skill is thin: it states the lens and defers the loop above to this engine.
 
-1. **Subject & scope** — what is audited, and how to slice it for the parallel evidence pass: by partition for local dimensions, one-agent-over-the-whole for global ones, and name any shared artifact to build once.
-2. **Dimensions** — the axes/checks (the columns of the findings matrix).
-3. **Evidence sources & tooling** — which files to read and which tools to run to get ground truth; **detect** the project's tools, with sensible fallbacks if absent.
-4. **Status scale + severity rubric** — the fixed status values and what makes a finding Critical / Important / Minor in this domain.
-5. **Fix patterns** — how remediation is done, and whether fixes touch **code** (needs the normal code CI + maybe code-review) or only **docs/config** (lighter gate).
-6. **Review dimensions** — the specialized reviewer lenses for step 5.
-7. **Opt-in sub-audits** (if any) — extra phases controlled by an argument or an ask-the-user fallback.
+**Checks are records, not prose.** Each check the domain runs is one file under `checks/<domain>/`, with its machine-checkable attributes in YAML frontmatter (`id`, `domain`, `locality`, `handbook`, `tooling`, `optin`) and its judgment prose in the body: the claim as lead prose, then `## Severity`, `## Tooling fallback`, `## Fix`, `## Review lens`, omitting any section the check has nothing to say in. An executing agent loads the subset its slice needs - `locality: local` checks per partition, one `global` check per agent - so no agent pays for the rest of the domain. `handbook` lists the handbook clauses grounding the check and is validated against the traceability matrix in both directions; a check that deliberately exceeds the handbook carries an empty list and a `handbook_note` saying why. See `checks/arch/` for the reference set.
+
+**The skill file holds only what does not vary by check:** the subject and how to slice it, the ground-truth artifact to build once, the status scale, whether fixes touch code, and any opt-in *deliverables* (a generated config, a rendered report - things that produce an artifact rather than findings-matrix rows). Target a few hundred words plus the `description`. The reference header, `arch-audit`, runs to about 480 words of body, and `arch` is the densest domain in the family - treat that as a ceiling rather than a target.
+
+**Domains not yet migrated** (everything but `arch`, until #559 PR 2) still carry their checks inline as seven numbered slots: 1. Subject & scope, 2. Dimensions, 3. Evidence sources & tooling, 4. Status scale + severity rubric, 5. Fix patterns, 6. Review dimensions, 7. Opt-in sub-audits. Read them as written; do not convert one on the side.
 
 ## Cross-cutting rules (all domains)
 
