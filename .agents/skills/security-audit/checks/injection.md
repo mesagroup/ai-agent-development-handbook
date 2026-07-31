@@ -34,4 +34,6 @@ Command, SQL (string-built queries), path traversal (`../` into file ops), templ
 
 ## Review lens
 
-Is each Critical/Important finding a genuinely reachable source→sink path, or a scanner artifact? Does each fix actually cut the path (not just silence the linter)?
+**Exploitability** - is each Critical/Important finding a genuinely reachable source→sink path, or a scanner artifact? Does each fix actually cut the path (not just silence the linter)?
+
+**No security regression** - the fix does not open a new hole (e.g. an allowlist that is trivially bypassable).

@@ -16,6 +16,7 @@ A domain specialization of **[audit-core](../audit-core/SKILL.md)** - read that 
 **Subject:** the project's own source tree (the importable package plus scripts and entry points), and the trust boundaries in it. Establish first, because they set what "untrusted" means:
 
 - **Trust boundaries / input surfaces** - where external data enters (HTTP handlers, CLI args, file/S3 reads, message queues, LLM/tool outputs, env vars). These are the sources.
+- **Threat context** - is this an internet-facing service, an internal tool, or a library others import? It changes severity (an injection in a public endpoint outranks the same pattern in a local dev script).
 
 Slice the parallel evidence pass by top-level package/entry point, or by dimension (one agent per weakness class), whichever partitions the tree cleanly.
 

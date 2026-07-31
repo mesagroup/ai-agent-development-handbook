@@ -30,4 +30,6 @@ XML from untrusted source (XXE via `xml.etree`/`lxml`), tarfile/zip extraction w
 
 ## Review lens
 
-Is each Critical/Important finding a genuinely reachable source→sink path, or a scanner artifact? Does each fix actually cut the path (not just silence the linter)?
+**Exploitability** - is each Critical/Important finding a genuinely reachable source→sink path, or a scanner artifact? Does each fix actually cut the path (not just silence the linter)?
+
+**No security regression** - the fix does not open a new hole (e.g. an allowlist that is trivially bypassable).
