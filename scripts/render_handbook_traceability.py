@@ -7,6 +7,14 @@ truth mapping every `##` section of the engineering handbook
 handbook headings and skill dimensions, and renders the committed Markdown
 view `docs/audit/handbook-traceability.md`.
 
+A row's `checks` list carries one entry per check that reaches the clause.
+An entry is a check id (`arch/layering`) resolved against the check records
+under `.agents/skills/audit-core/checks/` (#559), or - until the remaining
+domains migrate - the legacy `{skill, dimension}` pair parsed out of a
+skill's `## N. Dimensions` bullets. The two views of an edge are checked
+against each other: a record may not cite a clause no row connects it to,
+and a cited record may not declare itself ungrounded.
+
 Each row carries two orthogonal axes. `class` (`static` | `artifact` |
 `process` | `informative`) says whether the clause can be checked at all;
 `severity` (`critical` | `important` | `minor`) says what violating it
@@ -40,6 +48,7 @@ so CI guards staleness with no workflow change.
 Design: docs/superpowers/specs/2026-07-29-handbook-traceability-matrix-design.md
         docs/superpowers/plans/2026-07-30-matrix-severity-axis.md (severity axis)
         docs/superpowers/specs/2026-07-30-gap-entry-kinds-design.md (gap-entry kinds)
+        docs/superpowers/specs/2026-07-31-audit-checks-db-design.md (checks database)
 """
 
 from __future__ import annotations
@@ -51,6 +60,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from audit_checks import CHECKS_DIR, Check, load_checks
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 HANDBOOK_DIR = REPO_ROOT / "docs" / "engineering"
@@ -303,6 +313,7 @@ def validate(
     rows: list[dict[str, Any]],
     headings: dict[str, list[str]],
     dims: dict[str, list[str]],
+    checks: dict[str, Check],
 ) -> list[str]:
     """Check every schema rule from the design spec.
 
@@ -312,6 +323,10 @@ def validate(
             `handbook_headings`.
         dims: Skill name mapped to its dimension names, from
             `skill_dimensions`.
+        checks: Check records keyed by id, from `load_checks`. A `checks[]`
+            entry that is a string names one of these; a mapping is the
+            legacy `{skill, dimension}` pair, still used by the domains
+            that have not migrated.
 
     Returns:
         One message per violation, so a single run reports every problem;
@@ -321,6 +336,7 @@ def validate(
     seen_ids: set[str] = set()
     covered: set[tuple[str, str]] = set()
     covered_parts: set[str] = set()
+    cited: dict[str, set[str]] = {}
     norm_dims = {
         skill: {" ".join(d.split()).lower() for d in names}
         for skill, names in dims.items()
@@ -377,9 +393,9 @@ def validate(
         checks_raw = row.get("checks")
         if checks_raw and not isinstance(checks_raw, list):
             errors.append(f"{rid}: checks must be a list")
-            checks = []
+            entries = []
         else:
-            checks = checks_raw or []
+            entries = checks_raw or []
         gap = row.get("gap")
         if gap is not None and not isinstance(gap, dict):
             errors.append(f"{rid}: gap must be a mapping")
@@ -390,16 +406,22 @@ def validate(
                 "list groups by severity, which an informative row has none of"
             )
 
-        if cls in ("static", "artifact") and not checks and not gap:
+        if cls in ("static", "artifact") and not entries and not gap:
             errors.append(f"{rid}: auditable row needs checks or a gap entry")
-        if cls in ("process", "informative") and checks:
+        if cls in ("process", "informative") and entries:
             errors.append(f"{rid}: {cls} row must not carry checks")
-        for check in checks:
-            if not isinstance(check, dict):
-                errors.append(f"{rid}: check entries must be mappings")
+        for entry in entries:
+            if isinstance(entry, str):
+                if entry not in checks:
+                    errors.append(f"{rid}: unknown check id {entry!r}")
+                    continue
+                cited.setdefault(entry, set()).add(rid)
                 continue
-            skill = check.get("skill")
-            dim = check.get("dimension")
+            if not isinstance(entry, dict):
+                errors.append(f"{rid}: check entries must be a check id or a mapping")
+                continue
+            skill = entry.get("skill")
+            dim = entry.get("dimension")
             if skill not in norm_dims:
                 errors.append(f"{rid}: unknown skill {skill!r}")
                 continue
@@ -412,6 +434,42 @@ def validate(
             errors.append(
                 f"{rid}: gap.recommendation must be one of {RECOMMENDATIONS}, got {gap.get('recommendation')!r}"
             )
+
+    # The check records and the matrix are two views of one edge set, so a
+    # record may not name a clause the matrix does not connect, nor deny a
+    # grounding the matrix gives it. Without this the frontmatter would be
+    # unchecked prose again, one field further in.
+    for cid, check in sorted(checks.items()):
+        rows_citing = cited.get(cid, set())
+        if check.handbook and not rows_citing:
+            errors.append(
+                f"{cid}: cites {len(check.handbook)} handbook anchor(s) but no matrix "
+                "row cites this check; add the citation to the matrix or empty the "
+                "handbook list and explain why in handbook_note"
+            )
+        if not check.handbook and rows_citing:
+            errors.append(
+                f"{cid}: declares an empty handbook, but "
+                f"{', '.join(sorted(rows_citing))} cite(s) it; list the grounding "
+                "clause and drop handbook_note"
+            )
+        for anchor in check.handbook:
+            part, _, sub = anchor.partition("/")
+            part_headings = headings.get(part)
+            if part_headings is None:
+                errors.append(f"{cid}: handbook anchor names unknown part {part!r}")
+                continue
+            if _resolve(sub, {slugify(h): h for h in part_headings}) is None:
+                errors.append(
+                    f"{cid}: handbook anchor {anchor!r} does not resolve to a ## "
+                    f"heading in {part}.md"
+                )
+                continue
+            if anchor not in rows_citing:
+                errors.append(
+                    f"{cid}: handbook anchor {anchor!r} has no matrix row citing this "
+                    "check; the record and the matrix disagree"
+                )
 
     for part, part_headings in headings.items():
         for h in part_headings:
@@ -491,11 +549,24 @@ def _flat(value: Any) -> str:
     return _md_escape(_oneline(value))
 
 
-def _checks_cell(row: dict[str, Any]) -> str:
-    checks = row.get("checks") or []
-    if not checks:
+def _checks_cell(row: dict[str, Any], checks: dict[str, Check]) -> str:
+    """Render the Mapped-checks cell for one row.
+
+    Handles both entry forms during the migration: a string is a check id,
+    resolved to its record's title; a mapping is the legacy
+    `{skill, dimension}` pair the not-yet-migrated domains still use.
+    """
+    entries = row.get("checks") or []
+    if not entries:
         return "-"
-    return "<br>".join(f"`{c['skill']}` / {_md_escape(c['dimension'])}" for c in checks)
+    cells = []
+    for entry in entries:
+        if isinstance(entry, str):
+            title = checks[entry].title if entry in checks else entry
+            cells.append(f"`{entry}` / {_md_escape(title)}")
+        else:
+            cells.append(f"`{entry['skill']}` / {_md_escape(entry['dimension'])}")
+    return "<br>".join(cells)
 
 
 def _gap_cell(row: dict[str, Any]) -> str:
@@ -601,7 +672,7 @@ def _section_cell(row: dict[str, Any]) -> str:
     return f"[{label}]({url}){marker}" + (f"<br>{claim}" if claim else "")
 
 
-def render(rows: list[dict[str, Any]]) -> str:
+def render(rows: list[dict[str, Any]], checks: dict[str, Check]) -> str:
     """Render the whole matrix document from the validated rows.
 
     Emits the generated-file header and legend, one table per handbook part
@@ -616,6 +687,8 @@ def render(rows: list[dict[str, Any]]) -> str:
 
     Args:
         rows: Matrix rows, already through `validate`.
+        checks: Check records keyed by id, from `load_checks`; used to
+            resolve an id reference to its display name.
 
     Returns:
         The complete Markdown document, newline-terminated.
@@ -637,7 +710,7 @@ def render(rows: list[dict[str, Any]]) -> str:
         for row in by_part[part]:
             out.append(
                 f"| {_section_cell(row)} | {row['class']} | {_severity_cell(row)} "
-                f"| {_checks_cell(row)} | {_gap_cell(row)} | {_note_cell(row)} |"
+                f"| {_checks_cell(row, checks)} | {_gap_cell(row)} | {_note_cell(row)} |"
             )
 
     gaps = [r for r in rows if r.get("gap")]
@@ -782,15 +855,16 @@ def main(argv: list[str] | None = None) -> int:
     if not isinstance(rows, list):
         print(f"{YAML_PATH.name}: top level must be a list of rows", file=sys.stderr)
         return 1
-    errors = validate_parts(handbook_part_numbers(HANDBOOK_DIR))
+    checks, errors = load_checks(CHECKS_DIR)
+    errors += validate_parts(handbook_part_numbers(HANDBOOK_DIR))
     errors += validate(
-        rows, handbook_headings(HANDBOOK_DIR), skill_dimensions(SKILLS_DIR)
+        rows, handbook_headings(HANDBOOK_DIR), skill_dimensions(SKILLS_DIR), checks
     )
     if errors:
         for e in errors:
             print(e, file=sys.stderr)
         return 1
-    rendered = render(rows)
+    rendered = render(rows, checks)
     if args.check:
         if not MD_PATH.exists() or MD_PATH.read_text() != rendered:
             print(
