@@ -233,16 +233,11 @@
   class: static
   severity: important
   checks:
-    - skill: prompt-audit
-      dimension: "Instruction precision"
-    - skill: prompt-audit
-      dimension: "Positive framing, prohibitions with reasons"
-    - skill: prompt-audit
-      dimension: "Role, objective & task framing"
-    - skill: prompt-audit
-      dimension: "Grounding & handling the unknown"
-    - skill: prompt-audit
-      dimension: "Cognitive load & focus"
+    - prompt/instruction-precision
+    - prompt/positive-framing
+    - prompt/role-objective
+    - prompt/grounding
+    - prompt/cognitive-load
   gap:
     recommendation: extend-skill
     note: prompt-audit's Tier B does audit the SOP structural spec in full, but Tier B declares no bolded dimension bullets so no matrix row can cite it - the fix is to the skill's Dimensions section, not to its coverage.
@@ -663,8 +658,7 @@
   class: static
   severity: important
   checks:
-    - skill: prompt-audit
-      dimension: "Grounding & handling the unknown"
+    - prompt/grounding
   gap:
     recommendation: new-domain
     target: "#516"
