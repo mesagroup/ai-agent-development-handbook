@@ -15,8 +15,8 @@ handbook_note: >-
 
 # Docstring standard
 
-Each module/`__init__` and public symbol has a docstring describing what it does and how to use it, per the project's convention.
+Each module/`__init__` and public symbol has a docstring describing what it does and how to use it, per the project's convention. Needs reading - use source-mapping subagents as in the prose audit.
 
 ## Fix
 
-Docstring fixes touch code, so they are **not** docs-only - they need the normal lint/typecheck/test gate and may need the code-review gate.
+**CI note:** docstring fixes **touch code**, so they are **not** docs-only - they need the normal lint/typecheck/test gate and may need the code-review gate.

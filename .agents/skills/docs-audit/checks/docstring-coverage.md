@@ -27,4 +27,4 @@ Which public modules/classes/functions lack docstrings. Report per package.
 
 ## Fix
 
-Docstring fixes touch code, so they are **not** docs-only - they need the normal lint/typecheck/test gate and may need the code-review gate.
+**CI note:** docstring fixes **touch code**, so they are **not** docs-only - they need the normal lint/typecheck/test gate and may need the code-review gate.

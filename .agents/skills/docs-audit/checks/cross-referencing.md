@@ -30,4 +30,4 @@ Ground each writing task in the Phase-1 source maps: the exact cross-links, so t
 
 ## Review lens
 
-Every internal link resolves, no forward links, checker green, cross-link-don't-duplicate holds.
+**Cross-link integrity** - every internal link resolves, no forward links, checker green, cross-link-don't-duplicate holds.

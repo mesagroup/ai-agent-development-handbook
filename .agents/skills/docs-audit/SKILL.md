@@ -17,10 +17,10 @@ A domain specialization of **[audit-core](../audit-core/SKILL.md)** - read that 
 
 **Opt-in - docstring auditing:** if the invocation passed an enabling argument (e.g. `--docstrings`), include the docstring phase. If not, **ask the user once**: "Also audit docstrings (module/class/function coverage + staleness), or just the prose docs?" It materially changes the work - don't assume. Distinct phase, sequenced after or alongside the prose audit. The opt-in checks are `docs/docstring-coverage`, `docs/docstring-staleness` and `docs/docstring-standard`, loaded like any other.
 
-**Build the source maps once, first.** Enumerate code components (packages/modules/tiers) and the docs tree; note the project's architecture/dependency rules if a contributor guide states them (CLAUDE.md / AGENTS.md / CONTRIBUTING). One read-only agent per tier maps each component's *real* interfaces from source (public classes/functions + signatures, entry points, config/env vars, key mechanisms), even when a doc already exists, so downstream agents compare doc-vs-reality rather than re-deriving it. Also dispatch one agent to extract the **doc standard** (the section skeleton the best existing docs use) and the **overlap map** (what each existing doc already owns, so writing cross-links instead of duplicating).
+**Build the source maps once, first.** Enumerate code components (packages/modules/tiers) and the docs tree; note the project's architecture/dependency rules if a contributor guide states them (CLAUDE.md / AGENTS.md / CONTRIBUTING). One read-only agent per tier maps each component's *real* interfaces from source (public classes/functions + signatures, entry points, config/env vars, key mechanisms), even when a doc already exists, so you can compare doc-vs-reality. Also dispatch one agent to extract the **doc standard** (the section skeleton the best existing docs use) and the **overlap map** (what each existing doc already owns, so writing cross-links instead of duplicating).
 
 Prose-doc fixes are **docs-only**, which usually keeps the PR off the heavy code gates - call that out. The domain gate is **the link/index checker green**.
 
-**Opt-in deliverable:** propose a small link/index checker script when the project has none.
+**Opt-in deliverable:** consider proposing a small checker as a deliverable.
 
 Save the findings report under the docs tree (e.g. `docs/audit/<date>-docs-audit.md`) and record policy decisions (retention/archival, what stays un-indexed) so they aren't re-litigated.
