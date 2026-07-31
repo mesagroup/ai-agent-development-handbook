@@ -457,6 +457,10 @@ Delete the "**Domains not yet migrated** (everything but `arch`, until #559 PR 2
 
 Then correct the ceiling. `audit-core` currently says the reference header "runs to about 520 words of body, and `arch` is the densest domain in the family - treat that as a ceiling rather than a target." That was measured when `arch` was the only migrated domain, and Task 5 falsified it: `test-audit` needs 587 body words, and a reviewer walking its header sentence by sentence found nothing further to cut that a record does not already say. Replace the claim with the measured range across all eight domains, and replace "`arch` is the densest" with what actually drives the number - a domain needs more header when it carries a `global`-locality check whose rationale must be stated, or a cross-cutting fix pattern with no single-check home. Measure all eight yourself; do not copy the numbers from this plan.
 
+- [ ] **Step 5b: Record the evidence-citation rule in `audit-core`**
+
+Add one sentence to the "Checks are records, not prose" section: a `handbook_note` cites stable identifiers - the matrix row `id`, a check id, a heading - and never a line number. Task 7 shipped two notes whose line numbers were invalidated by the same edit that wrote them, because collapsing each two-line legacy stanza into a one-line id shifted every later line. A `grep` command may stay in a note as the reproduction step; the reference itself must survive an edit to the file it points at.
+
 - [ ] **Step 6: Verify the whole PR's completion claim**
 
 ```bash
