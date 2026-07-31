@@ -170,8 +170,7 @@
   severity: important
   checks:
     - ci/gate-enforcement
-    - skill: eval-audit
-      dimension: "Smoke-test gate"
+    - eval/smoke-test-gate
   gap:
     recommendation: extend-skill
     note: ci-audit is the owner, and its Gate enforcement dimension audits the gates that already exist; no dimension walks the project's binding rules to find the ones with no mechanical enforcer, and the local pre-commit half of the claim is unrepresented anywhere.
@@ -366,12 +365,9 @@
   class: static
   severity: important
   checks:
-    - skill: eval-audit
-      dimension: "Smoke-test gate"
-    - skill: eval-audit
-      dimension: "Reproducibility"
-    - skill: eval-audit
-      dimension: "Regression tracking & cost"
+    - eval/smoke-test-gate
+    - eval/reproducibility
+    - eval/regression-tracking
     - ci/gate-enforcement
 
 - id: implementation-disciplines/see-also
@@ -558,8 +554,7 @@
   class: static
   severity: important
   checks:
-    - skill: eval-audit
-      dimension: "Eval coverage"
+    - eval/coverage
   note: Mapped on the per-layer dataset claim, the document-side twin of Part 7's unit-by-unit rule - a layer visible only inside an end-to-end score is an uncovered capability. The code-shape half is Part 3's rows.
 
 - id: three-layer-model/checklist-reviewing-a-document-capability
@@ -628,8 +623,7 @@
   class: static
   severity: important
   checks:
-    - skill: eval-audit
-      dimension: "Regression tracking & cost"
+    - eval/regression-tracking
   note: "Regression tracking & cost names a cheap/mock eval mode outright, so this is the most direct mapping in Part 5. The two clauses it does not reach inherit gaps already recorded in Part 7 - the variance band on evaluation/measure-honestly-a (#517) and full-cost accounting on evaluation/measure-honestly-b (#516)."
 
 - id: agent-harness/make-bounding-the-default
@@ -692,8 +686,7 @@
   class: artifact
   severity: important
   checks:
-    - skill: eval-audit
-      dimension: "Methodology soundness"
+    - eval/methodology
   gap:
     recommendation: extend-skill
     target: "#516"
@@ -755,8 +748,7 @@
   class: artifact
   severity: important
   checks:
-    - skill: eval-audit
-      dimension: "Regression tracking & cost"
+    - eval/regression-tracking
 
 - id: evaluation/measure-the-behaviors-that-matter-a
   section: "Measure the behaviors that matter"
@@ -764,10 +756,8 @@
   class: static
   severity: important
   checks:
-    - skill: eval-audit
-      dimension: "Eval coverage"
-    - skill: eval-audit
-      dimension: "Prompt / SOP quality"
+    - eval/coverage
+    - eval/prompt-quality
 
 - id: evaluation/measure-the-behaviors-that-matter-b
   section: "Measure the behaviors that matter"
@@ -775,8 +765,7 @@
   class: static
   severity: important
   checks:
-    - skill: eval-audit
-      dimension: "Methodology soundness"
+    - eval/methodology
   gap:
     recommendation: extend-skill
     note: eval-audit is the owner, and its Methodology soundness dimension reaches the wrong-grader case as "a metric that is a gameable proxy", but it never asks which grader *type* the behavior needs, and trajectory grading - asserting on the path a run took rather than on its answer - is unrepresented anywhere in the family.
@@ -787,12 +776,9 @@
   class: static
   severity: important
   checks:
-    - skill: eval-audit
-      dimension: "Contamination / leakage"
-    - skill: eval-audit
-      dimension: "Methodology soundness"
-    - skill: eval-audit
-      dimension: "Reproducibility"
+    - eval/contamination
+    - eval/methodology
+    - eval/reproducibility
 
 - id: evaluation/measure-honestly-a
   section: "Measure honestly"
@@ -820,10 +806,8 @@
   class: artifact
   severity: important
   checks:
-    - skill: eval-audit
-      dimension: "Methodology soundness"
-    - skill: eval-audit
-      dimension: "Reproducibility"
+    - eval/methodology
+    - eval/reproducibility
 
 - id: evaluation/pick-the-approach-that-fits-the-decision
   section: "Pick the approach that fits the decision"
@@ -840,8 +824,7 @@
   class: static
   severity: important
   checks:
-    - skill: eval-audit
-      dimension: "Smoke-test gate"
+    - eval/smoke-test-gate
     - ci/gate-enforcement
   gap:
     recommendation: extend-skill
@@ -853,8 +836,7 @@
   class: artifact
   severity: important
   checks:
-    - skill: eval-audit
-      dimension: "Methodology soundness"
+    - eval/methodology
 
 - id: evaluation/evaluate-a-multi-agent-system-unit-by-unit
   section: "Evaluate a multi-agent system unit by unit"
@@ -862,8 +844,7 @@
   class: static
   severity: important
   checks:
-    - skill: eval-audit
-      dimension: "Eval coverage"
+    - eval/coverage
   note: Mapped as coverage - a unit visible only inside an end-to-end score is an uncovered capability. The "units exposed as separately-runnable pieces" half of the claim belongs to the Part 3 and Part 5 rows.
 
 - id: evaluation/build-escalation-ladders-spend-measurement-where-it-pays
@@ -888,14 +869,10 @@
   class: artifact
   severity: important
   checks:
-    - skill: eval-audit
-      dimension: "Contamination / leakage"
-    - skill: eval-audit
-      dimension: "Eval coverage"
-    - skill: eval-audit
-      dimension: "Methodology soundness"
-    - skill: eval-audit
-      dimension: "Reproducibility"
+    - eval/contamination
+    - eval/coverage
+    - eval/methodology
+    - eval/reproducibility
   note: Two of the six - the single run and quality without cost - inherit the gaps recorded on measure-honestly-a and measure-honestly-b.
 
 - id: evaluation/see-also
@@ -946,8 +923,7 @@
   class: artifact
   severity: important
   checks:
-    - skill: eval-audit
-      dimension: "Regression tracking & cost"
+    - eval/regression-tracking
   gap:
     recommendation: extend-skill
     note: mapped only on the results log, which is the leaderboard-or-history record that dimension asks for; docs-audit owns the rest as docs-tree artifacts, yet no dimension asks whether a piece of work left its spec, plan, ADR, story or experiment write-up - its Coverage axis is per code component, not per decision - the same gap Part 1's step-by-step row records for the spec and the plan, and the per-change half of it needs the delivery-trail evidence base (#548).
@@ -1101,8 +1077,7 @@
   class: static
   severity: important
   checks:
-    - skill: eval-audit
-      dimension: "Reproducibility"
+    - eval/reproducibility
   gap:
     recommendation: extend-skill
     note: eval-audit's Reproducibility asks for a pinned, recorded model version and so covers the eval surface exactly; deps-audit is the owner of the wider claim and its inventory is the package graph, so a model or a provider never enters the dependency surface it accounts for.

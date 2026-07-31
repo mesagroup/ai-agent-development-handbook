@@ -1,0 +1,21 @@
+---
+id: eval/adversarial
+domain: eval
+locality: global
+optin: true
+handbook: []
+handbook_note: >-
+  The handbook's only injection-resistance clause
+  (`evaluation/measure-the-behaviors-that-matter-a`, `grep -n "adversarial
+  injection-resistance" docs/audit/handbook-traceability.yaml` -> line 763)
+  already grounds `eval/coverage` and `eval/prompt-quality`: it says to make
+  injection-resistance an eval dimension, not to run a dedicated
+  red-team/adversarial-suite as its own procedure. No other row names
+  adversarial or red-team testing, so mapping this opt-in to that same row
+  would cite one instruction under a third check rather than ground a
+  distinct clause.
+---
+
+# Adversarial / red-team eval
+
+Probe prompt-injection and jailbreak resistance as a behavioral suite (coordinate the security framing with `security-audit`) - enable via argument or ask the user.
