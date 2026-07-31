@@ -28,4 +28,4 @@ Status per row: **ok / warn / violation** (secrets: none / suspected / confirmed
 
 Security fixes **touch code** (and sometimes secret-management infra), so they are **not** docs-only: the domain gate is "the SAST/secret scan is clean (or every remaining hit is a recorded suppression) **and** the test suite passes" - run the normal install + lint/typecheck/test CI plus the scanner, and the code-review gate. **Highest-leverage fix:** wire the SAST + secret scan into CI (and pre-commit) so the class of finding can't silently recur. Docs-only outputs: the findings report, a `SECURITY.md` / disclosure policy, and a threat-model note.
 
-**Dependency-CVE cross-check** - hand off to `deps/vulnerabilities` rather than scanning third-party code here; note the handoff in the report. **CI/secret-hardening cross-check** - hand off pipeline secrets / permissions to `ci-audit`; note the handoff.
+**Dependency-CVE cross-check** - hand off to `deps/vulnerabilities` rather than scanning third-party code here; note the handoff in the report. **CI/secret-hardening cross-check** - hand off pipeline secrets / permissions to `ci/permissions-secrets`; note the handoff.

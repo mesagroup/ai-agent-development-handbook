@@ -30,7 +30,7 @@ No two instructions contradict; no dead instruction (references a tool, step, or
 
 ## Tooling fallback
 
-**Consistency read:** cross-check instructions within the file (and, at consolidation, across sibling prompts) for contradictions, dead references, and ambiguity. Where the prompt references tools/steps, check they still exist (a light drift check; deep tool-drift is `eval-audit`).
+**Consistency read:** cross-check instructions within the file (and, at consolidation, across sibling prompts) for contradictions, dead references, and ambiguity. Where the prompt references tools/steps, check they still exist (a light drift check; deep tool-drift is `eval/prompt-quality`).
 
 ## Fix
 

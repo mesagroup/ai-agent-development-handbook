@@ -280,7 +280,7 @@
   severity: minor
   gap:
     recommendation: extend-skill
-    note: "docs-audit does audit docstrings, but only as an opt-in sub-audit whose own coverage and staleness dimensions sit outside the citable Dimensions section; its Coverage dimension is prose docs per code component, not docstrings, and no dimension asks whether the check is wired into the gate. One of three rows stating the docstring rule (with coding-hygiene-rules-that-surface-at-review-d and documentation/keep-the-living-docs-current-too-a): the handbook says it in three places, so the matrix records it three times, but declaring the sub-audit's axes as dimensions closes all three at once."
+    note: "docs-audit does audit docstrings, now as citable opt-in records (docs/docstring-coverage, docs/docstring-staleness), but each is a genuine near miss rather than full closure: docs/docstring-coverage only tests whether a docstring exists at all, so a one-word placeholder passes it while still failing the quality bar this claim wants, and docs/docstring-staleness only tests contradiction, so a docstring left incomplete after a change contradicts nothing and passes it while still failing the broader staleness this claim asks for; no check asks whether the docstring check itself is wired into the gate. One of three rows stating the docstring rule (with coding-hygiene-rules-that-surface-at-review-d and documentation/keep-the-living-docs-current-too-a), each carrying its own near-miss residue rather than one shared fix."
 
 - id: implementation-disciplines/ci-and-static-analysis-c
   section: "CI and static analysis"
@@ -354,7 +354,7 @@
   severity: minor
   gap:
     recommendation: extend-skill
-    note: "docstring currency is a staleness question, and docs-audit reaches it only through its opt-in docstring sub-audit, outside the citable Dimensions section - the same citeability gap as ci-and-static-analysis-b and documentation/keep-the-living-docs-current-too-a, closed by one fix for all three. Not a duplicate of those rows despite the shared clause: the two claims either side of it, self-documenting settings fields and provider-safe tool-argument types, have no dimension anywhere."
+    note: "docstring currency is exactly docs/docstring-staleness's own near miss: that check's detection is contradiction (a docstring actively wrong about parameters, return type, or behaviour), while this claim's 'current with purpose and interface' ask is broader - a docstring left incomplete after a change (a new parameter added but not yet mentioned) contradicts nothing and passes the check while still failing the ask. Not a duplicate of ci-and-static-analysis-b or documentation/keep-the-living-docs-current-too-a despite the shared clause: the two claims either side of it, self-documenting settings fields and provider-safe tool-argument types, have no check anywhere."
 
 - id: implementation-disciplines/when-to-add-an-end-to-end-agent-quality-gate
   section: "When to add an end-to-end agent quality gate"
@@ -964,7 +964,7 @@
   severity: minor
   gap:
     recommendation: extend-skill
-    note: "docs-audit does audit exactly this, as an opt-in docstring sub-audit declaring coverage, staleness and standard axes of its own, but those sit outside the citable Dimensions section - the fix is to declare them as dimensions, not to add the coverage - and nothing asks whether a docstring fix took the code gate. Third of the three docstring rows (with ci-and-static-analysis-b and coding-hygiene-rules-that-surface-at-review-d); the citeability half is one shared fix, the code-gate clause is unique to this row."
+    note: "This is the fullest of the three docstring rows, and each of its axes is a near miss to a different opt-in record. docs/docstring-standard checks conformance to 'the project's convention', a locally-defined bar that can be weaker than this claim's fixed 'what it does and how to use it' ask. docs/docstring-coverage and docs/docstring-staleness carry the same near misses as the other two docstring rows (an existence bar vs. the quality bar, and contradiction vs. the broader currency ask). Nothing checks whether a docstring fix that resolves one of these actually took the normal code gate rather than the lighter docs-only path. Third of the three docstring rows (with ci-and-static-analysis-b and coding-hygiene-rules-that-surface-at-review-d); the code-gate clause is unique to this row."
 
 - id: documentation/keep-the-living-docs-current-too-b
   section: "Keep the living docs current too"

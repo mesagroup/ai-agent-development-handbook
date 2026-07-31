@@ -19,6 +19,8 @@ A domain specialization of **[audit-core](../audit-core/SKILL.md)** - read that 
 
 **Build the source maps once, first.** Enumerate code components (packages/modules/tiers) and the docs tree; note the project's architecture/dependency rules if a contributor guide states them (CLAUDE.md / AGENTS.md / CONTRIBUTING). One read-only agent per tier maps each component's *real* interfaces from source (public classes/functions + signatures, entry points, config/env vars, key mechanisms), even when a doc already exists, so you can compare doc-vs-reality. Also dispatch one agent to extract the **doc standard** (the section skeleton the best existing docs use) and the **overlap map** (what each existing doc already owns, so writing cross-links instead of duplicating).
 
+Status per row: **ok / warn / violation** (coverage: documented / partial / gap).
+
 Prose-doc fixes are **docs-only**, which usually keeps the PR off the heavy code gates - call that out. The domain gate is **the link/index checker green**.
 
 **Opt-in deliverable:** consider proposing a small checker as a deliverable.

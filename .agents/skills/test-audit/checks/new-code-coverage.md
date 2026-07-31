@@ -29,3 +29,5 @@ Does new or changed deterministic code ship with tests? Modules that grew withou
 ## Review lens
 
 Is the reported gain from real exercised behavior, not from importing code or asserting nothing? Branch coverage, not just line.
+
+**Scope vs plan** - every planned Critical/Important gap actually addressed; nothing silently dropped or papered over with a weak assert.

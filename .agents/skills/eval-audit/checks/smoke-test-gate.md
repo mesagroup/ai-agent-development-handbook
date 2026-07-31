@@ -18,8 +18,8 @@ Is there a cheap behavioral pre-merge check, does it run on the paths that can r
 
 ## Tooling fallback
 
-**Smoke-test inspection:** read the smoke-test workflow and its pass threshold; confirm it runs on the right triggers/paths and that its threshold would actually catch a real regression (cross-check with `ci-audit` for the gate-enforcement mechanics).
+**Smoke-test inspection:** read the smoke-test workflow and its pass threshold; confirm it runs on the right triggers/paths and that its threshold would actually catch a real regression (cross-check with `ci/gate-enforcement` for the gate-enforcement mechanics).
 
 ## Fix
 
-**Smoke-test fixes:** set a threshold that trips on a real regression, run it on the paths that can change behavior (coordinate with `ci-audit` on making it a required gate).
+**Smoke-test fixes:** set a threshold that trips on a real regression, run it on the paths that can change behavior (coordinate with `ci/gate-enforcement` on making it a required gate).
