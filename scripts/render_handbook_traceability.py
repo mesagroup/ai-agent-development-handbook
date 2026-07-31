@@ -9,7 +9,7 @@ view `docs/audit/handbook-traceability.md`.
 
 A row's `checks` list carries one entry per check that reaches the clause.
 An entry is a check id (`arch/layering`) resolved against the check records
-under `.agents/skills/audit-core/checks/` (#559), or - until the remaining
+under `.agents/skills/<domain>-audit/checks/` (#559), or - until the remaining
 domains migrate - the legacy `{skill, dimension}` pair parsed out of a
 skill's `## N. Dimensions` bullets. The two views of an edge are checked
 against each other: a record may not cite a clause no row connects it to,
@@ -60,7 +60,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from audit_checks import CHECKS_DIR, Check, load_checks
+from audit_checks import Check, load_checks
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 HANDBOOK_DIR = REPO_ROOT / "docs" / "engineering"
@@ -859,7 +859,7 @@ def main(argv: list[str] | None = None) -> int:
     if not isinstance(rows, list):
         print(f"{YAML_PATH.name}: top level must be a list of rows", file=sys.stderr)
         return 1
-    checks, errors = load_checks(CHECKS_DIR)
+    checks, errors = load_checks(SKILLS_DIR)
     errors += validate_parts(handbook_part_numbers(HANDBOOK_DIR))
     errors += validate(
         rows, handbook_headings(HANDBOOK_DIR), skill_dimensions(SKILLS_DIR), checks

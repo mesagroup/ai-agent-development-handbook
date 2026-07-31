@@ -10,6 +10,8 @@
 
 **Spec:** `docs/superpowers/specs/2026-07-31-audit-checks-db-design.md`. Issue: [#559](https://github.com/lidia-tech/lidia-agents/issues/559).
 
+> **One path changed after this plan ran.** Every `.agents/skills/audit-core/checks/arch/` below is now `.agents/skills/arch-audit/checks/`: the records live in the domain's own skill, so a domain is one portable directory and a record is one hop from the `SKILL.md` naming it rather than two hops through a sibling skill. The check ids and every matrix reference were unaffected. The reasoning is in decision 1 of the spec; the paths below are left as the tasks were actually dispatched.
+
 ## Spec deviations recorded before implementation
 
 Four numbers in the spec were estimates. Measuring the real data changed them; the plan follows the measurement, and the PR body must state each deviation.

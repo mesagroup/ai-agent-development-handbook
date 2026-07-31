@@ -578,10 +578,10 @@ def _patch_paths(monkeypatch, tmp_path, parts):
     monkeypatch.setattr(rht, "YAML_PATH", tmp_path / "handbook-traceability.yaml")
     monkeypatch.setattr(rht, "MD_PATH", tmp_path / "handbook-traceability.md")
     monkeypatch.setattr(rht, "REPO_ROOT", tmp_path)
-    # The real checks tree cites real handbook anchors, which the fixture
-    # handbook does not have; point main() at an empty tree so a fixture run
-    # is judged only against its own fixtures.
-    monkeypatch.setattr(rht, "CHECKS_DIR", tmp_path / "checks")
+    # SKILLS_DIR is where main() looks for check records too. The fixture
+    # skills hold no `checks/` directory, so a fixture run is judged only
+    # against its own fixtures - the real records cite real handbook
+    # anchors the fixture handbook does not have.
 
 
 def test_main_fails_when_the_handbook_renumbers_under_the_constants(
@@ -618,7 +618,6 @@ def test_main_check_detects_a_stale_md(tmp_path, monkeypatch):
     monkeypatch.setattr(rht, "YAML_PATH", yaml_path)
     monkeypatch.setattr(rht, "MD_PATH", md_path)
     monkeypatch.setattr(rht, "REPO_ROOT", tmp_path)
-    monkeypatch.setattr(rht, "CHECKS_DIR", tmp_path / "checks")
     assert rht.main(["--check"]) == 1  # md missing -> stale
     assert rht.main([]) == 0  # writes the md
     assert rht.main(["--check"]) == 0  # now fresh
@@ -629,8 +628,8 @@ def test_main_check_detects_a_stale_md(tmp_path, monkeypatch):
 def test_main_renders_a_populated_checks_tree(tmp_path, monkeypatch):
     """A fixture run with a real record end to end, not an empty checks tree.
 
-    Every other `main()` test points `CHECKS_DIR` at a directory that does
-    not exist, so the check-record half of the pipeline (load, cross-check
+    Every other `main()` test points `SKILLS_DIR` at fixture skills that
+    own no records, so the check-record half of the pipeline (load, cross-check
     against the matrix, render the id/title cell) is never driven by
     `main()` itself.
     """
@@ -639,7 +638,7 @@ def test_main_renders_a_populated_checks_tree(tmp_path, monkeypatch):
     _fixture_dirs(tmp_path)
     _patch_paths(monkeypatch, tmp_path, ["alpha", "coda"])
     _write(
-        tmp_path / "checks" / "demo" / "thing.md",
+        tmp_path / "skills" / "demo-audit" / "checks" / "thing.md",
         "---\n"
         "id: demo/thing\n"
         "domain: demo\n"
@@ -750,12 +749,13 @@ def _checks_tree(tmp_path, records):
     Returns:
         The id-keyed `Check` mapping `validate` expects.
     """
-    root = tmp_path / "checks"
+    root = tmp_path / "fixture-skills"
     for cid, meta in records.items():
-        path = root / f"{cid}.md"
+        domain, slug = cid.split("/", 1)
+        path = root / f"{domain}-audit" / "checks" / f"{slug}.md"
         path.parent.mkdir(parents=True, exist_ok=True)
         front = yaml.safe_dump({"id": cid, **meta}, sort_keys=False)
-        path.write_text(f"---\n{front}---\n\n# {cid.split('/', 1)[1]}\n\nclaim.\n")
+        path.write_text(f"---\n{front}---\n\n# {slug}\n\nclaim.\n")
     checks, errors = audit_checks.load_checks(root)
     assert errors == []
     return checks

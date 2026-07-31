@@ -5,7 +5,7 @@ description: "Audit a Python project's structure: layering / dependency-rule con
 
 # Architecture Audit (structure, layering, coupling)
 
-A domain specialization of **[audit-core](../audit-core/SKILL.md)** - read that first; it owns the loop and the cross-cutting rules. The checks are records under [`audit-core/checks/arch/`](../audit-core/checks/arch/); load the ones your slice needs, not the directory.
+A domain specialization of **[audit-core](../audit-core/SKILL.md)** - read that first; it owns the loop and the cross-cutting rules. The checks are records in [`checks/`](checks/) beside this file; load the ones your slice needs, not the directory.
 
 **One pairing:** `arch/coupling` and `arch/over-decomposition` are the same granularity question in opposite directions - too coarse and too fine - so neither alone answers whether the granularity is right.
 

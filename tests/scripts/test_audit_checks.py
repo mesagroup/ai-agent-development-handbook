@@ -57,7 +57,7 @@ def _write(root: Path, rel: str, text: str) -> Path:
 
 
 def test_loads_a_well_formed_record(tmp_path):
-    _write(tmp_path, "arch/layering.md", GOOD)
+    _write(tmp_path, "arch-audit/checks/layering.md", GOOD)
     checks, errors = ac.load_checks(tmp_path)
     assert errors == []
     check = checks["arch/layering"]
@@ -76,7 +76,7 @@ def test_loads_a_well_formed_record(tmp_path):
 
 
 def test_optin_and_empty_handbook_with_note_are_valid(tmp_path):
-    _write(tmp_path, "arch/hidden-coupling.md", UNCITED)
+    _write(tmp_path, "arch-audit/checks/hidden-coupling.md", UNCITED)
     checks, errors = ac.load_checks(tmp_path)
     assert errors == []
     check = checks["arch/hidden-coupling"]
@@ -86,7 +86,7 @@ def test_optin_and_empty_handbook_with_note_are_valid(tmp_path):
 
 
 def test_missing_frontmatter_is_reported_not_raised(tmp_path):
-    _write(tmp_path, "arch/broken.md", "# No frontmatter here\n")
+    _write(tmp_path, "arch-audit/checks/broken.md", "# No frontmatter here\n")
     checks, errors = ac.load_checks(tmp_path)
     assert checks == {}
     assert any("frontmatter" in e for e in errors)
@@ -95,23 +95,29 @@ def test_missing_frontmatter_is_reported_not_raised(tmp_path):
 def test_id_must_match_the_file_path(tmp_path):
     _write(
         tmp_path,
-        "arch/layering.md",
+        "arch-audit/checks/layering.md",
         GOOD.replace("id: arch/layering", "id: arch/wrong"),
     )
     _, errors = ac.load_checks(tmp_path)
     assert any("does not match its path" in e for e in errors)
 
 
-def test_domain_must_match_the_directory(tmp_path):
-    _write(tmp_path, "deps/layering.md", GOOD)
+def test_domain_must_match_the_owning_skill(tmp_path):
+    _write(tmp_path, "deps-audit/checks/layering.md", GOOD)
     _, errors = ac.load_checks(tmp_path)
-    assert any("directory" in e for e in errors)
+    assert any("does not match its owning skill 'deps-audit'" in e for e in errors)
+
+
+def test_a_checks_dir_outside_a_domain_skill_is_ignored(tmp_path):
+    _write(tmp_path, "some-helper/checks/layering.md", GOOD)
+    checks, errors = ac.load_checks(tmp_path)
+    assert (checks, errors) == ({}, [])
 
 
 def test_locality_must_be_local_or_global(tmp_path):
     _write(
         tmp_path,
-        "arch/layering.md",
+        "arch-audit/checks/layering.md",
         GOOD.replace("locality: local", "locality: sometimes"),
     )
     _, errors = ac.load_checks(tmp_path)
@@ -122,7 +128,7 @@ def test_empty_handbook_without_a_note_is_rejected(tmp_path):
     text = UNCITED.replace(
         "handbook_note: The handbook's decay list names no equivalent signal.\n", ""
     )
-    _write(tmp_path, "arch/hidden-coupling.md", text)
+    _write(tmp_path, "arch-audit/checks/hidden-coupling.md", text)
     _, errors = ac.load_checks(tmp_path)
     assert any("handbook_note" in e for e in errors)
 
@@ -131,7 +137,7 @@ def test_a_note_alongside_anchors_is_rejected(tmp_path):
     text = GOOD.replace(
         "tooling:", "handbook_note: why this exceeds the handbook\ntooling:"
     )
-    _write(tmp_path, "arch/layering.md", text)
+    _write(tmp_path, "arch-audit/checks/layering.md", text)
     _, errors = ac.load_checks(tmp_path)
     assert any("handbook_note" in e for e in errors)
 
@@ -139,7 +145,7 @@ def test_a_note_alongside_anchors_is_rejected(tmp_path):
 def test_unknown_frontmatter_key_is_rejected(tmp_path):
     _write(
         tmp_path,
-        "arch/layering.md",
+        "arch-audit/checks/layering.md",
         GOOD.replace("domain: arch", "domain: arch\nsevrity: high"),
     )
     _, errors = ac.load_checks(tmp_path)
@@ -148,7 +154,11 @@ def test_unknown_frontmatter_key_is_rejected(tmp_path):
 
 def test_missing_title_is_rejected(tmp_path):
     body_start = GOOD.index("# Layering")
-    _write(tmp_path, "arch/layering.md", GOOD[:body_start] + "no heading here\n")
+    _write(
+        tmp_path,
+        "arch-audit/checks/layering.md",
+        GOOD[:body_start] + "no heading here\n",
+    )
     _, errors = ac.load_checks(tmp_path)
     assert any("title" in e for e in errors)
 
@@ -156,7 +166,7 @@ def test_missing_title_is_rejected(tmp_path):
 def test_tooling_must_map_language_to_a_list(tmp_path):
     _write(
         tmp_path,
-        "arch/layering.md",
+        "arch-audit/checks/layering.md",
         GOOD.replace("python: [import-linter, tach]", "python: import-linter"),
     )
     _, errors = ac.load_checks(tmp_path)
@@ -164,8 +174,8 @@ def test_tooling_must_map_language_to_a_list(tmp_path):
 
 
 def test_duplicate_ids_across_files_are_reported(tmp_path):
-    _write(tmp_path, "arch/layering.md", GOOD)
-    _write(tmp_path, "arch/layering-copy.md", GOOD)
+    _write(tmp_path, "arch-audit/checks/layering.md", GOOD)
+    _write(tmp_path, "arch-audit/checks/layering-copy.md", GOOD)
     _, errors = ac.load_checks(tmp_path)
     assert any("duplicate" in e for e in errors)
 
@@ -177,38 +187,39 @@ def test_an_absent_checks_dir_loads_empty_without_error(tmp_path):
 
 
 def test_a_record_at_the_wrong_depth_is_reported_not_skipped(tmp_path):
-    _write(tmp_path, "loose.md", GOOD)
-    _write(tmp_path, "arch/nested/deep.md", GOOD)
+    _write(tmp_path, "arch-audit/checks/nested/deep.md", GOOD)
     checks, errors = ac.load_checks(tmp_path)
     assert checks == {}
-    assert sorted(e.split(":")[0] for e in errors) == [
-        "arch/nested/deep.md",
-        "loose.md",
-    ]
+    assert [e.split(":")[0] for e in errors] == ["arch-audit/checks/nested/deep.md"]
     assert all("would never be loaded" in e for e in errors)
 
 
 def test_an_unreadable_record_is_reported_not_raised(tmp_path):
-    (tmp_path / "arch").mkdir(parents=True)
-    (tmp_path / "arch" / "binary.md").write_bytes(
-        b"---\nid: arch/binary\n---\n\xff\xfe"
-    )
-    (tmp_path / "arch" / "adir.md").mkdir()
+    root = tmp_path / "arch-audit" / "checks"
+    root.mkdir(parents=True)
+    (root / "binary.md").write_bytes(b"---\nid: arch/binary\n---\n\xff\xfe")
+    (root / "adir.md").mkdir()
     checks, errors = ac.load_checks(tmp_path)
     assert checks == {}
-    assert any(e == "arch/binary.md: not valid UTF-8" for e in errors)
-    assert any(e.startswith("arch/adir.md: cannot be read:") for e in errors)
+    assert any(e == "arch-audit/checks/binary.md: not valid UTF-8" for e in errors)
+    assert any(
+        e.startswith("arch-audit/checks/adir.md: cannot be read:") for e in errors
+    )
 
 
 def test_frontmatter_with_an_empty_body_is_not_reported_as_missing(tmp_path):
-    _write(tmp_path, "arch/layering.md", "---\nid: arch/layering\ndomain: arch\n---")
+    _write(
+        tmp_path,
+        "arch-audit/checks/layering.md",
+        "---\nid: arch/layering\ndomain: arch\n---",
+    )
     _, errors = ac.load_checks(tmp_path)
     assert not any("missing YAML frontmatter" in e for e in errors)
     assert any("title" in e for e in errors)
 
 
 def test_the_real_checks_tree_loads_clean():
-    checks, errors = ac.load_checks(ac.CHECKS_DIR)
+    checks, errors = ac.load_checks(ac.SKILLS_DIR)
     assert errors == []
     assert sorted(checks) == [
         "arch/complexity",

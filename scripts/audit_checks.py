@@ -1,10 +1,17 @@
 """Load and validate the audit check records (#559).
 
-`.agents/skills/audit-core/checks/<domain>/<check>.md` holds one record per
+`.agents/skills/<domain>-audit/checks/<check>.md` holds one record per
 auditable check: the machine-checkable attributes in YAML frontmatter, the
 judgment prose in the body. The `*-audit` skills load a subset of these at
 run time - a domain's checks, sliced by locality - instead of eight
 `SKILL.md` files each carrying the same five per-check attributes inline.
+
+A domain's records live inside that domain's own skill, not in a shared
+tree under `audit-core`. Each skill then stands alone - a repo adopting
+three of the eight domains copies three directories plus the engine - and
+a record is one hop from the `SKILL.md` that names it rather than two hops
+through a sibling skill, which is the nesting depth Anthropic's skill
+guidance warns leads agents to preview a file rather than read it.
 
 This module owns loading and *intra-record* validation: is this one file
 well formed on its own. Cross-referencing a record against the traceability
@@ -17,8 +24,8 @@ Frontmatter fields:
 
 | Field | Required | Meaning |
 |---|---|---|
-| `id` | yes | Stable `<domain>/<slug>`, and the file's own path |
-| `domain` | yes | The owning domain, and the file's own directory |
+| `id` | yes | Stable `<domain>/<slug>`, matching the file's own path |
+| `domain` | yes | The owning domain, matching the owning skill's name |
 | `locality` | yes | `local` (decidable from one partition) or `global` |
 | `handbook` | yes | Handbook row ids grounding the check; may be empty |
 | `handbook_note` | iff `handbook` is empty | Why the check exceeds the handbook |
@@ -31,9 +38,9 @@ authoritative edge set - but everything it lists must be true, and a check
 some row cites may not claim to be ungrounded.
 
 Usage:
-    from audit_checks import CHECKS_DIR, load_checks
+    from audit_checks import SKILLS_DIR, load_checks
 
-    checks, errors = load_checks(CHECKS_DIR)
+    checks, errors = load_checks(SKILLS_DIR)
 """
 
 from __future__ import annotations
@@ -46,7 +53,11 @@ from typing import Any
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-CHECKS_DIR = REPO_ROOT / ".agents" / "skills" / "audit-core" / "checks"
+SKILLS_DIR = REPO_ROOT / ".agents" / "skills"
+
+# A domain skill is `<domain>-audit`; its records live in `checks/` beneath it.
+SKILL_SUFFIX = "-audit"
+CHECKS_SUBDIR = "checks"
 
 LOCALITIES = ("local", "global")
 FIELDS = frozenset(
@@ -126,13 +137,13 @@ def _str_list(value: Any) -> tuple[str, ...] | None:
 
 
 def _load_one(
-    path: Path, checks_dir: Path
+    path: Path, skills_dir: Path
 ) -> tuple[Check | None, list[str], str | None]:
     """Parse and validate a single record in isolation.
 
     Args:
-        path: The record file.
-        checks_dir: The root the record's expected id is relative to.
+        path: The record file, at `<domain>-audit/checks/<slug>.md`.
+        skills_dir: The skills root the record's expected id is relative to.
 
     Returns:
         The record (or `None` if it failed), one message per problem, and the
@@ -142,8 +153,9 @@ def _load_one(
         equals its own file's path-derived id, and paths are unique, so two
         of them can never collide.
     """
-    rel = path.relative_to(checks_dir)
+    rel = path.relative_to(skills_dir)
     where = rel.as_posix()
+    expected_domain = rel.parts[0].removesuffix(SKILL_SUFFIX)
     text, read_err = _read_text(path)
     if text is None:
         return None, [f"{where}: {read_err}"], None
@@ -155,7 +167,7 @@ def _load_one(
     for key in sorted(set(meta) - FIELDS):
         errors.append(f"{where}: unknown frontmatter key {key!r}")
 
-    expected_id = rel.with_suffix("").as_posix()
+    expected_id = f"{expected_domain}/{path.stem}"
     cid = meta.get("id")
     declared = cid if isinstance(cid, str) else None
     if not isinstance(cid, str):
@@ -167,10 +179,10 @@ def _load_one(
         )
 
     domain = meta.get("domain")
-    expected_domain = rel.parts[0] if len(rel.parts) > 1 else None
     if domain != expected_domain:
         errors.append(
-            f"{where}: domain {domain!r} does not match its directory {expected_domain!r}"
+            f"{where}: domain {domain!r} does not match its owning skill "
+            f"{rel.parts[0]!r} (expected {expected_domain!r})"
         )
 
     locality = meta.get("locality")
@@ -250,8 +262,8 @@ def _load_one(
     )
 
 
-def load_checks(checks_dir: Path) -> tuple[dict[str, Check], list[str]]:
-    """Load every check record under a checks tree.
+def load_checks(skills_dir: Path) -> tuple[dict[str, Check], list[str]]:
+    """Load every check record owned by every domain skill.
 
     Collects problems rather than raising, so one run reports every
     malformed record instead of stopping at the first. A record that fails
@@ -259,40 +271,46 @@ def load_checks(checks_dir: Path) -> tuple[dict[str, Check], list[str]]:
     error list.
 
     Args:
-        checks_dir: Root of the checks tree, one subdirectory per domain.
-            A tree that does not exist yet loads empty and clean.
+        skills_dir: The skills root. Each `<domain>-audit/checks/` beneath
+            it holds that domain's records; a skill with no such directory
+            has not migrated yet and is skipped in silence.
 
     Returns:
         Records keyed by id, and one message per problem.
     """
     checks: dict[str, Check] = {}
     errors: list[str] = []
-    if not checks_dir.is_dir():
+    if not skills_dir.is_dir():
         return checks, errors
     declared_ids: dict[str, Path] = {}
-    # Walk the whole tree, not just `*/*.md`: a record at the wrong depth
-    # would otherwise be neither loaded nor reported, and a check that
-    # silently never runs is the failure this family exists to prevent.
-    for path in sorted(checks_dir.rglob("*.md")):
-        rel = path.relative_to(checks_dir)
-        if len(rel.parts) != 2:
-            errors.append(
-                f"{rel.as_posix()}: a check record lives at "
-                "<domain>/<slug>.md under the checks root; this one is at "
-                f"depth {len(rel.parts)} and would never be loaded"
-            )
+    for skill in sorted(skills_dir.glob(f"*{SKILL_SUFFIX}")):
+        root = skill / CHECKS_SUBDIR
+        if not root.is_dir():
             continue
-        check, problems, declared = _load_one(path, checks_dir)
-        errors.extend(problems)
-        if declared is not None:
-            if declared in declared_ids:
+        # Walk the whole subtree, not just `checks/*.md`: a record at the
+        # wrong depth would otherwise be neither loaded nor reported, and a
+        # check that silently never runs is the failure this family exists
+        # to prevent.
+        for path in sorted(root.rglob("*.md")):
+            rel = path.relative_to(skills_dir)
+            if len(rel.parts) != 3:
                 errors.append(
-                    f"{path.relative_to(checks_dir).as_posix()}: duplicate check id "
-                    f"{declared!r} (also declared by {declared_ids[declared].name})"
+                    f"{rel.as_posix()}: a check record lives at "
+                    f"<domain>{SKILL_SUFFIX}/{CHECKS_SUBDIR}/<slug>.md; this one is "
+                    f"nested deeper and would never be loaded"
                 )
-            else:
-                declared_ids[declared] = path
-        if check is None:
-            continue
-        checks[check.id] = check
+                continue
+            check, problems, declared = _load_one(path, skills_dir)
+            errors.extend(problems)
+            if declared is not None:
+                if declared in declared_ids:
+                    errors.append(
+                        f"{rel.as_posix()}: duplicate check id {declared!r} "
+                        f"(also declared by {declared_ids[declared].name})"
+                    )
+                else:
+                    declared_ids[declared] = path
+            if check is None:
+                continue
+            checks[check.id] = check
     return checks, errors

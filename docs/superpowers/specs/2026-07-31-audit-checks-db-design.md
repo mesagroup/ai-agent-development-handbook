@@ -53,14 +53,14 @@ Making the table real turns a markdown-parse heuristic into genuine referential 
 
 ## Decisions
 
-### 1. One markdown file per check, directory per domain
+### 1. One markdown file per check, inside the domain's own skill
 
 A per-domain file would reintroduce the problem one level down. A single `checks/arch.yaml` would hold 2,379 words of Python-only content, about 3,100 once TypeScript is added, plus the 250-word domain header: exactly today's 3,335. The restructure would buy nothing.
 
 The saving exists only if an agent loads a **subset**, and `audit-core` already fans out sub-domain: one agent per package for local dimensions, one agent per global dimension over the whole graph. So file granularity must match dispatch granularity.
 
 ```
-.agents/skills/audit-core/checks/arch/
+.agents/skills/arch-audit/checks/
   layering.md              local
   complexity.md            local
   dead-code.md             local
@@ -80,6 +80,10 @@ The saving exists only if an agent loads a **subset**, and `audit-core` already 
 
 Per-check files also make the bulk migration parallelisable: seven domains migrating at once never touch the same file, so subagent implementers cannot collide.
 
+**The records live in the domain's own skill, not in a shared tree under `audit-core`.** The engine owns the record *schema*; each skill owns its *instances*. Three reasons, in increasing weight. A domain becomes one directory to add or remove. A domain becomes portable, which matters because #542's premise is running this family against other repositories - a repo adopting three of the eight copies three skill directories plus the engine, rather than cherry-picking subdirectories out of a shared tree. And a shared tree would end up holding ~68 records for eight skills that own them, a hub directory everything reaches into and nothing owns, which is precisely what `arch/coupling` exists to flag: the family would fail its own audit.
+
+Anthropic's skill-authoring guidance backs the shape twice over. Its **Pattern 2, "Domain-specific organization"** is this design under another name - "organize content by domain to avoid loading irrelevant context... This keeps token usage low and context focused" - with `SKILL.md` as overview-and-navigation over per-domain files loaded selectively. And its **"avoid deeply nested references"** anti-pattern warns that agents "may partially read files when they're referenced from other referenced files", previewing with `head -100` rather than reading in full. A header pointing into a sibling skill's subdirectory is exactly that nesting; a header pointing at `checks/` beside it is one hop.
+
 ### 2. Markdown with YAML frontmatter, not pure YAML
 
 The machine-checkable fields go in frontmatter; the judgment prose stays prose in the body. This matches how every skill in the repo is already written, and avoids turning 300-word paragraphs into YAML block scalars that are awkward to write and to diff.
@@ -89,7 +93,8 @@ The machine-checkable fields go in frontmatter; the judgment prose stays prose i
 id: arch/layering
 domain: arch
 locality: local
-handbook: three-layer-model/the-dependency-rule
+handbook:
+  - codebase-structure/point-every-dependency-toward-the-core-and-never-cycle-a
 tooling:
   python: [import-linter, tach]
   typescript: [dependency-cruiser, madge]
@@ -120,7 +125,9 @@ Is each flagged edge genuinely a violation of the documented rules, and does eac
 
 **Frontmatter fields.** `id` (stable, `<domain>/<slug>`), `domain`, `locality` (`local` | `global`), `handbook`, `handbook_note`, `tooling` (a map of language to preferred tools, plus `any` for language-agnostic tooling), `optin` (boolean, default false).
 
-`handbook` is required and takes either a `docs/engineering/` anchor or the literal `none`. When it is `none`, `handbook_note` is required and states why the check deliberately exceeds the handbook. This is #544's fourth acceptance criterion expressed as a schema rule: 9 of the 50 current dimensions are cited by no matrix row, and that is correct rather than a gap, since skills may check more than the handbook states. The validator rejects `none` without a note, and rejects a note without `none`.
+`handbook` is required and is a **list** of matrix row ids, possibly empty. A list rather than a scalar because a check is commonly grounded in several clauses - `arch/layering` in six, `arch/over-abstraction` in two - and a single field would force an arbitrary primary and under-report the grounding an agent reading only the record needs. When the list is empty, `handbook_note` is required and states why the check deliberately exceeds the handbook. This is #544's fourth acceptance criterion expressed as a schema rule: 9 of the 50 current dimensions are cited by no matrix row, and that is correct rather than a gap, since skills may check more than the handbook states.
+
+The list need not be exhaustive - the matrix is the authoritative edge set - but three rules make what it says true. Every anchor must resolve to a real handbook heading; every anchor must be a row that actually cites the check; and a check some row cites may not declare itself ungrounded, nor may a check nothing cites claim a grounding. The validator rejects an empty list without a note, and a note alongside anchors.
 
 **Body sections.** The claim as the lead prose, then `## Severity`, `## Tooling fallback`, `## Fix`, `## Review lens`. A check omits a section it has nothing to say in.
 
@@ -173,7 +180,7 @@ Status scale: ok / warn / violation.
 
 Opt-in deliverables: layering-contract bootstrap; full metric report with a rendered graph.
 
-Load audit-core, then the checks under checks/arch/ (locality drives the sub-fan).
+Load audit-core, then the checks in checks/ beside this file (locality drives the sub-fan).
 ```
 
 The domain remains the dispatch and reporting unit, exactly as today, so the consolidated report shape is unchanged. `locality` drives the sub-fan *within* a domain, which makes `audit-core`'s existing fan-out rule mechanical instead of a paragraph each domain restates.
@@ -218,7 +225,7 @@ New code (validator, loader, id rewiring) ships with unit tests. `scripts/` is n
 
 | File | Change |
 |---|---|
-| `.agents/skills/audit-core/checks/<domain>/<check>.md` | New, about 68 files |
+| `.agents/skills/<domain>-audit/checks/<check>.md` | New, about 68 files |
 | `.agents/skills/audit-core/SKILL.md` | "Authoring a new auditing skill" rewritten from seven slots to the check record plus domain header |
 | `.agents/skills/<domain>-audit/SKILL.md` | Reduced to the domain header (8 files) |
 | `.agents/skills/audit/SKILL.md` | Detect domains from the checks tree rather than skill directories |
