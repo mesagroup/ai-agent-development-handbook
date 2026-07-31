@@ -1115,14 +1115,10 @@
   class: static
   severity: critical
   checks:
-    - skill: deps-audit
-      dimension: "License compatibility"
-    - skill: deps-audit
-      dimension: "Known vulnerabilities"
-    - skill: deps-audit
-      dimension: "Freshness"
-    - skill: deps-audit
-      dimension: "Hygiene"
+    - deps/licenses
+    - deps/vulnerabilities
+    - deps/freshness
+    - deps/hygiene
   note: An exact fit - the handbook's four axes are deps-audit's four core dimensions, transitivity is the resolved graph the skill takes as ground truth, and unpinned floating direct dependencies sit inside Freshness.
 
 - id: security-supply-chain/depend-only-on-what-you-can-account-for-b
