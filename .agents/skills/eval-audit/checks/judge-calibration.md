@@ -9,12 +9,13 @@ handbook_note: >-
   grounds `eval/methodology` with the qualitative rule (trust the judge only
   on the dimensions where measured human correlation shows it tracks the
   expert); it states no dedicated calibration-study procedure or a
-  human-labeled correlation deliverable. `evaluation/step-by-step-running-an-evaluation`'s
-  runbook lists "calibrate the judge" as one process step
-  (`grep -n "calibrate the judge" docs/audit/handbook-traceability.yaml` ->
-  line 880), but that row carries `class: process` and no `checks:` entry at
-  all. Running a full correlation study as a standalone deliverable is this
-  opt-in's own scope, not a clause the handbook states.
+  human-labeled correlation deliverable. Matrix row
+  `evaluation/step-by-step-running-an-evaluation`'s runbook lists "calibrate
+  the judge" as one process step, reproducible with `grep -n "calibrate the
+  judge" docs/audit/handbook-traceability.yaml`, but that row carries
+  `class: process` and no `checks:` entry at all. Running a full correlation
+  study as a standalone deliverable is this opt-in's own scope, not a clause
+  the handbook states.
 ---
 
 # LLM-judge calibration study

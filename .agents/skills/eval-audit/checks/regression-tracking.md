@@ -15,7 +15,7 @@ Are results tracked over time (leaderboard/history) so drift is visible; is ther
 
 ## Severity
 
-**Minor** - a missing cheap/mock mode; a stale leaderboard entry.
+**Minor** - a missing cheap/mock mode, a stale leaderboard entry.
 
 ## Tooling fallback
 
