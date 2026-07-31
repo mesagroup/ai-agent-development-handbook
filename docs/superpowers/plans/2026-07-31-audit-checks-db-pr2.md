@@ -64,7 +64,7 @@ Frontmatter fields, all validated by `scripts/audit_checks.py`:
 | `locality` | yes | `local` (decidable from one partition) or `global` (needs the whole subject) |
 | `handbook` | yes | list of matrix row ids grounding the check; may be `[]` |
 | `handbook_note` | iff `handbook` is `[]` | why no clause grounds it |
-| `tooling` | yes | language key -> tool list; `any` for language-independent |
+| `tooling` | no | language key -> tool list; `any` for language-independent. Omit it when the check's detection is reading rather than running something - but then say so in `## Tooling fallback`, because a record with neither leaves the agent no procedure at all |
 | `optin` | no (default `false`) | `true` if the check runs only when the user enables it |
 
 Body: the claim as lead prose under a `# Title`, then `## Severity`, `## Tooling fallback`, `## Fix`, `## Review lens` - **omitting any section the check has nothing to say in**. Read `.agents/skills/arch-audit/checks/over-decomposition.md` and `.agents/skills/arch-audit/checks/martin-metrics.md` as the reference records before authoring.
