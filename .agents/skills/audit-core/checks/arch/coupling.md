@@ -11,7 +11,7 @@ tooling:
 
 # Coupling & cohesion
 
-Wrong granularity in *either* direction. Too **coarse**: modules with too many afferent/efferent dependencies (a hub everything imports, or a module that reaches into everything), or modules whose contents don't belong together (grab-bag `utils`).
+Too **coarse**: modules with too many afferent/efferent dependencies (a hub everything imports, or a module that reaches into everything), or modules whose contents don't belong together (grab-bag `utils`).
 
 ## Severity
 
@@ -33,4 +33,4 @@ Split a god-module along its cohesion seams (files that change together stay tog
 
 Direct vs transitive coupling attributed correctly; a cycle "fix" doesn't just relocate the cycle.
 
-A merge fix combined only units that actually change together (it didn't fuse independent responsibilities into a new god-module just to shrink the node count).
+A split fix didn't fragment a cohesive unit into ravioli.
