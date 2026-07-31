@@ -349,8 +349,7 @@
   class: static
   severity: minor
   checks:
-    - skill: arch-audit
-      dimension: "Over-abstraction / speculative generality"
+    - arch/over-abstraction
 
 - id: implementation-disciplines/coding-hygiene-rules-that-surface-at-review-c
   section: "Coding-hygiene rules that surface at review"
@@ -399,8 +398,7 @@
   severity: minor
   checks:
     - arch/layering
-    - skill: arch-audit
-      dimension: "Cycles"
+    - arch/cycles
   note: arch-audit's layering dimension is explicitly at its strongest when the project documents its tiers, so it audits conformance to whichever tier list the project declares. What it does not second-guess is the ordering principle behind that list - sort by reuse - which is a design judgment rather than a graph property.
 
 - id: codebase-structure/point-every-dependency-toward-the-core-and-never-cycle-a
@@ -410,8 +408,7 @@
   severity: important
   checks:
     - arch/layering
-    - skill: arch-audit
-      dimension: "Cycles"
+    - arch/cycles
 
 - id: codebase-structure/point-every-dependency-toward-the-core-and-never-cycle-b
   section: "Point every dependency toward the core, and never cycle"
@@ -431,8 +428,7 @@
   class: static
   severity: important
   checks:
-    - skill: arch-audit
-      dimension: "Over-abstraction / speculative generality"
+    - arch/over-abstraction
   gap:
     recommendation: extend-skill
     note: partial - arch-audit is the owner, and its Over-abstraction dimension reaches the migrated convenience only while it still has a single consumer, and what it measures there is the unused generality rather than the coupling. The case the handbook warns about hardest, a core convenience that has since acquired a second consumer and now binds both to one workflow's assumptions, reads as justified generality to that dimension and is invisible to every other one.
@@ -452,14 +448,12 @@
   severity: important
   checks:
     - arch/layering
-    - skill: arch-audit
-      dimension: "Cycles"
-    - skill: arch-audit
-      dimension: "Coupling & cohesion"
+    - arch/cycles
+    - arch/coupling
     - arch/complexity
     - arch/dead-code
     - arch/size
-  note: The closest section-to-skill fit anywhere in the handbook - arch-audit declares a dimension for every signal named here, and adds Hidden coupling for the edges an import graph misses. The cadence ("periodically") is process, and the closing pointer to an import-linter contract in CI is carried by point-every-dependency-toward-the-core-and-never-cycle-b.
+  note: The closest section-to-skill fit anywhere in the handbook - arch declares a check for every signal named here, and adds `arch/hidden-coupling` for the edges an import graph misses and `arch/over-decomposition` for the opposite fault, neither of which this section names. The cadence ("periodically") is process, and the closing pointer to an import-linter contract in CI is carried by point-every-dependency-toward-the-core-and-never-cycle-b.
 
 - id: codebase-structure/compose-agents-with-typed-hooks-over-a-generic-runner-a
   section: "Compose agents with typed hooks over a generic runner"
@@ -479,7 +473,7 @@
     - arch/layering
   gap:
     recommendation: extend-skill
-    note: "arch-audit is the owner - the as_tool rule is a dependency-rule question it can already see, and a spurious sub-agent boundary is a decomposition defect its Coupling & cohesion dimension is the right lens for. What that dimension reads today is the module import graph, not the agent-composition graph, so whether a split corresponds to a real hand-off is invisible; the fix is to extend the over-decomposition axis to that second graph."
+    note: "arch-audit is the owner - the as_tool rule is a dependency-rule question it can already see, and a spurious sub-agent boundary is a decomposition defect `arch/over-decomposition` is the right lens for. What that dimension reads today is the module import graph, not the agent-composition graph, so whether a split corresponds to a real hand-off is invisible; the fix is to extend that check to the second graph."
 
 - id: codebase-structure/dispatch-on-a-discriminator-not-a-type
   section: "Dispatch on a discriminator, not a type"

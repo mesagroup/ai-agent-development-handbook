@@ -626,6 +626,39 @@ def test_main_check_detects_a_stale_md(tmp_path, monkeypatch):
     assert rht.main(["--check"]) == 1
 
 
+def test_main_renders_a_populated_checks_tree(tmp_path, monkeypatch):
+    """A fixture run with a real record end to end, not an empty checks tree.
+
+    Every other `main()` test points `CHECKS_DIR` at a directory that does
+    not exist, so the check-record half of the pipeline (load, cross-check
+    against the matrix, render the id/title cell) is never driven by
+    `main()` itself.
+    """
+    import yaml as _yaml
+
+    _fixture_dirs(tmp_path)
+    _patch_paths(monkeypatch, tmp_path, ["alpha", "coda"])
+    _write(
+        tmp_path / "checks" / "demo" / "thing.md",
+        "---\n"
+        "id: demo/thing\n"
+        "domain: demo\n"
+        "locality: local\n"
+        "handbook:\n"
+        "  - alpha/mapped-section\n"
+        "---\n\n"
+        "# Thing\n\ntext\n",
+    )
+    rows = _valid_rows()
+    rows[0]["checks"] = ["demo/thing"]
+    (tmp_path / "handbook-traceability.yaml").write_text(
+        _yaml.safe_dump(rows, sort_keys=False, allow_unicode=True)
+    )
+    assert rht.main([]) == 0
+    assert "`demo/thing` / Thing" in (tmp_path / "handbook-traceability.md").read_text()
+    assert rht.main(["--check"]) == 0
+
+
 def test_main_fails_on_an_uncovered_handbook_part(tmp_path, monkeypatch):
     import yaml as _yaml
 

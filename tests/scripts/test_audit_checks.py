@@ -179,4 +179,17 @@ def test_an_absent_checks_dir_loads_empty_without_error(tmp_path):
 def test_the_real_checks_tree_loads_clean():
     checks, errors = ac.load_checks(ac.CHECKS_DIR)
     assert errors == []
-    assert checks == checks  # tautology guard removed in Task 4
+    assert sorted(checks) == [
+        "arch/complexity",
+        "arch/coupling",
+        "arch/cycles",
+        "arch/dead-code",
+        "arch/hidden-coupling",
+        "arch/layering",
+        "arch/martin-metrics",
+        "arch/over-abstraction",
+        "arch/over-decomposition",
+        "arch/size",
+    ]
+    assert {c.locality for c in checks.values()} == {"local", "global"}
+    assert [c.id for c in checks.values() if c.optin] == ["arch/martin-metrics"]
