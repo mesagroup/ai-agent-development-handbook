@@ -398,8 +398,7 @@
   class: static
   severity: minor
   checks:
-    - skill: arch-audit
-      dimension: "Layering / dependency-rule conformance"
+    - arch/layering
     - skill: arch-audit
       dimension: "Cycles"
   note: arch-audit's layering dimension is explicitly at its strongest when the project documents its tiers, so it audits conformance to whichever tier list the project declares. What it does not second-guess is the ordering principle behind that list - sort by reuse - which is a design judgment rather than a graph property.
@@ -410,8 +409,7 @@
   class: static
   severity: important
   checks:
-    - skill: arch-audit
-      dimension: "Layering / dependency-rule conformance"
+    - arch/layering
     - skill: arch-audit
       dimension: "Cycles"
 
@@ -453,18 +451,14 @@
   class: static
   severity: important
   checks:
-    - skill: arch-audit
-      dimension: "Layering / dependency-rule conformance"
+    - arch/layering
     - skill: arch-audit
       dimension: "Cycles"
     - skill: arch-audit
       dimension: "Coupling & cohesion"
-    - skill: arch-audit
-      dimension: "Complexity"
-    - skill: arch-audit
-      dimension: "Dead code"
-    - skill: arch-audit
-      dimension: "File / module size"
+    - arch/complexity
+    - arch/dead-code
+    - arch/size
   note: The closest section-to-skill fit anywhere in the handbook - arch-audit declares a dimension for every signal named here, and adds Hidden coupling for the edges an import graph misses. The cadence ("periodically") is process, and the closing pointer to an import-linter contract in CI is carried by point-every-dependency-toward-the-core-and-never-cycle-b.
 
 - id: codebase-structure/compose-agents-with-typed-hooks-over-a-generic-runner-a
@@ -482,8 +476,7 @@
   class: static
   severity: important
   checks:
-    - skill: arch-audit
-      dimension: "Layering / dependency-rule conformance"
+    - arch/layering
   gap:
     recommendation: extend-skill
     note: "arch-audit is the owner - the as_tool rule is a dependency-rule question it can already see, and a spurious sub-agent boundary is a decomposition defect its Coupling & cohesion dimension is the right lens for. What that dimension reads today is the module import graph, not the agent-composition graph, so whether a split corresponds to a real hand-off is invisible; the fix is to extend the over-decomposition axis to that second graph."
@@ -494,8 +487,7 @@
   class: static
   severity: minor
   checks:
-    - skill: arch-audit
-      dimension: "Layering / dependency-rule conformance"
+    - arch/layering
   gap:
     recommendation: extend-skill
     note: "arch-audit is the owner, and the row maps only on the consequence the handbook names, a type-test chain that couples the dispatcher to every concrete class and so breaks a tier boundary; no dimension flags isinstance/instanceof dispatch as such, nor asks for a single provider-agnostic entry point or declarative per-variant settings resolution. The section is written from a Python vantage (Pydantic discriminated unions, match on a Literal, pydantic-settings per variant); the equivalent TypeScript shape - a discriminated union on a literal tag, switch with exhaustiveness checking, and a schema library resolving env per variant - needs confirming before this row is audited on a TS codebase (#519)."
@@ -554,8 +546,7 @@
   class: static
   severity: minor
   checks:
-    - skill: arch-audit
-      dimension: "Layering / dependency-rule conformance"
+    - arch/layering
   gap:
     recommendation: extend-skill
     note: arch-audit is the owner of the anti-corruption boundary, a dependency rule (only the builder may import an engine's schema) it enforces once the project declares it among its layering rules. The representation's own requirements - typed blocks, containment, per-block provenance, engine identity kept out of the block shape - are schema properties no dimension inspects and no skill is a natural owner of, exactly as on hold-the-contracts-that-make-layering-pay-off-b; that residue is report prose against Part 4's checklist.

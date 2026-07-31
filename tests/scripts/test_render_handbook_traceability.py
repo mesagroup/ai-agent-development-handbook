@@ -578,6 +578,10 @@ def _patch_paths(monkeypatch, tmp_path, parts):
     monkeypatch.setattr(rht, "YAML_PATH", tmp_path / "handbook-traceability.yaml")
     monkeypatch.setattr(rht, "MD_PATH", tmp_path / "handbook-traceability.md")
     monkeypatch.setattr(rht, "REPO_ROOT", tmp_path)
+    # The real checks tree cites real handbook anchors, which the fixture
+    # handbook does not have; point main() at an empty tree so a fixture run
+    # is judged only against its own fixtures.
+    monkeypatch.setattr(rht, "CHECKS_DIR", tmp_path / "checks")
 
 
 def test_main_fails_when_the_handbook_renumbers_under_the_constants(
@@ -614,6 +618,7 @@ def test_main_check_detects_a_stale_md(tmp_path, monkeypatch):
     monkeypatch.setattr(rht, "YAML_PATH", yaml_path)
     monkeypatch.setattr(rht, "MD_PATH", md_path)
     monkeypatch.setattr(rht, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(rht, "CHECKS_DIR", tmp_path / "checks")
     assert rht.main(["--check"]) == 1  # md missing -> stale
     assert rht.main([]) == 0  # writes the md
     assert rht.main(["--check"]) == 0  # now fresh
