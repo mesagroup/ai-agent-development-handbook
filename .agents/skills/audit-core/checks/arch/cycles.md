@@ -33,4 +33,4 @@ Break a cycle: extract the shared piece into a new lower module, or convert an i
 
 ## Review lens
 
-Direct vs transitive coupling attributed correctly; a cycle "fix" doesn't just relocate the cycle.
+A cycle "fix" doesn't just relocate the cycle.

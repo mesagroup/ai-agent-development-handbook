@@ -17,10 +17,14 @@ Functions/modules with high cyclomatic complexity or deep nesting that resist un
 
 **Important** - a function whose complexity makes it untestable.
 
+**Important** - the threshold is unconfigured, so complexity is ungated and a regression is never caught. Report this once for the repo, not once per package.
+
 **Minor** - a moderately complex function - real but low-cost, fix when touching the area.
 
 ## Tooling fallback
 
-**Python** - `ruff check --select C901` (needs `mccabe` max-complexity set) or `radon cc` / `xenon`. Capture the metric per function.
+**Python** - `ruff check --select C901` or `radon cc` / `xenon`. Capture the metric per function.
+
+**Read the project's configured threshold before measuring, and treat its absence as a finding in its own right.** `C901` needs `mccabe` max-complexity set in `pyproject.toml`; if it is unset, passing a threshold on the command line yields clean numbers and silently hides the gap. Whichever tool you run, record what the project itself enforces - a number it never configured is a number nothing holds it to.
 
 **TypeScript** - ESLint's `complexity` and `max-depth` rules, or `eslint-plugin-sonarjs` for cognitive complexity. Capture the metric per function.
