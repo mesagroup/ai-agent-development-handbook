@@ -473,7 +473,7 @@
     - arch/layering
   gap:
     recommendation: extend-skill
-    note: "arch-audit is the owner - the as_tool rule is a dependency-rule question it can already see, and a spurious sub-agent boundary is a decomposition defect `arch/over-decomposition` is the right lens for. What that dimension reads today is the module import graph, not the agent-composition graph, so whether a split corresponds to a real hand-off is invisible; the fix is to extend that check to the second graph."
+    note: "arch-audit is the owner - the as_tool rule is a dependency-rule question it can already see, and a spurious sub-agent boundary is a decomposition defect `arch/over-decomposition` is the right lens for. What that check reads today is the module import graph, not the agent-composition graph, so whether a split corresponds to a real hand-off is invisible; the fix is to extend that check to the second graph."
 
 - id: codebase-structure/dispatch-on-a-discriminator-not-a-type
   section: "Dispatch on a discriminator, not a type"

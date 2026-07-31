@@ -4,7 +4,7 @@ domain: arch
 locality: global
 handbook: []
 handbook_note: >-
-  Deliberately beyond the handbook: the structural-decay section lists five signals an import graph can see, and this check exists for the coupling that never reaches the graph at all. The matrix records the addition in the note on codebase-structure/watch-for-structural-decay-beyond-layering.
+  Deliberately beyond the handbook: the structural-decay section lists five decay signals, none of them coupling that never reaches the import graph at all, which is what this check exists for. The matrix records the addition in the note on codebase-structure/watch-for-structural-decay-beyond-layering.
 tooling:
   python: [grimp]
   typescript: [eslint, knip]
