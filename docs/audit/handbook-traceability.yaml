@@ -213,18 +213,12 @@
   class: static
   severity: important
   checks:
-    - skill: test-audit
-      dimension: "TDD adherence / new-code coverage"
-    - skill: test-audit
-      dimension: "Coverage reach"
-    - skill: test-audit
-      dimension: "Assertion strength"
-    - skill: test-audit
-      dimension: "Determinism / flakiness"
-    - skill: test-audit
-      dimension: "Isolation & speed"
-    - skill: test-audit
-      dimension: "Effectiveness (optional)"
+    - test/new-code-coverage
+    - test/coverage-reach
+    - test/assertion-strength
+    - test/determinism
+    - test/isolation
+    - test/mutation
 
 - id: implementation-disciplines/tdd-c
   section: "TDD"

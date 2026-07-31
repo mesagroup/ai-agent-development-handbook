@@ -252,6 +252,13 @@ def test_the_real_checks_tree_loads_clean():
         "security/secrets-in-code",
         "security/sensitive-data",
         "security/unsafe-io",
+        "test/assertion-strength",
+        "test/coverage-reach",
+        "test/determinism",
+        "test/isolation",
+        "test/mutation",
+        "test/new-code-coverage",
+        "test/property-based-gap",
     ]
     assert {c.locality for c in checks.values()} == {"local", "global"}
     assert [c.id for c in checks.values() if c.optin] == [
@@ -262,4 +269,6 @@ def test_the_real_checks_tree_loads_clean():
         "docs/docstring-staleness",
         "docs/docstring-standard",
         "security/secret-history",
+        "test/mutation",
+        "test/property-based-gap",
     ]
