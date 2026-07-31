@@ -18,7 +18,7 @@ A domain specialization of **[audit-core](../audit-core/SKILL.md)** - read that 
 
 Every `deps` check is **global**: the subject is one resolved dependency set, not a partitioned tree, so there is no per-partition slice to fan out to.
 
-**Status scale:** ok / warn / violation (for licenses: allowed / review-needed / disallowed). Suppressions (a known-accepted CVE, an approved license exception) must be explicit and recorded with a reason - never silently dropped.
+**Status per row:** ok / warn / violation (for licenses: allowed / review-needed / disallowed). Suppressions (a known-accepted CVE, an approved license exception) must be explicit and recorded with a reason - never silently dropped.
 
 Most fixes here **touch `pyproject.toml` / the lockfile / CI config**, so they are **not** docs-only: the domain gate is "the lockfile still resolves **and** the test suite passes." Route them through the normal install + lint/typecheck/test CI. Add a **license allowlist/policy** and/or a CI gate (`pip-audit`, `pip-licenses` check) so the finding can't silently recur - this is the highest-leverage fix. Docs-only outputs: a `NOTICE`/`THIRD-PARTY-LICENSES` file, a generated SBOM, or the audit report itself.
 

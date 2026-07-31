@@ -218,6 +218,42 @@ def test_frontmatter_with_an_empty_body_is_not_reported_as_missing(tmp_path):
     assert any("title" in e for e in errors)
 
 
+def test_every_audit_skill_has_a_non_empty_checks_directory():
+    """Regression net for #559 PR 2: the `/audit` front door now detects
+    which domains are available from `<domain>-audit/checks/` instead of a
+    fixed list, so a domain skill with an empty or missing `checks/` would
+    silently drop out of `/audit all`. If this fails, go find which
+    `*-audit` skill lost its checks - do not weaken the assertion.
+    """
+    skill_dirs = sorted(
+        p for p in ac.SKILLS_DIR.glob(f"*{ac.SKILL_SUFFIX}") if p.is_dir()
+    )
+    assert skill_dirs, "no *-audit skills found under the real skills directory"
+    empty = [p.name for p in skill_dirs if not any((p / ac.CHECKS_SUBDIR).glob("*.md"))]
+    assert empty == [], f"these *-audit skills have no checks records: {empty}"
+
+
+def test_the_real_checks_tree_covers_every_domain():
+    """Structural complement to `test_the_real_checks_tree_loads_clean`'s
+    exact id list: this asserts the *shape* the front door now depends on -
+    zero load errors and full domain coverage - so it stays meaningful as
+    individual check ids are added, renamed, or removed.
+    """
+    checks, errors = ac.load_checks(ac.SKILLS_DIR)
+    assert errors == []
+    domains = {check.domain for check in checks.values()}
+    assert domains == {
+        "arch",
+        "ci",
+        "deps",
+        "docs",
+        "eval",
+        "prompt",
+        "security",
+        "test",
+    }
+
+
 def test_the_real_checks_tree_loads_clean():
     checks, errors = ac.load_checks(ac.SKILLS_DIR)
     assert errors == []

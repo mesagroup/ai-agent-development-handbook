@@ -23,7 +23,7 @@ A domain specialization of **[audit-core](../audit-core/SKILL.md)** - read that 
 
 **Detect** what the platform offers and what the project already uses: for GitHub Actions, `actionlint` (workflow correctness + shellcheck of `run:` blocks), `zizmor` (GHA security auditor - trigger safety, injection, permissions, unpinned actions), `pinact`/`ratchet` (action-pin checking), and the GitHub API/CLI (`gh`) for branch-protection and run history. For other platforms, use their native linter (`glab ci lint`, `circleci config validate`) plus manual review. Prefer a tool the project already runs; fall back to careful manual reading of every workflow.
 
-**Status scale:** ok / warn / violation. Suppressions (an intentionally broad permission, an action deliberately tracked by tag) must be explicit and recorded with a reason - never silently dropped.
+**Status per row:** ok / warn / violation. Suppressions (an intentionally broad permission, an action deliberately tracked by tag) must be explicit and recorded with a reason - never silently dropped.
 
 Fixes here **change the pipeline definition itself**, so the domain gate is unusual: **the changed workflow must parse and run green on a real trigger** - validate with `actionlint` and, where feasible, a test run on a branch/PR before relying on it. Route through the normal review gate. **Highest-leverage fix:** wire `actionlint` + `zizmor` into the pipeline (and pre-commit) so workflow regressions and new insecure patterns are caught automatically. Docs-only output: the findings report and any update to the contributor guide's "what CI enforces" section so the claim matches reality.
 

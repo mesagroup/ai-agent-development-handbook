@@ -21,7 +21,7 @@ A domain specialization of **[audit-core](../audit-core/SKILL.md)** - read that 
 
 **Fan out by each check's `locality`.** One read-only agent per top-level package/tier for the `local` checks, each mapping its slice's outgoing imports and internal shape; one agent per `global` check over the whole graph artifact, because a per-tier agent sees only its slice's edges and *cannot* compute a whole-graph property. Do **not** fan a cheap local check out to its own agent - that over-fans the work and duplicates the graph build.
 
-**Status scale:** ok / warn / violation (for a documented rule: conforms / borderline / violates). Suppressions - an intentionally allowed edge, a framework hook a dead-code tool can't see - must be explicit and recorded with a reason, never silently dropped.
+**Status per row:** ok / warn / violation (for a documented rule: conforms / borderline / violates). Suppressions - an intentionally allowed edge, a framework hook a dead-code tool can't see - must be explicit and recorded with a reason, never silently dropped.
 
 **Fixes touch code**, so the domain gate is "imports resolve, the type checker passes, **and** the test suite passes" - run the normal install + lint/typecheck/test CI, and the code-review gate. Every fix in this domain is a **behavior-preserving refactor**: the moved, split, merged or deleted code does the same thing afterwards, and a review lens that says so applies to every check here whether or not the check restates it. The highest-leverage fix in this domain is a layering contract (`import-linter` / `tach`) wired into CI so the violation can't silently recur. Docs-only output: the findings report and any architecture-diagram update.
 
