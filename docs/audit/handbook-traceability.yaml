@@ -238,9 +238,11 @@
     - prompt/role-objective
     - prompt/grounding
     - prompt/cognitive-load
+    - prompt/sop-structure
+    - prompt/sop-rfc2119
   gap:
     recommendation: extend-skill
-    note: prompt-audit's Tier B does audit the SOP structural spec in full, but Tier B declares no bolded dimension bullets so no matrix row can cite it - the fix is to the skill's Dimensions section, not to its coverage.
+    note: no prompt-audit check verifies whether an SOP names its completion criterion or its early exits - the observable state that ends the procedure and the conditions under which it should stop and say so instead of continuing. Tier A's role-objective check judges only the generic well-specified-prompt principle (a stated objective and scope), not this SOP-specific completion/stop-condition concept, so it does not reach the residue.
 
 - id: implementation-disciplines/prompt-and-sop-engineering-b
   section: "Prompt and SOP engineering"

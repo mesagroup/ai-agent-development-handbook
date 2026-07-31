@@ -2,17 +2,8 @@
 id: prompt/sop-rfc2119
 domain: prompt
 locality: local
-handbook: []
-handbook_note: >-
-  The same clause names the RFC 2119 keyword vocabulary itself (`grep -n
-  "RFC 2119" docs/engineering/implementation-disciplines.md`) and "give
-  every negative constraint its reason inline" - the reason-inline half is
-  already carried by the mapped `prompt/positive-framing` check. What is
-  left after that is this check's own scope: that the vocabulary is
-  actually *used* to mark a constraint's stated strength, a narrower
-  procedural check that the clause's citing row,
-  `implementation-disciplines/prompt-and-sop-engineering-a` - again not
-  widened by this task - does not list.
+handbook:
+  - implementation-disciplines/prompt-and-sop-engineering-a
 ---
 
 # SOP RFC 2119 vocabulary
@@ -25,7 +16,7 @@ Applies to `.sop.md` files only. Constraints expressed with the RFC 2119 keyword
 
 ## Fix
 
-**Repair constraint hygiene:** make the requirement strength legible with the right RFC 2119 keyword in an SOP, and downgrade/upgrade a mis-leveled requirement.
+**Repair constraint hygiene:** make the requirement strength legible (the right RFC 2119 keyword in an SOP) and downgrade/upgrade a mis-leveled requirement.
 
 ## Review lens
 

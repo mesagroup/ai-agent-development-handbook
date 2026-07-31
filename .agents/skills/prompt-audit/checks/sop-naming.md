@@ -4,16 +4,15 @@ domain: prompt
 locality: local
 handbook: []
 handbook_note: >-
-  The same prompt-and-sop-engineering clause names the `.sop.md` file
-  and `snake_case`, required-or-optional parameters (`grep -n
-  "snake_case" docs/engineering/implementation-disciplines.md`), but it
-  never says the filename must be kebab-case, nor that required
-  parameters must be *listed before* optional ones - the two rules this
-  check verifies beyond what the clause states. And the matrix row that
-  clause already grounds,
-  `implementation-disciplines/prompt-and-sop-engineering-a`, does not cite
-  this record (see `prompt/sop-structure`'s note on the same row); widening
-  that citation is outside what this task touches.
+  The prompt-and-sop-engineering clause names the `.sop.md` file and
+  `snake_case`, required-or-optional parameters (`grep -n "snake_case"
+  docs/engineering/implementation-disciplines.md`), but it never says the
+  filename must be kebab-case, nor that required parameters must be
+  *listed before* optional ones - the two rules this check verifies
+  beyond what the clause states. Citing the clause here would be the
+  near miss the matrix's own rule forbids: an SOP with an unordered or
+  non-kebab-case file would pass on the strength of a clause that never
+  asked for either.
 ---
 
 # SOP naming & parameter form

@@ -2,20 +2,8 @@
 id: prompt/sop-structure
 domain: prompt
 locality: local
-handbook: []
-handbook_note: >-
-  implementation-disciplines.md's prompt-and-sop-engineering clause names
-  the section set an SOP should carry (`grep -n "Give an SOP a fixed
-  shape" docs/engineering/implementation-disciplines.md`), but the matrix
-  row citing that clause, `implementation-disciplines/prompt-and-sop-engineering-a`,
-  already lists its five checked dimensions and this is not one of them -
-  that row's own gap note records that Tier B declared no bolded dimension
-  bullets the pre-migration matrix could parse, and this task converts
-  existing citations rather than widening that row. To ground this check a
-  clause would additionally have to say that the sections appear *in a
-  fixed order* and that *every* step carries its own Constraints block -
-  the ordering and per-step nesting rule this check actually verifies -
-  which the prose paragraph never states.
+handbook:
+  - implementation-disciplines/prompt-and-sop-engineering-a
 ---
 
 # SOP section structure
