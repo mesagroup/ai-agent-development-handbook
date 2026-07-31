@@ -336,8 +336,7 @@
   class: static
   severity: important
   checks:
-    - skill: security-audit
-      dimension: "Sensitive-data handling"
+    - security/sensitive-data
   gap:
     recommendation: new-domain
     target: "#516"
@@ -716,8 +715,7 @@
   class: static
   severity: important
   checks:
-    - skill: security-audit
-      dimension: "Sensitive-data handling"
+    - security/sensitive-data
   gap:
     recommendation: new-domain
     target: "#516"
@@ -1064,12 +1062,9 @@
   class: static
   severity: critical
   checks:
-    - skill: security-audit
-      dimension: "Injection"
-    - skill: security-audit
-      dimension: "Dangerous calls / code execution"
-    - skill: security-audit
-      dimension: "Unsafe I/O & deserialization"
+    - security/injection
+    - security/dangerous-calls
+    - security/unsafe-io
   note: The three dimensions carry the sink taxonomy this section names, and tracing a verified source-to-sink path is the skill's own load-bearing evidence step. The agent-specific source - an LLM or tool output treated as untrusted rather than as trusted data - is declared in the skill's scope section rather than as a dimension, so it rides along with the dimensions above rather than being separately citable.
 
 - id: security-supply-chain/grant-the-agent-the-least-privilege-it-needs
@@ -1087,8 +1082,7 @@
   class: static
   severity: critical
   checks:
-    - skill: security-audit
-      dimension: "Secrets in code"
+    - security/secrets-in-code
   note: An exact fit - the dimension names defaults, tests, fixtures and notebooks in the same breath, and reading the line to tell an environment lookup from a literal is its stated verification step.
 
 - id: security-supply-chain/secrets-never-commit-them-and-rotate-dont-just-delete-b
