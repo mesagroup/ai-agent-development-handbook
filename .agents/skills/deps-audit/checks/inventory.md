@@ -8,6 +8,7 @@ handbook_note: >-
   The handbook's dependency-accounting clause is satisfied by pinning direct dependencies and committing the lockfile as the record of what actually ran; it never asks for a generated SBOM artifact, so no clause grounds an SBOM-completeness check specifically.
 tooling:
   python: [cyclonedx-py]
+  typescript: [cyclonedx-npm]
 ---
 
 # Inventory (SBOM completeness)
@@ -21,3 +22,5 @@ SBOM completeness.
 ## Tooling fallback
 
 **Python** - `cyclonedx-py` or the tool's native SBOM export.
+
+**TypeScript** - `cyclonedx-npm`, the CycloneDX SBOM generator for Node.js/npm projects, run against `package-lock.json`.
