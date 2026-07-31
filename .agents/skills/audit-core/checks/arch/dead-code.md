@@ -25,6 +25,8 @@ Unused modules, functions, classes, or exports reachable from nothing.
 
 **TypeScript** - `knip` for unused files, exports and dependencies, or `ts-prune` on older setups (same caveat - verify each hit against framework hooks, dynamic dispatch, and re-exports before deleting).
 
+**With none of them installed** - enumerate each module's public symbols and grep the tree for references to each; a symbol referenced nowhere outside the module that defines it is the candidate. The caveat above matters more here, not less: a hand-rolled sweep sees neither dynamic dispatch nor entry points declared in packaging metadata, so check both before believing any hit.
+
 ## Fix
 
 Delete dead code only after verifying it is truly unreachable (not a plugin entry point, dynamic import, or re-export).

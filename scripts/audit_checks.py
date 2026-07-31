@@ -53,7 +53,7 @@ FIELDS = frozenset(
     {"id", "domain", "locality", "handbook", "handbook_note", "tooling", "optin"}
 )
 
-_FRONTMATTER_RE = re.compile(r"\A---\n(.*?)\n---\n(.*)\Z", re.DOTALL)
+_FRONTMATTER_RE = re.compile(r"\A---\n(.*?)\n---(?:\n(.*))?\Z", re.DOTALL)
 _TITLE_RE = re.compile(r"^# (.+?)\s*$", re.MULTILINE)
 
 
@@ -91,7 +91,31 @@ def _split_frontmatter(text: str) -> tuple[dict[str, Any] | None, str, str | Non
         return None, "", f"frontmatter is not valid YAML: {exc}"
     if not isinstance(meta, dict):
         return None, "", "frontmatter must be a mapping"
-    return meta, m.group(2), None
+    return meta, m.group(2) or "", None
+
+
+def _read_text(path: Path) -> tuple[str | None, str | None]:
+    """Read a record file, turning any read failure into a message.
+
+    `load_checks` promises to collect problems rather than raise, and it is
+    called from the traceability gate, so an unreadable file must degrade to
+    one error line rather than a traceback that hides every other problem in
+    the tree. A directory named `*.md`, a non-UTF-8 byte, a broken symlink
+    and an unreadable file all arrive here.
+
+    Args:
+        path: The record file.
+
+    Returns:
+        The contents and an error message; the contents are `None` exactly
+        when the message is not.
+    """
+    try:
+        return path.read_text(encoding="utf-8"), None
+    except UnicodeDecodeError:
+        return None, "not valid UTF-8"
+    except OSError as exc:
+        return None, f"cannot be read: {type(exc).__name__}: {exc}"
 
 
 def _str_list(value: Any) -> tuple[str, ...] | None:
@@ -101,7 +125,9 @@ def _str_list(value: Any) -> tuple[str, ...] | None:
     return tuple(value)
 
 
-def _load_one(path: Path, checks_dir: Path) -> tuple[Check | None, list[str]]:
+def _load_one(
+    path: Path, checks_dir: Path
+) -> tuple[Check | None, list[str], str | None]:
     """Parse and validate a single record in isolation.
 
     Args:
@@ -109,13 +135,21 @@ def _load_one(path: Path, checks_dir: Path) -> tuple[Check | None, list[str]]:
         checks_dir: The root the record's expected id is relative to.
 
     Returns:
-        The record (or `None` if it failed) and one message per problem.
+        The record (or `None` if it failed), one message per problem, and the
+        raw declared `id` if the frontmatter had a string one. The raw id is
+        returned even for a record that failed validation, because collision
+        detection has to run on the declared value: a validated `Check.id`
+        equals its own file's path-derived id, and paths are unique, so two
+        of them can never collide.
     """
     rel = path.relative_to(checks_dir)
     where = rel.as_posix()
-    meta, body, err = _split_frontmatter(path.read_text())
+    text, read_err = _read_text(path)
+    if text is None:
+        return None, [f"{where}: {read_err}"], None
+    meta, body, err = _split_frontmatter(text)
     if meta is None:
-        return None, [f"{where}: {err}"]
+        return None, [f"{where}: {err}"], None
 
     errors: list[str] = []
     for key in sorted(set(meta) - FIELDS):
@@ -123,6 +157,7 @@ def _load_one(path: Path, checks_dir: Path) -> tuple[Check | None, list[str]]:
 
     expected_id = rel.with_suffix("").as_posix()
     cid = meta.get("id")
+    declared = cid if isinstance(cid, str) else None
     if not isinstance(cid, str):
         errors.append(f"{where}: id must be a string, got {cid!r}")
         cid = expected_id
@@ -197,7 +232,7 @@ def _load_one(path: Path, checks_dir: Path) -> tuple[Check | None, list[str]]:
         title = title_match.group(1)
 
     if errors:
-        return None, errors
+        return None, errors, declared
     return (
         Check(
             id=cid,
@@ -211,32 +246,8 @@ def _load_one(path: Path, checks_dir: Path) -> tuple[Check | None, list[str]]:
             path=path,
         ),
         [],
+        declared,
     )
-
-
-def _declared_id(path: Path) -> str | None:
-    """Best-effort peek at a record's raw declared id, without validating it.
-
-    Used only to detect id collisions across files independently of whether
-    each file otherwise passes validation: a file that fails validation for
-    an unrelated reason (for instance, its id does not match its own path)
-    can still collide with another file's id, and both problems are worth
-    reporting. A validated `Check.id` can never collide with another,
-    because it is required to equal its own file's path-derived id and
-    paths are unique, so duplicate detection has to run on the raw value.
-
-    Args:
-        path: The record file.
-
-    Returns:
-        The declared id, or `None` if the frontmatter is missing, malformed,
-        or the `id` field is absent or not a string.
-    """
-    meta, _, _ = _split_frontmatter(path.read_text())
-    if meta is None:
-        return None
-    cid = meta.get("id")
-    return cid if isinstance(cid, str) else None
 
 
 def load_checks(checks_dir: Path) -> tuple[dict[str, Check], list[str]]:
@@ -259,10 +270,20 @@ def load_checks(checks_dir: Path) -> tuple[dict[str, Check], list[str]]:
     if not checks_dir.is_dir():
         return checks, errors
     declared_ids: dict[str, Path] = {}
-    for path in sorted(checks_dir.glob("*/*.md")):
-        check, problems = _load_one(path, checks_dir)
+    # Walk the whole tree, not just `*/*.md`: a record at the wrong depth
+    # would otherwise be neither loaded nor reported, and a check that
+    # silently never runs is the failure this family exists to prevent.
+    for path in sorted(checks_dir.rglob("*.md")):
+        rel = path.relative_to(checks_dir)
+        if len(rel.parts) != 2:
+            errors.append(
+                f"{rel.as_posix()}: a check record lives at "
+                "<domain>/<slug>.md under the checks root; this one is at "
+                f"depth {len(rel.parts)} and would never be loaded"
+            )
+            continue
+        check, problems, declared = _load_one(path, checks_dir)
         errors.extend(problems)
-        declared = _declared_id(path)
         if declared is not None:
             if declared in declared_ids:
                 errors.append(

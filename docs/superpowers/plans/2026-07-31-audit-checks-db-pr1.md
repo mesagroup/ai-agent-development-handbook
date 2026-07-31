@@ -28,7 +28,7 @@ Two items the spec's Files table assigns to PR 1 that must **not** land here:
 
 Copied verbatim into every task's dispatch.
 
-- **Worktree root is `/Users/janos/Projects/lidia_integrations/.claude/worktrees/cozy-nibbling-sutherland`.** Confirm `git rev-parse --show-toplevel` prints exactly that before reading or editing anything. Do not `cd` to the primary checkout.
+- **Work in `<worktree-root>`**, the absolute path of the worktree this plan is executed from. The dispatcher resolves it once with `git rev-parse --show-toplevel` and interpolates it into every task dispatch; each agent confirms its own `--show-toplevel` matches before reading or editing anything. Do not `cd` to the primary checkout.
 - **Never pass a line starting with `#` to the Bash tool.**
 - **Never `git add -A`, `git add .`, or `git commit -a`.** Run `git status --short`, then `git add` the exact paths you changed.
 - **Prose moves verbatim.** When migrating text out of `arch-audit/SKILL.md`, move the sentences unchanged. Do not summarise a judgment paragraph into a bullet, do not shorten, do not "tighten". The only permitted edits are: (a) replacing an em-dash `—` with ` - `, (b) changing a leading bold label when the sentence acquires its own heading, and (c) splitting a sentence at a clause boundary when the source sentence covers several checks and each clause moves to a different file. Everything else is a defect.

@@ -176,6 +176,37 @@ def test_an_absent_checks_dir_loads_empty_without_error(tmp_path):
     assert errors == []
 
 
+def test_a_record_at_the_wrong_depth_is_reported_not_skipped(tmp_path):
+    _write(tmp_path, "loose.md", GOOD)
+    _write(tmp_path, "arch/nested/deep.md", GOOD)
+    checks, errors = ac.load_checks(tmp_path)
+    assert checks == {}
+    assert sorted(e.split(":")[0] for e in errors) == [
+        "arch/nested/deep.md",
+        "loose.md",
+    ]
+    assert all("would never be loaded" in e for e in errors)
+
+
+def test_an_unreadable_record_is_reported_not_raised(tmp_path):
+    (tmp_path / "arch").mkdir(parents=True)
+    (tmp_path / "arch" / "binary.md").write_bytes(
+        b"---\nid: arch/binary\n---\n\xff\xfe"
+    )
+    (tmp_path / "arch" / "adir.md").mkdir()
+    checks, errors = ac.load_checks(tmp_path)
+    assert checks == {}
+    assert any(e == "arch/binary.md: not valid UTF-8" for e in errors)
+    assert any(e.startswith("arch/adir.md: cannot be read:") for e in errors)
+
+
+def test_frontmatter_with_an_empty_body_is_not_reported_as_missing(tmp_path):
+    _write(tmp_path, "arch/layering.md", "---\nid: arch/layering\ndomain: arch\n---")
+    _, errors = ac.load_checks(tmp_path)
+    assert not any("missing YAML frontmatter" in e for e in errors)
+    assert any("title" in e for e in errors)
+
+
 def test_the_real_checks_tree_loads_clean():
     checks, errors = ac.load_checks(ac.CHECKS_DIR)
     assert errors == []

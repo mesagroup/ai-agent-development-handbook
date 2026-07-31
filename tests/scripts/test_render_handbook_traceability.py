@@ -832,6 +832,31 @@ def test_uncited_check_must_not_claim_a_grounding(tmp_path):
     assert any("alpha/two" in e and "no matrix row" in e for e in errors)
 
 
+def test_an_uncited_check_reports_once_not_once_per_anchor(tmp_path):
+    """One defect, one message - even when the record names several anchors.
+
+    The summary rule and the per-anchor rule both recognise "nothing cites
+    this check", so before they were made exclusive a record naming N
+    anchors produced 1 + N messages for a single problem, against this
+    module's one-message-per-problem contract.
+    """
+    checks = _checks_tree(
+        tmp_path,
+        {
+            "alpha/one": _one(),
+            "alpha/two": _one(
+                handbook=["alpha/first-section", "alpha/first-section-b"]
+            ),
+        },
+    )
+    errors = rht.validate([_row()], _HEADINGS, {}, checks)
+    assert [e for e in errors if e.startswith("alpha/two:")] == [
+        "alpha/two: cites 2 handbook anchor(s) but no matrix row cites this check; "
+        "add the citation to the matrix or empty the handbook list and explain why "
+        "in handbook_note"
+    ]
+
+
 def test_checks_cell_renders_id_and_title(tmp_path):
     checks = _checks_tree(tmp_path, {"alpha/one": _one()})
     cell = rht._checks_cell(_row(), checks)

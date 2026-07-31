@@ -17,3 +17,5 @@ Compute Robert C. Martin's package metrics from the graph artifact: afferent/eff
 ## Tooling fallback
 
 **Python** - from the graph artifact built for layering (`grimp`), per package: afferent coupling `Ca` (the packages that depend on it), efferent coupling `Ce` (the packages it depends on), **instability** `I = Ce / (Ca + Ce)`, **abstractness** `A = abstract types / total types`, and **distance** `D = |A + I − 1|`. Record `Ca`, `Ce`, `I`, `A` and `D` per package; `D` is the evidence.
+
+**With `grimp` unavailable** - every input is already to hand: `Ca` and `Ce` are in-degree and out-degree over the same edge set the layering check built, and `A` needs one pass counting classes per package and how many of them are abstract (an `ABC` base, a `Protocol` base, or any `@abstractmethod`). No dependency is required to compute any of the five numbers.

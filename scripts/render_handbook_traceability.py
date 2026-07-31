@@ -465,7 +465,11 @@ def validate(
                     f"heading in {part}.md"
                 )
                 continue
-            if anchor not in rows_citing:
+            # Only when SOME row cites the check: otherwise the summary above
+            # already said so once, and repeating it per anchor would report
+            # one defect as 1 + N messages against this module's stated
+            # one-message-per-problem contract.
+            if rows_citing and anchor not in rows_citing:
                 errors.append(
                     f"{cid}: handbook anchor {anchor!r} has no matrix row citing this "
                     "check; the record and the matrix disagree"

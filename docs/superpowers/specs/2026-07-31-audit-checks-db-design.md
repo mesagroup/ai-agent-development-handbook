@@ -45,7 +45,9 @@ The consequence is that the same five attributes are re-authored eight times, in
 
 Making the table real turns a markdown-parse heuristic into genuine referential integrity, and collapses the three wave-1 issues from prose sweeps into schema fields:
 
-- **#544** becomes a frontmatter field. The matrix row and the check record become two views of one edge, so they cannot disagree. The prose-rot problem raised in that issue's review comment (roughly 60 `note:` fields naming skills and dimensions in unchecked free prose) disappears rather than acquiring a convention.
+- **#544** becomes a frontmatter field. The matrix row and the check record become two views of one edge, so they cannot disagree.
+
+  This fixes the `checks[]` half of #544 and **not** the prose half. That issue's review comment raised two things: 80 unresolvable foreign keys in the structured `checks[]` field, and roughly 60 `note:` / `gap.note:` fields naming skills and dimensions in free prose that no validator reads. A checks database closes the first completely and leaves the second exactly where it was. The renaming of `Coupling & cohesion` in this very migration made the point: two `note:` fields had to be hand-corrected because the dimension they named no longer existed, and nothing would have caught either one. The prose half still needs the decision that comment asked for - make the references checkable, or forbid naming a dimension outside `checks[]` - and #544 stays open for it.
 - **#519** becomes a tooling key. Agents load only the detected language's slice.
 - **#545** becomes one place to de-parochialise plus a grounding input, rather than eight prose files to hunt through.
 

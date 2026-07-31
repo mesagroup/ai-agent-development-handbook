@@ -27,6 +27,8 @@ Import cycles between modules or packages (they defeat isolation and make the gr
 
 **TypeScript** - `madge --circular`, or `dependency-cruiser`'s `no-circular` rule on the built graph.
 
+**With none of them installed** - the edge set built for layering is all a cycle needs: walk it depth-first and record every back edge, or collapse it into strongly-connected components and report each component of size greater than one. Report the participating modules in cycle order, so the fix has a seam to cut.
+
 ## Fix
 
 Break a cycle: extract the shared piece into a new lower module, or convert an import-time dependency into a lazy/local import only when extraction genuinely doesn't fit (note the trade-off).
