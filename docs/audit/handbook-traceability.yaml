@@ -169,8 +169,7 @@
   class: static
   severity: important
   checks:
-    - skill: ci-audit
-      dimension: "Gate enforcement"
+    - ci/gate-enforcement
     - skill: eval-audit
       dimension: "Smoke-test gate"
   gap:
@@ -273,8 +272,7 @@
   class: static
   severity: important
   checks:
-    - skill: ci-audit
-      dimension: "Gate enforcement"
+    - ci/gate-enforcement
   gap:
     recommendation: extend-skill
     note: ci-audit is the owner, and its Gate enforcement dimension asks whether the type-check runs and is required, never whether it can fail - no dimension measures annotation coverage or checker strictness, the type-checking analogue of test-audit's Assertion strength.
@@ -374,8 +372,7 @@
       dimension: "Reproducibility"
     - skill: eval-audit
       dimension: "Regression tracking & cost"
-    - skill: ci-audit
-      dimension: "Gate enforcement"
+    - ci/gate-enforcement
 
 - id: implementation-disciplines/see-also
   section: "See also"
@@ -409,8 +406,7 @@
   class: static
   severity: minor
   checks:
-    - skill: ci-audit
-      dimension: "Gate enforcement"
+    - ci/gate-enforcement
   gap:
     recommendation: extend-skill
     note: arch-audit is the owner, but its layering dimension presupposes that the project has documented its tiers rather than asking whether it has, and no dimension looks for an import-boundary contract at all; ci-audit's Gate enforcement reaches only the case where such a workflow already exists and asks whether it is required.
@@ -846,8 +842,7 @@
   checks:
     - skill: eval-audit
       dimension: "Smoke-test gate"
-    - skill: ci-audit
-      dimension: "Gate enforcement"
+    - ci/gate-enforcement
   gap:
     recommendation: extend-skill
     note: the middle rung - "run it in shadow mode on production traffic, blocking nothing, before it can block a merge" - has no dimension anywhere; eval-audit is the owner, and its Smoke-test gate covers only the promoted, merge-blocking end of the ladder.
@@ -985,8 +980,7 @@
   class: static
   severity: minor
   checks:
-    - skill: ci-audit
-      dimension: "Gate enforcement"
+    - ci/gate-enforcement
   gap:
     recommendation: extend-skill
     note: Gate enforcement asks whether a checker that exists is actually required, so a project with no checker at all passes it; docs-audit is the owner and treats the checker as a deliverable it may propose rather than as a dimension it scores.
@@ -1129,12 +1123,9 @@
   class: static
   severity: critical
   checks:
-    - skill: ci-audit
-      dimension: "Permissions / secrets"
-    - skill: ci-audit
-      dimension: "Action supply chain"
-    - skill: ci-audit
-      dimension: "Trigger safety"
+    - ci/permissions-secrets
+    - ci/action-supply-chain
+    - ci/trigger-safety
   note: The second exact fit in Part 9 - each of the four clauses, federated credentials included, is named inside one of these three dimensions.
 
 - id: security-supply-chain/turn-every-fix-into-a-gate
@@ -1143,8 +1134,7 @@
   class: static
   severity: important
   checks:
-    - skill: ci-audit
-      dimension: "Gate enforcement"
+    - ci/gate-enforcement
   gap:
     recommendation: extend-skill
     note: the same shape and the same owner as Part 1's make-the-standard-executable row, applied to the safety surfaces - ci-audit's Gate enforcement audits the gates a project already has, while security-audit and deps-audit detect the available scanners only to choose their own tooling, so no dimension reports that a repo runs no secret scan and no CVE gate at all, and the pre-commit half is unrepresented anywhere.
