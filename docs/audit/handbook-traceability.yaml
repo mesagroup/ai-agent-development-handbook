@@ -49,7 +49,7 @@
   severity: important
   gap:
     recommendation: extend-skill
-    note: docs-audit is the owner and has no dimension for an authoritative rules file or for doc-vs-doc contradiction; ci-audit's Gate enforcement checks that mismatch only for what CI claims to enforce.
+    note: docs-audit is the owner and has no check for an authoritative rules file or for doc-vs-doc contradiction; ci-audit's Gate enforcement checks that mismatch only for what CI claims to enforce.
 
 # --- Part 1: Development lifecycle ------------------------------------------
 
@@ -119,7 +119,7 @@
   severity: important
   gap:
     recommendation: extend-skill
-    note: docs-audit is the owner because specs and plans are docs-tree artifacts, but no dimension asks whether a change carries a committed spec and plan, nor scans a plan for placeholders; the per-change and linked-from-the-issue halves need the delivery-trail evidence base (#548).
+    note: docs-audit is the owner because specs and plans are docs-tree artifacts, but no check asks whether a change carries a committed spec and plan, nor scans a plan for placeholders; the per-change and linked-from-the-issue halves need the delivery-trail evidence base (#548).
 
 - id: lifecycle/step-by-step-one-issue-end-to-end-c
   section: "Step-by-step: one issue, end to end"
@@ -139,7 +139,7 @@
   gap:
     recommendation: new-domain
     target: "#548"
-    note: "a development-process claim, not a product-prompt one, so prompt-audit is not the owner even though a subagent definition is a prompt artifact it can read: what is being audited is how the team spends model capacity while building, not how the shipped agent is instructed. eval-audit's Reproducibility is the nearest existing dimension and refuses on the near-miss rule - it wants a pinned model version recorded for an eval run, which the omission the handbook forbids satisfies perfectly well."
+    note: "a development-process claim, not a product-prompt one, so prompt-audit is not the owner even though a subagent definition is a prompt artifact it can read: what is being audited is how the team spends model capacity while building, not how the shipped agent is instructed. eval-audit's `eval/reproducibility` is the nearest existing check and refuses on the near-miss rule - it wants a pinned model version recorded for an eval run, which the omission the handbook forbids satisfies perfectly well."
 
 
 - id: lifecycle/step-by-step-one-issue-end-to-end-e
@@ -173,7 +173,7 @@
     - eval/smoke-test-gate
   gap:
     recommendation: extend-skill
-    note: ci-audit is the owner, and its Gate enforcement dimension audits the gates that already exist; no dimension walks the project's binding rules to find the ones with no mechanical enforcer, and the local pre-commit half of the claim is unrepresented anywhere.
+    note: ci-audit is the owner, and its `ci/gate-enforcement` check audits the gates that already exist; no check walks the project's binding rules to find the ones with no mechanical enforcer, and the local pre-commit half of the claim is unrepresented anywhere.
 
 - id: lifecycle/make-the-standard-executable-and-audit-periodically-b
   section: "Make the standard executable, and audit periodically"
@@ -182,7 +182,7 @@
   severity: important
   gap:
     recommendation: report-only
-    note: this is audit-core's own charter, but audit-core declares no dimensions so no row can cite it; audit cadence and past audit reports are outside every skill's evidence base.
+    note: this is audit-core's own charter, but audit-core declares no checks of its own so no row can cite one; audit cadence and past audit reports are outside every skill's evidence base.
 
 - id: lifecycle/pre-merge-checklist
   section: "Pre-merge checklist"
@@ -225,7 +225,7 @@
   severity: important
   gap:
     recommendation: extend-skill
-    note: "test-audit is the owner and already carries the floor concept outside its dimensions - scope asks what floor the contributor guide or CI enforces, and the status scale reads meets-floor/below-floor - but no dimension bullet checks whether a floor was stated, recorded executably, or justified. Coverage reach measures reach, so it would pass a project that never decided a floor, and pass one that omits its parsers from the denominator because excluded code is absent rather than uncovered. Mapping it would satisfy the claim with exactly what the clause forbids, so this row maps nothing. The declaration belongs to that skill's wave-1 sweep pass (#544 + #519 + #545)."
+    note: "test-audit is the owner and already carries the floor concept outside its checks - scope asks what floor the contributor guide or CI enforces, and the status scale reads meets-floor/below-floor - but no check asks whether a floor was stated, recorded executably, or justified. Coverage reach measures reach, so it would pass a project that never decided a floor, and pass one that omits its parsers from the denominator because excluded code is absent rather than uncovered. Mapping it would satisfy the claim with exactly what the clause forbids, so this row maps nothing. The declaration belongs to that skill's wave-1 sweep pass (#544 + #519 + #545)."
 
 - id: implementation-disciplines/prompt-and-sop-engineering-a
   section: "Prompt and SOP engineering"
@@ -251,7 +251,7 @@
   severity: minor
   gap:
     recommendation: extend-skill
-    note: co-owned - prompt-audit's remediation section already states this rule verbatim as a convention it follows, and eval-audit's Prompt / SOP quality dimension owns prompt-change hygiene through its missing-versioning-or-changelog clause, but neither turns it into a check and nothing reads commit messages, which is the evidence base the delivery-trail domain (#548) would supply.
+    note: co-owned - prompt-audit's remediation section already states this rule verbatim as a convention it follows, and eval-audit's `eval/prompt-quality` owns prompt-change hygiene through its missing-versioning-or-changelog clause, but neither actually reads commit messages to verify it, which is the evidence base the delivery-trail domain (#548) would supply.
 
 - id: implementation-disciplines/prompt-and-sop-engineering-c
   section: "Prompt and SOP engineering"
@@ -260,7 +260,7 @@
   severity: important
   gap:
     recommendation: extend-skill
-    note: prompt-audit is the owner but no dimension asks whether a constraint stated in the prompt could be enforced deterministically in code; its counterpart claim sits on ci-and-static-analysis-d.
+    note: prompt-audit is the owner but no check asks whether a constraint stated in the prompt could be enforced deterministically in code; its counterpart claim sits on ci-and-static-analysis-d.
 
 - id: implementation-disciplines/ci-and-static-analysis-a
   section: "CI and static analysis"
@@ -271,7 +271,7 @@
     - ci/gate-enforcement
   gap:
     recommendation: extend-skill
-    note: ci-audit is the owner, and its Gate enforcement dimension asks whether the type-check runs and is required, never whether it can fail - no dimension measures annotation coverage or checker strictness, the type-checking analogue of test-audit's Assertion strength.
+    note: ci-audit is the owner, and its `ci/gate-enforcement` check asks whether the type-check runs and is required, never whether it can fail - no check measures annotation coverage or checker strictness, the type-checking analogue of test-audit's Assertion strength.
 
 - id: implementation-disciplines/ci-and-static-analysis-b
   section: "CI and static analysis"
@@ -290,7 +290,7 @@
   gap:
     recommendation: extend-skill
     target: "#519"
-    note: ci-audit, prompt-audit and eval-audit are already language-neutral, so a TypeScript project still gets its pipeline, prompt and behavioural audits; what it loses is tooling - arch, deps, docs, security and test all declare Python, leaving the lint, format, type-check, docstring, dependency, structure and test dimensions with no TS equivalent.
+    note: ci-audit, prompt-audit and eval-audit are already language-neutral, so a TypeScript project still gets its pipeline, prompt and behavioural audits; what it loses is tooling - arch, deps, docs, security and test all declare Python, leaving the lint, format, type-check, docstring, dependency, structure and test checks with no TS equivalent.
 
 - id: implementation-disciplines/ci-and-static-analysis-d
   section: "CI and static analysis"
@@ -299,7 +299,7 @@
   severity: minor
   gap:
     recommendation: extend-skill
-    note: no dimension flags a review or audit agent pointed at work a deterministic tool already does; prompt-audit is the nearest owner, as on prompt-and-sop-engineering-c.
+    note: no check flags a review or audit agent pointed at work a deterministic tool already does; prompt-audit is the nearest owner, as on prompt-and-sop-engineering-c.
 
 - id: implementation-disciplines/the-code-review-protocol-a
   section: "The code-review protocol"
@@ -328,7 +328,7 @@
   gap:
     recommendation: new-domain
     target: "#516"
-    note: security-audit reaches only the security-relevant subset (broad handlers that hide security failures); the developer-facing half - an error collapsed into a generic internal error with no type or message - belongs to the observability domain the target issue creates, so the residue is a missing domain rather than a missing dimension in an existing skill.
+    note: security-audit reaches only the security-relevant subset (broad handlers that hide security failures); the developer-facing half - an error collapsed into a generic internal error with no type or message - belongs to the observability domain the target issue creates, so the residue is a missing domain rather than a missing check in an existing skill.
 
 - id: implementation-disciplines/coding-hygiene-rules-that-surface-at-review-b
   section: "Coding-hygiene rules that surface at review"
@@ -345,7 +345,7 @@
   severity: important
   gap:
     recommendation: extend-skill
-    note: security-audit is the owner, since its Secrets in code pass already walks every literal in the tree, but that dimension is scoped to credentials and a personal path or profile name is a portability leak rather than a secret, so nothing scans for one.
+    note: security-audit is the owner, since its Secrets in code pass already walks every literal in the tree, but that check is scoped to credentials and a personal path or profile name is a portability leak rather than a secret, so nothing scans for one.
 
 - id: implementation-disciplines/coding-hygiene-rules-that-surface-at-review-d
   section: "Coding-hygiene rules that surface at review"
@@ -382,7 +382,7 @@
   checks:
     - arch/layering
     - arch/cycles
-  note: arch-audit's layering dimension is explicitly at its strongest when the project documents its tiers, so it audits conformance to whichever tier list the project declares. What it does not second-guess is the ordering principle behind that list - sort by reuse - which is a design judgment rather than a graph property.
+  note: arch-audit's `arch/layering` check is explicitly at its strongest when the project documents its tiers, so it audits conformance to whichever tier list the project declares. What it does not second-guess is the ordering principle behind that list - sort by reuse - which is a design judgment rather than a graph property.
 
 - id: codebase-structure/point-every-dependency-toward-the-core-and-never-cycle-a
   section: "Point every dependency toward the core, and never cycle"
@@ -402,7 +402,7 @@
     - ci/gate-enforcement
   gap:
     recommendation: extend-skill
-    note: arch-audit is the owner, but its layering dimension presupposes that the project has documented its tiers rather than asking whether it has, and no dimension looks for an import-boundary contract at all; ci-audit's Gate enforcement reaches only the case where such a workflow already exists and asks whether it is required.
+    note: arch-audit is the owner, but its `arch/layering` check presupposes that the project has documented its tiers rather than asking whether it has, and no check looks for an import-boundary contract at all; ci-audit's Gate enforcement reaches only the case where such a workflow already exists and asks whether it is required.
 
 - id: codebase-structure/why-the-rule-matters-a
   section: "Why the rule matters"
@@ -413,8 +413,8 @@
     - arch/over-abstraction
   gap:
     recommendation: extend-skill
-    note: partial - arch-audit is the owner, and its Over-abstraction dimension reaches the migrated convenience only while it still has a single consumer, and what it measures there is the unused generality rather than the coupling. The case the handbook warns about hardest, a core convenience that has since acquired a second consumer and now binds both to one workflow's assumptions, reads as justified generality to that dimension and is invisible to every other one.
-  note: Mapped through the dimension's one-consumer tell - a shared unit whose anticipated second caller never arrived - which is a real but partial reach; the residue is recorded as the gap above.
+    note: partial - arch-audit is the owner, and its `arch/over-abstraction` check reaches the migrated convenience only while it still has a single consumer, and what it measures there is the unused generality rather than the coupling. The case the handbook warns about hardest, a core convenience that has since acquired a second consumer and now binds both to one workflow's assumptions, reads as justified generality to that check and is invisible to every other one.
+  note: Mapped through the check's one-consumer tell - a shared unit whose anticipated second caller never arrived - which is a real but partial reach; the residue is recorded as the gap above.
 
 - id: codebase-structure/why-the-rule-matters-b
   section: "Why the rule matters"
@@ -444,7 +444,7 @@
   severity: minor
   gap:
     recommendation: extend-skill
-    note: arch-audit is the nearest owner, but no dimension detects plumbing duplicated once per application - the tell is repetition across agents, not a bad import - and its axes point the other way, since a generic runner with one implementer reads as Over-abstraction, so composition-over-forking stays invisible until the fork produces a cycle or a layering break.
+    note: arch-audit is the nearest owner, but no check detects plumbing duplicated once per application - the tell is repetition across agents, not a bad import - and its axes point the other way, since a generic runner with one implementer reads as Over-abstraction, so composition-over-forking stays invisible until the fork produces a cycle or a layering break.
 
 - id: codebase-structure/compose-agents-with-typed-hooks-over-a-generic-runner-b
   section: "Compose agents with typed hooks over a generic runner"
@@ -466,7 +466,7 @@
     - arch/layering
   gap:
     recommendation: extend-skill
-    note: "arch-audit is the owner, and the row maps only on the consequence the handbook names, a type-test chain that couples the dispatcher to every concrete class and so breaks a tier boundary; no dimension flags isinstance/instanceof dispatch as such, nor asks for a single provider-agnostic entry point or declarative per-variant settings resolution. The section is written from a Python vantage (Pydantic discriminated unions, match on a Literal, pydantic-settings per variant); the equivalent TypeScript shape - a discriminated union on a literal tag, switch with exhaustiveness checking, and a schema library resolving env per variant - needs confirming before this row is audited on a TS codebase (#519)."
+    note: "arch-audit is the owner, and the row maps only on the consequence the handbook names, a type-test chain that couples the dispatcher to every concrete class and so breaks a tier boundary; no check flags isinstance/instanceof dispatch as such, nor asks for a single provider-agnostic entry point or declarative per-variant settings resolution. The section is written from a Python vantage (Pydantic discriminated unions, match on a Literal, pydantic-settings per variant); the equivalent TypeScript shape - a discriminated union on a literal tag, switch with exhaustiveness checking, and a schema library resolving env per variant - needs confirming before this row is audited on a TS codebase (#519)."
 
 - id: codebase-structure/name-every-configuration-worth-reusing
   section: "Name every configuration worth reusing"
@@ -475,7 +475,7 @@
   severity: important
   gap:
     recommendation: extend-skill
-    note: eval-audit is the owner, and its Reproducibility dimension is the nearest existing one but asks only that a run's config be recorded, which a reconstructed flag pile satisfies; nothing asks whether reusable configurations are named, listable and referenced by name. Part 5's bundle-configuration-into-named-profiles carries the same claim from the harness side.
+    note: eval-audit is the owner, and its `eval/reproducibility` check is the nearest existing one but asks only that a run's config be recorded, which a reconstructed flag pile satisfies; nothing asks whether reusable configurations are named, listable and referenced by name. Part 5's bundle-configuration-into-named-profiles carries the same claim from the harness side.
 
 - id: codebase-structure/checklist-placing-new-code--reviewing-an-import
   section: "Checklist: placing new code / reviewing an import"
@@ -505,7 +505,7 @@
   severity: important
   gap:
     recommendation: report-only
-    note: whether a document system's data model separates the three layers is visible in a snapshot, but no dimension owns it - arch-audit's layering axis reads module tiers, not data layers, and mapping this to it would audit the wrong graph. An auditor diagnoses it in report prose against Part 4's checklist.
+    note: whether a document system's data model separates the three layers is visible in a snapshot, but no check owns it - arch-audit's layering axis reads module tiers, not data layers, and mapping this to it would audit the wrong graph. An auditor diagnoses it in report prose against Part 4's checklist.
 
 - id: three-layer-model/never-skip-a-layer
   section: "Never skip a layer"
@@ -514,7 +514,7 @@
   severity: important
   gap:
     recommendation: report-only
-    note: a pipeline that dumps a raw document into the final prompt is visible in a snapshot, yet no dimension audits it; prompt-audit's Grounding & handling the unknown is the nearest and asks whether the prompt supplies the context the task needs, never whether that context arrived through the lower layers. The review-ritual clause is process.
+    note: a pipeline that dumps a raw document into the final prompt is visible in a snapshot, yet no check audits it; prompt-audit's `prompt/grounding` is the nearest and asks whether the prompt supplies the context the task needs, never whether that context arrived through the lower layers. The review-ritual clause is process.
 
 - id: three-layer-model/hold-the-contracts-that-make-layering-pay-off-a
   section: "Hold the contracts that make layering pay off"
@@ -525,7 +525,7 @@
     - arch/layering
   gap:
     recommendation: extend-skill
-    note: arch-audit is the owner of the anti-corruption boundary, a dependency rule (only the builder may import an engine's schema) it enforces once the project declares it among its layering rules. The representation's own requirements - typed blocks, containment, per-block provenance, engine identity kept out of the block shape - are schema properties no dimension inspects and no skill is a natural owner of, exactly as on hold-the-contracts-that-make-layering-pay-off-b; that residue is report prose against Part 4's checklist.
+    note: arch-audit is the owner of the anti-corruption boundary, a dependency rule (only the builder may import an engine's schema) it enforces once the project declares it among its layering rules. The representation's own requirements - typed blocks, containment, per-block provenance, engine identity kept out of the block shape - are schema properties no check inspects and no skill is a natural owner of, exactly as on hold-the-contracts-that-make-layering-pay-off-b; that residue is report prose against Part 4's checklist.
 
 - id: three-layer-model/hold-the-contracts-that-make-layering-pay-off-b
   section: "Hold the contracts that make layering pay off"
@@ -534,7 +534,7 @@
   severity: important
   gap:
     recommendation: report-only
-    note: identity stability, additive enrichment over an immutable base, and the Layer-2/Layer-3 boundary are document-model design contracts with no dimension anywhere; the closest analogue is arch-audit's Over-abstraction axis reading the same keep-the-core-sparse rule in the module graph (Part 3's why-the-rule-matters-a), which cannot see it in data. An auditor diagnoses these against Part 4's checklist in report prose.
+    note: identity stability, additive enrichment over an immutable base, and the Layer-2/Layer-3 boundary are document-model design contracts with no check anywhere; the closest analogue is arch-audit's Over-abstraction axis reading the same keep-the-core-sparse rule in the module graph (Part 3's why-the-rule-matters-a), which cannot see it in data. An auditor diagnoses these against Part 4's checklist in report prose.
 
 - id: three-layer-model/compose-typed-tools-over-one-fuzzy-lookup
   section: "Compose typed tools over one fuzzy lookup"
@@ -575,7 +575,7 @@
   severity: minor
   gap:
     recommendation: extend-skill
-    note: arch-audit is the nearest owner but has no dimension for plumbing duplicated once per agent - the tell is repetition across applications, not a bad import - and nothing audits which tier the reliability defaults live in; the bounding half of the claim is carried by make-bounding-the-default.
+    note: arch-audit is the nearest owner but has no check for plumbing duplicated once per agent - the tell is repetition across applications, not a bad import - and nothing audits which tier the reliability defaults live in; the bounding half of the claim is carried by make-bounding-the-default.
 
 - id: agent-harness/resolve-models-through-aliases-never-hard-coded-ids
   section: "Resolve models through aliases, never hard-coded IDs"
@@ -584,7 +584,7 @@
   severity: minor
   gap:
     recommendation: extend-skill
-    note: eval-audit is the owner, since model identity is its surface, but no dimension scans call sites for inline provider model IDs; its Reproducibility dimension is the nearest and wants a run's model version pinned and recorded, which an inline ID satisfies perfectly well - the worked example of the near-miss rule, mapping it would pass exactly what the handbook forbids - and security-audit's Secrets in code sees only the credentials half of what the catalog centralizes.
+    note: eval-audit is the owner, since model identity is its surface, but no check scans call sites for inline provider model IDs; its `eval/reproducibility` check is the nearest and wants a run's model version pinned and recorded, which an inline ID satisfies perfectly well - the worked example of the near-miss rule, mapping it would pass exactly what the handbook forbids - and security-audit's Secrets in code sees only the credentials half of what the catalog centralizes.
 
 - id: agent-harness/expose-model-parameters-as-optional-defaulted-flags
   section: "Expose model parameters as optional, defaulted flags"
@@ -593,7 +593,7 @@
   severity: minor
   gap:
     recommendation: extend-skill
-    note: eval-audit is the owner, since the generation-parameter surface is exactly what a like-for-like comparison varies one variable at a time, but the section's own claim is wholly unmapped - no dimension asks whether generation parameters are exposed as optional flags falling back to provider defaults, nor whether a reasoning budget flag exists where the model supports one.
+    note: eval-audit is the owner, since the generation-parameter surface is exactly what a like-for-like comparison varies one variable at a time, but the section's own claim is wholly unmapped - no check asks whether generation parameters are exposed as optional flags falling back to provider defaults, nor whether a reasoning budget flag exists where the model supports one.
   note: The closing clause - treat a parameter change as a hypothesis measured against a frozen benchmark, one variable at a time - is a cross-reference to Part 7 and is already owned there, split across two rows - the one-variable-at-a-time half by evaluation/measure-honestly-c, which classes it artifact and carries eval-audit's Methodology soundness and Reproducibility, and the frozen-benchmark half by evaluation/build-a-dataset-you-can-trust. This row keeps only the harness-side claim, the same division offer-cheap-and-mock-backends uses for its Part 7 clauses.
 
 - id: agent-harness/bundle-configuration-into-named-profiles
@@ -603,7 +603,7 @@
   severity: important
   gap:
     recommendation: extend-skill
-    note: the same unmapped claim and the same owner as Part 3's name-every-configuration-worth-reusing, stated from the harness side - eval-audit's Reproducibility is the nearest existing dimension and is satisfied by a recorded flag pile, and no dimension asks for named, listable, machine-readable profiles.
+    note: the same unmapped claim and the same owner as Part 3's name-every-configuration-worth-reusing, stated from the harness side - eval-audit's `eval/reproducibility` is the nearest existing check and is satisfied by a recorded flag pile, and no check asks for named, listable, machine-readable profiles.
 
 - id: agent-harness/ship-every-agent-with-a-headless-cli
   section: "Ship every agent with a headless CLI"
@@ -612,7 +612,7 @@
   severity: important
   gap:
     recommendation: extend-skill
-    note: eval-audit is the owner, because this is the precondition for its entire evidence base and an eval driving a code path production never takes is a validity threat next door to Contamination / leakage; still, no dimension asks whether a headless artifact-producing entry point exists, whether the eval path is the production path, or whether run artifacts are named and kept so a result stays findable months later.
+    note: eval-audit is the owner, because this is the precondition for its entire evidence base and an eval driving a code path production never takes is a validity threat next door to Contamination / leakage; still, no check asks whether a headless artifact-producing entry point exists, whether the eval path is the production path, or whether run artifacts are named and kept so a result stays findable months later.
 
 - id: agent-harness/offer-cheap-and-mock-backends-a-fast-inner-loop-is-a-discipline
   section: "Offer cheap and mock backends: a fast inner loop is a discipline"
@@ -631,7 +631,7 @@
   gap:
     recommendation: new-domain
     target: "#516"
-    note: "production-reliability bounding has no owner anywhere in the family - not one of the eight skills declares a dimension for timeouts, retry safety, circuit breakers, loop or payload caps. The planned performance/cost and observability lenses in #516 are the nearest: they would see the symptoms (a hung run, an unattributed spend, an undiagnosable failure) but their stated scope is measurement and diagnosability, not the harness-level bounds that prevent them. Folded into #516 by decision on 2026-07-29, widening that issue from measuring the symptom to auditing the bound - the alternative, a ninth reliability domain, would split one dependency call between two lenses."
+    note: "production-reliability bounding has no owner anywhere in the family - not one of the eight skills declares a check for timeouts, retry safety, circuit breakers, loop or payload caps. The planned performance/cost and observability lenses in #516 are the nearest: they would see the symptoms (a hung run, an unattributed spend, an undiagnosable failure) but their stated scope is measurement and diagnosability, not the harness-level bounds that prevent them. Folded into #516 by decision on 2026-07-29, widening that issue from measuring the symptom to auditing the bound - the alternative, a ninth reliability domain, would split one dependency call between two lenses."
 
 - id: agent-harness/checklist-standing-up-a-new-agent
   section: "Checklist: standing up a new agent"
