@@ -107,6 +107,26 @@ Four Critical clauses are auditable and nothing checks them: agent-harness bound
 
 **Point the quality controls at the prose too, not only at the data.** Every control we built guarded the ratings. The commentary explaining the ratings had none, and that is where the review found the untrue statements. Any figure asserted in generated prose should be computed from the data or removed, and the same discipline applies to the summaries humans write around a dataset.
 
+## Postscript: what the next two sweeps showed
+
+*Added 2026-08-04, after #559 and #567 restructured the same audit family onto a checks database. That arc has its own story in [Making a foreign key real](2026-08-04-making-a-foreign-key-real.md); recorded here only where it scores a claim this one makes.*
+
+**One of the four Critical unmapped clauses is now mapped, and the route was not the one we expected.** The head of queue is three, not four: secrets-in-history-and-rotation dropped off. Nothing was built to close it. The coverage had existed the whole time inside `security-audit`, and the matrix could not cite it because markdown had no way to express a citable unit — the gap was in the *expressive power of the artifact*, not in the skill. Turning each check into its own record made the coverage addressable, and the row now cites it. We had read that row's gap note as a work item for a year of planning; it was a formatting limitation wearing a work item's clothes. Worth carrying forward as a caution: a coverage record can under-report coverage for reasons that have nothing to do with coverage, and the taxonomy will not tell you which entries those are.
+
+**The prose lesson recurred twice, immediately, and that is the useful part.** This story's last lesson — point the quality controls at the prose, not only at the data — was written after review found four untrue self-descriptions here. In the two sweeps since, in the same family:
+
+| branch | false claims in prose about the work | caught by |
+|---|---|---|
+| #552 (this one) | 4: two hardcoded counts, an overclaim contradicted by the artifact cited in the same sentence, a too-narrow docstring | whole-branch review |
+| #566 | 2 notes whose line-number citations were invalidated by their own edit | whole-branch review |
+| #567 | 3: fabricated word-count deltas, a "0 substantive corrections" headline when the answer was 1, a "9 records" count when it was 8 | per-task review, whole-branch review, and the post-PR review pass |
+
+Every instance was caught by a reviewer and none by a gate. The diagnosis we did not make the first time is the one that matters: **writing a lesson into a story does not install a control.** We stated the rule at #552, believed it, and then shipped five more instances of exactly it across the next two branches. Advice at the end of a retrospective has roughly the enforcement power of a comment. The version that would have worked is structural — computing every asserted figure from the data, or refusing to assert it.
+
+**A scoping document that states a count is a licence not to recount.** #567's plan carried an out-of-scope entry reading "the eleven ordinary-English uses of *dimension* ... are correct English and correct domain vocabulary." There were twelve, four of them were not ordinary English, and one of the four was actively misrouting agents. The count was wrong, but the damage was not the wrong number: it was that a measured-sounding figure in a scoping note tells every later reader the counting has already been done. This is the sharper form of the lesson above. An unverified count in commentary is a false claim; an unverified count in a *scope* is a false claim that suppresses the check that would catch it.
+
+**The looseness question got its first data point, and it points the way the intuition guessed.** We noted that we had borrowed a mature scale, and wondered how much more the calibration machinery would earn against a taxonomy invented for its corpus. #559 is a partial answer from the loose end. Its record schema was invented one PR before the sweep that used it, versus audit-core's severity bands which had already been exercised against real findings. Seven parallel agents against the newer schema drifted across eight separate convention dimensions — enough that normalising them needed its own issue, its own plan, and its own seven-task sweep. That is not a controlled comparison and we should not treat it as one, but it is the predicted direction, and the cost landed roughly where the intuition said it would.
+
 ## Open questions
 
 - **Does the three-band scale need a fourth?** Four parts showed the same pressure: a harm that is neither exposure nor loss of measurability, but a cost that grows. We decided against adding a band, on the evidence of the cross-tab's own distribution — the Important band's largest homogeneous cell is small enough that severity never has to break a 75-way tie, and Critical-plus-unmapped is already a crisp four-row queue. A fourth band would buy a certain translation cost at every audit-core seam for a distinction no consumer can currently act on. Worth revisiting if a consumer appears that can.
