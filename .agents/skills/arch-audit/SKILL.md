@@ -7,15 +7,15 @@ description: "Audit a Python project's structure: layering / dependency-rule con
 
 A domain specialization of **[audit-core](../audit-core/SKILL.md)** - read that first; it owns the loop (scope → parallel evidence → findings matrix → plan → subagent-driven fixes → review → PR) and the cross-cutting rules. The checks are records in [`checks/`](checks/) beside this file; load the ones your slice needs, not the directory. This skill supplies the structural lens.
 
-**Core principle:** establish the declared architecture first, because it is the spec every layering finding is judged against - the contributor guide's stated tier/layer rules where they exist, otherwise the inferred and user-confirmed layers. Every fix in this domain is a **behavior-preserving refactor**: the moved, split, merged, or deleted code does the same thing afterwards, and this rule binds every check here whether or not the check restates it.
+**Core principle:** structure is judged against an architecture the project has actually declared or confirmed, never against a universal ideal - so establishing that spec comes before measuring anything against it, and a rule the team never agreed to is not a violation. What the fixes then change is the shape and never the behavior.
 
 **One pairing:** `arch/coupling` and `arch/over-decomposition` are the same granularity question in opposite directions - too coarse and too fine - so neither alone answers whether the granularity is right.
 
 **Announce:** "I'm using the arch-audit skill (on the audit-core engine) to audit the project structure."
 
-**Subject:** the package tree (the importable source under `src/`, the top-level package, or wherever the project keeps its code) and its import graph.
-
 **Not for:** a single new module's design review (just review it), or a pure performance/security question (those are other lenses).
+
+**Subject:** the package tree (the importable source under `src/`, the top-level package, or wherever the project keeps its code) and its import graph.
 
 **Establish the declared architecture first**, because it is the spec every layering finding is judged against. Read the contributor guide (CLAUDE.md / AGENTS.md / CONTRIBUTING) for a stated tier/layer structure and dependency rules ("A may import B, never the reverse; no cycles"). If it states them, they are the rubric. If no rules are documented, **infer** the intended layers from the directory structure and confirm the inferred rules with the user before flagging violations - don't invent an architecture the team never agreed to.
 

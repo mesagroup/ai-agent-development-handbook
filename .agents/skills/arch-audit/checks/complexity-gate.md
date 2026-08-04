@@ -5,7 +5,7 @@ locality: global
 optin: false
 handbook: []
 handbook_note: >-
-  The structural-decay clause (codebase-structure/watch-for-structural-decay-beyond-layering) names complexity as a decay signal to watch and measure; it does not say a threshold must be configured or enforced in CI. The matrix already treats that enforcement question as separate territory: the sibling clause from the same doc section, codebase-structure/point-every-dependency-toward-the-core-and-never-cycle-b ("so it is enforceable by an import-boundary linter in CI"), routes to ci-audit's Gate enforcement dimension, not to arch. Grounding this check in the structural-decay clause instead would be the near miss the matrix's own rule forbids - passing a codebase that measures complexity but gates nothing.
+  The structural-decay clause (codebase-structure/watch-for-structural-decay-beyond-layering) names complexity as a decay signal to watch and measure; it does not say a threshold must be configured or enforced in CI. The matrix already treats that enforcement question as separate territory: the sibling clause from the same doc section, codebase-structure/point-every-dependency-toward-the-core-and-never-cycle-b ("so it is enforceable by an import-boundary linter in CI"), routes to ci-audit's `ci/gate-enforcement` check, not to arch. Grounding this check in the structural-decay clause instead would be the near miss the matrix's own rule forbids - passing a codebase that measures complexity but gates nothing.
 tooling:
   python: [ruff, radon, xenon]
   typescript: [eslint, eslint-plugin-sonarjs]

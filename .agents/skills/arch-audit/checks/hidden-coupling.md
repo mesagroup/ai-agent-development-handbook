@@ -12,7 +12,7 @@ tooling:
 
 # Hidden coupling / implicit dependencies
 
-Coupling that does **not** travel through an `import`, so the import graph (the evidence source every other structural dimension rests on) silently misses it. Two modules can be tightly coupled with zero import edges between them: shared **module-level mutable global state** or a singleton both read and write, a **service-locator / registry** lookup by string (`get_thing("name")`) that hides who depends on whom, **import-time side effects** (a module that on import mutates a global registry, opens a connection, or monkeypatches), and **dynamic imports** / runtime monkeypatching. This dimension exists because the skill's own method has a blind spot - an unreported hidden edge is a false *negative*, which is worse than a false positive.
+Coupling that does **not** travel through an `import`, so the import graph (the evidence source every other structural check rests on) silently misses it. Two modules can be tightly coupled with zero import edges between them: shared **module-level mutable global state** or a singleton both read and write, a **service-locator / registry** lookup by string (`get_thing("name")`) that hides who depends on whom, **import-time side effects** (a module that on import mutates a global registry, opens a connection, or monkeypatches), and **dynamic imports** / runtime monkeypatching. This check exists because the skill's own method has a blind spot - an unreported hidden edge is a false *negative*, which is worse than a false positive.
 
 ## Severity
 

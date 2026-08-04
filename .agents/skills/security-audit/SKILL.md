@@ -18,7 +18,7 @@ A domain specialization of **[audit-core](../audit-core/SKILL.md)** - read that 
 - **Trust boundaries / input surfaces** - where external data enters (HTTP handlers, CLI args, file/S3 reads, message queues, LLM/tool outputs, env vars). These are the sources.
 - **Threat context** - is this an internet-facing service, an internal tool, or a library others import? It changes severity (an injection in a public endpoint outranks the same pattern in a local dev script).
 
-Slice the parallel evidence pass by top-level package/entry point, or by dimension (one agent per weakness class), whichever partitions the tree cleanly. Every core check is `local` to a code slice; only the opt-in `security/secret-history` is `global`, because git history is one object that no per-slice agent can scan.
+Slice the parallel evidence pass by top-level package/entry point, or by check (one agent per weakness class), whichever partitions the tree cleanly. Every core check is `local` to a code slice; only the opt-in `security/secret-history` is `global`, because git history is one object that no per-slice agent can scan.
 
 **Detect** what the project has (check `pyproject.toml` / config / pre-commit): a SAST scanner (`bandit`, or `ruff` with the `S` = flake8-bandit ruleset, or `semgrep`), a secret scanner (`detect-secrets`, `gitleaks`, `trufflehog`), and any type checker (a strict typechecker catches some misuse). Prefer a tool the project already runs; fall back otherwise.
 
