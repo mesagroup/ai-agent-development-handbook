@@ -11,7 +11,7 @@ A domain specialization of **[audit-core](../audit-core/SKILL.md)** - read that 
 
 **Announce:** "I'm using the docs-audit skill (on the audit-core engine) to audit and complete the documentation."
 
-**Subject:** the documentation tree (`docs/`, `documentation/`, a `README` tree, or a docs-site source) and the code it documents. Slice the parallel evidence pass **by code tier/package** - one source-mapping agent per tier. For a large tree, deliver in **increments** (one tier or coherent group per PR); each increment is its own audit-informed plan + PR.
+**Subject:** the documentation tree (`docs/`, `documentation/`, a `README` tree, or a docs-site source) and the code it documents. Slice the parallel evidence pass **by code tier/package** - one source-mapping agent per tier. For a large tree, deliver in **increments** (one tier or coherent group per PR); each increment is its own audit-informed plan + PR. `docs/coverage`, `docs/cross-referencing`, and `docs/organization` are `global` - each is answered against the whole docs tree at once. The three opt-in docstring checks (`docs/docstring-coverage`, `docs/docstring-staleness`, `docs/docstring-standard`) are `local` to a source slice.
 
 **Not for:** writing a single new doc for a single new feature (just write it), or a pure prose copy-edit with no coverage/structure question.
 

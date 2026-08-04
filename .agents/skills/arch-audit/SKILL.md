@@ -5,7 +5,9 @@ description: "Audit a Python project's structure: layering / dependency-rule con
 
 # Architecture Audit (structure, layering, coupling)
 
-A domain specialization of **[audit-core](../audit-core/SKILL.md)** - read that first; it owns the loop and the cross-cutting rules. The checks are records in [`checks/`](checks/) beside this file; load the ones your slice needs, not the directory.
+A domain specialization of **[audit-core](../audit-core/SKILL.md)** - read that first; it owns the loop (scope → parallel evidence → findings matrix → plan → subagent-driven fixes → review → PR) and the cross-cutting rules. The checks are records in [`checks/`](checks/) beside this file; load the ones your slice needs, not the directory. This skill supplies the structural lens.
+
+**Core principle:** establish the declared architecture first, because it is the spec every layering finding is judged against - the contributor guide's stated tier/layer rules where they exist, otherwise the inferred and user-confirmed layers. Every fix in this domain is a **behavior-preserving refactor**: the moved, split, merged, or deleted code does the same thing afterwards, and this rule binds every check here whether or not the check restates it.
 
 **One pairing:** `arch/coupling` and `arch/over-decomposition` are the same granularity question in opposite directions - too coarse and too fine - so neither alone answers whether the granularity is right.
 
@@ -19,9 +21,9 @@ A domain specialization of **[audit-core](../audit-core/SKILL.md)** - read that 
 
 **Build the graph once, first.** Produce the ground-truth artifact every downstream agent consumes - the import edge set plus per-module symbol/LOC counts - so agents read it rather than each re-parsing the tree and rebuilding a (possibly inconsistent) graph.
 
-**Fan out by each check's `locality`.** One read-only agent per top-level package/tier for the `local` checks, each mapping its slice's outgoing imports and internal shape; one agent per `global` check over the whole graph artifact, because a per-tier agent sees only its slice's edges and *cannot* compute a whole-graph property. Do **not** fan a cheap local check out to its own agent - that over-fans the work and duplicates the graph build.
+**Fan out by each check's `locality`.** `local`: `arch/complexity`, `arch/dead-code`, `arch/layering`, `arch/size` - one read-only agent per top-level package/tier, each mapping its slice's outgoing imports and internal shape. `global`: `arch/complexity-gate`, `arch/coupling`, `arch/cycles`, `arch/hidden-coupling`, `arch/over-abstraction`, `arch/over-decomposition`, and the opt-in `arch/martin-metrics` - one agent per check over the whole graph artifact, because a per-tier agent sees only its slice's edges and *cannot* compute a whole-graph property: a cycle, a ratio across the tree, an edge that bypasses the import graph, plus, for `arch/complexity-gate`, a single repo-wide fact that must be reported once. Do **not** fan a cheap local check out to its own agent - that over-fans the work and duplicates the graph build.
 
-**Status per row:** ok / warn / violation (for a documented rule: conforms / borderline / violates). Suppressions - an intentionally allowed edge, a framework hook a dead-code tool can't see - must be explicit and recorded with a reason, never silently dropped.
+Status per row: **ok / warn / violation** (for a documented rule: conforms / borderline / violates). Suppressions - an intentionally allowed edge, a framework hook a dead-code tool can't see - must be explicit and recorded with a reason, never silently dropped.
 
 **Fixes touch code**, so the domain gate is "imports resolve, the type checker passes, **and** the test suite passes" - run the normal install + lint/typecheck/test CI, and the code-review gate. Every fix in this domain is a **behavior-preserving refactor**: the moved, split, merged or deleted code does the same thing afterwards, and a review lens that says so applies to every check here whether or not the check restates it. The highest-leverage fix in this domain is a layering contract (`import-linter` / `tach`) wired into CI so the violation can't silently recur. Docs-only output: the findings report and any architecture-diagram update.
 
