@@ -4,16 +4,14 @@
 truth mapping every `##` section of the engineering handbook
 (`docs/engineering/`) onto the `*-audit` skill family
 (`.agents/skills/`). This script validates that mapping against the real
-handbook headings and skill dimensions, and renders the committed Markdown
+handbook headings and check records, and renders the committed Markdown
 view `docs/audit/handbook-traceability.md`.
 
 A row's `checks` list carries one entry per check that reaches the clause.
 An entry is a check id (`arch/layering`) resolved against the check records
-under `.agents/skills/<domain>-audit/checks/` (#559), or - until the remaining
-domains migrate - the legacy `{skill, dimension}` pair parsed out of a
-skill's `## N. Dimensions` bullets. The two views of an edge are checked
-against each other: a record may not cite a clause no row connects it to,
-and a cited record may not declare itself ungrounded.
+under `.agents/skills/<domain>-audit/checks/` (#559). The two views of an
+edge are checked against each other: a record may not cite a clause no row
+connects it to, and a cited record may not declare itself ungrounded.
 
 Each row carries two orthogonal axes. `class` (`static` | `artifact` |
 `process` | `informative`) says whether the clause can be checked at all;
@@ -118,8 +116,6 @@ KIND_LABELS = {
 
 _HEADING_RE = re.compile(r"^## (.+?)\s*$")
 _FENCE_RE = re.compile(r"^(```|~~~)")
-_DIMENSIONS_HEADING_RE = re.compile(r"^## \d+\. Dimensions\b")
-_DIM_BULLET_RE = re.compile(r"^- \*\*(.+?)\*\*")
 _SPLIT_SUFFIX_RE = re.compile(r"-([a-z])$")
 _PART_NUMBER_RE = re.compile(r"^# Part (\d+)\.")
 _TITLE_NUMBER_RE = re.compile(r"^Part (\d+):")
@@ -211,55 +207,6 @@ def handbook_part_numbers(handbook_dir: Path) -> dict[str, int | None]:
     return numbers
 
 
-def skill_dimensions(skills_dir: Path) -> dict[str, list[str]]:
-    """Map each skill directory name to the bolded lead phrases of its Dimensions bullets.
-
-    A skill without a numbered `## N. Dimensions` heading (audit-core, the
-    audit front door, non-audit skills) is simply absent from the result.
-    That absence is legitimate; a skill that *has* the heading but whose
-    bullets no longer parse is not, and would otherwise be indistinguishable
-    from it — every check citing that skill would fail as "unknown skill",
-    pointing at the matrix instead of at the reformatted bullet. So an
-    empty Dimensions section raises.
-
-    Args:
-        skills_dir: Directory holding one subdirectory per skill.
-
-    Returns:
-        Skill directory name mapped to its dimensions' bolded lead phrases.
-
-    Raises:
-        ValueError: A skill declares a Dimensions section with no bullet
-            the `- **Name** — …` parser recognises.
-    """
-    dims: dict[str, list[str]] = {}
-    for skill_md in sorted(skills_dir.glob("*/SKILL.md")):
-        names: list[str] = []
-        in_section = False
-        found_section = False
-        for line in skill_md.read_text().splitlines():
-            if _DIMENSIONS_HEADING_RE.match(line):
-                in_section = found_section = True
-                continue
-            if in_section and line.startswith("## "):
-                in_section = False
-                continue
-            if in_section:
-                m = _DIM_BULLET_RE.match(line)
-                if m:
-                    names.append(m.group(1))
-        if found_section and not names:
-            raise ValueError(
-                f"{skill_md.parent.name}: has a '## N. Dimensions' section but no "
-                "bullet matching '- **Name**'. Every check citing this skill would "
-                "fail as an unknown skill and blame the matrix for a formatting "
-                "change in the skill."
-            )
-        if names:
-            dims[skill_md.parent.name] = names
-    return dims
-
-
 def validate_parts(part_numbers: dict[str, int | None]) -> list[str]:
     """Check the hardcoded part order and titles against the handbook on disk.
 
@@ -312,7 +259,6 @@ def _resolve(anchor: str, by_slug: dict[str, str]) -> str | None:
 def validate(
     rows: list[dict[str, Any]],
     headings: dict[str, list[str]],
-    dims: dict[str, list[str]],
     checks: dict[str, Check],
 ) -> list[str]:
     """Check every schema rule from the design spec.
@@ -321,12 +267,8 @@ def validate(
         rows: The raw matrix rows as loaded from YAML, unvalidated.
         headings: Part stem mapped to its `##` heading texts, from
             `handbook_headings`.
-        dims: Skill name mapped to its dimension names, from
-            `skill_dimensions`.
-        checks: Check records keyed by id, from `load_checks`. A `checks[]`
-            entry that is a string names one of these; a mapping is the
-            legacy `{skill, dimension}` pair, still used by the domains
-            that have not migrated.
+        checks: Check records keyed by id, from `load_checks`. Every
+            `checks[]` entry names one of these.
 
     Returns:
         One message per violation, so a single run reports every problem;
@@ -337,10 +279,6 @@ def validate(
     covered: set[tuple[str, str]] = set()
     covered_parts: set[str] = set()
     cited: dict[str, set[str]] = {}
-    norm_dims = {
-        skill: {" ".join(d.split()).lower() for d in names}
-        for skill, names in dims.items()
-    }
 
     for i, row in enumerate(rows):
         if not isinstance(row, dict):
@@ -417,19 +355,20 @@ def validate(
                     continue
                 cited.setdefault(entry, set()).add(rid)
                 continue
-            if not isinstance(entry, dict):
-                errors.append(f"{rid}: check entries must be a check id or a mapping")
+            # The legacy `{skill, dimension}` pair is diagnosed by name rather
+            # than as a generic type error: it is what a branch predating #559
+            # carries, and "expected a string" would send its author looking
+            # for a typo instead of for the record that replaced the pair.
+            if isinstance(entry, dict) and "skill" in entry:
+                errors.append(
+                    f"{rid}: legacy {{skill, dimension}} entry {entry!r}; checks are "
+                    "now named by record id (e.g. arch/layering) - see "
+                    ".agents/skills/<domain>-audit/checks/"
+                )
                 continue
-            skill = entry.get("skill")
-            dim = entry.get("dimension")
-            if skill not in norm_dims:
-                errors.append(f"{rid}: unknown skill {skill!r}")
-                continue
-            if not isinstance(dim, str):
-                errors.append(f"{rid}: check dimension must be a string, got {dim!r}")
-                continue
-            if " ".join(dim.split()).lower() not in norm_dims[skill]:
-                errors.append(f"{rid}: {skill} has no dimension {dim!r}")
+            errors.append(
+                f"{rid}: check entries must be a check id string, got {entry!r}"
+            )
         if gap and gap.get("recommendation") not in RECOMMENDATIONS:
             errors.append(
                 f"{rid}: gap.recommendation must be one of {RECOMMENDATIONS}, got {gap.get('recommendation')!r}"
@@ -556,20 +495,18 @@ def _flat(value: Any) -> str:
 def _checks_cell(row: dict[str, Any], checks: dict[str, Check]) -> str:
     """Render the Mapped-checks cell for one row.
 
-    Handles both entry forms during the migration: a string is a check id,
-    resolved to its record's title; a mapping is the legacy
-    `{skill, dimension}` pair the not-yet-migrated domains still use.
+    Each entry is a check id, resolved to its record's title. An id with no
+    record renders bare rather than raising: `validate` has already reported
+    it, and this function's contract is to render whatever validation let
+    through.
     """
     entries = row.get("checks") or []
     if not entries:
         return "-"
     cells = []
     for entry in entries:
-        if isinstance(entry, str):
-            title = checks[entry].title if entry in checks else entry
-            cells.append(f"`{entry}` / {_md_escape(title)}")
-        else:
-            cells.append(f"`{entry['skill']}` / {_md_escape(entry['dimension'])}")
+        title = checks[entry].title if entry in checks else entry
+        cells.append(f"`{entry}` / {_md_escape(title)}")
     return "<br>".join(cells)
 
 
@@ -861,9 +798,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     checks, errors = load_checks(SKILLS_DIR)
     errors += validate_parts(handbook_part_numbers(HANDBOOK_DIR))
-    errors += validate(
-        rows, handbook_headings(HANDBOOK_DIR), skill_dimensions(SKILLS_DIR), checks
-    )
+    errors += validate(rows, handbook_headings(HANDBOOK_DIR), checks)
     if errors:
         for e in errors:
             print(e, file=sys.stderr)

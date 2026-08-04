@@ -107,33 +107,48 @@ def test_validate_parts_passes_on_the_real_handbook():
     assert rht.validate_parts(rht.handbook_part_numbers(rht.HANDBOOK_DIR)) == []
 
 
-def test_skill_dimensions_raises_on_an_unparseable_dimensions_section(tmp_path):
-    # Reformatted bullets must not read as "this skill has no dimensions":
-    # every check citing it would then fail as an unknown skill, blaming the
-    # matrix for a change made in the skill.
-    _write(
-        tmp_path / "demo-audit" / "SKILL.md",
-        "## 2. Dimensions (findings-matrix columns)\n\n* _Injection_ - reformatted.\n",
+def _check(cid, title, handbook, note=None):
+    """A `Check` built in memory, for fixtures that need no record on disk.
+
+    `_checks_tree` below writes real files and is what the loader-facing
+    tests use. These fixtures only need `validate` and `render` to resolve
+    an id, so constructing the record directly keeps them from depending on
+    the record file format.
+    """
+    return audit_checks.Check(
+        id=cid,
+        domain=cid.split("/", 1)[0],
+        locality="local",
+        title=title,
+        handbook=tuple(handbook),
+        handbook_note=note,
+        tooling={},
+        optin=False,
+        path=Path(f"{cid}.md"),
     )
-    with pytest.raises(ValueError, match="no bullet matching"):
-        rht.skill_dimensions(tmp_path)
 
 
-def test_skill_dimensions_reads_bolded_bullets_until_next_heading(tmp_path):
+# `demo/secrets` declares no grounding, so it stays legitimately uncited by
+# `_valid_rows`; only the render tests that append it cite it, and render
+# does not enforce the bidirectional rule.
+_DEMO_CHECKS = {
+    "demo/injection": _check("demo/injection", "Injection", ["alpha/mapped-section"]),
+    "demo/secrets": _check("demo/secrets", "Secrets", [], note="rendering fixture"),
+}
+
+
+def _write_demo_record(tmp_path):
+    """Put `demo/injection` on disk, matching its `_DEMO_CHECKS` entry.
+
+    The `main()` tests load records from `SKILLS_DIR` rather than being
+    handed a dict, so the row that `_valid_rows` grounds needs a real file
+    or every one of them fails on an unknown check id.
+    """
     _write(
-        tmp_path / "demo-audit" / "SKILL.md",
-        "---\nname: demo-audit\n---\n\n## 1. Subject\n\ntext\n\n## 2. Dimensions (findings-matrix columns)\n\n"
-        "- **Injection** — command, SQL.\n- **Secrets & credential handling** — keys in code.\n\n"
-        "## 3. Evidence\n\n- **Not a dimension** — different section.\n"
-        "## 6. Review dimensions (Phase-5 specialized reviewers)\n\n"
-        "- **Exploitability** — would fail if captured.\n",
+        tmp_path / "skills" / "demo-audit" / "checks" / "injection.md",
+        "---\nid: demo/injection\ndomain: demo\nlocality: local\n"
+        "handbook:\n  - alpha/mapped-section\n---\n\n# Injection\n\nclaim.\n",
     )
-    _write(
-        tmp_path / "helper" / "SKILL.md",
-        "---\nname: helper\n---\n\nNo dimensions heading.\n",
-    )
-    dims = rht.skill_dimensions(tmp_path)
-    assert dims == {"demo-audit": ["Injection", "Secrets & credential handling"]}
 
 
 def _fixture_dirs(tmp_path):
@@ -142,13 +157,8 @@ def _fixture_dirs(tmp_path):
         "# Alpha\n\n## Mapped section\n\ntext\n\n## Split section\n\ntext\n",
     )
     _write(tmp_path / "handbook" / "coda.md", "# Coda\n\nno sections\n")
-    _write(
-        tmp_path / "skills" / "demo-audit" / "SKILL.md",
-        "## 2. Dimensions (findings-matrix columns)\n\n- **Injection** — text.\n",
-    )
-    return rht.handbook_headings(tmp_path / "handbook"), rht.skill_dimensions(
-        tmp_path / "skills"
-    )
+    _write_demo_record(tmp_path)
+    return rht.handbook_headings(tmp_path / "handbook")
 
 
 def _fixture_dirs_with_extra_sections(tmp_path):
@@ -164,13 +174,8 @@ def _fixture_dirs_with_extra_sections(tmp_path):
         "\n## Second unmapped\n\ntext\n\n## Second process\n\ntext\n",
     )
     _write(tmp_path / "handbook" / "coda.md", "# Coda\n\nno sections\n")
-    _write(
-        tmp_path / "skills" / "demo-audit" / "SKILL.md",
-        "## 2. Dimensions (findings-matrix columns)\n\n- **Injection** — text.\n",
-    )
-    return rht.handbook_headings(tmp_path / "handbook"), rht.skill_dimensions(
-        tmp_path / "skills"
-    )
+    _write_demo_record(tmp_path)
+    return rht.handbook_headings(tmp_path / "handbook")
 
 
 def _valid_rows():
@@ -181,7 +186,7 @@ def _valid_rows():
             "claim": "c1",
             "class": "static",
             "severity": "important",
-            "checks": [{"skill": "demo-audit", "dimension": "Injection"}],
+            "checks": ["demo/injection"],
         },
         {
             "id": "alpha/split-section-a",
@@ -212,15 +217,18 @@ def _valid_rows():
 
 
 def test_validate_accepts_the_valid_fixture(tmp_path):
-    headings, dims = _fixture_dirs(tmp_path)
-    assert rht.validate(_valid_rows(), headings, dims, {}) == []
+    headings = _fixture_dirs(tmp_path)
+    assert rht.validate(_valid_rows(), headings, _DEMO_CHECKS) == []
 
 
 def test_validate_catches_each_rule(tmp_path):
-    headings, dims = _fixture_dirs(tmp_path)
+    headings = _fixture_dirs(tmp_path)
     # (mutation, expected message fragment, expected total error count) - the
     # count pins over-firing: a rule that also flags something else fails here.
-    # A count of 2 means the mutation additionally orphans a real heading.
+    # A mutation that costs row 0 its heading also orphans it, and one that
+    # costs row 0 its citation also orphans `demo/injection`, since the
+    # bidirectional rule reads the record and the matrix as one edge set.
+    # Both are real second defects, so they are counted rather than excused.
     cases = [
         (
             lambda r: r[0].update(id="alpha/mapped-section", section="Wrong text"),
@@ -230,30 +238,31 @@ def test_validate_catches_each_rule(tmp_path):
         (
             lambda r: r[0].update(id="nowhere/mapped-section"),
             "unknown handbook part",
-            2,
+            3,
         ),
-        (lambda r: r[0].update(id="alpha/no-such-anchor"), "does not resolve", 2),
+        (lambda r: r[0].update(id="alpha/no-such-anchor"), "does not resolve", 3),
         (lambda r: r[0].update(**{"class": "bogus"}), "class must be one of", 1),
-        (lambda r: r[0].pop("checks"), "needs checks or a gap", 1),
+        (lambda r: r[0].pop("checks"), "needs checks or a gap", 2),
         (
-            lambda r: r[3].update(
-                checks=[{"skill": "demo-audit", "dimension": "Injection"}]
-            ),
+            lambda r: r[3].update(checks=["demo/injection"]),
             "must not carry checks",
             1,
         ),
-        (lambda r: r[0]["checks"][0].update(skill="ghost-audit"), "unknown skill", 1),
+        # An id with no record: the row's citation is dropped, which also
+        # leaves demo/injection uncited, hence 2.
+        (lambda r: r[0].update(checks=["demo/ghost"]), "unknown check id", 2),
+        # A branch predating #559 carries the pair form. It is named as such
+        # rather than reported as a type error, so its author is sent to the
+        # record that replaced it.
         (
-            lambda r: r[0]["checks"][0].update(dimension="Ghost dimension"),
-            "no dimension",
-            1,
+            lambda r: r[0].update(
+                checks=[{"skill": "demo-audit", "dimension": "Injection"}]
+            ),
+            "legacy {skill, dimension} entry",
+            2,
         ),
-        # A bare `dimension:` parses to None; it must name the row, not raise.
-        (
-            lambda r: r[0]["checks"][0].update(dimension=None),
-            "dimension must be a string",
-            1,
-        ),
+        # Anything else that is not a string is a plain shape error.
+        (lambda r: r[0].update(checks=[["demo/injection"]]), "must be a check id", 2),
         (
             lambda r: r[1]["gap"].update(recommendation="wontfix"),
             "recommendation must be one of",
@@ -278,7 +287,7 @@ def test_validate_catches_each_rule(tmp_path):
     for mutate, expected, count in cases:
         rows = _valid_rows()
         mutate(rows)
-        errors = rht.validate(rows, headings, dims, {})
+        errors = rht.validate(rows, headings, _DEMO_CHECKS)
         assert any(expected in e for e in errors), f"{expected!r} not in {errors}"
         assert len(errors) == count, f"{expected!r} produced {errors}"
 
@@ -288,19 +297,19 @@ _ALPHA_URL = f"{rht.HANDBOOK_URL}/alpha.md"
 
 def test_render_produces_tables_gap_list_and_summary():
     rows = _valid_rows()
-    out = rht.render(rows, {})
+    out = rht.render(rows, _DEMO_CHECKS)
     assert "generated file" in out.lower()
     # Absolute GitHub URL: the handbook is excluded from the built site, so a
     # relative link would 404 there and fail the site link crawler.
     assert f"[Mapped section]({_ALPHA_URL}#mapped-section)<br>c1" in out
     assert "../engineering/" not in out
-    assert "`demo-audit` / Injection" in out
+    assert "`demo/injection` / Injection" in out
     assert "### Critical" in out and "#516" in out
     assert "| static | 1 |" in out
 
 
 def test_render_marks_split_rows_and_links_gap_entries():
-    out = rht.render(_valid_rows(), {})
+    out = rht.render(_valid_rows(), _DEMO_CHECKS)
     # Both slices of a split section link to the same anchor, distinguished by
     # the marker; the claim is what tells them apart.
     assert f"[Split section]({_ALPHA_URL}#split-section) (a)<br>c2a" in out
@@ -318,7 +327,7 @@ def test_render_reports_full_and_partial_coverage_apart():
     rows = _valid_rows()
     # A row that carries both a check and a residual gap is partial, not mapped.
     rows[0]["gap"] = {"recommendation": "extend-skill", "note": "residue"}
-    out = rht.render(rows, {})
+    out = rht.render(rows, _DEMO_CHECKS)
     assert "**0 fully mapped** (0%), **1 partially mapped**" in out
     assert "**1 unmapped**" in out
 
@@ -326,7 +335,7 @@ def test_render_reports_full_and_partial_coverage_apart():
 def test_render_reconciles_the_gap_total_when_no_process_row_gaps():
     rows = _valid_rows()
     rows[0]["gap"] = {"recommendation": "extend-skill", "note": "residue"}
-    out = rht.render(rows, {})
+    out = rht.render(rows, _DEMO_CHECKS)
     assert (
         "All 2 gap entries sit on auditable rows: the 1 unmapped one plus "
         "the 1 partial." in out
@@ -342,7 +351,7 @@ def test_render_reconciles_the_gap_total_when_a_process_row_gaps():
     rows = _valid_rows()
     rows[0]["gap"] = {"recommendation": "extend-skill", "note": "residue"}
     rows[2]["gap"] = {"recommendation": "report-only", "note": "prose only"}
-    out = rht.render(rows, {})
+    out = rht.render(rows, _DEMO_CHECKS)
     assert "2 of the 3 gap entries sit on auditable rows" in out
     assert "all 1 unmapped" in out
     assert "plus the 1 partial" in out
@@ -354,7 +363,7 @@ def test_render_reconciles_the_gap_total_in_the_plural(tmp_path):
     # only one side of each alternation. The real matrix does exercise the
     # plural today, but only through the golden .md - which is regenerated
     # by this same renderer, so it would ratify a typo rather than catch it.
-    headings, dims = _fixture_dirs_with_extra_sections(tmp_path)
+    headings = _fixture_dirs_with_extra_sections(tmp_path)
     rows = _valid_rows()
     rows[0]["gap"] = {"recommendation": "extend-skill", "note": "residue"}
     rows[2]["gap"] = {"recommendation": "report-only", "note": "prose only"}
@@ -379,8 +388,8 @@ def test_render_reconciles_the_gap_total_in_the_plural(tmp_path):
         }
     )
     # The fixture stays schema-valid, so the arithmetic it pins is reachable.
-    assert rht.validate(rows, headings, dims, {}) == []
-    out = rht.render(rows, {})
+    assert rht.validate(rows, headings, _DEMO_CHECKS) == []
+    out = rht.render(rows, _DEMO_CHECKS)
     assert "3 of the 5 gap entries sit on auditable rows" in out
     assert "all 2 unmapped" in out
     assert "the other 2 sit on process rows" in out
@@ -392,9 +401,9 @@ def test_render_states_a_severity_band_that_carries_no_gap():
     # good news the page can report.
     rows = _valid_rows()
     rows[1].pop("gap")
-    rows[1]["checks"] = [{"skill": "demo-audit", "dimension": "Injection"}]
+    rows[1]["checks"] = ["demo/injection"]
     rows[0]["gap"] = {"recommendation": "extend-skill", "note": "residue"}
-    out = rht.render(rows, {})
+    out = rht.render(rows, _DEMO_CHECKS)
     assert "### Critical\n\nNo Critical clause carries a gap.\n" in out
     assert "### Important\n\n1 residue.\n" in out
 
@@ -404,8 +413,8 @@ def test_render_emits_no_band_headings_when_nothing_gaps():
     # bands under it would be noise.
     rows = _valid_rows()
     rows[1].pop("gap")
-    rows[1]["checks"] = [{"skill": "demo-audit", "dimension": "Injection"}]
-    out = rht.render(rows, {})
+    rows[1]["checks"] = ["demo/injection"]
+    out = rht.render(rows, _DEMO_CHECKS)
     assert "No gaps: every auditable row is mapped." in out
     assert "### Critical" not in out
     assert "### Important" not in out
@@ -414,7 +423,7 @@ def test_render_emits_no_band_headings_when_nothing_gaps():
 def test_render_shows_row_notes_in_the_notes_column():
     rows = _valid_rows()
     rows[2]["note"] = "Process | culture:\nnot datable from a snapshot."
-    out = rht.render(rows, {})
+    out = rht.render(rows, _DEMO_CHECKS)
     assert "| Section / claim | Class | Severity | Mapped checks | Gap | Notes |" in out
     # Pipes escaped and the note folded onto the row's single table line.
     assert (
@@ -430,11 +439,11 @@ def test_render_shows_row_notes_in_the_notes_column():
 
 def test_render_joins_multiple_checks_and_a_gap_without_a_target():
     rows = _valid_rows()
-    rows[0]["checks"].append({"skill": "demo-audit", "dimension": "Secrets"})
+    rows[0]["checks"].append("demo/secrets")
     rows[1]["gap"].pop("target")
-    out = rht.render(rows, {})
+    out = rht.render(rows, _DEMO_CHECKS)
     # Two checks share one cell, separated by a break rather than a newline.
-    assert "`demo-audit` / Injection<br>`demo-audit` / Secrets" in out
+    assert "`demo/injection` / Injection<br>`demo/secrets` / Secrets" in out
     # A target-less gap renders no empty parentheses, in cell and in bullet.
     assert "**new-domain** - no lens yet" in out
     assert (
@@ -448,7 +457,7 @@ def test_render_keeps_gap_fields_from_breaking_the_table():
     rows = _valid_rows()
     rows[1]["gap"]["target"] = "#516 | #548"
     rows[1]["gap"]["note"] = "two lenses:\nneither owns the bound."
-    out = rht.render(rows, {})
+    out = rht.render(rows, _DEMO_CHECKS)
     # In a table cell both the pipe and the newline are fatal; escape and fold.
     assert (
         "**new-domain** - #516 \\| #548 - two lenses: neither owns the bound. |" in out
@@ -461,7 +470,7 @@ def test_render_keeps_gap_fields_from_breaking_the_table():
 
 
 def test_render_emits_a_severity_column():
-    out = rht.render(_valid_rows(), {})
+    out = rht.render(_valid_rows(), _DEMO_CHECKS)
     assert "| Section / claim | Class | Severity | Mapped checks | Gap | Notes |" in out
     assert "| static | Important |" in out
     assert "| artifact | Critical |" in out
@@ -473,7 +482,7 @@ def test_render_groups_the_gap_list_by_severity_worst_first():
     rows = _valid_rows()
     # A second gap, one level down, so the ordering is observable.
     rows[0]["gap"] = {"recommendation": "extend-skill", "note": "residue"}
-    out = rht.render(rows, {})
+    out = rht.render(rows, _DEMO_CHECKS)
     assert out.index("### Critical") < out.index("### Important")
     # The Critical row's bullet precedes the Important heading.
     assert out.index("`alpha/split-section-a`") < out.index("### Important")
@@ -511,7 +520,7 @@ def test_render_opens_each_band_with_its_kind_split():
 def test_render_suppresses_zero_terms_in_the_kind_split():
     # A band with one kind states that kind alone, rather than padding two
     # zeroes a reader has to skip.
-    out = rht.render(_valid_rows(), {})
+    out = rht.render(_valid_rows(), _DEMO_CHECKS)
     assert "### Critical\n\n1 unchecked.\n" in out
     assert "0 residue" not in out
     assert "0 process" not in out
@@ -530,12 +539,12 @@ def test_kind_split_line_pluralizes_a_kind_with_more_than_one_entry():
     group = [
         {
             "class": "static",
-            "checks": [{"skill": "demo-audit", "dimension": "Injection"}],
+            "checks": ["demo/injection"],
             "gap": {"recommendation": "extend-skill", "note": "residue"},
         },
         {
             "class": "static",
-            "checks": [{"skill": "demo-audit", "dimension": "Secrets"}],
+            "checks": ["demo/secrets"],
             "gap": {"recommendation": "extend-skill", "note": "residue"},
         },
     ]
@@ -555,7 +564,7 @@ def test_render_orders_gap_bullets_unchecked_then_residue_then_process():
 
 
 def test_render_cross_tabs_severity_against_mapped_status():
-    out = rht.render(_valid_rows(), {})
+    out = rht.render(_valid_rows(), _DEMO_CHECKS)
     assert "### Severity x coverage" in out
     # Critical: the artifact row, gapped and unmapped. Important: the static
     # row, fully mapped. Minor: the process row, auditable of neither kind.
@@ -565,7 +574,7 @@ def test_render_cross_tabs_severity_against_mapped_status():
 
 
 def test_render_states_both_interpretation_rules_in_the_legend():
-    out = rht.render(_valid_rows(), {})
+    out = rht.render(_valid_rows(), _DEMO_CHECKS)
     assert "**Baseline, not verdict.**" in out
     assert "Only `informative` rows have none." in out
 
@@ -626,12 +635,12 @@ def test_main_check_detects_a_stale_md(tmp_path, monkeypatch):
 
 
 def test_main_renders_a_populated_checks_tree(tmp_path, monkeypatch):
-    """A fixture run with a real record end to end, not an empty checks tree.
+    """`main()` renders the id/title cell from a record it loaded itself.
 
-    Every other `main()` test points `SKILLS_DIR` at fixture skills that
-    own no records, so the check-record half of the pipeline (load, cross-check
-    against the matrix, render the id/title cell) is never driven by
-    `main()` itself.
+    The other `main()` tests carry `_fixture_dirs`' record and so exercise
+    load and cross-check, but none of them asserts the rendered cell. This
+    one uses a record whose title differs from the id every row cites, so a
+    cell that echoed the id instead of resolving it would show here.
     """
     import yaml as _yaml
 
@@ -649,7 +658,9 @@ def test_main_renders_a_populated_checks_tree(tmp_path, monkeypatch):
         "# Thing\n\ntext\n",
     )
     rows = _valid_rows()
-    rows[0]["checks"] = ["demo/thing"]
+    # Both, so the fixture's own record stays cited and the bidirectional
+    # rule does not fire on it.
+    rows[0]["checks"] = ["demo/injection", "demo/thing"]
     (tmp_path / "handbook-traceability.yaml").write_text(
         _yaml.safe_dump(rows, sort_keys=False, allow_unicode=True)
     )
@@ -672,7 +683,7 @@ def test_main_fails_on_an_uncovered_handbook_part(tmp_path, monkeypatch):
 
 
 def test_validate_reports_malformed_shapes_without_crashing(tmp_path):
-    headings, dims = _fixture_dirs(tmp_path)
+    headings = _fixture_dirs(tmp_path)
     malformed_rows = [
         "bare string row",
         {
@@ -687,10 +698,7 @@ def test_validate_reports_malformed_shapes_without_crashing(tmp_path):
             "section": "Split section",
             "class": "artifact",
             "severity": "critical",
-            "checks": [
-                123,
-                {"skill": "demo-audit", "dimension": "Injection"},
-            ],
+            "checks": [123],
             "gap": {"recommendation": "new-domain", "target": "#516"},
         },
         {
@@ -700,10 +708,13 @@ def test_validate_reports_malformed_shapes_without_crashing(tmp_path):
             "gap": "not a dict",
         },
     ]
-    errors = rht.validate(malformed_rows, headings, dims, {})
+    # An empty checks tree: this test is about row shapes, and a populated
+    # one would add bidirectional-integrity errors that say nothing about
+    # whether a malformed row crashes the validator.
+    errors = rht.validate(malformed_rows, headings, {})
     assert "not a mapping" in str(errors)
     assert "checks must be a list" in str(errors)
-    assert "check entries must be a check id or a mapping" in str(errors)
+    assert "check entries must be a check id string" in str(errors)
     assert "gap must be a mapping" in str(errors)
     assert len(errors) == 5
 
@@ -720,7 +731,7 @@ def test_real_matrix_band_unchecked_counts_match_the_cross_tab():
     import re
 
     rows = yaml.safe_load(rht.YAML_PATH.read_text())
-    out = rht.render(rows, {})
+    out = rht.render(rows, _DEMO_CHECKS)
 
     printed = {}
     for sev in ("Critical", "Important", "Minor"):
@@ -784,28 +795,31 @@ def _one(**over):
 
 def test_string_check_entry_resolves_against_the_check_tree(tmp_path):
     checks = _checks_tree(tmp_path, {"alpha/one": _one()})
-    assert rht.validate([_row()], _HEADINGS, {}, checks) == []
+    assert rht.validate([_row()], _HEADINGS, checks) == []
 
 
 def test_unknown_check_id_is_reported(tmp_path):
     checks = _checks_tree(tmp_path, {"alpha/one": _one()})
-    errors = rht.validate([_row(checks=["alpha/nope"])], _HEADINGS, {}, checks)
+    errors = rht.validate([_row(checks=["alpha/nope"])], _HEADINGS, checks)
     assert any("unknown check id" in e for e in errors)
 
 
-def test_legacy_skill_dimension_entry_still_validates(tmp_path):
+def test_legacy_skill_dimension_entry_is_named_not_typed(tmp_path):
+    # The pair form is what a branch predating #559 carries. "expected a
+    # string" would send its author hunting a typo in the matrix; naming the
+    # form points at the record that replaced it.
     checks = _checks_tree(
         tmp_path, {"alpha/one": _one(handbook=[], handbook_note="n/a")}
     )
     rows = [_row(checks=[{"skill": "docs-audit", "dimension": "Coverage"}])]
-    assert rht.validate(rows, _HEADINGS, {"docs-audit": ["Coverage"]}, checks) == []
-    errors = rht.validate(rows, _HEADINGS, {"docs-audit": ["Other"]}, checks)
-    assert any("has no dimension" in e for e in errors)
+    errors = rht.validate(rows, _HEADINGS, checks)
+    assert any("legacy {skill, dimension} entry" in e for e in errors)
+    assert any("named by record id" in e for e in errors)
 
 
 def test_handbook_anchor_must_resolve_to_a_heading(tmp_path):
     checks = _checks_tree(tmp_path, {"alpha/one": _one(handbook=["alpha/ghost"])})
-    errors = rht.validate([_row()], _HEADINGS, {}, checks)
+    errors = rht.validate([_row()], _HEADINGS, checks)
     assert any("does not resolve" in e for e in errors)
 
 
@@ -814,7 +828,7 @@ def test_handbook_anchor_must_be_a_row_that_cites_the_check(tmp_path):
     # base row, which cites alpha/one only, so rule 4 must fire.
     checks = _checks_tree(tmp_path, {"alpha/one": _one(), "alpha/two": _one()})
     rows = [_row(), _row(id="alpha/first-section-b", checks=["alpha/two"])]
-    errors = rht.validate(rows, _HEADINGS, {}, checks)
+    errors = rht.validate(rows, _HEADINGS, checks)
     assert any("no matrix row citing" in e for e in errors)
 
 
@@ -822,13 +836,13 @@ def test_cited_check_may_not_claim_to_be_ungrounded(tmp_path):
     checks = _checks_tree(
         tmp_path, {"alpha/one": _one(handbook=[], handbook_note="why")}
     )
-    errors = rht.validate([_row()], _HEADINGS, {}, checks)
+    errors = rht.validate([_row()], _HEADINGS, checks)
     assert any("empty handbook" in e for e in errors)
 
 
 def test_uncited_check_must_not_claim_a_grounding(tmp_path):
     checks = _checks_tree(tmp_path, {"alpha/one": _one(), "alpha/two": _one()})
-    errors = rht.validate([_row()], _HEADINGS, {}, checks)
+    errors = rht.validate([_row()], _HEADINGS, checks)
     assert any("alpha/two" in e and "no matrix row" in e for e in errors)
 
 
@@ -849,7 +863,7 @@ def test_an_uncited_check_reports_once_not_once_per_anchor(tmp_path):
             ),
         },
     )
-    errors = rht.validate([_row()], _HEADINGS, {}, checks)
+    errors = rht.validate([_row()], _HEADINGS, checks)
     assert [e for e in errors if e.startswith("alpha/two:")] == [
         "alpha/two: cites 2 handbook anchor(s) but no matrix row cites this check; "
         "add the citation to the matrix or empty the handbook list and explain why "
@@ -863,8 +877,10 @@ def test_checks_cell_renders_id_and_title(tmp_path):
     assert cell == "`alpha/one` / one"
 
 
-def test_checks_cell_still_renders_a_legacy_pair(tmp_path):
-    cell = rht._checks_cell(
-        _row(checks=[{"skill": "docs-audit", "dimension": "Coverage"}]), {}
+def test_checks_cell_renders_an_unresolvable_id_bare():
+    # `validate` has already reported the unknown id; the renderer's job is
+    # to render whatever validation let through, not to raise a second time.
+    assert (
+        rht._checks_cell(_row(checks=["alpha/ghost"]), {})
+        == "`alpha/ghost` / alpha/ghost"
     )
-    assert cell == "`docs-audit` / Coverage"
