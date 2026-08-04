@@ -1,12 +1,12 @@
 # Handbook: Bounding and SOP Coverage Gaps — Design
 
-**Issue:** [#538](https://github.com/lidia-tech/lidia-agents/issues/538)
+**Issue:** [lidia-tech/lidia-agents#538](https://github.com/lidia-tech/lidia-agents/issues/538)
 **Date:** 2026-07-28
 **Status:** approved in session (breaker placement and execution approach both confirmed by the user)
 
 ## Goal
 
-Close the four coverage gaps found while writing the troubleshooting guide ([#536](https://github.com/lidia-tech/lidia-agents/issues/536)): four mechanisms the guide routes readers to, where the target section owns the topic but never names the mechanism. Three of the four are production footguns an agent-engineering handbook should name outright (an agent loop with no cycle budget, an unbounded tool output, an SOP with no stop condition); the fourth (the circuit breaker) is the standard answer to a degraded dependency, which Part 5 gestures at without naming. A fifth, adjacent point rides along: bounded retries want an idempotency caveat.
+Close the four coverage gaps found while writing the troubleshooting guide ([lidia-tech/lidia-agents#536](https://github.com/lidia-tech/lidia-agents/issues/536)): four mechanisms the guide routes readers to, where the target section owns the topic but never names the mechanism. Three of the four are production footguns an agent-engineering handbook should name outright (an agent loop with no cycle budget, an unbounded tool output, an SOP with no stop condition); the fourth (the circuit breaker) is the standard answer to a degraded dependency, which Part 5 gestures at without naming. A fifth, adjacent point rides along: bounded retries want an idempotency caveat.
 
 ## Root cause of the gap
 
@@ -17,7 +17,7 @@ Part 5's "Make bounding the default" bounds exactly one dimension. All three of 
 - **Circuit breaker goes in "Make bounding the default"**, as a bullet alongside the others, and the guide's route for it moves from "Build the harness, don't inline the plumbing" to the bounding section. Rationale: a breaker bounds how many times you keep calling a failing dependency, so it is the same kind of rule as the rest of the list; and the plumbing section is an argument about *where* reliability decisions live, not an inventory of mechanisms. Keeping every concrete reliability default in one list is also what makes the section findable from a symptom.
 - **Idempotency attaches to the existing hardened-HTTP-client bullet**, which is where `bounded retries` is already prescribed. It is a caveat on a rule the handbook already gives, not a rule of its own.
 - **The SOP stop condition goes in Part 2's SOP-shape paragraph**, next to Overview / Parameters / Steps / Constraints, because it is part of what the procedure must specify rather than a separate discipline.
-- **Execution: spec plus inline implementation**, no plan file and no subagent-driven development. #536 earned full SDD (a new page, fifteen entries, forty-four routes); this is one coherent editing pass over three files.
+- **Execution: spec plus inline implementation**, no plan file and no subagent-driven development. lidia-tech/lidia-agents#536 earned full SDD (a new page, fifteen entries, forty-four routes); this is one coherent editing pass over three files.
 
 ## Changes
 
@@ -34,7 +34,7 @@ Part 5's "Make bounding the default" bounds exactly one dimension. All three of 
 
 ### `docs/engineering/troubleshooting.md`
 
-- Drop the two "extending its rule to…" signposts (the cycle-bound route and the output-size route), which exist only because the target section did not name the mechanism. This also clears the cosmetic repetition parked at #536's merge (`bounding … bounding rule`), which sat in one of those clauses.
+- Drop the two "extending its rule to…" signposts (the cycle-bound route and the output-size route), which exist only because the target section did not name the mechanism. This also clears the cosmetic repetition parked at lidia-tech/lidia-agents#536's merge (`bounding … bounding rule`), which sat in one of those clauses.
 - Re-point the circuit-breaker route from the plumbing section to the bounding section.
 - Enrich the SOP stop-condition route to name what Part 2 now says.
 

@@ -1,26 +1,26 @@
-# Handbook traceability matrix — design (#543)
+# Handbook traceability matrix — design (lidia-tech/lidia-agents#543)
 
-**Issue:** [#543](https://github.com/lidia-tech/lidia-agents/issues/543), first sub-issue of the external-audit epic [#542](https://github.com/lidia-tech/lidia-agents/issues/542).
+**Issue:** [lidia-tech/lidia-agents#543](https://github.com/lidia-tech/lidia-agents/issues/543), first sub-issue of the external-audit epic [#1](https://github.com/lidia-tech/lidia-agents/issues/542).
 
-**Goal:** map every part of the engineering handbook (`docs/engineering/`) onto the `*-audit` skill family, clause by clause, so that "do the skills cover the handbook?" is answered by evidence rather than opinion. The matrix's gap list re-scopes the downstream issues (#516 observability domain, #518 data-protection domain, #519 TypeScript support, #544 citation binding).
+**Goal:** map every part of the engineering handbook (`docs/engineering/`) onto the `*-audit` skill family, clause by clause, so that "do the skills cover the handbook?" is answered by evidence rather than opinion. The matrix's gap list re-scopes the downstream issues (#2 observability domain, #4 data-protection domain, #5 TypeScript support, #7 citation binding).
 
 ## Context (measured, 2026-07-29)
 
 - The handbook is ~24k words across 12 files with 89 `##` sections total.
 - The stable referenceable unit on the skill side is the **dimension**: each domain skill declares its findings-matrix columns under a `## Dimensions` heading (e.g. `security-audit` → "Injection"). `audit-core` defines the shared matrix shape (item × dimension × status × severity).
-- As of today the `*-audit` skills contain **zero references to the handbook** — they were built in #499 from generic quality domains, in parallel to the handbook. Nobody has mapped one onto the other before.
+- As of today the `*-audit` skills contain **zero references to the handbook** — they were built in lidia-tech/lidia-agents#499 from generic quality domains, in parallel to the handbook. Nobody has mapped one onto the other before.
 
 ## Decisions
 
 ### Granularity: adaptive sections
 
-One matrix row per handbook `##` section (~89 rows baseline). A section is split into sub-rows **only** when its claims fall into different auditability classes or map to different skills. Row IDs are `<part>/<section-anchor>` with a `-a`/`-b` suffix on splits, so rows double as link targets for #544 citations.
+One matrix row per handbook `##` section (~89 rows baseline). A section is split into sub-rows **only** when its claims fall into different auditability classes or map to different skills. Row IDs are `<part>/<section-anchor>` with a `-a`/`-b` suffix on splits, so rows double as link targets for #7 citations.
 
 Rejected: strict section-level (mixed sections would get one muddy classification) and claim-level with synthetic IDs like `EVAL-03` (300–600 rows, expensive, and IDs drift whenever handbook prose is edited).
 
 ### Format: YAML source of truth, rendered Markdown
 
-The YAML is hand-maintained; the Markdown is generated and never hand-edited. Machine-readability was chosen deliberately (over Markdown-only) to enable automation: the staleness guard below comes nearly free, and future consumers (#546 issue emitter, a programmatic citation check) can read the YAML directly.
+The YAML is hand-maintained; the Markdown is generated and never hand-edited. Machine-readability was chosen deliberately (over Markdown-only) to enable automation: the staleness guard below comes nearly free, and future consumers (#9 issue emitter, a programmatic citation check) can read the YAML directly.
 
 ### Classification: four classes
 
@@ -54,7 +54,7 @@ One entry per row:
       dimension: "dimension name exactly as in the skill's Dimensions section"
   gap:                                        # present when auditable but unmapped
     recommendation: extend-skill | new-domain | report-only
-    target: "#516"                            # issue ref when known; omit if none yet
+    target: "#2"                            # issue ref when known; omit if none yet
     note: one line
   note: optional free text
 ```
@@ -94,15 +94,15 @@ Handbook links are absolute GitHub URLs (`https://github.com/lidia-tech/lidia-ag
 
 ## Out of scope
 
-- Binding citations into the skills' lens text (#544).
-- Building new audit domains (#516, #518) or language support (#519).
+- Binding citations into the skills' lens text (#7).
+- Building new audit domains (#2, #4) or language support (#5).
 - Any edit to `docs/engineering/` prose.
 - Automation beyond the renderer + check (no CI workflow changes; pytest already runs in CI).
 
-## Acceptance criteria (from #543)
+## Acceptance criteria (from lidia-tech/lidia-agents#543)
 
 - Every part of `docs/engineering/` covered clause by clause with a classification — enforced mechanically by the renderer's coverage check.
 - Each auditable clause mapped to a concrete existing check or flagged as a gap — enforced by the schema validation rule.
 - Gap list produced with a recommendation per gap — the rendered Gap list section.
-- The matrix confirms or corrects the scope of #516, #518, #519, #544 — read out of the Gap list at review time.
+- The matrix confirms or corrects the scope of #2, #4, #5, #7 — read out of the Gap list at review time.
 - Matrix committed under `docs/audit/` and linked from the `audit` front-door skill — one pointer line added to `.agents/skills/audit/SKILL.md`.

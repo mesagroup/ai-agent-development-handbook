@@ -1,20 +1,20 @@
-# Handbook v1.1 Course Batch: Design (issue #533)
+# Handbook v1.1 Course Batch: Design (issue lidia-tech/lidia-agents#533)
 
 **Date:** 2026-07-27
-**Issue:** [#533](https://github.com/lidia-tech/lidia-agents/issues/533)
-**Builds on:** #531 / PR #532 (narrative restructure, merged)
+**Issue:** [lidia-tech/lidia-agents#533](https://github.com/lidia-tech/lidia-agents/issues/533)
+**Builds on:** lidia-tech/lidia-agents#531 / PR lidia-tech/lidia-agents#532 (narrative restructure, merged)
 
 ## Goal
 
-Fold the additive ideas from the "AI Harness Engineering" course (Luca Mezzalira, 2026-07-24) into the AI Agent Development Handbook (`docs/engineering/`). The transcript analysis (recorded on #533) found roughly two thirds of the course already covered by the handbook, so this is a targeted batch: 8 ranked additions/extensions, one terminology paragraph, and 5 one-line grafts. Not a rewrite.
+Fold the additive ideas from the "AI Harness Engineering" course (Luca Mezzalira, 2026-07-24) into the AI Agent Development Handbook (`docs/engineering/`). The transcript analysis (recorded on lidia-tech/lidia-agents#533) found roughly two thirds of the course already covered by the handbook, so this is a targeted batch: 8 ranked additions/extensions, one terminology paragraph, and 5 one-line grafts. Not a rewrite.
 
 ## Constraints (binding for every addition)
 
 - **Register:** every addition is a directive-with-reasons in the handbook's existing voice: clipped imperative in section bodies, portable "how to" tone, no institutional "we". Narrative tissue (italicized bridges/hand-offs) is not touched.
-- **Structure:** the #531 narrative spine, part order, bridges, and hand-offs are preserved. No part changes its role, so the README throughline matrix and parts table stay as they are.
+- **Structure:** the lidia-tech/lidia-agents#531 narrative spine, part order, bridges, and hand-offs are preserved. No part changes its role, so the README throughline matrix and parts table stay as they are.
 - **Style gates:** no em-dashes anywhere in `docs/engineering/`; no comma splices in new prose; one paragraph per source line (no hard wrap); Markdown links relative within the handbook.
 - **Word budget:** the whole batch stays within **+1.5k prose words** across all files (hard cap; compress drafts that run over).
-- **Settled decisions** (from #533, not renegotiable at implementation time):
+- **Settled decisions** (from lidia-tech/lidia-agents#533, not renegotiable at implementation time):
   - Harness terminology converges to the industry standard (Agent = Model + Harness); Part 4 keeps its title; Fowler's broader usage gets one acknowledging sentence with the link `https://martinfowler.com/articles/harness-engineering.html`.
   - The spec-review and merge bookend gates stay always-on for every change; only optional gates and involvement depth scale with criticality.
   - Mild Brandolini position: agent-assisted authoring stands even for core-domain code; core code gets intensified oversight and review, not a hand-write-only rule.
@@ -93,7 +93,7 @@ In throughline 1 ("Evidence over intuition"), one clause naming **AI sycophancy*
 
 ## Explicitly out of scope
 
-Dated DORA/vendor survey stats and vendor war stories; team-learning rituals; ops runbooks and postmortem tooling; the speculative Q&A ideas (AI-chat-log mining, artifact dependency manager), except the data-model-declaration graft kept above. The reader-feedback items (README opening line, greenfield section) already shipped in PR #532.
+Dated DORA/vendor survey stats and vendor war stories; team-learning rituals; ops runbooks and postmortem tooling; the speculative Q&A ideas (AI-chat-log mining, artifact dependency manager), except the data-model-declaration graft kept above. The reader-feedback items (README opening line, greenfield section) already shipped in PR lidia-tech/lidia-agents#532.
 
 ## Verification
 

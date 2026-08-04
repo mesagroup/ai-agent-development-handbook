@@ -1,4 +1,4 @@
-# Handbook traceability matrix (#543) - hand-maintained source of truth.
+# Handbook traceability matrix (lidia-tech/lidia-agents#543) - hand-maintained source of truth.
 #
 # Maps every "##" section of docs/engineering/ onto the *-audit skill family.
 # Render the committed Markdown view after every edit:
@@ -67,7 +67,7 @@
   severity: important
   gap:
     recommendation: new-domain
-    target: "#548"
+    target: "#11"
     note: "no skill audits the development process itself. prompt-audit is not the owner despite a workflow being a prompt artifact: its subject is the product's own prompts and SOPs, the ones a shipped agent runs on, whereas this clause is about the harness the team drives to build that product. Auditing whether the lifecycle is encoded as one reusable workflow, and whether a scratch TODO file competes with the tracker, belongs with the delivery-trail domain, which is the same missing capability seen from the artifact side rather than the trail side."
 
 
@@ -78,7 +78,7 @@
   severity: important
   gap:
     recommendation: new-domain
-    target: "#548"
+    target: "#11"
     note: no skill reads the issue tracker, so whether work traces to an issue sits outside the family's evidence base entirely; this is the delivery-trail domain the target issue creates.
 
 - id: lifecycle/keep-batches-small-and-the-flow-fast
@@ -88,7 +88,7 @@
   severity: important
   gap:
     recommendation: new-domain
-    target: "#548"
+    target: "#11"
     note: batch size and the DORA four measures are delivery-history evidence; ci-audit reads workflow definitions rather than delivery outcomes, and no skill reads pull-request or deployment history - the delivery-trail domain the target issue creates.
 
 - id: lifecycle/decide-the-human-in-the-loop-gates-up-front
@@ -119,7 +119,7 @@
   severity: important
   gap:
     recommendation: extend-skill
-    note: docs-audit is the owner because specs and plans are docs-tree artifacts, but no check asks whether a change carries a committed spec and plan, nor scans a plan for placeholders; the per-change and linked-from-the-issue halves need the delivery-trail evidence base (#548).
+    note: docs-audit is the owner because specs and plans are docs-tree artifacts, but no check asks whether a change carries a committed spec and plan, nor scans a plan for placeholders; the per-change and linked-from-the-issue halves need the delivery-trail evidence base (#11).
 
 - id: lifecycle/step-by-step-one-issue-end-to-end-c
   section: "Step-by-step: one issue, end to end"
@@ -128,7 +128,7 @@
   severity: important
   gap:
     recommendation: new-domain
-    target: "#548"
+    target: "#11"
     note: branch, pull-request and merge mechanics live in git and tracker history, which no skill in the family reads - the delivery-trail domain the target issue creates.
 
 - id: lifecycle/step-by-step-one-issue-end-to-end-d
@@ -138,7 +138,7 @@
   severity: important
   gap:
     recommendation: new-domain
-    target: "#548"
+    target: "#11"
     note: "a development-process claim, not a product-prompt one, so prompt-audit is not the owner even though a subagent definition is a prompt artifact it can read: what is being audited is how the team spends model capacity while building, not how the shipped agent is instructed. eval-audit's `eval/reproducibility` is the nearest existing check and refuses on the near-miss rule - it wants a pinned model version recorded for an eval run, which the omission the handbook forbids satisfies perfectly well."
 
 
@@ -149,7 +149,7 @@
   severity: important
   gap:
     recommendation: new-domain
-    target: "#548"
+    target: "#11"
     note: "a development-process claim like the two rows above: these are requirements on a dispatching prompt the team writes to build the product, not on a prompt the product ships, so prompt-audit's subject does not reach them. Its Tier A judges how well an existing prompt is written, never whether the project's standing operational instructions are carried into it at all."
 
 
@@ -160,7 +160,7 @@
   severity: important
   gap:
     recommendation: new-domain
-    target: "#548"
+    target: "#11"
     note: the post-merge trail is entirely tracker-side, so nothing in the family can see whether criteria were verified, ticked, or blind-checked - the delivery-trail domain the target issue creates.
 
 - id: lifecycle/make-the-standard-executable-and-audit-periodically-a
@@ -225,7 +225,7 @@
   severity: important
   gap:
     recommendation: extend-skill
-    note: "test-audit is the owner and already carries the floor concept outside its checks - scope asks what floor the contributor guide or CI enforces, and the status scale reads meets-floor/below-floor - but no check asks whether a floor was stated, recorded executably, or justified. `test/coverage-reach` measures reach, so it would pass a project that never decided a floor, and pass one that omits its parsers from the denominator because excluded code is absent rather than uncovered. Mapping it would satisfy the claim with exactly what the clause forbids, so this row maps nothing. The declaration belongs to that skill's wave-1 sweep pass (#544 + #519 + #545)."
+    note: "test-audit is the owner and already carries the floor concept outside its checks - scope asks what floor the contributor guide or CI enforces, and the status scale reads meets-floor/below-floor - but no check asks whether a floor was stated, recorded executably, or justified. `test/coverage-reach` measures reach, so it would pass a project that never decided a floor, and pass one that omits its parsers from the denominator because excluded code is absent rather than uncovered. Mapping it would satisfy the claim with exactly what the clause forbids, so this row maps nothing. The declaration belongs to that skill's wave-1 sweep pass (#7 + #5 + #8)."
 
 - id: implementation-disciplines/prompt-and-sop-engineering-a
   section: "Prompt and SOP engineering"
@@ -251,7 +251,7 @@
   severity: minor
   gap:
     recommendation: extend-skill
-    note: co-owned - prompt-audit's remediation section already states this rule verbatim as a convention it follows, and eval-audit's `eval/prompt-quality` owns prompt-change hygiene through its missing-versioning-or-changelog clause, but neither actually reads commit messages to verify it, which is the evidence base the delivery-trail domain (#548) would supply.
+    note: co-owned - prompt-audit's remediation section already states this rule verbatim as a convention it follows, and eval-audit's `eval/prompt-quality` owns prompt-change hygiene through its missing-versioning-or-changelog clause, but neither actually reads commit messages to verify it, which is the evidence base the delivery-trail domain (#11) would supply.
 
 - id: implementation-disciplines/prompt-and-sop-engineering-c
   section: "Prompt and SOP engineering"
@@ -289,7 +289,7 @@
   severity: minor
   gap:
     recommendation: extend-skill
-    target: "#519"
+    target: "#5"
     note: ci-audit, prompt-audit and eval-audit are already language-neutral, so a TypeScript project still gets its pipeline, prompt and behavioural audits; what it loses is tooling - arch, deps, docs, security and test all declare Python, leaving the lint, format, type-check, docstring, dependency, structure and test checks with no TS equivalent.
 
 - id: implementation-disciplines/ci-and-static-analysis-d
@@ -315,7 +315,7 @@
   severity: important
   gap:
     recommendation: new-domain
-    target: "#548"
+    target: "#11"
     note: the review trail - inline pull-request comments and the findings table with its dispositions - is tracker-side evidence no skill reads, and no domain audits review discipline; this is the delivery-trail domain the target issue creates.
 
 - id: implementation-disciplines/coding-hygiene-rules-that-surface-at-review-a
@@ -327,7 +327,7 @@
     - security/sensitive-data
   gap:
     recommendation: new-domain
-    target: "#516"
+    target: "#2"
     note: security-audit reaches only the security-relevant subset (broad handlers that hide security failures); the developer-facing half - an error collapsed into a generic internal error with no type or message - belongs to the observability domain the target issue creates, so the residue is a missing domain rather than a missing check in an existing skill.
 
 - id: implementation-disciplines/coding-hygiene-rules-that-surface-at-review-b
@@ -466,7 +466,7 @@
     - arch/layering
   gap:
     recommendation: extend-skill
-    note: "arch-audit is the owner, and the row maps only on the consequence the handbook names, a type-test chain that couples the dispatcher to every concrete class and so breaks a tier boundary; no check flags isinstance/instanceof dispatch as such, nor asks for a single provider-agnostic entry point or declarative per-variant settings resolution. The section is written from a Python vantage (Pydantic discriminated unions, match on a Literal, pydantic-settings per variant); the equivalent TypeScript shape - a discriminated union on a literal tag, switch with exhaustiveness checking, and a schema library resolving env per variant - needs confirming before this row is audited on a TS codebase (#519)."
+    note: "arch-audit is the owner, and the row maps only on the consequence the handbook names, a type-test chain that couples the dispatcher to every concrete class and so breaks a tier boundary; no check flags isinstance/instanceof dispatch as such, nor asks for a single provider-agnostic entry point or declarative per-variant settings resolution. The section is written from a Python vantage (Pydantic discriminated unions, match on a Literal, pydantic-settings per variant); the equivalent TypeScript shape - a discriminated union on a literal tag, switch with exhaustiveness checking, and a schema library resolving env per variant - needs confirming before this row is audited on a TS codebase (#5)."
 
 - id: codebase-structure/name-every-configuration-worth-reusing
   section: "Name every configuration worth reusing"
@@ -621,7 +621,7 @@
   severity: important
   checks:
     - eval/regression-tracking
-  note: "`eval/regression-tracking` names a cheap/mock eval mode outright, so this is the most direct mapping in Part 5. The two clauses it does not reach inherit gaps already recorded in Part 7 - the variance band on evaluation/measure-honestly-a (#517) and full-cost accounting on evaluation/measure-honestly-b (#516)."
+  note: "`eval/regression-tracking` names a cheap/mock eval mode outright, so this is the most direct mapping in Part 5. The two clauses it does not reach inherit gaps already recorded in Part 7 - the variance band on evaluation/measure-honestly-a (#3) and full-cost accounting on evaluation/measure-honestly-b (#2)."
 
 - id: agent-harness/make-bounding-the-default
   section: "Make bounding the default"
@@ -630,8 +630,8 @@
   severity: critical
   gap:
     recommendation: new-domain
-    target: "#516"
-    note: "production-reliability bounding has no owner anywhere in the family - not one of the eight skills declares a check for timeouts, retry safety, circuit breakers, loop or payload caps. The planned performance/cost and observability lenses in #516 are the nearest: they would see the symptoms (a hung run, an unattributed spend, an undiagnosable failure) but their stated scope is measurement and diagnosability, not the harness-level bounds that prevent them. Folded into #516 by decision on 2026-07-29, widening that issue from measuring the symptom to auditing the bound - the alternative, a ninth reliability domain, would split one dependency call between two lenses."
+    target: "#2"
+    note: "production-reliability bounding has no owner anywhere in the family - not one of the eight skills declares a check for timeouts, retry safety, circuit breakers, loop or payload caps. The planned performance/cost and observability lenses in #2 are the nearest: they would see the symptoms (a hung run, an unattributed spend, an undiagnosable failure) but their stated scope is measurement and diagnosability, not the harness-level bounds that prevent them. Folded into #2 by decision on 2026-07-29, widening that issue from measuring the symptom to auditing the bound - the alternative, a ninth reliability domain, would split one dependency call between two lenses."
 
 - id: agent-harness/checklist-standing-up-a-new-agent
   section: "Checklist: standing up a new agent"
@@ -663,7 +663,7 @@
     - prompt/grounding
   gap:
     recommendation: new-domain
-    target: "#516"
+    target: "#2"
     note: mapped only where the metadata is visible in the prompt text, which `prompt/grounding` flags as a pile of context the task does not need; the side channel itself - a metadata envelope consumed by downstream code and persisted into the run artifacts - is a runtime data path no check inspects.
 
 - id: observability/capture-per-subagent-per-tool-usage
@@ -673,7 +673,7 @@
   severity: important
   gap:
     recommendation: new-domain
-    target: "#516"
+    target: "#2"
     note: not one of the eight skills declares a check for run instrumentation; eval-audit's `eval/regression-tracking` is the nearest and asks whether eval results are tracked over time and cheap to produce, never whether a run emits a per-agent, per-tool usage record at all.
 
 - id: observability/account-for-the-full-cost-not-the-convenient-part
@@ -685,7 +685,7 @@
     - eval/methodology
   gap:
     recommendation: extend-skill
-    target: "#516"
+    target: "#2"
     note: the pairing clause is mapped because an efficiency number reported on its own is exactly the gameable proxy `eval/methodology` exists to catch; full-cost accounting is the same unmapped claim recorded on evaluation/measure-honestly-b, stated here from the observability side, and the target issue is the cost domain whose accounting rules the new eval-audit check should reuse.
 
 - id: observability/make-errors-diagnosable
@@ -697,7 +697,7 @@
     - security/sensitive-data
   gap:
     recommendation: new-domain
-    target: "#516"
+    target: "#2"
     note: the same division and the same recommendation as Part 2's coding-hygiene row, which states this rule as a review rule - security-audit reaches only the broad handlers that hide a security failure, and the developer-facing half, an exception collapsed into a generic string carrying neither type nor message, belongs to the observability domain the target issue creates.
 
 - id: observability/close-the-loop-production--development
@@ -707,7 +707,7 @@
   severity: important
   gap:
     recommendation: new-domain
-    target: "#516"
+    target: "#2"
     note: no check asks whether instrumentation reaches the production path; every skill's evidence base stops at the repo and at eval runs, so a project whose dev runs are fully instrumented and whose production interactions record nothing passes each existing check.
 
 - id: observability/checklist-instrumenting-a-run
@@ -783,7 +783,7 @@
   severity: important
   gap:
     recommendation: extend-skill
-    target: "#517"
+    target: "#3"
     note: no eval-audit check requires repeated runs or a reported variance band; the target issue exists to add exactly this one.
 
 - id: evaluation/measure-honestly-b
@@ -793,7 +793,7 @@
   severity: important
   gap:
     recommendation: extend-skill
-    target: "#516"
+    target: "#2"
     note: extend eval-audit - its `eval/regression-tracking` check is about the cost of running evals, not about pricing a candidate comparison honestly; the target issue is the cost domain whose accounting rules the new eval-audit check should reuse, not itself the thing being extended.
 
 - id: evaluation/measure-honestly-c
@@ -897,7 +897,7 @@
   severity: important
   gap:
     recommendation: new-domain
-    target: "#548"
+    target: "#11"
     note: whether a code change carried its doc update in the same pull request is delivery-trail evidence, and no skill in the family reads commit or pull-request history - the delivery-trail domain the target issue creates, which would hand docs-audit the code-only-PR signal.
 
 - id: documentation/keep-the-architecture-vs-research-split
@@ -922,7 +922,7 @@
     - eval/regression-tracking
   gap:
     recommendation: extend-skill
-    note: mapped only on the results log, which is the leaderboard-or-history record that check asks for; docs-audit owns the rest as docs-tree artifacts, yet no check asks whether a piece of work left its spec, plan, ADR, story or experiment write-up - its `docs/coverage` check is per code component, not per decision - the same gap Part 1's step-by-step row records for the spec and the plan, and the per-change half of it needs the delivery-trail evidence base (#548).
+    note: mapped only on the results log, which is the leaderboard-or-history record that check asks for; docs-audit owns the rest as docs-tree artifacts, yet no check asks whether a piece of work left its spec, plan, ADR, story or experiment write-up - its `docs/coverage` check is per code component, not per decision - the same gap Part 1's step-by-step row records for the spec and the plan, and the per-change half of it needs the delivery-trail evidence base (#11).
 
 - id: documentation/keep-the-decision-trail-artifacts-b
   section: "Keep the decision-trail artifacts"
@@ -982,7 +982,7 @@
   severity: minor
   gap:
     recommendation: extend-skill
-    note: the same unmapped claim and the same owners as Part 2's prompt-and-sop-engineering row - eval-audit's `eval/prompt-quality` owns prompt-change hygiene through its missing-versioning-or-changelog clause and prompt-audit states the convention in its own remediation section, but neither actually reads commit messages to verify it, which is the evidence base the delivery-trail domain (#548) would supply.
+    note: the same unmapped claim and the same owners as Part 2's prompt-and-sop-engineering row - eval-audit's `eval/prompt-quality` owns prompt-change hygiene through its missing-versioning-or-changelog clause and prompt-audit states the convention in its own remediation section, but neither actually reads commit messages to verify it, which is the evidence base the delivery-trail domain (#11) would supply.
 
 - id: documentation/keep-the-living-docs-current-too-d
   section: "Keep the living docs current too"
@@ -1087,7 +1087,7 @@
   severity: critical
   gap:
     recommendation: new-domain
-    target: "#518"
+    target: "#4"
     note: nothing in the family reads provider terms, a processor register or a signed DPA, and the compliance evidence lives outside the repo entirely; this is squarely the data-protection domain the target issue creates.
 
 - id: security-supply-chain/treat-the-pipeline-as-a-privileged-environment

@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build the handbook-to-audit-skills traceability matrix (#543): a hand-maintained YAML source of truth, a renderer/validator script, its unit tests, and the full clause-by-clause content walk of all 12 handbook parts.
+**Goal:** Build the handbook-to-audit-skills traceability matrix (lidia-tech/lidia-agents#543): a hand-maintained YAML source of truth, a renderer/validator script, its unit tests, and the full clause-by-clause content walk of all 12 handbook parts.
 
 **Architecture:** A flat YAML list at `docs/audit/handbook-traceability.yaml` (one entry per adaptive-section row) is validated and rendered to `docs/audit/handbook-traceability.md` by `scripts/render_handbook_traceability.py`. The script's `--check` mode doubles as the CI staleness gate via a pytest test. Content is added part by part, each addition validated by the renderer.
 
@@ -14,7 +14,7 @@
 
 - Gates: `uv run ruff check .`, `uv run ruff format --check .`, `uv run pyright`, `uv run pytest tests/` must pass at the end of every task.
 - Markdown: one paragraph per source line, never hard-wrap prose. Do not edit anything under `docs/engineering/` (read-only input).
-- Commit messages reference the issue: `Refs #543` (or `docs(#543): ...` / `feat(#543): ...` style used in this repo).
+- Commit messages reference the issue: `Refs lidia-tech/lidia-agents#543` (or `docs(lidia-tech/lidia-agents#543): ...` / `feat(lidia-tech/lidia-agents#543): ...` style used in this repo).
 - The four classes are exactly `static`, `artifact`, `process`, `informative`. Gap recommendations are exactly `extend-skill`, `new-domain`, `report-only`.
 - Row IDs are `<part-stem>/<github-style-anchor>` with an optional single-letter `-a`/`-b` suffix for splits. A part with no `##` sections gets one whole-part row with id `<part>/<part>`.
 - `checks[].dimension` must match the bolded lead phrase of a bullet under the skill's `## 2. Dimensions (findings-matrix columns)` heading, verbatim (whitespace-normalized, case-insensitive).
@@ -42,7 +42,7 @@ Section counts (2026-07-29): README 5, lifecycle 9, implementation-disciplines 7
 Create `tests/scripts/test_render_handbook_traceability.py`. Load the script with the established pattern (register in `sys.modules` before `exec_module`, as `tests/scripts/test_render_handbook_artifact.py` does):
 
 ```python
-"""Tests for scripts/render_handbook_traceability.py (#543)."""
+"""Tests for scripts/render_handbook_traceability.py (lidia-tech/lidia-agents#543)."""
 
 import importlib.util
 import sys
@@ -102,7 +102,7 @@ Expected: FAIL (file `scripts/render_handbook_traceability.py` does not exist).
 Create `scripts/render_handbook_traceability.py`:
 
 ```python
-"""Render and verify the handbook traceability matrix (#543).
+"""Render and verify the handbook traceability matrix (lidia-tech/lidia-agents#543).
 
 ``docs/audit/handbook-traceability.yaml`` is the hand-maintained source of
 truth mapping every ``##`` section of the engineering handbook
@@ -244,7 +244,7 @@ Then:
 
 ```bash
 git add scripts/render_handbook_traceability.py tests/scripts/test_render_handbook_traceability.py
-git commit -m "feat(#543): traceability renderer helpers (slugify, headings, dimensions)"
+git commit -m "feat(lidia-tech/lidia-agents#543): traceability renderer helpers (slugify, headings, dimensions)"
 ```
 
 ---
@@ -282,7 +282,7 @@ def _valid_rows():
         {"id": "alpha/mapped-section", "section": "Mapped section", "claim": "c1", "class": "static",
          "checks": [{"skill": "demo-audit", "dimension": "Injection"}]},
         {"id": "alpha/split-section-a", "section": "Split section", "claim": "c2a", "class": "artifact",
-         "gap": {"recommendation": "new-domain", "target": "#516", "note": "no lens yet"}},
+         "gap": {"recommendation": "new-domain", "target": "#2", "note": "no lens yet"}},
         {"id": "alpha/split-section-b", "section": "Split section", "claim": "c2b", "class": "process"},
         {"id": "coda/coda", "section": "Coda", "claim": "closing words", "class": "informative"},
     ]
@@ -322,7 +322,7 @@ def test_render_produces_tables_gap_list_and_summary():
     assert "generated file" in out.lower()
     assert "[Mapped section](../engineering/alpha.md#mapped-section)" in out
     assert "`demo-audit` / Injection" in out
-    assert "### new-domain" in out and "#516" in out
+    assert "### new-domain" in out and "#2" in out
     assert "| static | 1 |" in out
 
 
@@ -438,7 +438,7 @@ _HEADER = """<!-- GENERATED FILE - do not edit. Source: handbook-traceability.ya
 
 # Handbook traceability matrix
 
-Maps every ``##`` section of the [engineering handbook](../engineering/README.md) onto the ``*-audit`` skill family. Source of truth: [`handbook-traceability.yaml`](handbook-traceability.yaml). Issue: #543.
+Maps every ``##`` section of the [engineering handbook](../engineering/README.md) onto the ``*-audit`` skill family. Source of truth: [`handbook-traceability.yaml`](handbook-traceability.yaml). Issue: lidia-tech/lidia-agents#543.
 
 | Class | Meaning |
 |---|---|
@@ -621,7 +621,7 @@ Run: `uv run ruff check . && uv run ruff format --check . && uv run pyright && u
 
 ```bash
 git add scripts/render_handbook_traceability.py tests/scripts/test_render_handbook_traceability.py
-git commit -m "feat(#543): traceability matrix validation, rendering, and CLI"
+git commit -m "feat(lidia-tech/lidia-agents#543): traceability matrix validation, rendering, and CLI"
 ```
 
 ---
@@ -643,7 +643,7 @@ Create `docs/audit/handbook-traceability.yaml` with one row per `##` section of 
 
 - [ ] **Step 2: Walk Part 7 (evaluation.md, 13 sections) — the first real mapping**
 
-Read `docs/engineering/evaluation.md` section by section, and read the `## 2. Dimensions` sections of ALL eight skills (`docs-audit`, `deps-audit`, `arch-audit`, `security-audit`, `ci-audit`, `test-audit`, `eval-audit`, `prompt-audit`) so dimension names are quoted verbatim. For each section: identify the normative claims, classify (`static`/`artifact`/`process`), split into `-a`/`-b` rows only where claims diverge in class or skill, map to dimensions (expect mostly `eval-audit`), and write `gap` entries where auditable claims have no dimension (e.g. variance reporting → `#517` exists for that: `recommendation: extend-skill, target: "#517"`).
+Read `docs/engineering/evaluation.md` section by section, and read the `## 2. Dimensions` sections of ALL eight skills (`docs-audit`, `deps-audit`, `arch-audit`, `security-audit`, `ci-audit`, `test-audit`, `eval-audit`, `prompt-audit`) so dimension names are quoted verbatim. For each section: identify the normative claims, classify (`static`/`artifact`/`process`), split into `-a`/`-b` rows only where claims diverge in class or skill, map to dimensions (expect mostly `eval-audit`), and write `gap` entries where auditable claims have no dimension (e.g. variance reporting → `#3` exists for that: `recommendation: extend-skill, target: "#3"`).
 
 - [ ] **Step 3: Render and self-validate**
 
@@ -675,7 +675,7 @@ Run: `uv run ruff check . && uv run ruff format --check . && uv run pyright && u
 
 ```bash
 git add docs/audit/handbook-traceability.yaml docs/audit/handbook-traceability.md tests/scripts/test_render_handbook_traceability.py
-git commit -m "docs(#543): seed traceability matrix (informative parts + Part 7 evaluation)"
+git commit -m "docs(lidia-tech/lidia-agents#543): seed traceability matrix (informative parts + Part 7 evaluation)"
 ```
 
 ---
@@ -701,7 +701,7 @@ Run the four gates.
 
 ```bash
 git add docs/audit/handbook-traceability.yaml docs/audit/handbook-traceability.md
-git commit -m "docs(#543): traceability walk of Parts 1-2 (lifecycle, implementation disciplines)"
+git commit -m "docs(lidia-tech/lidia-agents#543): traceability walk of Parts 1-2 (lifecycle, implementation disciplines)"
 ```
 
 ---
@@ -722,7 +722,7 @@ Expect the hardest classification of the plan: the three-layer *document* model 
 
 - [ ] **Step 3: Walk agent-harness.md (9 sections)**
 
-Expect `static` claims (model aliases not hard-coded IDs, named profiles, headless CLI exists, mock backends, bounded external calls) that today have NO owning dimension — candidate gap rows. Decide per row: `extend-skill` (name the closest skill, e.g. `arch-audit` or `eval-audit`) vs `new-domain`. These gap rows are a key #543 deliverable — do not force-map to a vaguely related dimension just to avoid a gap entry.
+Expect `static` claims (model aliases not hard-coded IDs, named profiles, headless CLI exists, mock backends, bounded external calls) that today have NO owning dimension — candidate gap rows. Decide per row: `extend-skill` (name the closest skill, e.g. `arch-audit` or `eval-audit`) vs `new-domain`. These gap rows are a key lidia-tech/lidia-agents#543 deliverable — do not force-map to a vaguely related dimension just to avoid a gap entry.
 
 - [ ] **Step 4: Regenerate, gates, commit**
 
@@ -731,7 +731,7 @@ Run the four gates.
 
 ```bash
 git add docs/audit/handbook-traceability.yaml docs/audit/handbook-traceability.md
-git commit -m "docs(#543): traceability walk of Parts 3-5 (structure, document model, harness)"
+git commit -m "docs(lidia-tech/lidia-agents#543): traceability walk of Parts 3-5 (structure, document model, harness)"
 ```
 
 ---
@@ -745,7 +745,7 @@ git commit -m "docs(#543): traceability walk of Parts 3-5 (structure, document m
 
 - [ ] **Step 1: Walk observability.md (8 sections)**
 
-Expect predominantly `artifact` gap rows → `recommendation: new-domain, target: "#516"` (the observability domain does not exist yet). Where an existing dimension genuinely covers a claim (e.g. eval-audit's cost tracking), map it.
+Expect predominantly `artifact` gap rows → `recommendation: new-domain, target: "#2"` (the observability domain does not exist yet). Where an existing dimension genuinely covers a claim (e.g. eval-audit's cost tracking), map it.
 
 - [ ] **Step 2: Walk documentation.md (8 sections)**
 
@@ -753,7 +753,7 @@ Expect `docs-audit` dimensions for most auditable claims; `process` for knowledg
 
 - [ ] **Step 3: Walk security-supply-chain.md (9 sections)**
 
-Expect `security-audit`, `deps-audit`, `ci-audit` dimensions; data-protection claims with no dimension → `gap: {recommendation: new-domain, target: "#518"}`.
+Expect `security-audit`, `deps-audit`, `ci-audit` dimensions; data-protection claims with no dimension → `gap: {recommendation: new-domain, target: "#4"}`.
 
 - [ ] **Step 4: Flip the gate to strict**
 
@@ -773,7 +773,7 @@ Run the four gates.
 
 ```bash
 git add docs/audit/handbook-traceability.yaml docs/audit/handbook-traceability.md tests/scripts/test_render_handbook_traceability.py
-git commit -m "docs(#543): traceability walk of Parts 6, 8, 9; strict coverage gate on"
+git commit -m "docs(lidia-tech/lidia-agents#543): traceability walk of Parts 6, 8, 9; strict coverage gate on"
 ```
 
 ---
@@ -787,11 +787,11 @@ git commit -m "docs(#543): traceability walk of Parts 6, 8, 9; strict coverage g
 
 - [ ] **Step 1: Review the gap list as a whole**
 
-Read the rendered Gap list end to end and check: (a) every `new-domain` gap carries the right target among #516/#518 or explicitly none; (b) `extend-skill` gaps name a plausible skill in the note; (c) related sections got consistent classifications across parts (e.g. CI-gate claims in Part 1 and Part 2 map to the same `ci-audit` dimensions). Fix inconsistencies in the YAML, regenerate.
+Read the rendered Gap list end to end and check: (a) every `new-domain` gap carries the right target among #2/#518 or explicitly none; (b) `extend-skill` gaps name a plausible skill in the note; (c) related sections got consistent classifications across parts (e.g. CI-gate claims in Part 1 and Part 2 map to the same `ci-audit` dimensions). Fix inconsistencies in the YAML, regenerate.
 
 - [ ] **Step 2: Link from the audit front door**
 
-Add one line to `.agents/skills/audit/SKILL.md` (in the "How it works" intro, after the opening paragraph): a pointer that the handbook↔skills coverage record lives at `docs/audit/handbook-traceability.md`, and that gaps in domain coverage are tracked there. One sentence — the #544 citation-binding work is explicitly NOT this task.
+Add one line to `.agents/skills/audit/SKILL.md` (in the "How it works" intro, after the opening paragraph): a pointer that the handbook↔skills coverage record lives at `docs/audit/handbook-traceability.md`, and that gaps in domain coverage are tracked there. One sentence — the #7 citation-binding work is explicitly NOT this task.
 
 - [ ] **Step 3: Update the docs index**
 
@@ -800,9 +800,9 @@ Add `docs/audit/` (the traceability matrix) to the index in `docs/README.md`, fo
 - [ ] **Step 4: Final verification**
 
 Run: `uv run python scripts/render_handbook_traceability.py --check` → exit 0.
-Run the four gates. Verify each #543 acceptance criterion against the artifacts (do not tick issue boxes yet — that happens at merge time).
+Run the four gates. Verify each lidia-tech/lidia-agents#543 acceptance criterion against the artifacts (do not tick issue boxes yet — that happens at merge time).
 
 ```bash
 git add docs/audit/handbook-traceability.yaml docs/audit/handbook-traceability.md .agents/skills/audit/SKILL.md docs/README.md
-git commit -m "docs(#543): gap-list consolidation, front-door pointer, docs index"
+git commit -m "docs(lidia-tech/lidia-agents#543): gap-list consolidation, front-door pointer, docs index"
 ```
