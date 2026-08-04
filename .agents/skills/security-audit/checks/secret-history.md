@@ -3,14 +3,8 @@ id: security/secret-history
 domain: security
 locality: global
 optin: true
-handbook: []
-handbook_note: >-
-  The handbook's secrets clause frames a committed credential as live until
-  rotated and asks for history to be purged when a secret was ever pushed,
-  but the one clause the matrix can cite reads the working tree
-  (`security/secrets-in-code`'s no-literal-in-source check); scanning the
-  commit history itself is this check's own opt-in scope, and the handbook
-  states no separate clause asking for a history scan specifically.
+handbook:
+  - security-supply-chain/secrets-never-commit-them-and-rotate-dont-just-delete-b
 tooling:
   any: [gitleaks, trufflehog]
 ---

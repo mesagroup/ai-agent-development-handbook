@@ -664,7 +664,7 @@
   gap:
     recommendation: new-domain
     target: "#516"
-    note: mapped only where the metadata is visible in the prompt text, which Grounding flags as a pile of context the task does not need; the side channel itself - a metadata envelope consumed by downstream code and persisted into the run artifacts - is a runtime data path no dimension inspects.
+    note: mapped only where the metadata is visible in the prompt text, which Grounding flags as a pile of context the task does not need; the side channel itself - a metadata envelope consumed by downstream code and persisted into the run artifacts - is a runtime data path no check inspects.
 
 - id: observability/capture-per-subagent-per-tool-usage
   section: "Capture per-(sub)agent, per-tool usage"
@@ -674,7 +674,7 @@
   gap:
     recommendation: new-domain
     target: "#516"
-    note: not one of the eight skills declares a dimension for run instrumentation; eval-audit's Regression tracking & cost is the nearest and asks whether eval results are tracked over time and cheap to produce, never whether a run emits a per-agent, per-tool usage record at all.
+    note: not one of the eight skills declares a check for run instrumentation; eval-audit's Regression tracking & cost is the nearest and asks whether eval results are tracked over time and cheap to produce, never whether a run emits a per-agent, per-tool usage record at all.
 
 - id: observability/account-for-the-full-cost-not-the-convenient-part
   section: "Account for the full cost, not the convenient part"
@@ -708,7 +708,7 @@
   gap:
     recommendation: new-domain
     target: "#516"
-    note: no dimension asks whether instrumentation reaches the production path; every skill's evidence base stops at the repo and at eval runs, so a project whose dev runs are fully instrumented and whose production interactions record nothing passes each existing check.
+    note: no check asks whether instrumentation reaches the production path; every skill's evidence base stops at the repo and at eval runs, so a project whose dev runs are fully instrumented and whose production interactions record nothing passes each existing check.
 
 - id: observability/checklist-instrumenting-a-run
   section: "Checklist: instrumenting a run"
@@ -764,7 +764,7 @@
     - eval/methodology
   gap:
     recommendation: extend-skill
-    note: eval-audit is the owner, and its Methodology soundness dimension reaches the wrong-grader case as "a metric that is a gameable proxy", but it never asks which grader *type* the behavior needs, and trajectory grading - asserting on the path a run took rather than on its answer - is unrepresented anywhere in the family.
+    note: eval-audit is the owner, and its `eval/methodology` check reaches the wrong-grader case as "a metric that is a gameable proxy", but it never asks which grader *type* the behavior needs, and trajectory grading - asserting on the path a run took rather than on its answer - is unrepresented anywhere in the family.
 
 - id: evaluation/build-a-dataset-you-can-trust
   section: "Build a dataset you can trust"
@@ -784,7 +784,7 @@
   gap:
     recommendation: extend-skill
     target: "#517"
-    note: no eval-audit dimension requires repeated runs or a reported variance band; the target issue exists to add exactly this one.
+    note: no eval-audit check requires repeated runs or a reported variance band; the target issue exists to add exactly this one.
 
 - id: evaluation/measure-honestly-b
   section: "Measure honestly"
@@ -794,7 +794,7 @@
   gap:
     recommendation: extend-skill
     target: "#516"
-    note: extend eval-audit - its Regression tracking & cost dimension is about the cost of running evals, not about pricing a candidate comparison honestly; the target issue is the cost domain whose accounting rules the new eval-audit check should reuse, not itself the thing being extended.
+    note: extend eval-audit - its `eval/regression-tracking` check is about the cost of running evals, not about pricing a candidate comparison honestly; the target issue is the cost domain whose accounting rules the new eval-audit check should reuse, not itself the thing being extended.
 
 - id: evaluation/measure-honestly-c
   section: "Measure honestly"
@@ -812,7 +812,7 @@
   severity: important
   gap:
     recommendation: extend-skill
-    note: eval-audit is the owner, and none of its dimensions asks whether the eval approach fits the decision it settles, nor whether expensive semantic scoring is staged behind cheap deterministic gates.
+    note: eval-audit is the owner, and none of its checks asks whether the eval approach fits the decision it settles, nor whether expensive semantic scoring is staged behind cheap deterministic gates.
 
 - id: evaluation/grow-the-eval-into-a-gate
   section: "Grow the eval into a gate"
@@ -824,7 +824,7 @@
     - ci/gate-enforcement
   gap:
     recommendation: extend-skill
-    note: the middle rung - "run it in shadow mode on production traffic, blocking nothing, before it can block a merge" - has no dimension anywhere; eval-audit is the owner, and its Smoke-test gate covers only the promoted, merge-blocking end of the ladder.
+    note: the middle rung - "run it in shadow mode on production traffic, blocking nothing, before it can block a merge" - has no check anywhere; eval-audit is the owner, and its Smoke-test gate covers only the promoted, merge-blocking end of the ladder.
 
 - id: evaluation/use-the-llm-judge-only-where-it-agrees-with-the-human
   section: "Use the LLM judge only where it agrees with the human"
@@ -850,7 +850,7 @@
   severity: important
   gap:
     recommendation: extend-skill
-    note: eval-audit is the owner, and none of its dimensions asks whether a fast-path/escalation threshold was justified by an independent recall probe at the crossover rather than set by feel.
+    note: eval-audit is the owner, and none of its checks asks whether a fast-path/escalation threshold was justified by an independent recall probe at the crossover rather than set by feel.
 
 - id: evaluation/step-by-step-running-an-evaluation
   section: "Step-by-step: running an evaluation"
@@ -888,7 +888,7 @@
     - docs/cross-referencing
   gap:
     recommendation: extend-skill
-    note: docs-audit is the owner - its Coverage dimension reaches the stand-alone standard as a per-component documented/partial/gap status and Cross-referencing reaches the dead cross-link, but drift itself has no column - a doc that confidently describes a flag the code renamed is neither a missing doc nor a broken link, so the doc-versus-source comparison the skill's evidence pass builds has nowhere to land.
+    note: docs-audit is the owner - its `docs/coverage` check reaches the stand-alone standard as a per-component documented/partial/gap status and Cross-referencing reaches the dead cross-link, but drift itself has no column - a doc that confidently describes a flag the code renamed is neither a missing doc nor a broken link, so the doc-versus-source comparison the skill's evidence pass builds has nowhere to land.
 
 - id: documentation/aim-for-docs-that-stand-alone-drifted-docs-are-worse-than-none-b
   section: "Aim for docs that stand alone; drifted docs are worse than none"
@@ -910,7 +910,7 @@
     - docs/cross-referencing
   gap:
     recommendation: extend-skill
-    note: partial - docs-audit is the owner, the placement and cross-linking halves are covered exactly, but the section also requires a research doc to be marked explicitly not authoritative for current behaviour, and no dimension reads a doc's labelling; Organization sees only where a doc sits, so a correctly filed but unmarked research doc passes both cited dimensions.
+    note: partial - docs-audit is the owner, the placement and cross-linking halves are covered exactly, but the section also requires a research doc to be marked explicitly not authoritative for current behaviour, and no check reads a doc's labelling; Organization sees only where a doc sits, so a correctly filed but unmarked research doc passes both cited checks.
   note: The split is one of docs-audit's own standing rules and Cross-referencing names the background-to-prescriptive reciprocal link outright, so the fit is close to exact on placement and linkage. The labelling residue is recorded as the gap above rather than left in this note.
 
 - id: documentation/keep-the-decision-trail-artifacts-a
@@ -922,7 +922,7 @@
     - eval/regression-tracking
   gap:
     recommendation: extend-skill
-    note: mapped only on the results log, which is the leaderboard-or-history record that dimension asks for; docs-audit owns the rest as docs-tree artifacts, yet no dimension asks whether a piece of work left its spec, plan, ADR, story or experiment write-up - its Coverage axis is per code component, not per decision - the same gap Part 1's step-by-step row records for the spec and the plan, and the per-change half of it needs the delivery-trail evidence base (#548).
+    note: mapped only on the results log, which is the leaderboard-or-history record that check asks for; docs-audit owns the rest as docs-tree artifacts, yet no check asks whether a piece of work left its spec, plan, ADR, story or experiment write-up - its Coverage axis is per code component, not per decision - the same gap Part 1's step-by-step row records for the spec and the plan, and the per-change half of it needs the delivery-trail evidence base (#548).
 
 - id: documentation/keep-the-decision-trail-artifacts-b
   section: "Keep the decision-trail artifacts"
@@ -933,7 +933,7 @@
     - docs/coverage
   gap:
     recommendation: extend-skill
-    note: partial - docs-audit is the owner, and its Coverage dimension reaches presence and depth (a schema surface with no dedicated doc is a gap row, one documented without its quirks and invariants lands as partial), but the section also requires the description to be versioned, and no dimension asks whether a doc carries a version that tracks the schema it describes.
+    note: partial - docs-audit is the owner, and its `docs/coverage` check reaches presence and depth (a schema surface with no dedicated doc is a gap row, one documented without its quirks and invariants lands as partial), but the section also requires the description to be versioned, and no check asks whether a doc carries a version that tracks the schema it describes.
 
 - id: documentation/audit-docs-like-a-test-suite-a
   section: "Audit docs like a test suite"
@@ -944,7 +944,7 @@
     - docs/organization
     - docs/cross-referencing
     - docs/coverage
-  note: The three axes named here are docs-audit's three dimensions, which makes this the closest section-to-skill fit in Part 8. The cadence ("periodic") is the same audit-cadence question Part 1's make-the-standard-executable row records as sitting outside every skill's evidence base.
+  note: The three axes named here are docs-audit's three checks, which makes this the closest section-to-skill fit in Part 8. The cadence ("periodic") is the same audit-cadence question Part 1's make-the-standard-executable row records as sitting outside every skill's evidence base.
 
 - id: documentation/audit-docs-like-a-test-suite-b
   section: "Audit docs like a test suite"
@@ -955,7 +955,7 @@
     - ci/gate-enforcement
   gap:
     recommendation: extend-skill
-    note: Gate enforcement asks whether a checker that exists is actually required, so a project with no checker at all passes it; docs-audit is the owner and treats the checker as a deliverable it may propose rather than as a dimension it scores.
+    note: Gate enforcement asks whether a checker that exists is actually required, so a project with no checker at all passes it; docs-audit is the owner and treats the checker as a deliverable it may propose rather than as a check it scores.
 
 - id: documentation/keep-the-living-docs-current-too-a
   section: "Keep the living docs current too"
@@ -973,7 +973,7 @@
   severity: important
   gap:
     recommendation: extend-skill
-    note: the same unmapped claim as the README's where-the-binding-rules-live row, stated from the documentation side - docs-audit is the owner and has no dimension for an authoritative rules file or for a doc-versus-doc contradiction, and ci-audit's Gate enforcement reads that mismatch only for what the file claims CI enforces.
+    note: the same unmapped claim as the README's where-the-binding-rules-live row, stated from the documentation side - docs-audit is the owner and has no check for an authoritative rules file or for a doc-versus-doc contradiction, and ci-audit's Gate enforcement reads that mismatch only for what the file claims CI enforces.
 
 - id: documentation/keep-the-living-docs-current-too-c
   section: "Keep the living docs current too"
@@ -991,7 +991,7 @@
   severity: minor
   gap:
     recommendation: extend-skill
-    note: docs-audit is the owner but no dimension reads the form a doc's assets take - a checked-in binary diagram is neither misfiled, unlinked, nor an undocumented component - and the regenerate-on-merge half becomes a ci-audit Gate enforcement question only once such a job already exists.
+    note: docs-audit is the owner but no check reads the form a doc's assets take - a checked-in binary diagram is neither misfiled, unlinked, nor an undocumented component - and the regenerate-on-merge half becomes a ci-audit Gate enforcement question only once such a job already exists.
 
 - id: documentation/house-rule-dont-hard-wrap-markdown-source
   section: "House rule: don't hard-wrap Markdown source"
@@ -1025,7 +1025,7 @@
     - security/injection
     - security/dangerous-calls
     - security/unsafe-io
-  note: The three dimensions carry the sink taxonomy this section names, and tracing a verified source-to-sink path is the skill's own load-bearing evidence step. The agent-specific source - an LLM or tool output treated as untrusted rather than as trusted data - is declared in the skill's scope section rather than as a dimension, so it rides along with the dimensions above rather than being separately citable.
+  note: The three checks carry the sink taxonomy this section names, and tracing a verified source-to-sink path is the skill's own load-bearing evidence step. The agent-specific source - an LLM or tool output treated as untrusted rather than as trusted data - is declared in the skill's scope section rather than as a check, so it rides along with the checks above rather than being separately citable.
 
 - id: security-supply-chain/grant-the-agent-the-least-privilege-it-needs
   section: "Grant the agent the least privilege it needs"
@@ -1034,7 +1034,7 @@
   severity: critical
   gap:
     recommendation: extend-skill
-    note: security-audit is the owner, since prompt injection as application security is explicitly its surface, but none of its six dimensions reads an agent's granted tool and MCP surface; ci-audit's Permissions / secrets is the nearest and scopes least privilege to the pipeline token rather than to what an agent is allowed to do.
+    note: security-audit is the owner, since prompt injection as application security is explicitly its surface, but none of its six checks reads an agent's granted tool and MCP surface; ci-audit's Permissions / secrets is the nearest and scopes least privilege to the pipeline token rather than to what an agent is allowed to do.
 
 - id: security-supply-chain/secrets-never-commit-them-and-rotate-dont-just-delete-a
   section: "Secrets: never commit them, and rotate: don't just delete"
@@ -1043,16 +1043,18 @@
   severity: critical
   checks:
     - security/secrets-in-code
-  note: An exact fit - the dimension names defaults, tests, fixtures and notebooks in the same breath, and reading the line to tell an environment lookup from a literal is its stated verification step.
+  note: An exact fit - the check names defaults, tests, fixtures and notebooks in the same breath, and reading the line to tell an environment lookup from a literal is its stated verification step.
 
 - id: security-supply-chain/secrets-never-commit-them-and-rotate-dont-just-delete-b
   section: "Secrets: never commit them, and rotate: don't just delete"
   claim: Treat a committed secret as live until rotated - rotate the credential at its provider first, then remove the line, then purge history if it was ever pushed - and never merely suppress this one.
   class: static
   severity: critical
+  checks:
+    - security/secret-history
   gap:
-    recommendation: extend-skill
-    note: purely a citeability gap, and a wide one - security-audit states this rule almost verbatim in three places outside its Dimensions section (the severity rubric refuses to suppress a confirmed secret and demands rotation, the fix patterns give the rotate-then-remove-then-purge order, and the review dimensions ask whether rotation was done rather than only deletion) and its git-history scan is an opt-in sub-audit - but Secrets in code, the one citable dimension, reads the working tree, so a credential deleted from current source and still live in history passes it. The fix is to declare the history-and-rotation coverage as a dimension.
+    recommendation: report-only
+    note: partial - security/secret-history closes most of what was a pure citeability gap when this note was last written - it scans the full commit history rather than only the working tree, and its review lens asks directly whether a confirmed leak was rotated rather than only deleted, which is the rotate-then-purge half security-audit otherwise only stated outside a citable record (the severity rubric refuses to suppress a confirmed secret and demands rotation, the fix patterns give the rotate-then-remove-then-purge order). What remains unmapped is adoption - the check is opt-in and off by default, so a routine sweep that never enables it never asks the question - and, as the note below already says, no check can confirm from a repo snapshot that a flagged rotation actually happened at the provider.
   note: Rotation at the provider is the half no snapshot can settle - a repo can show that the literal is gone and the history clean, never that the credential was actually retired.
 
 - id: security-supply-chain/depend-only-on-what-you-can-account-for-a
@@ -1065,7 +1067,7 @@
     - deps/vulnerabilities
     - deps/freshness
     - deps/hygiene
-  note: An exact fit - the handbook's four axes are deps-audit's four core dimensions, transitivity is the resolved graph the skill takes as ground truth, and unpinned floating direct dependencies sit inside Freshness.
+  note: An exact fit - the handbook's four axes are deps-audit's four core checks, transitivity is the resolved graph the skill takes as ground truth, and unpinned floating direct dependencies sit inside Freshness.
 
 - id: security-supply-chain/depend-only-on-what-you-can-account-for-b
   section: "Depend only on what you can account for"
@@ -1097,7 +1099,7 @@
     - ci/permissions-secrets
     - ci/action-supply-chain
     - ci/trigger-safety
-  note: The second exact fit in Part 9 - each of the four clauses, federated credentials included, is named inside one of these three dimensions.
+  note: The second exact fit in Part 9 - each of the four clauses, federated credentials included, is named inside one of these three checks.
 
 - id: security-supply-chain/turn-every-fix-into-a-gate
   section: "Turn every fix into a gate"
@@ -1108,7 +1110,7 @@
     - ci/gate-enforcement
   gap:
     recommendation: extend-skill
-    note: the same shape and the same owner as Part 1's make-the-standard-executable row, applied to the safety surfaces - ci-audit's Gate enforcement audits the gates a project already has, while security-audit and deps-audit detect the available scanners only to choose their own tooling, so no dimension reports that a repo runs no secret scan and no CVE gate at all, and the pre-commit half is unrepresented anywhere.
+    note: the same shape and the same owner as Part 1's make-the-standard-executable row, applied to the safety surfaces - ci-audit's Gate enforcement audits the gates a project already has, while security-audit and deps-audit detect the available scanners only to choose their own tooling, so no check reports that a repo runs no secret scan and no CVE gate at all, and the pre-commit half is unrepresented anywhere.
 
 - id: security-supply-chain/verify-against-the-real-artifacts
   section: "Verify against the real artifacts"
@@ -1117,7 +1119,7 @@
   severity: important
   gap:
     recommendation: report-only
-    note: audit-core's own charter again, as on Part 1's make-the-standard-executable row - audit cadence and past audit reports sit outside every skill's evidence base, and the reachability-weighted severity rule is carried by security-audit's threat-context scoping and its severity rubric, neither of which is a dimension a row can cite.
+    note: audit-core's own charter again, as on Part 1's make-the-standard-executable row - audit cadence and past audit reports sit outside every skill's evidence base, and the reachability-weighted severity rule is carried by security-audit's threat-context scoping and its severity rubric, neither of which is a check a row can cite.
 
 - id: security-supply-chain/checklist-a-security--supply-chain-sweep
   section: "Checklist: a security & supply-chain sweep"
