@@ -26,4 +26,4 @@ Tests that depend on ordering, wall-clock time, randomness, network, or shared m
 
 ## Review lens
 
-New tests are order-independent and don't reintroduce clock/random/network flakiness.
+**Flakiness avoidance** - new tests are order-independent and don't reintroduce clock/random/network flakiness.

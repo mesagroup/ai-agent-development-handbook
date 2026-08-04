@@ -30,4 +30,4 @@ Grep the codebase for these patterns even where the scanner is silent (`eval(`, 
 
 ## Review lens
 
-Is each Critical/Important finding a genuinely reachable source→sink path, or a scanner artifact? Does each fix actually cut the path (not just silence the linter)?
+**Exploitability** - is each Critical/Important finding a genuinely reachable source→sink path, or a scanner artifact? Does each fix actually cut the path (not just silence the linter)?

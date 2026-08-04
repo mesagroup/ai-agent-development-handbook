@@ -29,4 +29,4 @@ Findings here usually require credential rotation and possibly history rewrite; 
 
 ## Review lens
 
-Is a flagged secret real and live (vs. a placeholder / env-var name / rotated value)? For confirmed leaks, was rotation done, not just deletion?
+**Secret verification** - is a flagged secret real and live (vs. a placeholder / env-var name / rotated value)? For confirmed leaks, was rotation done, not just deletion?

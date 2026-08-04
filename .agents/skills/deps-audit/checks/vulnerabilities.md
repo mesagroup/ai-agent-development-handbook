@@ -31,6 +31,6 @@ Bump/pin to a fixed version; regenerate the lock (`uv lock` / equivalent) and re
 
 ## Review lens
 
-Correct advisory id, affected range, and fixed version; no stale or false-positive advisories.
+**Advisory accuracy** - correct advisory id, affected range, and fixed version; no stale or false-positive advisories.
 
-Direct vs transitive attribution is right; a transitive-only finding isn't pinned as if it were direct.
+**Dependency attribution** - direct vs transitive attribution is right; a transitive-only finding isn't pinned as if it were direct.

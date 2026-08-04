@@ -29,4 +29,4 @@ Configure an explicit threshold for whichever tool the project already uses (`mc
 
 ## Review lens
 
-A threshold fix actually gates CI - the value lives in a job that fails the build, not only in a config file nothing runs - and the number chosen is a real ceiling, not one raised just high enough to pass the current codebase's worst offenders.
+**Gate + threshold reality** - a threshold fix actually gates CI - the value lives in a job that fails the build, not only in a config file nothing runs - and the number chosen is a real ceiling, not one raised just high enough to pass the current codebase's worst offenders.

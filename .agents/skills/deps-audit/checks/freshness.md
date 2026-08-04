@@ -31,4 +31,4 @@ Bump/pin to a fixed version; regenerate the lock (`uv lock` / equivalent) and re
 
 ## Review lens
 
-Direct vs transitive attribution is right; a transitive-only finding isn't pinned as if it were direct.
+**Dependency attribution** - direct vs transitive attribution is right; a transitive-only finding isn't pinned as if it were direct.

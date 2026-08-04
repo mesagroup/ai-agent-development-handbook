@@ -30,4 +30,4 @@ Line and (crucially) **branch** coverage per module; uncovered load-bearing logi
 
 ## Review lens
 
-Is the reported gain from real exercised behavior, not from importing code or asserting nothing? Branch coverage, not just line.
+**Coverage genuineness** - is the reported gain from real exercised behavior, not from importing code or asserting nothing? Branch coverage, not just line.

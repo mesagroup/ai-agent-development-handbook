@@ -35,4 +35,4 @@ Break a cycle: extract the shared piece into a new lower module, or convert an i
 
 ## Review lens
 
-A cycle "fix" doesn't just relocate the cycle.
+**Cycle-fix adequacy** - a cycle "fix" doesn't just relocate the cycle.

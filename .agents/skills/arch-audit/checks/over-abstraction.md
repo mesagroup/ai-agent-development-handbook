@@ -34,4 +34,4 @@ Collapse an over-abstraction: inline the single-implementer interface into its o
 
 ## Review lens
 
-For each collapsed indirection, confirm the removed layer had no second consumer and no volatile-boundary role (i.e. the fix didn't delete a legitimate seam just to satisfy a count), and that inlining genuinely shortened the call path a reader must trace.
+**Abstraction-removal adequacy** - for each collapsed indirection, confirm the removed layer had no second consumer and no volatile-boundary role (i.e. the fix didn't delete a legitimate seam just to satisfy a count), and that inlining genuinely shortened the call path a reader must trace.

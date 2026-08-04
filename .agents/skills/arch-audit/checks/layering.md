@@ -34,4 +34,4 @@ Invert or cut an illegal edge: move the shared type down to a lower tier both si
 
 ## Review lens
 
-Is each flagged edge genuinely a violation of the documented (or confirmed) rules, and does each fix actually remove the edge rather than hide it (e.g. a lazy import that still couples the tiers)?
+**Layering-fix adequacy** - is each flagged edge genuinely a violation of the documented (or confirmed) rules, and does each fix actually remove the edge rather than hide it (e.g. a lazy import that still couples the tiers)?

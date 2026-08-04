@@ -29,4 +29,4 @@ Replace or remove a disallowed-license dependency; update imports; re-test.
 
 ## Review lens
 
-Is each verdict right for the project's own license and distribution model? (copyleft nuance, LGPL dynamic-linking, dual licenses)
+**License-verdict correctness** - is each verdict right for the project's own license and distribution model? (copyleft nuance, LGPL dynamic-linking, dual licenses)

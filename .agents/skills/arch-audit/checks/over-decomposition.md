@@ -32,4 +32,4 @@ Merge over-decomposed units (the inverse): collapse trivial pass-through modules
 
 ## Review lens
 
-A merge fix combined only units that actually change together (it didn't fuse independent responsibilities into a new god-module just to shrink the node count).
+**Merge-fix adequacy** - a merge fix combined only units that actually change together (it didn't fuse independent responsibilities into a new god-module just to shrink the node count).

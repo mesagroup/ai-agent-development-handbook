@@ -26,4 +26,4 @@ Split an oversized file along its cohesion seams (files that change together sta
 
 ## Review lens
 
-A split fix didn't fragment a cohesive unit into ravioli.
+**Split-fix cohesion** - a split fix didn't fragment a cohesive unit into ravioli.

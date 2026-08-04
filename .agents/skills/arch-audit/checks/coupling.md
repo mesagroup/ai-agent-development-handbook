@@ -31,6 +31,6 @@ Split a god-module along its cohesion seams (files that change together stay tog
 
 ## Review lens
 
-Direct vs transitive coupling attributed correctly.
+**Coupling attribution** - direct vs transitive coupling attributed correctly.
 
-A split fix didn't fragment a cohesive unit into ravioli.
+**Split-fix cohesion** - a split fix didn't fragment a cohesive unit into ravioli.

@@ -33,4 +33,4 @@ Delete dead code only after verifying it is truly unreachable (not a plugin entr
 
 ## Review lens
 
-Deleted code really was unreachable (checked against entry points, dynamic dispatch, plugin registries, re-exports), not a false positive.
+**Deletion safety** - deleted code really was unreachable (checked against entry points, dynamic dispatch, plugin registries, re-exports), not a false positive.

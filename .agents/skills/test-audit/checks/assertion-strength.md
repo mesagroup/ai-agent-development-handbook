@@ -26,4 +26,4 @@ Tests that assert nothing, only assert "no exception raised," assert against a v
 
 ## Review lens
 
-Would each new/changed test actually fail if the code it covers regressed? (The single highest-value catch - reject tests that raise coverage without catching bugs.)
+**Regression-catching power** - would each new/changed test actually fail if the code it covers regressed? (The single highest-value catch - reject tests that raise coverage without catching bugs.)

@@ -32,4 +32,4 @@ Make a hidden dependency explicit: replace a reach-through-global or service-loc
 
 ## Review lens
 
-A hidden-coupling fix turned the implicit dependency into an explicit, import-graph-visible one (injected/imported), rather than swapping one invisible channel for another; and any layering violation it surfaced was resolved, not re-buried.
+**Hidden-coupling-fix adequacy** - a hidden-coupling fix turned the implicit dependency into an explicit, import-graph-visible one (injected/imported), rather than swapping one invisible channel for another; and any layering violation it surfaced was resolved, not re-buried.
