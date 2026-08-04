@@ -1,6 +1,7 @@
 """Tests for scripts/audit_checks.py (#559)."""
 
 import importlib.util
+import re
 import sys
 from pathlib import Path
 
@@ -345,3 +346,45 @@ def test_the_real_checks_tree_loads_clean():
         "test/mutation",
         "test/property-based-gap",
     ]
+
+
+def test_every_tool_less_check_states_a_reading_procedure():
+    """#567 item 5: a record may omit `tooling:` when its detection is
+    reading rather than running something - but it must then say so under
+    `## Tooling fallback`, or the executing agent has nothing to run and
+    nothing told to read. If this fails, add the section to the named
+    record - do not weaken the assertion.
+    """
+    checks, errors = ac.load_checks(ac.SKILLS_DIR)
+    assert errors == []
+    missing = sorted(
+        check_id
+        for check_id, check in checks.items()
+        if not check.tooling and "\n## Tooling fallback" not in check.path.read_text()
+    )
+    assert missing == [], (
+        f"these checks declare no tooling and state no fallback: {missing}"
+    )
+
+
+def test_every_review_lens_paragraph_carries_a_label():
+    """#567 item 4: a `## Review lens` paragraph opens with a bold label
+    naming what it judges, so a whole-branch reviewer assembling lenses
+    from several records can tell them apart. If this fails, label the
+    paragraph - do not weaken the assertion.
+    """
+    checks, errors = ac.load_checks(ac.SKILLS_DIR)
+    assert errors == []
+    unlabeled = []
+    for check_id, check in sorted(checks.items()):
+        section = re.search(
+            r"^## Review lens\n(.*?)(?=\n## |\Z)",
+            check.path.read_text(),
+            re.S | re.M,
+        )
+        if section is None:
+            continue
+        for para in section.group(1).strip().split("\n\n"):
+            if para.strip() and not para.strip().startswith("**"):
+                unlabeled.append(f"{check_id}: {para.strip()[:60]}")
+    assert unlabeled == [], f"unlabeled review-lens paragraphs: {unlabeled}"
