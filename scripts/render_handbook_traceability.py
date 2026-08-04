@@ -66,9 +66,11 @@ SKILLS_DIR = REPO_ROOT / ".agents" / "skills"
 YAML_PATH = REPO_ROOT / "docs" / "audit" / "handbook-traceability.yaml"
 MD_PATH = REPO_ROOT / "docs" / "audit" / "handbook-traceability.md"
 
-# The handbook is excluded from the built site, so links into it must be
-# absolute to resolve both on GitHub and on the site.
-HANDBOOK_URL = "https://github.com/lidia-tech/lidia-agents/blob/main/docs/engineering"
+# Links into the handbook must be absolute: the audit skills ship as a Claude
+# Code plugin and run against other repositories, where a relative path out of
+# the skill directory resolves to nothing.
+REPO_URL = "https://github.com/mesagroup/ai-agent-development-handbook"
+HANDBOOK_URL = f"{REPO_URL}/blob/main/docs/engineering"
 
 PART_ORDER = [
     "README",
@@ -425,13 +427,13 @@ def validate(
     return errors
 
 
-_HEADER = """<!-- GENERATED FILE - do not edit. Source: handbook-traceability.yaml; run scripts/render_handbook_traceability.py after editing. -->
+_HEADER = f"""<!-- GENERATED FILE - do not edit. Source: handbook-traceability.yaml; run scripts/render_handbook_traceability.py after editing. -->
 
 # Handbook traceability matrix
 
-Maps every `##` section of the [engineering handbook](https://github.com/lidia-tech/lidia-agents/blob/main/docs/engineering/README.md) onto the `*-audit` skill family. Source of truth: [`handbook-traceability.yaml`](handbook-traceability.yaml). Issue: #543.
+Maps every `##` section of the [engineering handbook]({HANDBOOK_URL}/README.md) onto the `*-audit` skill family. Source of truth: [`handbook-traceability.yaml`](handbook-traceability.yaml). Issue: lidia-tech/lidia-agents#543.
 
-Section links are absolute GitHub URLs because the handbook is excluded from the built docs site (it ships as a standalone HTML artifact).
+Section links are absolute GitHub URLs because the audit skills ship as a Claude Code plugin and run against other repositories, where a relative path out of the skill directory resolves to nothing.
 
 | Class | Meaning |
 |---|---|

@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --group dev
+
+      - name: Lint
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+
+      - name: Tests
+        run: uv run pytest tests/ -q
+
+      # The bidirectional gate: every matrix row cites check records that
+      # exist, and every record's handbook citation names a real section.
+      # A half-applied change to either view fails here.
+      - name: Traceability integrity
+        run: uv run python scripts/render_handbook_traceability.py --check
