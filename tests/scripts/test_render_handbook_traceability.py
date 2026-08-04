@@ -587,10 +587,11 @@ def _patch_paths(monkeypatch, tmp_path, parts):
     monkeypatch.setattr(rht, "YAML_PATH", tmp_path / "handbook-traceability.yaml")
     monkeypatch.setattr(rht, "MD_PATH", tmp_path / "handbook-traceability.md")
     monkeypatch.setattr(rht, "REPO_ROOT", tmp_path)
-    # SKILLS_DIR is where main() looks for check records too. The fixture
-    # skills hold no `checks/` directory, so a fixture run is judged only
-    # against its own fixtures - the real records cite real handbook
-    # anchors the fixture handbook does not have.
+    # SKILLS_DIR is where main() looks for check records too, so pointing it
+    # at the fixture tree is what keeps a fixture run judged against its own
+    # records - `demo/injection` alone, written by `_fixture_dirs`. The real
+    # records under .agents/skills/ are never loaded here, and could not be:
+    # they cite real handbook anchors the fixture handbook does not have.
 
 
 def test_main_fails_when_the_handbook_renumbers_under_the_constants(
@@ -750,7 +751,7 @@ def test_real_matrix_band_unchecked_counts_match_the_cross_tab():
 
 
 def _checks_tree(tmp_path, records):
-    """Write a checks tree and load it, for validate()'s fourth argument.
+    """Write a checks tree and load it, for validate()'s `checks` argument.
 
     Args:
         tmp_path: pytest tmp dir.
