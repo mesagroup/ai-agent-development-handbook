@@ -9,4 +9,8 @@ handbook:
 
 # Sensitive-data handling
 
-Secrets/PII written to logs or error messages, overly broad exception handling that hides security failures, tokens in URLs. Needs reading - no scanner or grep target in this domain's evidence pass covers this pattern; read the logging and exception-handling call sites near secret- or PII-bearing variables, and any outbound URL construction, for exposure.
+Secrets/PII written to logs or error messages, overly broad exception handling that hides security failures, tokens in URLs.
+
+## Tooling fallback
+
+Needs reading - no scanner or grep target in this domain's evidence pass covers this pattern; read the logging and exception-handling call sites near secret- or PII-bearing variables, and any outbound URL construction, for exposure.

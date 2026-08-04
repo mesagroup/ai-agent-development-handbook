@@ -21,3 +21,7 @@ handbook_note: >-
 # Cost/latency profile
 
 Measure per-eval cost and latency and identify a mock/cheap mode - ask the user; useful when eval cost is suppressing how often evals run.
+
+## Tooling fallback
+
+Needs reading - no tool in this domain's evidence pass reaches this: measure per-eval cost and latency by hand and identify a mock/cheap mode.

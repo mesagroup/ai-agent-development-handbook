@@ -21,3 +21,7 @@ handbook_note: >-
 # LLM-judge calibration study
 
 Correlate the automated judge against a human-labeled sample and report agreement, before the judge is trusted for decisions - ask the user; recommend on when a judge gates model selection.
+
+## Tooling fallback
+
+Needs reading - no tool in this domain's evidence pass reaches this: correlate the automated judge against a human-labeled sample and report agreement by hand.

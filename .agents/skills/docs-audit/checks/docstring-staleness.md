@@ -17,7 +17,11 @@ handbook_note: >-
 
 # Docstring staleness
 
-Docstrings that contradict the code (wrong parameter names, removed return types, "raises X" the code no longer raises, examples that would fail). Needs reading - use source-mapping subagents as in the prose audit.
+Docstrings that contradict the code (wrong parameter names, removed return types, "raises X" the code no longer raises, examples that would fail).
+
+## Tooling fallback
+
+Needs reading - use source-mapping subagents as in the prose audit.
 
 ## Fix
 

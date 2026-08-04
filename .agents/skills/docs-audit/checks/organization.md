@@ -13,11 +13,13 @@ Is the folder structure right? Folders to split/merge/rename/archive, misfiled d
 
 **Distinguish prescriptive from background.** Keep "how it actually works, verifiable against source" docs separate from "background investigation / research" material. Don't let exploration accumulate in the prescriptive tree.
 
-Detection is the shared source-map pass the skill header builds ("Build the source maps once, first") - no separate tool or fallback of its own.
-
 ## Severity
 
 **Minor** - a stylistic inconsistency.
+
+## Tooling fallback
+
+Detection is the shared source-map pass the skill header builds ("Build the source maps once, first") - no separate tool or fallback of its own.
 
 ## Fix
 

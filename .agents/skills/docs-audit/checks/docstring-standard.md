@@ -15,7 +15,11 @@ handbook_note: >-
 
 # Docstring standard
 
-Each module/`__init__` and public symbol has a docstring describing what it does and how to use it, per the project's convention. Needs reading - use source-mapping subagents as in the prose audit.
+Each module/`__init__` and public symbol has a docstring describing what it does and how to use it, per the project's convention.
+
+## Tooling fallback
+
+Needs reading - use source-mapping subagents as in the prose audit.
 
 ## Fix
 

@@ -12,8 +12,6 @@ handbook:
 
 For every code component, the doc(s) covering it and a status: **documented** (a real dedicated doc), **partial** (only a passing mention / entry-level note / design-spec, no prescriptive reference), or **gap** (nothing). The partial/gap rows are the fill-gaps work list.
 
-Detection is the shared source-map pass the skill header builds ("Build the source maps once, first") - no separate tool or fallback of its own.
-
 ## Severity
 
 **Critical** - a doc that actively misdescribes the system (removed API still documented, wrong default/signature that would mislead a reader).
@@ -21,6 +19,10 @@ Detection is the shared source-map pass the skill header builds ("Build the sour
 **Important** - an uncovered load-bearing component.
 
 **Minor** - a partial that has a passing mention.
+
+## Tooling fallback
+
+Detection is the shared source-map pass the skill header builds ("Build the source maps once, first") - no separate tool or fallback of its own.
 
 ## Fix
 
