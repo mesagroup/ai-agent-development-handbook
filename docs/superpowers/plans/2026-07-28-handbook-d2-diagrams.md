@@ -473,7 +473,7 @@ Expected: all pass.
 
 ```bash
 git add scripts/render_handbook_artifact.py tests/scripts/test_render_handbook_artifact.py docs/engineering/implementation-disciplines.md
-git commit -m "feat(#537): render d2 fences to inline theme-aware SVG in the handbook artifact"
+git commit -m "feat(lidia-tech/lidia-agents#537): render d2 fences to inline theme-aware SVG in the handbook artifact"
 ```
 
 ---
@@ -576,7 +576,7 @@ Expected: all pass.
 
 ```bash
 git add docs/engineering/README.md docs/engineering/codebase-structure.md docs/engineering/three-layer-model.md
-git commit -m "docs(#537): diagram the story arc, the tier directions, and the three layers"
+git commit -m "docs(lidia-tech/lidia-agents#537): diagram the story arc, the tier directions, and the three layers"
 ```
 
 ---
@@ -677,5 +677,5 @@ Expected: all pass.
 
 ```bash
 git add docs/engineering/observability.md docs/engineering/evaluation.md docs/engineering/security-supply-chain.md docs/engineering/documentation.md CLAUDE.md
-git commit -m "docs(#537): diagram the side channel, the funnel, and the source-to-sink path"
+git commit -m "docs(lidia-tech/lidia-agents#537): diagram the side channel, the funnel, and the source-to-sink path"
 ```

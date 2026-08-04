@@ -1,4 +1,4 @@
-"""Tests for scripts/audit_checks.py (#559)."""
+"""Tests for scripts/audit_checks.py (lidia-tech/lidia-agents#559)."""
 
 import importlib.util
 import re
@@ -220,7 +220,7 @@ def test_frontmatter_with_an_empty_body_is_not_reported_as_missing(tmp_path):
 
 
 def test_every_audit_skill_has_a_non_empty_checks_directory():
-    """Regression net for #559 PR 2: the `/audit` front door now detects
+    """Regression net for lidia-tech/lidia-agents#559 PR 2: the `/audit` front door now detects
     which domains are available from `<domain>-audit/checks/` instead of a
     fixed list, so a domain skill with an empty or missing `checks/` would
     silently drop out of `/audit all`. If this fails, go find which
@@ -349,7 +349,7 @@ def test_the_real_checks_tree_loads_clean():
 
 
 def test_every_tool_less_check_states_a_reading_procedure():
-    """#567 item 5: a record may omit `tooling:` when its detection is
+    """lidia-tech/lidia-agents#567 item 5: a record may omit `tooling:` when its detection is
     reading rather than running something - but it must then say so under
     `## Tooling fallback`, or the executing agent has nothing to run and
     nothing told to read. If this fails, add the section to the named
@@ -368,7 +368,7 @@ def test_every_tool_less_check_states_a_reading_procedure():
 
 
 def test_every_review_lens_paragraph_carries_a_label():
-    """#567 item 4: a `## Review lens` paragraph opens with a bold label
+    """lidia-tech/lidia-agents#567 item 4: a `## Review lens` paragraph opens with a bold label
     naming what it judges, followed by ` - ` and the sentence
     (`**Label** - <sentence>`), so a whole-branch reviewer assembling
     lenses from several records can tell them apart. If this fails,

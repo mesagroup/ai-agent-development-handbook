@@ -1,6 +1,6 @@
-# The audit family on a checks database (#559)
+# The audit family on a checks database (lidia-tech/lidia-agents#559)
 
-**Status:** draft 2026-07-31. Restructures wave 1 of [#542](https://github.com/lidia-tech/lidia-agents/issues/542), delivering [#544](https://github.com/lidia-tech/lidia-agents/issues/544), [#519](https://github.com/lidia-tech/lidia-agents/issues/519) and [#545](https://github.com/lidia-tech/lidia-agents/issues/545) by a different mechanism than the eight-file sweep those issues describe.
+**Status:** draft 2026-07-31. Restructures wave 1 of [#1](https://github.com/lidia-tech/lidia-agents/issues/542), delivering [#7](https://github.com/lidia-tech/lidia-agents/issues/544), [#5](https://github.com/lidia-tech/lidia-agents/issues/519) and [#8](https://github.com/lidia-tech/lidia-agents/issues/545) by a different mechanism than the eight-file sweep those issues describe.
 
 ## Problem
 
@@ -16,7 +16,7 @@ Every one of those three issues *adds* content to a file that eight parallel sub
 | `audit-core/SKILL.md` (every agent reads it too) | 1,484 |
 | `superpowers:writing-skills` target for an ordinary skill | **under 500** |
 
-An `/audit all` sweep dispatches one subagent per domain, each reading its own `SKILL.md` plus `audit-core`, so the floor today is roughly 2,300 to 4,800 words per agent before any evidence is gathered. #519 is the worst offender: per-domain TypeScript tooling matrices alongside the Python ones means every Python audit pays for TS prose it will never use, and every TS audit pays for the Python half.
+An `/audit all` sweep dispatches one subagent per domain, each reading its own `SKILL.md` plus `audit-core`, so the floor today is roughly 2,300 to 4,800 words per agent before any evidence is gathered. #5 is the worst offender: per-domain TypeScript tooling matrices alongside the Python ones means every Python audit pays for TS prose it will never use, and every TS audit pays for the Python half.
 
 ## The structural finding
 
@@ -41,15 +41,15 @@ The consequence is that the same five attributes are re-authored eight times, in
 
 ## The unlock
 
-`docs/audit/handbook-traceability.yaml` already stores `checks: [{skill, dimension}]` on 41 of its 125 rows: **80 foreign keys into a checks table that does not exist**. [#543](https://github.com/lidia-tech/lidia-agents/issues/543)'s validator resolves that key by parsing bolded lead phrases out of `## N. Dimensions` markdown bullets.
+`docs/audit/handbook-traceability.yaml` already stores `checks: [{skill, dimension}]` on 41 of its 125 rows: **80 foreign keys into a checks table that does not exist**. [lidia-tech/lidia-agents#543](https://github.com/lidia-tech/lidia-agents/issues/543)'s validator resolves that key by parsing bolded lead phrases out of `## N. Dimensions` markdown bullets.
 
 Making the table real turns a markdown-parse heuristic into genuine referential integrity, and collapses the three wave-1 issues from prose sweeps into schema fields:
 
-- **#544** becomes a frontmatter field. The matrix row and the check record become two views of one edge, so they cannot disagree.
+- **#7** becomes a frontmatter field. The matrix row and the check record become two views of one edge, so they cannot disagree.
 
-  This fixes the `checks[]` half of #544 and **not** the prose half. That issue's review comment raised two things: 80 unresolvable foreign keys in the structured `checks[]` field, and roughly 60 `note:` / `gap.note:` fields naming skills and dimensions in free prose that no validator reads. A checks database closes the first completely and leaves the second exactly where it was. The renaming of `Coupling & cohesion` in this very migration made the point: two `note:` fields had to be hand-corrected because the dimension they named no longer existed, and nothing would have caught either one. The prose half still needs the decision that comment asked for - make the references checkable, or forbid naming a dimension outside `checks[]` - and #544 stays open for it.
-- **#519** becomes a tooling key. Agents load only the detected language's slice.
-- **#545** becomes one place to de-parochialise plus a grounding input, rather than eight prose files to hunt through.
+  This fixes the `checks[]` half of #7 and **not** the prose half. That issue's review comment raised two things: 80 unresolvable foreign keys in the structured `checks[]` field, and roughly 60 `note:` / `gap.note:` fields naming skills and dimensions in free prose that no validator reads. A checks database closes the first completely and leaves the second exactly where it was. The renaming of `Coupling & cohesion` in this very migration made the point: two `note:` fields had to be hand-corrected because the dimension they named no longer existed, and nothing would have caught either one. The prose half still needs the decision that comment asked for - make the references checkable, or forbid naming a dimension outside `checks[]` - and #7 stays open for it.
+- **#5** becomes a tooling key. Agents load only the detected language's slice.
+- **#8** becomes one place to de-parochialise plus a grounding input, rather than eight prose files to hunt through.
 
 ## Decisions
 
@@ -80,7 +80,7 @@ The saving exists only if an agent loads a **subset**, and `audit-core` already 
 
 Per-check files also make the bulk migration parallelisable: seven domains migrating at once never touch the same file, so subagent implementers cannot collide.
 
-**The records live in the domain's own skill, not in a shared tree under `audit-core`.** The engine owns the record *schema*; each skill owns its *instances*. Three reasons, in increasing weight. A domain becomes one directory to add or remove. A domain becomes portable, which matters because #542's premise is running this family against other repositories - a repo adopting three of the eight copies three skill directories plus the engine, rather than cherry-picking subdirectories out of a shared tree. And a shared tree would end up holding ~68 records for eight skills that own them, a hub directory everything reaches into and nothing owns, which is precisely what `arch/coupling` exists to flag: the family would fail its own audit.
+**The records live in the domain's own skill, not in a shared tree under `audit-core`.** The engine owns the record *schema*; each skill owns its *instances*. Three reasons, in increasing weight. A domain becomes one directory to add or remove. A domain becomes portable, which matters because #1's premise is running this family against other repositories - a repo adopting three of the eight copies three skill directories plus the engine, rather than cherry-picking subdirectories out of a shared tree. And a shared tree would end up holding ~68 records for eight skills that own them, a hub directory everything reaches into and nothing owns, which is precisely what `arch/coupling` exists to flag: the family would fail its own audit.
 
 Anthropic's skill-authoring guidance backs the shape twice over. Its **Pattern 2, "Domain-specific organization"** is this design under another name - "organize content by domain to avoid loading irrelevant context... This keeps token usage low and context focused" - with `SKILL.md` as overview-and-navigation over per-domain files loaded selectively. And its **"avoid deeply nested references"** anti-pattern warns that agents "may partially read files when they're referenced from other referenced files", previewing with `head -100` rather than reading in full. A header pointing into a sibling skill's subdirectory is exactly that nesting; a header pointing at `checks/` beside it is one hop.
 
@@ -125,7 +125,7 @@ Is each flagged edge genuinely a violation of the documented rules, and does eac
 
 **Frontmatter fields.** `id` (stable, `<domain>/<slug>`), `domain`, `locality` (`local` | `global`), `handbook`, `handbook_note`, `tooling` (a map of language to preferred tools, plus `any` for language-agnostic tooling), `optin` (boolean, default false).
 
-`handbook` is required and is a **list** of matrix row ids, possibly empty. A list rather than a scalar because a check is commonly grounded in several clauses - `arch/layering` in six, `arch/over-abstraction` in two - and a single field would force an arbitrary primary and under-report the grounding an agent reading only the record needs. When the list is empty, `handbook_note` is required and states why the check deliberately exceeds the handbook. This is #544's fourth acceptance criterion expressed as a schema rule: 9 of the 50 current dimensions are cited by no matrix row, and that is correct rather than a gap, since skills may check more than the handbook states.
+`handbook` is required and is a **list** of matrix row ids, possibly empty. A list rather than a scalar because a check is commonly grounded in several clauses - `arch/layering` in six, `arch/over-abstraction` in two - and a single field would force an arbitrary primary and under-report the grounding an agent reading only the record needs. When the list is empty, `handbook_note` is required and states why the check deliberately exceeds the handbook. This is #7's fourth acceptance criterion expressed as a schema rule: 9 of the 50 current dimensions are cited by no matrix row, and that is correct rather than a gap, since skills may check more than the handbook states.
 
 The list need not be exhaustive - the matrix is the authoritative edge set - but three rules make what it says true. Every anchor must resolve to a real handbook heading; every anchor must be a row that actually cites the check; and a check some row cites may not declare itself ungrounded, nor may a check nothing cites claim a grounding. The validator rejects an empty list without a note, and a note alongside anchors.
 
@@ -135,7 +135,7 @@ The list need not be exhaustive - the matrix is the authoritative edge set - but
 
 The matrix migrates from `checks: [{skill: arch-audit, dimension: "Layering / dependency-rule conformance"}]` to `checks: [arch/layering]`: 80 references, scripted. `skill_dimensions()` is replaced by a frontmatter index, and the renderer resolves the id to its display name from the check file.
 
-The compound natural key works today, but it is prose text: renaming a dimension churns matrix rows. A stable id decouples the two, and [#546](https://github.com/lidia-tech/lidia-agents/issues/546)'s issue emitter needs stable ids to emit from anyway.
+The compound natural key works today, but it is prose text: renaming a dimension churns matrix rows. A stable id decouples the two, and [#9](https://github.com/lidia-tech/lidia-agents/issues/546)'s issue emitter needs stable ids to emit from anyway.
 
 ### 4. A check produces findings-matrix rows; a deliverable does not
 
@@ -191,11 +191,11 @@ Keeping the per-domain file is a deliberate departure from full collapse into a 
 
 - **Un-citable coverage.** `prompt-audit`'s Tier B, `docs-audit` §7 and `audit-core`'s own cross-cutting rules are real coverage that no matrix row can reference today, because the validator only sees what a heading parser sees. A database has no such limit. Surfacing these is a migration deliverable, not scope creep.
 - **Run-on severity rubrics.** `arch-audit`'s Critical entry is one sentence covering layering, cycles, hidden coupling and over-abstraction, with an exception clause tacked on for the last. Split per check, the exception attaches to the check it qualifies. This is the fiddliest hour of the migration and the highest-value part.
-- **Stable ids for #546.** An emitted issue can reference the check that produced it.
+- **Stable ids for #9.** An emitted issue can reference the check that produced it.
 
 ## Sequencing
 
-**PR 1 - schema and pilot.** Define the frontmatter schema, write the validator and the loader, migrate `arch` end to end (11 checks), rewire its 7 matrix references, and reduce `arch-audit/SKILL.md` to its header. Verify by running `/arch-audit` on this repo and diffing the findings against the [#508](https://github.com/lidia-tech/lidia-agents/issues/508) baseline.
+**PR 1 - schema and pilot.** Define the frontmatter schema, write the validator and the loader, migrate `arch` end to end (11 checks), rewire its 7 matrix references, and reduce `arch-audit/SKILL.md` to its header. Verify by running `/arch-audit` on this repo and diffing the findings against the [lidia-tech/lidia-agents#508](https://github.com/lidia-tech/lidia-agents/issues/508) baseline.
 
 `arch` is the right pilot: the most checks, the densest prose, and both localities. A schema that survives `arch` survives the rest.
 
@@ -207,7 +207,7 @@ Keeping the per-domain file is a deliberate departure from full collapse into a 
 
 `superpowers:writing-skills` states an Iron Law: no skill edit without a failing test first. Eight rewrites have no test budget, and these are reference and technique skills rather than discipline skills, so the appropriate test form is retrieval and application rather than pressure scenarios.
 
-The pilot is the answer. Running `/arch-audit` against the #508 baseline before the other seven domains move is a real application test at one eighth the cost of discovering the schema is wrong after 68 records. #545's criterion 3 (a Mesa PoC run in report-only mode) and [#547](https://github.com/lidia-tech/lidia-agents/issues/547)'s dry run remain the end-to-end gates.
+The pilot is the answer. Running `/arch-audit` against the lidia-tech/lidia-agents#508 baseline before the other seven domains move is a real application test at one eighth the cost of discovering the schema is wrong after 68 records. #8's criterion 3 (a Mesa PoC run in report-only mode) and [#10](https://github.com/lidia-tech/lidia-agents/issues/547)'s dry run remain the end-to-end gates.
 
 New code (validator, loader, id rewiring) ships with unit tests. `scripts/` is not exempt: follow the `importlib.util.spec_from_file_location` pattern in `tests/reference_extraction/test_sweep.py`, with `scripts/` on `sys.path` via a package `conftest.py`.
 

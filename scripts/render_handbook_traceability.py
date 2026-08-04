@@ -1,4 +1,4 @@
-"""Render and verify the handbook traceability matrix (#543).
+"""Render and verify the handbook traceability matrix (lidia-tech/lidia-agents#543).
 
 `docs/audit/handbook-traceability.yaml` is the hand-maintained source of
 truth mapping every `##` section of the engineering handbook
@@ -9,7 +9,7 @@ view `docs/audit/handbook-traceability.md`.
 
 A row's `checks` list carries one entry per check that reaches the clause.
 An entry is a check id (`arch/layering`) resolved against the check records
-under `.agents/skills/<domain>-audit/checks/` (#559). The two views of an
+under `.agents/skills/<domain>-audit/checks/` (lidia-tech/lidia-agents#559). The two views of an
 edge are checked against each other: a record may not cite a clause no row
 connects it to, and a cited record may not declare itself ungrounded.
 
@@ -358,7 +358,7 @@ def validate(
                 cited.setdefault(entry, set()).add(rid)
                 continue
             # The legacy `{skill, dimension}` pair is diagnosed by name rather
-            # than as a generic type error: it is what a branch predating #559
+            # than as a generic type error: it is what a branch predating lidia-tech/lidia-agents#559
             # carries, and "expected a string" would send its author looking
             # for a typo instead of for the record that replaced the pair.
             if isinstance(entry, dict) and "skill" in entry:

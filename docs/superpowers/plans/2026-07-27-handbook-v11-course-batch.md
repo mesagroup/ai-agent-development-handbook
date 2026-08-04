@@ -17,7 +17,7 @@
 - Register: clipped imperative in section bodies, portable "how to" tone, no institutional "we". Do not touch the italicized narrative bridges/hand-offs.
 - Word budget: the whole batch stays within roughly +1.5k prose words. The drafts below are already sized to this; do not expand them.
 - Settled content decisions (do not renegotiate): industry "agent = model + harness" definition for the Part 4 paragraph with a Fowler footnote; bookend gates (spec review, merge) always on, only optional gates + involvement depth scale with criticality; mild Brandolini (agent-assisted core code, scaled oversight, not hand-write-only); cite *Accelerate*, no dated stats or charts.
-- Every task ends by running the gates (Verification block) and committing with a `docs(#533):` message and the trailer `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`. NEVER pass shell comment lines (starting with `#`) to the Bash tool.
+- Every task ends by running the gates (Verification block) and committing with a `docs(lidia-tech/lidia-agents#533):` message and the trailer `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`. NEVER pass shell comment lines (starting with `#`) to the Bash tool.
 
 **Gate commands (run at the end of every task):**
 
@@ -118,9 +118,9 @@ Run the three gate commands from Global Constraints against `/tmp/handbook-533.h
 
 ```
 git add docs/engineering/lifecycle.md
-git commit -m "docs(#533): Part 1 additions: criticality scaling, small batches, review purpose
+git commit -m "docs(lidia-tech/lidia-agents#533): Part 1 additions: criticality scaling, small batches, review purpose
 
-Refs #533"
+Refs lidia-tech/lidia-agents#533"
 ```
 
 ---
@@ -144,9 +144,9 @@ Run the three gate commands. Confirm clean. Then:
 
 ```
 git add docs/engineering/agent-harness.md
-git commit -m "docs(#533): Part 4 terminology paragraph (agent = model + harness; Fowler footnote)
+git commit -m "docs(lidia-tech/lidia-agents#533): Part 4 terminology paragraph (agent = model + harness; Fowler footnote)
 
-Refs #533"
+Refs lidia-tech/lidia-agents#533"
 ```
 
 ---
@@ -194,9 +194,9 @@ Run the three gate commands. Confirm clean. Then:
 
 ```
 git add docs/engineering/evaluation.md
-git commit -m "docs(#533): Part 6 additions: eval maturity ladder, k/N + pass^N bands, grader taxonomy
+git commit -m "docs(lidia-tech/lidia-agents#533): Part 6 additions: eval maturity ladder, k/N + pass^N bands, grader taxonomy
 
-Refs #533"
+Refs lidia-tech/lidia-agents#533"
 ```
 
 ---
@@ -238,9 +238,9 @@ Run the three gate commands. Confirm clean. Then:
 
 ```
 git add docs/engineering/documentation.md
-git commit -m "docs(#533): Part 7 additions: ADR artifact, data-model context artifact, diagrams-as-code
+git commit -m "docs(lidia-tech/lidia-agents#533): Part 7 additions: ADR artifact, data-model context artifact, diagrams-as-code
 
-Refs #533"
+Refs lidia-tech/lidia-agents#533"
 ```
 
 ---
@@ -283,9 +283,9 @@ Run the three gate commands. Confirm clean. Then:
 
 ```
 git add docs/engineering/security-supply-chain.md
-git commit -m "docs(#533): Part 8 addition: least privilege for the agent (lethal trifecta)
+git commit -m "docs(lidia-tech/lidia-agents#533): Part 8 addition: least privilege for the agent (lethal trifecta)
 
-Refs #533"
+Refs lidia-tech/lidia-agents#533"
 ```
 
 ---
@@ -322,9 +322,9 @@ Run `git diff origin/main -- docs/engineering/ | grep -c '^+'` for a rough added
 
 ```
 git add docs/engineering/README.md
-git commit -m "docs(#533): name AI sycophancy as a false-confidence hazard (throughline 1)
+git commit -m "docs(lidia-tech/lidia-agents#533): name AI sycophancy as a false-confidence hazard (throughline 1)
 
-Refs #533"
+Refs lidia-tech/lidia-agents#533"
 ```
 
 ---

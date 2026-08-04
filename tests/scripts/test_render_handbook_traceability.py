@@ -1,4 +1,4 @@
-"""Tests for scripts/render_handbook_traceability.py (#543)."""
+"""Tests for scripts/render_handbook_traceability.py (lidia-tech/lidia-agents#543)."""
 
 import importlib.util
 import sys
@@ -196,7 +196,7 @@ def _valid_rows():
             "severity": "critical",
             "gap": {
                 "recommendation": "new-domain",
-                "target": "#516",
+                "target": "#2",
                 "note": "no lens yet",
             },
         },
@@ -251,7 +251,7 @@ def test_validate_catches_each_rule(tmp_path):
         # An id with no record: the row's citation is dropped, which also
         # leaves demo/injection uncited, hence 2.
         (lambda r: r[0].update(checks=["demo/ghost"]), "unknown check id", 2),
-        # A branch predating #559 carries the pair form. It is named as such
+        # A branch predating lidia-tech/lidia-agents#559 carries the pair form. It is named as such
         # rather than reported as a type error, so its author is sent to the
         # record that replaced it.
         (
@@ -304,7 +304,7 @@ def test_render_produces_tables_gap_list_and_summary():
     assert f"[Mapped section]({_ALPHA_URL}#mapped-section)<br>c1" in out
     assert "../engineering/" not in out
     assert "`demo/injection` / Injection" in out
-    assert "### Critical" in out and "#516" in out
+    assert "### Critical" in out and "#2" in out
     assert "| static | 1 |" in out
 
 
@@ -319,7 +319,7 @@ def test_render_marks_split_rows_and_links_gap_entries():
     # Every gap entry links back to its handbook section, marker included.
     assert (
         f"- [`alpha/split-section-a`]({_ALPHA_URL}#split-section) (a) (unchecked) - "
-        "**new-domain** - #516 - no lens yet" in out
+        "**new-domain** - #2 - no lens yet" in out
     )
 
 
@@ -345,7 +345,7 @@ def test_render_reconciles_the_gap_total_when_no_process_row_gaps():
 
 
 def test_render_reconciles_the_gap_total_when_a_process_row_gaps():
-    # The case #554 names: the closing total counted a population the
+    # The case lidia-tech/lidia-agents#554 names: the closing total counted a population the
     # components above it never included. It is absent from today's matrix,
     # so only a fixture can hold the arithmetic honest.
     rows = _valid_rows()
@@ -455,15 +455,13 @@ def test_render_joins_multiple_checks_and_a_gap_without_a_target():
 
 def test_render_keeps_gap_fields_from_breaking_the_table():
     rows = _valid_rows()
-    rows[1]["gap"]["target"] = "#516 | #548"
+    rows[1]["gap"]["target"] = "#2 | #11"
     rows[1]["gap"]["note"] = "two lenses:\nneither owns the bound."
     out = rht.render(rows, _DEMO_CHECKS)
     # In a table cell both the pipe and the newline are fatal; escape and fold.
-    assert (
-        "**new-domain** - #516 \\| #548 - two lenses: neither owns the bound. |" in out
-    )
+    assert "**new-domain** - #2 \\| #11 - two lenses: neither owns the bound. |" in out
     # In the gap-list bullet a pipe is harmless, but the newline still is not.
-    assert "- **new-domain** - #516 | #548 - two lenses: neither owns the bound." in out
+    assert "- **new-domain** - #2 | #11 - two lenses: neither owns the bound." in out
     for line in out.splitlines():
         if line.startswith("| ["):
             assert line.endswith(" |"), line
@@ -503,7 +501,7 @@ def _rows_with_all_three_kinds():
 
 
 def test_render_tags_each_gap_bullet_with_its_kind():
-    # A bullet has to carry its own kind: #546 emits issues from single
+    # A bullet has to carry its own kind: #9 emits issues from single
     # entries, and a position in a list does not survive extraction.
     out = rht.render(_rows_with_all_three_kinds(), {})
     assert "- [`alpha/mapped-section`](" in out
@@ -700,7 +698,7 @@ def test_validate_reports_malformed_shapes_without_crashing(tmp_path):
             "class": "artifact",
             "severity": "critical",
             "checks": [123],
-            "gap": {"recommendation": "new-domain", "target": "#516"},
+            "gap": {"recommendation": "new-domain", "target": "#2"},
         },
         {
             "id": "coda/coda",
@@ -725,7 +723,7 @@ def test_real_matrix_passes_the_strict_check():
 
 
 def test_real_matrix_band_unchecked_counts_match_the_cross_tab():
-    # #553's second criterion, made mechanical rather than a counting
+    # lidia-tech/lidia-agents#553's second criterion, made mechanical rather than a counting
     # exercise: a band's printed unchecked figure is the same number as its
     # Unmapped column, and stays so as rows are added. Both are read out of
     # the rendered page, so a renderer that drifts them apart fails here.
@@ -806,7 +804,7 @@ def test_unknown_check_id_is_reported(tmp_path):
 
 
 def test_legacy_skill_dimension_entry_is_named_not_typed(tmp_path):
-    # The pair form is what a branch predating #559 carries. "expected a
+    # The pair form is what a branch predating lidia-tech/lidia-agents#559 carries. "expected a
     # string" would send its author hunting a typo in the matrix; naming the
     # form points at the record that replaced it.
     checks = _checks_tree(

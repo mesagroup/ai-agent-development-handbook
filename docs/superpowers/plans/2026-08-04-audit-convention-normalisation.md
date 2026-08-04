@@ -4,7 +4,7 @@
 
 **Goal:** Normalise the eight audit domain headers, the 68 check records, the two shared skill files and the traceability matrix's judgment prose onto one settled shape, and lock the two mechanically-checkable conventions behind tests.
 
-**Architecture:** Issue #567's eight items, regrouped into seven tasks by *file set* rather than by item, because several items touch the same file and a file must be owned by exactly one task. Nothing here changes behaviour: every edit is prose, with the single exception of Task 7, which adds two structural tests.
+**Architecture:** Issue lidia-tech/lidia-agents#567's eight items, regrouped into seven tasks by *file set* rather than by item, because several items touch the same file and a file must be owned by exactly one task. Nothing here changes behaviour: every edit is prose, with the single exception of Task 7, which adds two structural tests.
 
 **Tech Stack:** Markdown, YAML, Python (pytest) for the convention tests only.
 
@@ -22,14 +22,14 @@ Copied verbatim into every task's dispatch.
 - **Every commit runs `uv run ruff check .` and `uv run ruff format --check .` clean** before it is made. Run `uv run pyright` for any task touching `scripts/` or `tests/`.
 - **The domain gate for every task is:** `uv run pytest tests/scripts/ -q` green **and** `uv run python scripts/render_handbook_traceability.py --check` exit 0.
 - **Re-render the Markdown view** with `uv run python scripts/render_handbook_traceability.py` in any task that edits `docs/audit/handbook-traceability.yaml`, and commit both files together.
-- **Reference the issue in every commit message:** `Refs #567`. No Claude credits, no co-author trailers naming an assistant.
+- **Reference the issue in every commit message:** `Refs lidia-tech/lidia-agents#567`. No Claude credits, no co-author trailers naming an assistant.
 - **Do not open a PR and do not merge.** The controller handles both.
 
 ## Shared reference artifacts
 
 Two files are built once by the controller and handed to Tasks 5 and 6 by path. Do not rebuild them.
 
-- **`<scratchpad>/crosswalk.txt`** - the 37 legacy `{skill, dimension}` pairs PR #566 rewired, each mapped to the check id that replaced it. Derived mechanically by diffing the pre-migration matrix (commit `29499564`) against the current one, so it is evidence, not reconstruction.
+- **`<scratchpad>/crosswalk.txt`** - the 37 legacy `{skill, dimension}` pairs PR lidia-tech/lidia-agents#566 rewired, each mapped to the check id that replaced it. Derived mechanically by diffing the pre-migration matrix (commit `29499564`) against the current one, so it is evidence, not reconstruction.
 - **`<scratchpad>/record-index.txt`** - all 68 records: `<id>  <locality>  [optin]  <title>`. Every record's `# Title` is the display name its dimension carried before the migration, so a prose mention of a dimension name resolves through this file even when the pair was never cited by a matrix row.
 
 ## The settled shape
@@ -121,9 +121,9 @@ uv run python scripts/render_handbook_traceability.py --check
 uv run pytest tests/scripts/ -q
 git status --short
 git add .agents/skills/arch-audit/SKILL.md .agents/skills/deps-audit/SKILL.md .agents/skills/ci-audit/SKILL.md .agents/skills/docs-audit/SKILL.md .agents/skills/security-audit/SKILL.md
-git commit -m "docs(#567): normalise the eight audit domain headers
+git commit -m "docs(lidia-tech/lidia-agents#567): normalise the eight audit domain headers
 
-Refs #567"
+Refs lidia-tech/lidia-agents#567"
 ```
 
 ---
@@ -187,9 +187,9 @@ uv run python scripts/render_handbook_traceability.py --check
 uv run pytest tests/scripts/ -q
 git status --short
 git add <the exact record paths you changed>
-git commit -m "docs(#567): label every review-lens paragraph
+git commit -m "docs(lidia-tech/lidia-agents#567): label every review-lens paragraph
 
-Refs #567"
+Refs lidia-tech/lidia-agents#567"
 ```
 
 ---
@@ -205,7 +205,7 @@ Refs #567"
 **Interfaces:**
 - Produces: the invariant Task 7 asserts - every record without `tooling:` frontmatter has a `## Tooling fallback` section.
 
-**Scope note:** issue #567 names five records for item 5. Three more have the same defect in a different form: `eval/adversarial`, `eval/cost-latency` and `eval/judge-calibration` have neither `tooling:` nor a `## Tooling fallback`, so an agent loading them gets nothing to run *and* nothing told to read. They are folded in here so the rule is uniform and testable rather than carrying a three-record exemption list. Say so in your report.
+**Scope note:** issue lidia-tech/lidia-agents#567 names five records for item 5. Three more have the same defect in a different form: `eval/adversarial`, `eval/cost-latency` and `eval/judge-calibration` have neither `tooling:` nor a `## Tooling fallback`, so an agent loading them gets nothing to run *and* nothing told to read. They are folded in here so the rule is uniform and testable rather than carrying a three-record exemption list. Say so in your report.
 
 - [ ] **Step 1: Read the reference idiom**
 
@@ -261,9 +261,9 @@ uv run python scripts/render_handbook_traceability.py --check
 uv run pytest tests/scripts/ -q
 git status --short
 git add <the exact record paths you changed>
-git commit -m "docs(#567): give every tool-less check a stated reading procedure
+git commit -m "docs(lidia-tech/lidia-agents#567): give every tool-less check a stated reading procedure
 
-Refs #567"
+Refs lidia-tech/lidia-agents#567"
 ```
 
 ---
@@ -314,14 +314,14 @@ uv run python scripts/render_handbook_traceability.py --check
 uv run pytest tests/scripts/ -q
 git status --short
 git add .agents/skills/audit-core/SKILL.md .agents/skills/audit/SKILL.md
-git commit -m "docs(#567): make the engine and front door name checks, not dimensions
+git commit -m "docs(lidia-tech/lidia-agents#567): make the engine and front door name checks, not dimensions
 
 The fan-out rule in audit-core keys on a record's locality field, and the
 front door dispatches on it. Both still said dimension, naming a structure
-#559 removed - so the one sentence an executing agent reads to decide how
+lidia-tech/lidia-agents#559 removed - so the one sentence an executing agent reads to decide how
 to slice the work described something that no longer exists.
 
-Refs #567"
+Refs lidia-tech/lidia-agents#567"
 ```
 
 ---
@@ -339,7 +339,7 @@ Refs #567"
 
 - [ ] **Step 1: Understand what you are changing**
 
-These are the free-prose `note:` and `gap: note:` fields - the judgment prose explaining why a handbook clause is unmapped, partially mapped, or an exact fit. They describe a `## N. Dimensions` structure in each skill that #559 removed. The structured half of the matrix (the `checks:` lists) was already rewired to check ids in #566; this is the prose that still talks about the old shape.
+These are the free-prose `note:` and `gap: note:` fields - the judgment prose explaining why a handbook clause is unmapped, partially mapped, or an exact fit. They describe a `## N. Dimensions` structure in each skill that lidia-tech/lidia-agents#559 removed. The structured half of the matrix (the `checks:` lists) was already rewired to check ids in lidia-tech/lidia-agents#566; this is the prose that still talks about the old shape.
 
 Read `<scratchpad>/crosswalk.txt` and `<scratchpad>/record-index.txt` first. Between them, every dimension display name that appears in this prose resolves to exactly one check id.
 
@@ -347,14 +347,14 @@ Read `<scratchpad>/crosswalk.txt` and `<scratchpad>/record-index.txt` first. Bet
 
 Find them with `grep -n -i dimension docs/audit/handbook-traceability.yaml` and work only on hits in lines 1-647. Roughly 33 occurrences. Four categories:
 
-1. **A named dimension → its check id.** `eval-audit's Reproducibility dimension` becomes `` `eval/reproducibility` ``. Resolve through the crosswalk, or through the record index when the name was never cited by a row. Use backticked ids, which is how #566 left the rest of the file.
+1. **A named dimension → its check id.** `eval-audit's Reproducibility dimension` becomes `` `eval/reproducibility` ``. Resolve through the crosswalk, or through the record index when the name was never cited by a row. Use backticked ids, which is how lidia-tech/lidia-agents#566 left the rest of the file.
 2. **An unnamed "no dimension ..." → "no check ...".** `no dimension asks whether a change carries a committed spec` becomes `no check asks whether ...`. This is the largest category and is a straight noun swap.
 3. **A reference to the section that no longer exists.** `outside its Dimensions section`, `declares no dimensions so no row can cite it`, `sit outside the citable Dimensions section` - these named a markdown heading. Restate against the checks tree: the question is now whether a *record* exists that a row can cite. Keep the argument the note was making; only the mechanism it names changes.
 4. **Ordinary English.** `one dimension at a time`, `an eval dimension`, `injection-resistance as an eval dimension` - domain vocabulary, not the family's structural term. **Leave these alone.** Test: would replacing it with "check" be a correction or a distortion?
 
 - [ ] **Step 3: Correct the notes that are now false**
 
-Category 3 hides a second problem. Some notes do not merely *describe* the old structure - they *prescribe declaring a dimension* as the fix, and #566 already performed that fix by creating the record. A note that says the fix is still pending, when the record exists, is false rather than dated.
+Category 3 hides a second problem. Some notes do not merely *describe* the old structure - they *prescribe declaring a dimension* as the fix, and lidia-tech/lidia-agents#566 already performed that fix by creating the record. A note that says the fix is still pending, when the record exists, is false rather than dated.
 
 For each category-3 occurrence, check the checks tree for a record that now covers what the note says is undeclared. If one exists:
 
@@ -379,9 +379,9 @@ Then re-read your own diff and confirm: no `claim:` field changed (those are han
 uv run pytest tests/scripts/ -q
 git status --short
 git add docs/audit/handbook-traceability.yaml
-git commit -m "docs(#567): retire dimension vocabulary from the matrix prose (spine, Parts 1-5)
+git commit -m "docs(lidia-tech/lidia-agents#567): retire dimension vocabulary from the matrix prose (spine, Parts 1-5)
 
-Refs #567"
+Refs lidia-tech/lidia-agents#567"
 ```
 
 ---
@@ -403,7 +403,7 @@ Same four categories, same rules, same reporting requirement. Roughly 24 occurre
 
 `security-supply-chain/secrets-never-commit-them-and-rotate-dont-just-delete-b` (around line 1048) is a confirmed instance of Task 5's Step 3 case. Its `gap: note:` says the citeability gap exists because "Secrets in code, the one citable dimension, reads the working tree", and prescribes "The fix is to declare the history-and-rotation coverage as a dimension."
 
-#566 created `security/secret-history`, a citable record whose whole scope is scanning git history for secrets. So the prescribed fix has been performed and the note is false as written.
+lidia-tech/lidia-agents#566 created `security/secret-history`, a citable record whose whole scope is scanning git history for secrets. So the prescribed fix has been performed and the note is false as written.
 
 Resolve it: the row's claim is *"rotate the credential at its provider first, then remove the line, then purge history if it was ever pushed"*. Read `security/secret-history`'s own `handbook_note`, which argues the handbook states no separate history-scan clause - then judge that argument against this row's claim, which does mention purging history. Decide whether the row cites the record, apply the bidirectional rule if it does, and state your reasoning in your report either way. **This is the task's most consequential decision - do not resolve it silently.**
 
@@ -428,9 +428,9 @@ Every surviving occurrence must be a deliberate ordinary-English use. List each 
 uv run pytest tests/scripts/ -q
 git status --short
 git add docs/audit/handbook-traceability.yaml docs/audit/handbook-traceability.md
-git commit -m "docs(#567): retire dimension vocabulary from the matrix prose (Parts 6-9)
+git commit -m "docs(lidia-tech/lidia-agents#567): retire dimension vocabulary from the matrix prose (Parts 6-9)
 
-Refs #567"
+Refs lidia-tech/lidia-agents#567"
 ```
 
 ---
@@ -443,7 +443,7 @@ Refs #567"
 **Interfaces:**
 - Consumes: the invariants Tasks 2 and 3 established. **This task must run last** - both tests fail against the tree as it stands before those tasks.
 
-**Why only two:** of #567's eight items, exactly two state a rule that holds for every record with no judgment call - a tool-less record carries a reading procedure, and a review-lens paragraph carries a label. The rest (header boilerplate, locality prose, prose vocabulary) are judgment and stay reviewed by humans. Do not add tests for those; a test that encodes a judgment call becomes a thing to satisfy rather than a net.
+**Why only two:** of lidia-tech/lidia-agents#567's eight items, exactly two state a rule that holds for every record with no judgment call - a tool-less record carries a reading procedure, and a review-lens paragraph carries a label. The rest (header boilerplate, locality prose, prose vocabulary) are judgment and stay reviewed by humans. Do not add tests for those; a test that encodes a judgment call becomes a thing to satisfy rather than a net.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -451,7 +451,7 @@ Add both to `tests/scripts/test_audit_checks.py`, following the file's existing 
 
 ```python
 def test_every_tool_less_check_states_a_reading_procedure():
-    """#567 item 5: a record may omit `tooling:` when its detection is
+    """lidia-tech/lidia-agents#567 item 5: a record may omit `tooling:` when its detection is
     reading rather than running something - but it must then say so under
     `## Tooling fallback`, or the executing agent has nothing to run and
     nothing told to read. If this fails, add the section to the named
@@ -470,7 +470,7 @@ def test_every_tool_less_check_states_a_reading_procedure():
 
 
 def test_every_review_lens_paragraph_carries_a_label():
-    """#567 item 4: a `## Review lens` paragraph opens with a bold label
+    """lidia-tech/lidia-agents#567 item 4: a `## Review lens` paragraph opens with a bold label
     naming what it judges, so a whole-branch reviewer assembling lenses
     from several records can tell them apart. If this fails, label the
     paragraph - do not weaken the assertion.
@@ -513,9 +513,9 @@ uv run ruff check . && uv run ruff format --check . && uv run pyright
 uv run pytest tests/scripts/ -q
 git status --short
 git add tests/scripts/test_audit_checks.py
-git commit -m "test(#567): lock the two mechanical record conventions
+git commit -m "test(lidia-tech/lidia-agents#567): lock the two mechanical record conventions
 
-Refs #567"
+Refs lidia-tech/lidia-agents#567"
 ```
 
 ---
@@ -525,7 +525,7 @@ Refs #567"
 Stated so a reviewer does not read these as misses:
 
 - **`docs/audit/2026-07-20-docs-audit.md`** uses "dimension" throughout. It is a dated report of a past audit run, and rewriting it would falsify the record of what that run actually said.
-- **`scripts/render_handbook_traceability.py`**'s remaining "dimension" references are all the legacy `skill_dimensions()` path. Deleting that path is PR 3 of #559, tracked on that issue's two open acceptance criteria.
+- **`scripts/render_handbook_traceability.py`**'s remaining "dimension" references are all the legacy `skill_dimensions()` path. Deleting that path is PR 3 of lidia-tech/lidia-agents#559, tracked on that issue's two open acceptance criteria.
 - **The ordinary-English uses of "dimension"** in the headers and records (an eval dimension, a matrix dimension, a quality dimension). They are correct English and correct domain vocabulary.
 
-  **Corrected after the whole-branch review.** This entry originally read "the eleven ordinary-English uses", asserting that every surviving occurrence in the headers and records was ordinary English. That was wrong on both counts: there were twelve, and four of them named the structure #559 removed - `security-audit/SKILL.md`'s "or by dimension (one agent per weakness class)", `arch/complexity-gate`'s "ci-audit's Gate enforcement dimension", and both of `arch/hidden-coupling`'s. The security one mattered: it offered a fan-out axis that `audit-core` explicitly forbids, so the branch had corrected one side of that contradiction and left the other. All four are now fixed. The lesson is about the form of this entry, not its content - an out-of-scope note that states a count is telling every later reader not to recount, so it must be measured rather than estimated, or it converts a miss into a licence.
+  **Corrected after the whole-branch review.** This entry originally read "the eleven ordinary-English uses", asserting that every surviving occurrence in the headers and records was ordinary English. That was wrong on both counts: there were twelve, and four of them named the structure lidia-tech/lidia-agents#559 removed - `security-audit/SKILL.md`'s "or by dimension (one agent per weakness class)", `arch/complexity-gate`'s "ci-audit's Gate enforcement dimension", and both of `arch/hidden-coupling`'s. The security one mattered: it offered a fan-out axis that `audit-core` explicitly forbids, so the branch had corrected one side of that contradiction and left the other. All four are now fixed. The lesson is about the form of this entry, not its content - an out-of-scope note that states a count is telling every later reader not to recount, so it must be measured rather than estimated, or it converts a miss into a licence.

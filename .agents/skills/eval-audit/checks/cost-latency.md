@@ -13,7 +13,7 @@ handbook_note: >-
   `evaluation/measure-honestly-b` states the same full-cost-accounting claim
   but carries no `checks:` entry (`grep -n "evaluation/measure-honestly-b" -A8
   docs/audit/handbook-traceability.yaml` shows a `gap:` block targeting issue
-  #516, not a `checks:` list). None of these asks for a dedicated per-eval
+  #2, not a `checks:` list). None of these asks for a dedicated per-eval
   cost/latency profile as its own artifact; producing one is this opt-in's own
   scope, not a clause the handbook states.
 ---

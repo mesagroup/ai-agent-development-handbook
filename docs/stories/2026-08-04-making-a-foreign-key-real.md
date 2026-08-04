@@ -2,15 +2,15 @@
 
 ## Context
 
-The `*-audit` skill family is eight domain skills — architecture, CI, dependencies, docs, evals, prompts, security, tests — each auditing a codebase along one lens, all running on a shared engine that owns the loop. Under #543 we built a traceability matrix mapping every section of the engineering handbook onto that family, so "the handbook says X" can be checked against "some skill actually audits X". The [previous story](2026-07-30-calibrating-a-taxonomy-across-chunked-agents.md) covers adding a severity axis to that matrix.
+The `*-audit` skill family is eight domain skills — architecture, CI, dependencies, docs, evals, prompts, security, tests — each auditing a codebase along one lens, all running on a shared engine that owns the loop. Under lidia-tech/lidia-agents#543 we built a traceability matrix mapping every section of the engineering handbook onto that family, so "the handbook says X" can be checked against "some skill actually audits X". The [previous story](2026-07-30-calibrating-a-taxonomy-across-chunked-agents.md) covers adding a severity axis to that matrix.
 
-Each matrix row recorded its coverage as a `{skill, dimension}` pair, where a *dimension* was a bolded phrase inside a numbered prose section of that skill's markdown file. This story covers #559 and #567, which turned that pair into a real key: one file per check, with the matrix and the skills validated against each other in both directions.
+Each matrix row recorded its coverage as a `{skill, dimension}` pair, where a *dimension* was a bolded phrase inside a numbered prose section of that skill's markdown file. This story covers lidia-tech/lidia-agents#559 and lidia-tech/lidia-agents#567, which turned that pair into a real key: one file per check, with the matrix and the skills validated against each other in both directions.
 
 ## Why
 
 **The matrix's foreign key pointed at a table that did not exist.** Resolving `{skill, dimension}` meant parsing bolded phrases out of markdown bullets. Rewording a bullet in a skill silently broke every row citing it, and nothing anywhere would say so. We had built a coverage record whose integrity depended on nobody editing the thing it recorded coverage of.
 
-**The skills had outgrown the shape they were written in.** All eight carried an identical seven-slot skeleton, and five of the seven varied per *check* while living in four different sections of one file. An agent auditing a single slice of a repo read the whole domain file first — between 2,300 and 4,800 words before gathering any evidence. An `/audit all` sweep paid that per domain, eight times over. Wave 1 of the epic (#542) then wanted to add TypeScript tooling alongside the Python (#519), which meant every Python audit would read TypeScript prose it would never use, and vice versa.
+**The skills had outgrown the shape they were written in.** All eight carried an identical seven-slot skeleton, and five of the seven varied per *check* while living in four different sections of one file. An agent auditing a single slice of a repo read the whole domain file first — between 2,300 and 4,800 words before gathering any evidence. An `/audit all` sweep paid that per domain, eight times over. Wave 1 of the epic (#1) then wanted to add TypeScript tooling alongside the Python (#5), which meant every Python audit would read TypeScript prose it would never use, and vice versa.
 
 Doing nothing meant a coverage record that degraded silently as the skills it described were edited, and a family that got more expensive to run with every capability added to it.
 
@@ -22,7 +22,7 @@ Doing nothing meant a coverage record that degraded silently as the skills it de
 - **Eight domain headers reduced from roughly 14,600 words to 5,100**, with the per-check content moved verbatim rather than summarised. Agents now load the records their slice needs.
 - **Fan-out driven by data.** Each record declares whether it is decidable from one partition of the subject or needs the whole thing, and the engine slices on that rather than on a hardcoded axis.
 - **The sweep front door detects which domains exist** from the checks tree instead of a fixed list, so a repo adopting three of the eight works without editing anything.
-- **#567 then normalised the conventions** that drifted across the migration, and locked the two mechanically-checkable ones behind tests.
+- **lidia-tech/lidia-agents#567 then normalised the conventions** that drifted across the migration, and locked the two mechanically-checkable ones behind tests.
 
 Three PRs, sequenced so each ends at a checkpoint where both reference forms still resolve and any single domain can be reverted. The third — deleting the legacy markdown-bullet parser — is still open.
 
@@ -32,7 +32,7 @@ Three PRs, sequenced so each ends at a checkpoint where both reference forms sti
 
 **The bidirectional rule did the reviewing.** It is the difference between a convention and a control. A half-applied change — citing a check without updating the check, or the reverse — fails the gate rather than shipping. This turned out to matter more than any instruction we gave an agent, because it is the only control in the whole exercise that does not depend on somebody looking.
 
-**Parallel agents, per domain and then per file set.** The seven remaining domains were migrated by seven agents in one session; #567's normalisation ran as seven tasks partitioned by *file* rather than by issue item, because several items touched the same file and a file has to be owned by one task or two agents collide.
+**Parallel agents, per domain and then per file set.** The seven remaining domains were migrated by seven agents in one session; lidia-tech/lidia-agents#567's normalisation ran as seven tasks partitioned by *file* rather than by issue item, because several items touched the same file and a file has to be owned by one task or two agents collide.
 
 **Two-stage review per task, then a whole-branch pass.** Each task got a spec-compliance and a quality verdict from a fresh reviewer. After all of them, one reviewer on the strongest available model read the entire branch. That last pass is where the interesting findings came from, and it is not optional — see below.
 
@@ -42,7 +42,7 @@ Three PRs, sequenced so each ends at a checkpoint where both reference forms sti
 
 **A gap that had already been closed and was still recorded open.** A row about committing secrets carried a note prescribing "declare the history-and-rotation coverage" as its fix — work the migration had already done, by creating exactly that record. The note was false rather than merely dated. Fixing it moved a Critical unmapped clause off the head of the queue built in the previous story: that list is now three items, not four, and nothing was built to shorten it.
 
-**Normalising in parallel slices relocated the drift instead of removing it.** This is the finding worth the story. #567 existed because seven parallel agents had produced convention drift across eight dimensions. It ran as seven parallel tasks, each passing its own review — and the whole-branch pass then found **four fresh instances of the exact defect class the branch existed to eliminate**, including a domain header offering a work-slicing axis that the shared engine explicitly forbids. Every task was individually correct. The defect lives between tasks, so only a reader of the whole thing can see it.
+**Normalising in parallel slices relocated the drift instead of removing it.** This is the finding worth the story. lidia-tech/lidia-agents#567 existed because seven parallel agents had produced convention drift across eight dimensions. It ran as seven parallel tasks, each passing its own review — and the whole-branch pass then found **four fresh instances of the exact defect class the branch existed to eliminate**, including a domain header offering a work-slicing axis that the shared engine explicitly forbids. Every task was individually correct. The defect lives between tasks, so only a reader of the whole thing can see it.
 
 **A commit message that diagnoses a fix is not evidence the fix happened.** One commit's message described a contradiction precisely and correctly — and its diff renamed a noun, leaving the contradiction in place and arguably plainer. It survived a per-task review and a whole-branch review, and was caught only by a later reviewer whose assigned lens was reading git history, because that lens is the one that compares the message against the diff.
 
@@ -75,7 +75,7 @@ Three PRs, sequenced so each ends at a checkpoint where both reference forms sti
 
 ## What's next
 
-- PR 3 of #559 retires the legacy markdown-bullet parser. Nothing cites the old form; it is a deletion.
-- #567 is in review; #568 records a fix pattern a domain detects but cannot repair, found because the migration forced detection and remediation into one record for the first time.
-- The head of queue from the previous story is now three Critical unmapped clauses, feeding #544, #516, #548 and #550.
-- Wave 1 of #542 can now add TypeScript tooling as a per-record field rather than a rewrite, which was the original point.
+- PR 3 of lidia-tech/lidia-agents#559 retires the legacy markdown-bullet parser. Nothing cites the old form; it is a deletion.
+- lidia-tech/lidia-agents#567 is in review; #13 records a fix pattern a domain detects but cannot repair, found because the migration forced detection and remediation into one record for the first time.
+- The head of queue from the previous story is now three Critical unmapped clauses, feeding #7, #2, #11 and #12.
+- Wave 1 of #1 can now add TypeScript tooling as a per-record field rather than a rewrite, which was the original point.
