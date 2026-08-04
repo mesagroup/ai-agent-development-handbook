@@ -1,0 +1,15 @@
+{
+  "name": "mesa-handbook",
+  "description": "The AI agent development handbook and the skills that audit a codebase against it.",
+  "owner": {
+    "name": "Mesa Group"
+  },
+  "plugins": [
+    {
+      "name": "handbook-audit",
+      "source": "./",
+      "description": "Handbook-conformance audit skill family: eight domains, 68 check records, each citing the handbook clause it enforces.",
+      "homepage": "https://github.com/mesagroup/ai-agent-development-handbook"
+    }
+  ]
+}
