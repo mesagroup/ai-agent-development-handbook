@@ -20,6 +20,6 @@ Applies to `.sop.md` files only. Constraints expressed with the RFC 2119 keyword
 
 ## Review lens
 
-**Spec conformance:** the edited SOP now actually matches the specification - RFC 2119 vocabulary - verified against the file, not asserted. This reviewer does not run on a general prompt.
+**Spec conformance** - the edited SOP now actually matches the specification - RFC 2119 vocabulary - verified against the file, not asserted. This reviewer does not run on a general prompt.
 
-**Constraint correctness:** requirement strength is right and consistent.
+**Constraint correctness** - requirement strength is right and consistent.

@@ -369,13 +369,16 @@ def test_every_tool_less_check_states_a_reading_procedure():
 
 def test_every_review_lens_paragraph_carries_a_label():
     """#567 item 4: a `## Review lens` paragraph opens with a bold label
-    naming what it judges, so a whole-branch reviewer assembling lenses
-    from several records can tell them apart. If this fails, label the
-    paragraph - do not weaken the assertion.
+    naming what it judges, followed by ` - ` and the sentence
+    (`**Label** - <sentence>`), so a whole-branch reviewer assembling
+    lenses from several records can tell them apart. If this fails,
+    label the paragraph in that exact form - do not weaken the
+    assertion.
     """
     checks, errors = ac.load_checks(ac.SKILLS_DIR)
     assert errors == []
     unlabeled = []
+    label_re = re.compile(r"^\*\*[^*]+\*\* - ")
     for check_id, check in sorted(checks.items()):
         section = re.search(
             r"^## Review lens\n(.*?)(?=\n## |\Z)",
@@ -385,6 +388,6 @@ def test_every_review_lens_paragraph_carries_a_label():
         if section is None:
             continue
         for para in section.group(1).strip().split("\n\n"):
-            if para.strip() and not para.strip().startswith("**"):
+            if para.strip() and not label_re.match(para.strip()):
                 unlabeled.append(f"{check_id}: {para.strip()[:60]}")
     assert unlabeled == [], f"unlabeled review-lens paragraphs: {unlabeled}"

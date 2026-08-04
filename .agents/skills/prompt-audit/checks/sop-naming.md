@@ -35,4 +35,4 @@ Applies to `.sop.md` files only. Correct `.sop.md` extension and kebab-case file
 
 ## Review lens
 
-**Spec conformance:** the edited SOP now actually matches the specification - parameter form - verified against the file, not asserted. This reviewer does not run on a general prompt.
+**Spec conformance** - the edited SOP now actually matches the specification - parameter form - verified against the file, not asserted. This reviewer does not run on a general prompt.

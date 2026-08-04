@@ -30,4 +30,4 @@ Where the task is format-sensitive or easy to misread, few-shot examples and cle
 
 ## Review lens
 
-**Well-specified:** the edit actually improved specification - examples consistent with the instructions.
+**Well-specified** - the edit actually improved specification - examples consistent with the instructions.

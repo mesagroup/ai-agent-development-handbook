@@ -24,4 +24,4 @@ The prompt establishes who the model is, what it is trying to accomplish, and th
 
 ## Review lens
 
-**Well-specified:** the edit actually improved specification - a real role/objective where it was missing.
+**Well-specified** - the edit actually improved specification - a real role/objective where it was missing.

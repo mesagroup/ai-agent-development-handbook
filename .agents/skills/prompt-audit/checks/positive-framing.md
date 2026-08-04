@@ -28,6 +28,6 @@ A prohibition with no reason, and a missing output contract a consumer depends o
 
 ## Review lens
 
-**Well-specified:** the edit actually improved specification - prohibitions flipped to positives and carrying reasons.
+**Well-specified** - the edit actually improved specification - prohibitions flipped to positives and carrying reasons.
 
-**Constraint correctness:** every prohibition now carries a reason.
+**Constraint correctness** - every prohibition now carries a reason.

@@ -26,6 +26,6 @@ Directives are specific and unambiguous, not vague filler ("be helpful", "use go
 
 ## Review lens
 
-**Well-specified:** the edit actually improved specification - vague filler replaced by concrete rules.
+**Well-specified** - the edit actually improved specification - vague filler replaced by concrete rules.
 
-**Constraint correctness:** requirement strength is right and consistent; no new vague directive was introduced.
+**Constraint correctness** - requirement strength is right and consistent; no new vague directive was introduced.

@@ -40,6 +40,6 @@ No two instructions contradict; no dead instruction (references a tool, step, or
 
 ## Review lens
 
-**Intent preservation:** does each edit keep the prompt's intended behavior? A cleanup that removes a load-bearing instruction, or "fixes" a contradiction by deleting the wrong side, is worse than the original.
+**Intent preservation** - does each edit keep the prompt's intended behavior? A cleanup that removes a load-bearing instruction, or "fixes" a contradiction by deleting the wrong side, is worse than the original.
 
-**No new contradiction / drift:** the edit did not introduce a fresh internal contradiction or a reference to something that doesn't exist.
+**No new contradiction / drift** - the edit did not introduce a fresh internal contradiction or a reference to something that doesn't exist.

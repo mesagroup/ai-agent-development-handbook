@@ -26,4 +26,4 @@ Applies to `.sop.md` files only. Required sections present and in order (**Overv
 
 ## Review lens
 
-**Spec conformance:** the edited SOP now actually matches the specification - sections, constraints blocks - verified against the file, not asserted. This reviewer does not run on a general prompt.
+**Spec conformance** - the edited SOP now actually matches the specification - sections, constraints blocks - verified against the file, not asserted. This reviewer does not run on a general prompt.

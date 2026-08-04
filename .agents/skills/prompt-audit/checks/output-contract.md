@@ -36,4 +36,4 @@ A prohibition with no reason, and a missing output contract a consumer depends o
 
 ## Review lens
 
-**Well-specified:** the edit actually improved specification - a real output contract where it was missing.
+**Well-specified** - the edit actually improved specification - a real output contract where it was missing.
