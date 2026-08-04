@@ -5,7 +5,9 @@ locality: global
 optin: true
 handbook: []
 handbook_note: >-
-  A quantitative restatement of the god-module and over-abstraction axes rather than a clause of its own; the handbook states neither the metric nor a threshold for it.
+  A quantitative restatement of the god-module and over-abstraction axes
+  rather than a clause of its own; the handbook states neither the metric nor
+  a threshold for it.
 tooling:
   python: [grimp]
 ---

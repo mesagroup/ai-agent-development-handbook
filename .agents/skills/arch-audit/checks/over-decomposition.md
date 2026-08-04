@@ -4,7 +4,11 @@ domain: arch
 locality: global
 handbook: []
 handbook_note: >-
-  The handbook's structural-decay list names hub modules and grab-bag utils - coupling that is too coarse - and no equivalent signal for the opposite fault, so no clause grounds this check. Mapping it to that clause would be a near miss the matrix's own rule forbids: the section would pass a codebase that is fragmented rather than tangled.
+  The handbook's structural-decay list names hub modules and grab-bag utils -
+  coupling that is too coarse - and no equivalent signal for the opposite
+  fault, so no clause grounds this check. Mapping it to that clause would be a
+  near miss the matrix's own rule forbids: the section would pass a codebase
+  that is fragmented rather than tangled.
 tooling:
   python: [grimp]
   typescript: [madge, dependency-cruiser]
