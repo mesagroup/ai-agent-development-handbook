@@ -787,7 +787,7 @@ git commit -m "docs(lidia-tech/lidia-agents#543): traceability walk of Parts 6, 
 
 - [ ] **Step 1: Review the gap list as a whole**
 
-Read the rendered Gap list end to end and check: (a) every `new-domain` gap carries the right target among #2/#518 or explicitly none; (b) `extend-skill` gaps name a plausible skill in the note; (c) related sections got consistent classifications across parts (e.g. CI-gate claims in Part 1 and Part 2 map to the same `ci-audit` dimensions). Fix inconsistencies in the YAML, regenerate.
+Read the rendered Gap list end to end and check: (a) every `new-domain` gap carries the right target among #2/#4 or explicitly none; (b) `extend-skill` gaps name a plausible skill in the note; (c) related sections got consistent classifications across parts (e.g. CI-gate claims in Part 1 and Part 2 map to the same `ci-audit` dimensions). Fix inconsistencies in the YAML, regenerate.
 
 - [ ] **Step 2: Link from the audit front door**
 
