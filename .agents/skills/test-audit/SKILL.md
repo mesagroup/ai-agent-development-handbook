@@ -23,7 +23,7 @@ A domain specialization of **[audit-core](../audit-core/SKILL.md)** - read that 
 
 Slice the parallel evidence pass by package/module - one read-only agent per slice - so each maps its production units, the tests that cover them, and the coverage/quality of those tests. `test/new-code-coverage` is **global**: it measures coverage on the diff, a property of the change set that no per-package agent can compute.
 
-**Detect** what the project has from the project inventory, which records the test runner and the audit-relevant tools each partition already runs: coverage (e.g. `pytest-cov` / `coverage.py` for Python, or the detected language's equivalent), diff-coverage (`diff-cover`), flakiness/order tools (`pytest-randomly`, `pytest-rerunfailures`), timeouts (`pytest-timeout`), property-based testing (`hypothesis`), and mutation (`mutmut` / `cosmic-ray`). Prefer a tool the project already runs; fall back otherwise.
+**Detect** what the project has from the project inventory, which records the test runner and the audit-relevant tools each partition already runs: coverage, diff-coverage, flakiness/order tools, timeouts, property-based testing, and mutation testing - e.g., for a Python partition, `pytest-cov` / `coverage.py`, `diff-cover`, `pytest-randomly` / `pytest-rerunfailures`, `pytest-timeout`, `hypothesis`, and `mutmut` / `cosmic-ray` respectively, or another language's equivalents. Prefer a tool the project already runs; fall back otherwise.
 
 Status per row: **ok / warn / violation** (coverage: meets-floor / below-floor / untested). Suppressions (an intentionally untested throwaway script, an I/O edge deferred to integration tests) must be explicit and recorded with a reason - never silently dropped.
 
