@@ -37,6 +37,12 @@ clauses. It is not required to be exhaustive - the matrix is the
 authoritative edge set - but everything it lists must be true, and a check
 some row cites may not claim to be ungrounded.
 
+A `tooling` value is a list of names, not of invocations, and a name may be
+a registry package, a subcommand of the target's own package manager, or a
+standalone binary in no registry. Nothing here validates which - a name is
+only a string to this loader - so the record's `## Tooling fallback` is where
+the kind and the precedence between them are stated.
+
 Usage:
     from audit_checks import SKILLS_DIR, load_checks
 
