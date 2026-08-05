@@ -60,7 +60,7 @@ That last field is what finally gives `audit-core`'s "detect before it prescribe
 
 ### 6. A partition's language is a set, and a manifest is not a language detector
 
-Detection is a file census plus declaration files, and it yields a set rather than one value. `<polyglot-monorepo-target>` establishes both halves. `<js-manifest-package>` carries a `package.json` for monorepo wiring and contains zero `.ts` or `.tsx` files, three `.py` files and a `requirements.txt`. Any detector shaped like "has a `package.json`, therefore TypeScript" classifies it as TypeScript, runs TypeScript tooling against no TypeScript, finds nothing, and reports a pass. `<mixed-language-package>` is mixed within one partition: 322 `.ts` or `.tsx` files alongside a Python function with its own nested `requirements.txt`.
+Detection is a file census plus declaration files, and it yields a set rather than one value. `<polyglot-monorepo-target>` establishes both halves. One of its packages carries a `package.json` for monorepo wiring and contains zero `.ts` or `.tsx` files, three `.py` files and a `requirements.txt`. Any detector shaped like "has a `package.json`, therefore TypeScript" classifies it as TypeScript, runs TypeScript tooling against no TypeScript, finds nothing, and reports a pass. Another is mixed within one partition: 322 `.ts` or `.tsx` files alongside a Python function with its own nested `requirements.txt`.
 
 Tooling selection then reads: the partition's language set, to the union of the check's `tooling:` entries for those languages and its `any` entries, preferring any entry the inventory found already installed, and otherwise the record's `## Tooling fallback`.
 
@@ -110,7 +110,7 @@ The CI, evaluation and prompt headers carry no ecosystem assumption and need no 
 
 The last row is expected to fail hardest at baseline, because `audit-core` currently instructs the agent to save the report under the repository being audited. It is a rule the skill has to argue against its own earlier text, which is what makes it a discipline problem rather than a wording problem.
 
-The three verification repositories play deliberately different roles, which is what makes a single PR defensible:
+The three verification repositories play deliberately different roles, which is what makes a single PR defensible. The first two are private repositories in the same organisation as this one; they are named in the run ledger under `.superpowers/sdd/`, which is not committed, because a repository name identifies a specific engagement and this document is the wrong place to pin one.
 
 - `<single-package-target>` is the plumbing fixture: one partition, one language, and none of the expected TypeScript audit tooling installed, so every fallback path is exercised.
 - `<polyglot-monorepo-target>` is the partition fixture: nine packages, mixed language sets, and tooling already present, so detect-before-prescribe and `not-applicable` are exercised together.

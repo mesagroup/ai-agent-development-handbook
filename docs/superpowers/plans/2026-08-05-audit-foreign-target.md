@@ -15,7 +15,7 @@ Every task's requirements implicitly include this section.
 - Spec: `docs/superpowers/specs/2026-08-05-audit-foreign-target-design.md`. Read it before starting any task.
 - No em-dash (U+2014) anywhere under `docs/superpowers/`. Use ` - `.
 - Markdown is never hard-wrapped: one paragraph is one source line. Never reflow a line you did not change.
-- No environment-specific values in any committed file: no absolute local paths, personal profile names, hostnames or emails. Refer to the verification repositories by repository name only.
+- No environment-specific values in any committed file: no absolute local paths, personal profile names, hostnames or emails. A repository name is one of these, so refer to the verification repositories by a `<placeholder>` describing their shape and keep the real names in the uncommitted run ledger. An earlier revision of this line exempted repository names; it was wrong, and the exemption is why the design document had to be swept afterwards.
 - The gate must stay green in every commit: `uv run python scripts/render_handbook_traceability.py --check` exits 0, and `uv run pytest tests/ -q` passes.
 - Run `uv run ruff check . && uv run ruff format --check .` before committing any task that touched a `.py` file. No task in this plan is expected to touch one.
 - Bare `#NNN` is an issue in this repository. An issue in the source repository is written `lidia-tech/lidia-agents#NNN`.
