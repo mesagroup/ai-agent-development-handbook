@@ -1,6 +1,6 @@
 ---
 name: test-audit
-description: "Audit a Python project's automated tests: line/branch coverage and its gaps on load-bearing logic, TDD adherence (does new/changed deterministic code ship with tests), test quality (assertion strength, over-mocking, tautologies), and flakiness/determinism. Use before trusting the suite as a safety net, when coverage has drifted or a bug slipped through green tests, after a big feature, or when the user asks to audit tests / coverage / test quality. Works on any Python project. Runs on the audit-core engine. Behavioral/model-level evals belong to eval-audit; this skill owns deterministic code-level tests."
+description: "Audit a project's automated tests: line/branch coverage and its gaps on load-bearing logic, TDD adherence (does new/changed deterministic code ship with tests), test quality (assertion strength, over-mocking, tautologies), and flakiness/determinism. Use before trusting the suite as a safety net, when coverage has drifted or a bug slipped through green tests, after a big feature, or when the user asks to audit tests / coverage / test quality. Works on any codebase; per-language tooling comes from the check records. Runs on the audit-core engine. Behavioral/model-level evals belong to eval-audit; this skill owns deterministic code-level tests."
 ---
 
 # Test Audit (coverage, TDD adherence, test quality)
@@ -17,13 +17,13 @@ A domain specialization of **[audit-core](../audit-core/SKILL.md)** - read that 
 
 **Subject:** the test suite and the production code it is meant to protect. Establish first:
 
-- **The test layout + runner** - where tests live, the framework (`pytest` / `unittest`), markers, and how the suite is invoked (including what CI runs vs. what is excluded by default, e.g. integration markers).
+- **The test layout + runner** - where tests live, the framework (from the project inventory's test-runner field, e.g. `pytest` / `unittest` for a Python partition, or the detected language's equivalent), markers, and how the suite is invoked (including what CI runs vs. what is excluded by default, e.g. integration markers).
 - **What coverage is claimed / required** - any coverage floor the contributor guide or CI enforces, and the "new code ships with tests / don't lower coverage" rule if the project states one.
 - **The deterministic core vs. I/O edges** - the pure logic (parsing, scoring, transforms, id-mapping, verdict application) that must be tested, versus S3/network/LLM edges that may be mocked or left to integration tests.
 
 Slice the parallel evidence pass by package/module - one read-only agent per slice - so each maps its production units, the tests that cover them, and the coverage/quality of those tests. `test/new-code-coverage` is **global**: it measures coverage on the diff, a property of the change set that no per-package agent can compute.
 
-**Detect** what the project has (check `pyproject.toml` / config): the runner (`pytest`), coverage (`pytest-cov` / `coverage.py`), diff-coverage (`diff-cover`), flakiness/order tools (`pytest-randomly`, `pytest-rerunfailures`), timeouts (`pytest-timeout`), property-based testing (`hypothesis`), and mutation (`mutmut` / `cosmic-ray`). Prefer a tool the project already runs; fall back otherwise.
+**Detect** what the project has from the project inventory, which records the test runner and the audit-relevant tools each partition already runs: coverage (e.g. `pytest-cov` / `coverage.py` for Python, or the detected language's equivalent), diff-coverage (`diff-cover`), flakiness/order tools (`pytest-randomly`, `pytest-rerunfailures`), timeouts (`pytest-timeout`), property-based testing (`hypothesis`), and mutation (`mutmut` / `cosmic-ray`). Prefer a tool the project already runs; fall back otherwise.
 
 Status per row: **ok / warn / violation** (coverage: meets-floor / below-floor / untested). Suppressions (an intentionally untested throwaway script, an I/O edge deferred to integration tests) must be explicit and recorded with a reason - never silently dropped.
 

@@ -1,6 +1,6 @@
 ---
 name: security-audit
-description: "Audit a Python project's first-party code for security weaknesses: dangerous calls (eval/exec/pickle/unsafe yaml/subprocess shell), injection (SQL/command/path/SSRF), hardcoded secrets, weak crypto and insecure randomness, and unsafe deserialization or file handling. Use before a release or a public/open-source push, after a security-relevant change, when handling untrusted input or credentials, or when the user asks for a security / SAST / secret-scan audit. Works on any Python project. Runs on the audit-core engine. Third-party CVEs belong to deps-audit; pipeline secrets to ci-audit — this skill owns first-party code."
+description: "Audit a project's first-party code for security weaknesses: dangerous calls (eval/exec/pickle/unsafe yaml/subprocess shell), injection (SQL/command/path/SSRF), hardcoded secrets, weak crypto and insecure randomness, and unsafe deserialization or file handling. Use before a release or a public/open-source push, after a security-relevant change, when handling untrusted input or credentials, or when the user asks for a security / SAST / secret-scan audit. Works on any codebase; per-language tooling comes from the check records. Runs on the audit-core engine. Third-party CVEs belong to deps-audit; pipeline secrets to ci-audit — this skill owns first-party code."
 ---
 
 # Security Audit (first-party code)
@@ -20,7 +20,7 @@ A domain specialization of **[audit-core](../audit-core/SKILL.md)** - read that 
 
 Slice the parallel evidence pass by top-level package/entry point, or by trust boundary where the tree does not partition cleanly by package - one read-only agent per slice, each running the detection below over its own code and judging every weakness class within it. Every core check is `local` to a code slice, so they ride along with that one agent rather than each getting their own; only the opt-in `security/secret-history` is `global`, because git history is one object that no per-slice agent can scan.
 
-**Detect** what the project has (check `pyproject.toml` / config / pre-commit): a SAST scanner (`bandit`, or `ruff` with the `S` = flake8-bandit ruleset, or `semgrep`), a secret scanner (`detect-secrets`, `gitleaks`, `trufflehog`), and any type checker (a strict typechecker catches some misuse). Prefer a tool the project already runs; fall back otherwise.
+**Detect** what the project already has from the project inventory, which records the audit-relevant tools each partition already runs: a SAST scanner (e.g. `bandit`, or `ruff` with the `S` = flake8-bandit ruleset for a Python partition, or a language-appropriate equivalent such as `semgrep`), a secret scanner (`detect-secrets`, `gitleaks`, `trufflehog`), and any type checker (a strict typechecker catches some misuse). Prefer a tool the project already runs; fall back otherwise.
 
 Read the trust-boundary map above and record source + sink `file:line` as the evidence pointer for every row.
 
