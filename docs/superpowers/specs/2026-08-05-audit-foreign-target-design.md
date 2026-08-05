@@ -8,7 +8,7 @@ Wave 1 restructured the family onto a checks database: 68 check records across e
 
 | Issue | Delivered by wave 1 | Not delivered |
 |---|---|---|
-| #5 TypeScript | per-language `tooling:` entries in the records | nothing detects a partition's language, so the entries are never selected between; five descriptions assert the skill audits a Python project, four headers name only Python tools in their detect and gate prose, and the front door hardcodes a Python-only mechanism for running a tool ephemerally |
+| #5 TypeScript | per-language `tooling:` entries in the architecture records (9 of 11) and the dependency records (6 of 6) | nothing detects a partition's language, so the entries are never selected between; five descriptions assert the skill audits a Python project, four headers name only Python tools in their detect and gate prose, and the front door hardcodes a Python-only mechanism for running a tool ephemerally. **The test and security records carry no TypeScript tooling at all, 0 of 7 each**, so #5's criterion naming architecture, test, security and dependencies end to end is met for two of those four domains and not the other two. This pass does not close that; it makes the shortfall visible instead of silent, because a check with no lens in the partition's language now reports `not-applicable` where it would previously have reported a clean result. |
 | #7 citations | the `handbook:` lists and their bidirectional validation | the findings matrix has no citation column, and the front door's report template carries none |
 | #8 foreign repos | nothing | the front door tells every subagent to audit "THIS repo" and hands it a path relative to a repo root |
 

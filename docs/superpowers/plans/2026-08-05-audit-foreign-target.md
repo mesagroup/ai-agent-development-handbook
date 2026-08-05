@@ -635,7 +635,7 @@ If a fixture forced a change, commit it against the task that owned the defect, 
 
 - [ ] **Step 2: Rewrite #5 to its residue**
 
-Edit the body of #5 so its acceptance criteria describe what is left rather than what wave 1 already did. It must state that per-language `tooling:` entries already exist in the check records, that what was missing is anything selecting between them, and it must correct the criterion "each domain skill detects the project language" to a **per-partition language set**, since one repository can be polyglot and one partition can be two languages. Keep the issue open and keep its labels.
+Edit the body of #5 so its acceptance criteria describe what is left rather than what wave 1 already did. It must state where per-language `tooling:` entries already exist and where they do not: the architecture records carry them in 9 of 11 and the dependency records in 6 of 6, while **the test and security records carry none, 0 of 7 each**, so this issue's criterion naming architecture, test, security and dependencies end to end remains open for two of the four. It must state that what was additionally missing was anything selecting between the entries that do exist, which this pass adds. And it must correct the criterion "each domain skill detects the project language" to a **per-partition language set**, since one repository can be polyglot and one partition can be two languages. Keep the issue open and keep its labels. Do not tick the end-to-end criterion.
 
 - [ ] **Step 3: Rewrite #7 to its residue**
 
