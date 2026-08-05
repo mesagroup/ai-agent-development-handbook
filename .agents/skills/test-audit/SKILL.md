@@ -1,6 +1,6 @@
 ---
 name: test-audit
-description: "Audit a project's automated tests: line/branch coverage and its gaps on load-bearing logic, TDD adherence (does new/changed deterministic code ship with tests), test quality (assertion strength, over-mocking, tautologies), and flakiness/determinism. Use before trusting the suite as a safety net, when coverage has drifted or a bug slipped through green tests, after a big feature, or when the user asks to audit tests / coverage / test quality. Works on any codebase; per-language tooling comes from the check records. Runs on the audit-core engine. Behavioral/model-level evals belong to eval-audit; this skill owns deterministic code-level tests."
+description: "Audit a project's automated tests: line/branch coverage and its gaps on load-bearing logic, TDD adherence (does new/changed deterministic code ship with tests), test quality (assertion strength, over-mocking, tautologies), and flakiness/determinism. Use before trusting the suite as a safety net, when coverage has drifted or a bug slipped through green tests, after a big feature, or when the user asks to audit tests / coverage / test quality. Works on any codebase; per-language tooling comes from the check records, whose entries are currently Python-first, so a partition in another language reports `not-applicable` where no lens exists rather than a clean result. Runs on the audit-core engine. Behavioral/model-level evals belong to eval-audit; this skill owns deterministic code-level tests."
 ---
 
 # Test Audit (coverage, TDD adherence, test quality)
