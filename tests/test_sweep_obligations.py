@@ -148,6 +148,17 @@ def _rows(problems: list[str]) -> list[tuple[int, str, str, str, str]]:
     """
     out: list[tuple[int, str, str, str, str]] = []
     for header, rows in _OBLIGATION_TABLES:
+        # Selected by carrying the anchor header, so that column is present;
+        # the disposition column is not guaranteed and `index` would raise
+        # here at import, aborting collection before any test could report
+        # it - the failure this module's docstring claims to have closed.
+        if _DISPOSITION_HEADER not in header:
+            problems.append(
+                f"{LEDGER.name} has an {_ANCHOR_HEADER!r} table with no "
+                f"{_DISPOSITION_HEADER!r} column ({list(header)}), so its "
+                f"{len(rows)} row(s) went unchecked"
+            )
+            continue
         anchor_col = header.index(_ANCHOR_HEADER)
         disposition_col = header.index(_DISPOSITION_HEADER)
         how_col = len(header) - 1
