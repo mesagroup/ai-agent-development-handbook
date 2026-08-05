@@ -56,7 +56,7 @@ Ask the user with the ask-the-user tool (**multi-select**, 3 options, all can be
 - **HTML file** - write a **self-contained** `.html` (inline CSS, no external assets) alongside the Markdown, for a shareable local file.
 - **claude.ai Artifact** - publish a hosted page: first load the `artifact-design` skill to calibrate the design, write the page file, then publish via the Artifact tool. Use for a polished, shareable dashboard.
 
-Emit every format the user selects (writing an output file in report-only mode is fine provided it lands outside `target_root` - it is a report artifact, and inside the audited tree it would instead be an uninvited change to somebody else's branch). If the user is non-interactive, default to Markdown only.
+Emit every format the user selects (writing an output file in report-only mode is fine **provided it lands outside `target_root`** - it is a report artifact, and inside the audited tree it would instead be an uninvited change to somebody else's branch). If the user is non-interactive, default to Markdown only.
 
 ### 4. Next steps
 
