@@ -25,4 +25,4 @@ Prose-doc fixes are **docs-only**, which usually keeps the PR off the heavy code
 
 **Opt-in deliverable:** consider proposing a small checker as a deliverable.
 
-Save the findings report under the docs tree (e.g. `docs/audit/<date>-docs-audit.md`) and record policy decisions (retention/archival, what stays un-indexed) so they aren't re-litigated.
+Write the findings report to the `out_path` resolved in `audit-core` step 0, never under `target_root` - this domain audits a docs tree and so is the one most tempted to file its report inside that tree - and record policy decisions (retention/archival, what stays un-indexed) so they aren't re-litigated.

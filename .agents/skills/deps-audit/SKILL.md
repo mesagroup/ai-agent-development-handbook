@@ -20,7 +20,7 @@ A domain specialization of **[audit-core](../audit-core/SKILL.md)** - read that 
 
 **Detect** the package manager and lockfile from the project inventory, which already records both per partition, and use its resolved graph as ground truth (transitive deps matter - most CVEs and copyleft licenses arrive transitively). A partition may declare dependencies in an ecosystem the rest of the repository does not use, and each declaration site is its own graph: a repository with a JavaScript lockfile and two Python requirements files has three, and auditing only the first reports the other two as clean. A manifest commonly separates dependency classes - production, optional or extras, and dev or peer groups - and each is a candidate for the resolved graph; scope out dev-only dependencies only if the distribution model justifies it, since a dev-dependency-only CVE or license issue is a routine finding otherwise missed.
 
-Every `deps` check is **global**: the subject is one resolved dependency set, not a partitioned tree, so there is no per-partition slice to fan out to.
+Every `deps` check is **global**, which means whole-subject rather than single-graph: the subject is every resolved graph the target declares, taken together, so one agent walks all of the declaration sites and no check is sliced per partition. Global is not a licence to audit one graph and call the subject covered.
 
 Status per row: **ok / warn / violation** (for licenses: allowed / review-needed / disallowed). Suppressions (a known-accepted CVE, an approved license exception) must be explicit and recorded with a reason - never silently dropped.
 
