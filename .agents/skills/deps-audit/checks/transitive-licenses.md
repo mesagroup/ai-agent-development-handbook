@@ -12,9 +12,13 @@ handbook_note: >-
   against.
 tooling:
   python: [pip-licenses]
-  typescript: [license-checker]
+  typescript: ["pnpm licenses list", "yarn licenses list", "@cyclonedx/cdxgen"]
 ---
 
 # Transitive-license deep dive
 
 Full graph, not just direct - default on for published libraries, ask otherwise.
+
+## Tooling fallback
+
+Same tools and same precedence as `deps/licenses`, which its own fallback section states; this check differs in how far down the graph the answer has to hold, not in what produces it. The tools listed there already report the whole resolved graph rather than the declared direct set, so the depth is a property of how the output is read, and a run that answers only for direct dependencies has not run this check.

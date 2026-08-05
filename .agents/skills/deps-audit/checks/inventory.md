@@ -11,7 +11,7 @@ handbook_note: >-
   SBOM-completeness check specifically.
 tooling:
   python: [cyclonedx-py]
-  typescript: [cyclonedx-npm]
+  typescript: ["npm sbom", "@cyclonedx/cdxgen"]
 ---
 
 # Inventory (SBOM completeness)
@@ -26,4 +26,4 @@ SBOM completeness.
 
 **Python** - `cyclonedx-py` or the tool's native SBOM export.
 
-**TypeScript** - `cyclonedx-npm`, the CycloneDX SBOM generator for Node.js/npm projects, run against `package-lock.json`.
+**JavaScript/TypeScript** - on an npm partition, `npm sbom --sbom-format cyclonedx` is built in and needs nothing fetched. There is no equivalent subcommand for the other package managers, so use `@cyclonedx/cdxgen`, which a one-shot runner can fetch and which reads `package-lock.json`, `pnpm-lock.yaml` and `yarn.lock`. `cyclonedx-npm` is the npm-specific CycloneDX generator and is a real package, but it requires npm and `package-lock.json`, so it is not an option on a pnpm or yarn partition and `npm sbom` already covers the case where it would apply.
