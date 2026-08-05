@@ -1,6 +1,6 @@
 ---
 name: audit
-description: "Run a broad, parallel, report-only audit sweep across multiple quality domains (docs, dependencies, architecture, security, CI/CD, tests, evals, prompts/SOPs) and produce ONE consolidated findings report. Use when you want a whole-repo health check / multi-dimensional audit, or when the user says 'audit the repo' / 'run all the audits'. This is the front door to the *-audit family: it fans the domain audits out as parallel subagents and merges their findings. For a deep single-domain audit WITH fixes, invoke that domain's skill directly (e.g. ci-audit, deps-audit). Defaults to report-only. Runs on the audit-core engine."
+description: "Run a broad, parallel, report-only audit sweep across multiple quality domains (docs, dependencies, architecture, security, CI/CD, tests, evals, prompts/SOPs) and produce ONE consolidated findings report. Use when you want a whole-repo health check / multi-dimensional audit, or when the user says 'audit the repo' / 'run all the audits'. This is the front door to the *-audit family: it fans the domain audits out as parallel subagents and merges their findings. For a deep single-domain audit WITH fixes, invoke that domain's skill directly by its qualified name (e.g. handbook-audit:ci-audit, handbook-audit:deps-audit). Defaults to report-only. Runs on the audit-core engine."
 ---
 
 # Audit - the multi-domain sweep front door
@@ -19,7 +19,7 @@ The front door to the `*-audit` family. It runs several domain audits **at once*
 - Before a release, a public/open-source push, or an onboarding, when you want breadth across quality dimensions in one pass.
 - The user says "audit the repo", "run all the audits", or names several domains at once.
 
-**Not for:** a deep single-domain audit **with remediation** - invoke that domain's skill directly (`ci-audit`, `deps-audit`, …), which runs the full audit-core loop (plan → subagent-driven fixes → review → PR). This front door is diagnosis-across-domains, not fix-one-domain-deeply.
+**Not for:** a deep single-domain audit **with remediation** - invoke that domain's skill directly and by its qualified name (`handbook-audit:ci-audit`, `handbook-audit:deps-audit`, …), which runs the full audit-core loop (plan → subagent-driven fixes → review → PR). This front door is diagnosis-across-domains, not fix-one-domain-deeply.
 
 ## How it works
 
@@ -57,7 +57,7 @@ Ask the user with the ask-the-user tool (**multi-select**, 3 options, all can be
 - **HTML file** - write a **self-contained** `.html` (inline CSS, no external assets) alongside the Markdown, for a shareable local file.
 - **claude.ai Artifact** - publish a hosted page: first load the `artifact-design` skill to calibrate the design, write the page file, then publish via the Artifact tool. Use for a polished, shareable dashboard.
 
-Emit every format the user selects (writing an output file in report-only mode is fine **provided it lands outside `target_root`** - it is a report artifact, and inside the audited tree it would instead be an uninvited change to somebody else's branch). If the user is non-interactive, default to Markdown only.
+Emit every format the user selects (writing an output file in report-only mode is fine **provided it lands outside `target_root`** - it is a report artifact, and inside the audited tree it would instead be an uninvited change to somebody else's branch). A non-interactive run has nobody to select a format or supply a path, so it follows step 0: write Markdown to `out_path` when one was supplied with the invocation, and otherwise return the report in conversation and write nothing. Never invent a path to satisfy a default - that is how a run with no stated destination writes into the audited tree.
 
 ### 4. Next steps
 
@@ -68,7 +68,7 @@ After presenting, offer (do not auto-run):
 
 ## Fixes are delegated (why the sweep is report-only)
 
-Report-only fans out safely because read-only subagents never collide. **Fix-mode does not fan out:** parallel implementers editing shared files collide, and a single sweep-wide fix produces one incoherent mega-PR. So when the user wants remediation, this skill hands the chosen domain to its own skill (`<domain>-audit` in report+fix mode), which runs the full audit-core loop - one domain, one coherent PR, per-item review - and does the next domain after. Breadth here; depth there.
+Report-only fans out safely because read-only subagents never collide. **Fix-mode does not fan out:** parallel implementers editing shared files collide, and a single sweep-wide fix produces one incoherent mega-PR. So when the user wants remediation, this skill hands the chosen domain to its own skill - **invoked as `handbook-audit:<domain>-audit`**, qualified exactly as in the report-only fan-out - in report+fix mode, which runs the full audit-core loop - one domain, one coherent PR, per-item review - and does the next domain after. Breadth here; depth there. The qualified name matters more here than in the diagnosis path, not less: a bare `<domain>-audit` resolves to a same-named skill in the working tree wherever one exists, so a target carrying its own fork of the family would be diagnosed with the plugin's lens and then **remediated with its own**, and remediation is the half that writes.
 
 ## Consolidated report template
 
