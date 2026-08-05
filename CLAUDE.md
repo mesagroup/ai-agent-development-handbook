@@ -31,6 +31,12 @@ This repository ships as a Claude Code plugin (`.claude-plugin/`). Three things 
 
 The repository is private, so the absolute GitHub URLs the skills emit resolve only for members of the owning organisation. Audit reports handed to an outside reader will carry links that reader cannot open.
 
+## Task management
+
+This repository uses the `github-issues-workflow` skill. An issue per unit of work, a branch named `<number>-short-description`, `status:*` labels tracking progress, `Refs #<number>` in commit messages, and a PR that closes the issue. Never merge without explicit approval.
+
+The `status:*` labels exist in the repository and are not decorative: move the issue as the work moves, removing the previous status before adding the next.
+
 ## Issue references and provenance
 
 The handbook, the skill family and this tooling were extracted from `lidia-tech/lidia-agents` with `git filter-repo`; that repository keeps the build record and the PRs. Write an issue that lives there as `lidia-tech/lidia-agents#NNN` and one that lives here as `#NNN`. Commit messages already follow this, so a bare number in history is a number in this repository.
