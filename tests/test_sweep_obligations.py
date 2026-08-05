@@ -266,6 +266,20 @@ def test_quotes_in_the_ledger_are_verbatim() -> None:
     quoted = re.findall(
         rf'"([^"\n]{{{_MIN_QUOTE},}})"', LEDGER.read_text(encoding="utf-8")
     )
+    # Finding nothing is a failure, not a pass. The ledger's premise is a
+    # quotation of the sweep's promise, so zero long quotes means either that
+    # premise stopped being quoted or this regex stopped matching it - curly
+    # quotes from an editor, a rewrap across a line, a shortened quote - and
+    # in every one of those cases the sweep-side guard silently stops running
+    # while the suite stays green.
+    assert quoted, (
+        f"{LEDGER.name} contains no quotation of {_MIN_QUOTE}+ characters, so "
+        "this check verified nothing. The ledger's opening paragraph quotes the "
+        f"promise it exists to audit; if that quotation is gone from "
+        f"{LEDGER.name}, restore it, and if it is present, this pattern no "
+        "longer matches it (curly quotation marks, or a quote wrapped across "
+        "two lines) - fix the pattern rather than deleting the check"
+    )
     missing = [q for q in quoted if q not in sources]
     assert not missing, (
         f"{LEDGER.name} quotes text found in neither {SWEEP.name} nor "
