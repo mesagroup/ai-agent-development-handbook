@@ -52,11 +52,11 @@ Merge the returned matrices into one report using the **template below**. Rules:
 ### 3. Output - ask which format(s), then emit
 
 Ask the user with the ask-the-user tool (**multi-select**, 3 options, all can be chosen; recommend Markdown):
-- **Markdown file** - write the report to `docs/audit/<YYYY-MM-DD>-repo-audit.md` (or the project's audit dir). This is the durable, linkable, diff-able record; recommended default.
+- **Markdown file** - write the report to the `out_path` resolved in scope, which is never under `target_root`. This is the durable, linkable, diff-able record; recommended default. When the audit target is this repository, `docs/audit/<YYYY-MM-DD>-repo-audit.md` is the conventional choice.
 - **HTML file** - write a **self-contained** `.html` (inline CSS, no external assets) alongside the Markdown, for a shareable local file.
 - **claude.ai Artifact** - publish a hosted page: first load the `artifact-design` skill to calibrate the design, write the page file, then publish via the Artifact tool. Use for a polished, shareable dashboard.
 
-Emit every format the user selects (writing an output file in report-only mode is fine - it is a report artifact, not a change to the audited code). If the user is non-interactive, default to Markdown only.
+Emit every format the user selects (writing an output file in report-only mode is fine provided it lands outside `target_root` - it is a report artifact, and inside the audited tree it would instead be an uninvited change to somebody else's branch). If the user is non-interactive, default to Markdown only.
 
 ### 4. Next steps
 
@@ -77,11 +77,13 @@ Report-only fans out safely because read-only subagents never collide. **Fix-mod
 <one-sentence verdict: overall health + the single most important thing to fix>
 
 ## Severity roll-up
-| Domain | Critical | Important | Minor | One-line verdict |
-|---|---|---|---|---|
-| <domain> | n | n | n | <pass/warn/fail + gist> |
+| Domain | Critical | Important | Minor | Coverage (ran / no-evidence / n-a) | One-line verdict |
+|---|---|---|---|---|---|
+| <domain> | n | n | n | n / n / n | <pass/warn/fail + gist> |
 | ... |
-| **Total** | **n** | **n** | **n** | |
+| **Total** | **n** | **n** | **n** | **n / n / n** | |
+
+Coverage is not optional decoration. A domain whose every check returned `no-evidence` shows zero findings at every severity, which is indistinguishable from a clean domain in a severity-only table, and on a foreign repository with none of the expected tooling installed that is the likely case rather than the exotic one. **When coverage is partial, the one-line verdict must lead with coverage**, not with the finding count.
 
 ## Criticals (<count>)
 1. <finding> (<domain>) - <evidence file:line / tool result>
@@ -92,13 +94,17 @@ Report-only fans out safely because read-only subagents never collide. **Fix-mod
 
 ## Per-domain findings
 ### <domain>
-<the domain's findings matrix: Item | Check | Status | Severity | Evidence - capped to the significant rows>
+<the domain's findings matrix: Item | Check | Status | Severity | Evidence | Handbook - capped to the significant rows>
 Top findings: <2-3 one-liners>
 
 ## How the audit ran
+- Target: <repository identity> at <short SHA> on <branch><, working tree dirty if it was>
+- Lenses: handbook-audit @ <short SHA>
 - Scope: <domains run> · Mode: report-only
-- Per-domain tool log: <ran / fell back> (one line each)
+- Stacks present: <partition: languages, tested yes/no, in CI yes/no> (one line each)
+- Per-domain tool log: <ran / fell back / no runner available> (one line each)
 - Verification note: <any false positives caught and discarded>
+- Target tree unchanged: <yes, or the git status delta observed>
 
 ## Next steps
 - File issues (Important+) / run report+fix on <domain> / nothing
@@ -106,7 +112,7 @@ Top findings: <2-3 one-liners>
 
 ## Cross-cutting rules
 
-- **Project-agnostic.** Detect available domain skills and each domain's tooling; run the subset that applies; never hardcode a fixed seven.
-- **Report-only means read-only for the audited code.** The only files this skill may write are the report artifacts in step 3.
+- **Project-agnostic.** Detect available domain skills and each domain's tooling; run the subset that applies; never hardcode a fixed set, and detect the domains from this skill's own siblings rather than from the audited repository.
+- **Report-only means no writes to the target's working tree or git history.** The only files this skill may write are the report artifacts in step 3, and they land outside `target_root`. Verify it rather than assert it, per `audit-core`'s invariant: `git status --porcelain` at the target before and after.
 - **Verify against evidence** is inherited from audit-core and enforced per-domain - the consolidation must not weaken it.
 - **No environment-specific values** in any emitted report (placeholders with prose, not machine paths / personal profiles).
