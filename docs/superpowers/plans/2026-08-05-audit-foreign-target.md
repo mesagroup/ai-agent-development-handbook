@@ -219,7 +219,7 @@ ls -d <target-clone>/.agents/skills 2>/dev/null || echo "absent"
 ls -d <target-clone>/.agents/skills/*-audit 2>/dev/null || echo "no audit domains"
 ```
 
-Run it against both verification clones. Expected, and already observed at plan time: the single-package Next.js target has no `.agents/skills` at all, and the pnpm monorepo target has one holding sixteen unrelated project skills and no `*-audit` directory. So step 0's rule "a domain is available when `.agents/skills/<domain>-audit/checks/` exists" yields **zero** available domains against either target, and step 0's parenthetical "project-agnostic; a repo may have a subset" reads that empty result as legitimate rather than as a failure. Neither target can be swept at all, and both fail silently. Write the observed output into the PR description later; it is the RED evidence for this task.
+Run it against both verification clones. Expected, and already observed at plan time: the single-package Next.js target has no `.agents/skills` at all, and the pnpm monorepo target has one holding that project's own skills and no `*-audit` directory. So step 0's rule "a domain is available when `.agents/skills/<domain>-audit/checks/` exists" yields **zero** available domains against either target, and step 0's parenthetical "project-agnostic; a repo may have a subset" reads that empty result as legitimate rather than as a failure. Neither target can be swept at all, and both fail silently. Write the observed output into the PR description later; it is the RED evidence for this task.
 
 - [ ] **Step 2: Fix domain discovery to read the family, not the target**
 
