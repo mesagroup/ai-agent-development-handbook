@@ -14,6 +14,8 @@ Wave 1 restructured the family onto a checks database: 68 check records across e
 
 The last row is the load-bearing one, and it is worse than an absent feature. The front door's subagent brief says to read `.agents/skills/<domain>-audit/SKILL.md` and load records from `.agents/skills/<domain>-audit/checks/`. Those paths are relative to a repo root, and they work today only because the lenses and the audited code are the same tree. Against a foreign target they resolve inside the target: to nothing in a repository that has never carried the family, or to that repository's own copy in one that has. `lidia-tech/lidia-agents` is the second case. It still carries a complete copy of all eight domains with the same per-domain record counts, because the extraction copied rather than moved. So the dry run in [#10](https://github.com/mesagroup/ai-agent-development-handbook/issues/10) would audit using that repository's fork of the lenses while reporting success, and its stated value as a regression check on the skills would be vacuous.
 
+There is a second instance of the same defect, found while planning, and it is the more damaging one. Step 0 decides which domains are available by testing whether `.agents/skills/<domain>-audit/checks/` exists, which is again a path relative to a repo root. Against the single-package target that directory is absent entirely; against the monorepo target it exists and holds sixteen unrelated project skills with no `*-audit` directory among them. Either way step 0 resolves **zero** available domains, and its own parenthetical, "project-agnostic; a repo may have a subset", reads that empty result as a legitimate subset rather than as a failure. So the sweep is not merely Python-flavoured on a foreign target: it cannot run at all, and it says so in language that sounds like a successful scope resolution.
+
 ## Decisions
 
 ### 1. The audit runs inside the target; the lenses come from the plugin
@@ -27,6 +29,8 @@ The front door dispatches each domain subagent with an instruction to invoke `ha
 This is the standard mechanism rather than a new one. `superpowers:writing-skills` is explicit that a skill references its own supporting files by a path relative to its own directory, that it references *other* skills by name and never by path, and the harness supplies each loaded skill its own base directory. `audit-core` already uses the standard form when it points at `../arch-audit/checks/`. The front door's brief was the single non-standard reference in the family, and replacing the path with a skill invocation deletes the class of bug rather than parameterising it.
 
 Qualifying the name with the plugin also fixes the collision precisely. In a target that carries its own project-level `arch-audit`, `handbook-audit:arch-audit` names the plugin's copy, so a fork cannot shadow the lens under audit.
+
+Domain discovery moves the same way, to `../<domain>-audit/checks/` relative to the front door's own skill directory. The audited repository's own skills, where it has any, are evidence for the prompt domain and are never the lens.
 
 ### 3. Step 0 resolves the target root, the target ref and the output path
 
