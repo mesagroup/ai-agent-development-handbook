@@ -99,6 +99,7 @@ tooling:
   typescript: [depcheck, knip]
 needs:
   resolved-tree: [deptry, knip]
+ungranted_note: none
 ---
 
 # Hygiene
@@ -302,6 +303,57 @@ def test_a_note_on_a_record_that_keeps_an_untiered_tool_is_vacuous(tmp_path):
     )
     _, errors = _load_one(tmp_path, check)
     assert any("cannot happen here" in e for e in errors)
+
+
+def test_a_silenced_record_must_say_what_still_answers(tmp_path):
+    """An absent note on a record the engine silences is not a claim, it is
+    an omission - and the engine cannot tell the two apart, which is the
+    whole reason the field is required here.
+    """
+    check = _record(
+        tooling={"python": ["pip-licenses"]},
+        needs={"resolved-tree": ["pip-licenses"]},
+    )
+    _, errors = _load_one(tmp_path, check)
+    assert any("silences the check" in e for e in errors)
+
+
+def test_the_requirement_names_every_silenced_language(tmp_path):
+    check = _record(
+        tooling={"python": ["deptry"], "typescript": ["knip"]},
+        needs={"resolved-tree": ["deptry"], "target-execution": ["knip"]},
+    )
+    _, errors = _load_one(tmp_path, check)
+    assert any("python, typescript" in e for e in errors)
+
+
+def test_an_unsilenced_record_needs_no_note(tmp_path):
+    check = _record(
+        tooling={"python": ["pip-licenses", "osv-scanner"]},
+        needs={"resolved-tree": ["pip-licenses"]},
+    )
+    _, errors = _load_one(tmp_path, check)
+    assert errors == [], errors
+
+
+def test_the_notes_are_not_all_sentinels():
+    """The requirement can be satisfied without thought by writing `none`
+    everywhere. Nothing can tell a correct `none` from a lazy one, so hold
+    the number of records that say something real: the sweep behind #26
+    produced ten, and a change that drops one must say why rather than
+    pass quietly. Raise this floor when a later sweep adds notes; never
+    lower it to make a deletion pass.
+    """
+    checks, errors = ac.load_checks(ac.SKILLS_DIR)
+    assert errors == []
+    prose = [
+        c.id
+        for c in checks.values()
+        if c.ungranted_note is not None and c.ungranted_note != ac.UNGRANTED_NONE
+    ]
+    assert len(prose) >= 10, (
+        f"only {len(prose)} records answer anything: {sorted(prose)}"
+    )
 
 
 def test_a_language_with_no_tools_is_not_fully_tiered(tmp_path):

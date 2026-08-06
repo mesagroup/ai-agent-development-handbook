@@ -31,7 +31,7 @@ Frontmatter fields:
 | `handbook_note` | iff `handbook` is empty | Why the check exceeds the handbook |
 | `tooling` | no | Language to preferred tools; `any` for language-agnostic |
 | `needs` | no | Tier to tool names, for tools needing more than a read-only clone |
-| `ungranted_note` | no | What the check still answers when that grant is withheld |
+| `ungranted_note` | iff every tool in a language needs a grant | What the check still answers when that grant is withheld |
 | `optin` | no | Default `false`; an opt-in sub-audit that produces findings |
 
 `handbook` is a list because a check is commonly grounded in several
@@ -66,6 +66,9 @@ records arguing with their own frontmatter in prose. The value is either
 what still answers, or the sentinel `none` where nothing does, and it is
 rejected on a record that keeps a tool answering from a read-only clone,
 because there the withheld-grant situation it describes cannot arise.
+It is required on exactly the records this rule would silence, so an absent
+key is never a silent claim - which is the hazard `needs` still carries and
+this field does not.
 
 Usage:
     from audit_checks import SKILLS_DIR, load_checks
@@ -347,6 +350,14 @@ def _load_one(
                 needs[tier] = names
 
     silenced = _fully_tiered_languages(tooling, needs)
+    if silenced and "ungranted_note" not in meta:
+        errors.append(
+            f"{where}: every tool this record offers for {', '.join(silenced)} "
+            "needs a grant, so a withheld grant silences the check - add an "
+            "ungranted_note saying what still answers, or "
+            f"{UNGRANTED_NONE!r} if nothing does"
+        )
+
     ungranted = meta.get("ungranted_note")
     if "ungranted_note" in meta:
         if ungranted is None:
