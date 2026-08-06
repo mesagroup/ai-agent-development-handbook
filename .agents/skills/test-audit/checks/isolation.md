@@ -20,7 +20,7 @@ Unit tests doing real I/O, missing markers (integration masquerading as unit), p
 
 ## Tooling fallback
 
-**Speed/isolation:** `pytest --durations=25` for the slowest tests; check unit tests for real I/O. `--durations` runs the target's own suite, which needs the `target-execution` grant; without it, this check is `no-evidence (not-permitted)` and falls back to reading test source for real I/O calls, with no timing evidence.
+**Speed/isolation:** `pytest --durations=25` for the slowest tests; check unit tests for real I/O. The `--durations` pass runs the target's own suite, which needs the `target-execution` grant; without it, that pass alone is `no-evidence (not-permitted)`, and the real-I/O half is still answered by reading test source for calls that hit the network, the filesystem or a database. So a withheld grant leaves this check answered on the I/O axis with the timing evidence missing, not `no-evidence` as a whole.
 
 ## Fix
 
