@@ -321,9 +321,7 @@ git commit -m "feat: let a record say what it answers without a grant
 Refs #26"
 ```
 
-Write the real message per the repository's convention: say WHY the field
-exists (the derived check-level conclusion is wrong wherever a check has a
-tool-free axis), not only that a field was added.
+Write the real message per the repository's convention: say WHY the field exists (the derived check-level conclusion is wrong wherever a check has a tool-free axis), not only that a field was added.
 
 ---
 

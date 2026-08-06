@@ -18,9 +18,13 @@ ungranted_note: >-
   the same ones the Python half greps for: mutable module-level exports, string-keyed
   container lookups, side-effectful top-level code, and dynamic `import()`. Reading
   TypeScript source for them needs nothing installed. What a withheld grant costs is
-  `knip`'s export graph, which is what shows an exported binding written from more than
-  one module rather than merely exported - so the single-module tells survive and the
-  cross-module correlation does not.
+  `knip`'s usage analysis: its issue types stop at whether an export is referenced
+  anywhere at all (unused exports) and whether the same binding is exported more than
+  once (duplicate exports) - not at who writes to it once imported, since an ESM import
+  binding is read-only and knip has no "written from another module" signal to report.
+  What it adds here is confirming that a flagged mutable export actually crosses a
+  module boundary (is used elsewhere) rather than sitting unused - so the single-module
+  tells survive and that cross-module usage confirmation does not.
 ---
 
 # Hidden coupling / implicit dependencies

@@ -16,12 +16,13 @@ tooling:
 needs:
   resolved-tree: [pip-licenses, pnpm licenses list, yarn licenses list]
 ungranted_note: >-
-  The registry procedure `deps/licenses` describes answers this check too, and the
-  extra depth costs nothing: a complete lockfile already pins the transitive graph, so
-  the set to query is the whole of it rather than the direct dependencies. It is
-  conditional on that lockfile existing - a partition pinning only its direct
-  dependencies leaves the transitive set unenumerable without the tree, and that is
-  `no-evidence (not-permitted)` rather than a clean result.
+  On a Python partition, the registry procedure `deps/licenses` describes answers this
+  check too, and the extra depth costs nothing: a complete lockfile already pins the
+  transitive graph, so the set to query is the whole of it rather than the direct
+  dependencies. That depth is conditional on the lockfile pinning the transitive set:
+  where a partition's lockfile pins only its direct dependencies, there is nothing here
+  to enumerate the transitive set from, and that is not a clean result for this
+  partition.
 ---
 
 # Transitive-license deep dive

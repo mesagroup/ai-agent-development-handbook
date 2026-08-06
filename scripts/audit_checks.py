@@ -395,8 +395,12 @@ def _load_one(
     if not silenced and "ungranted_note" in meta:
         errors.append(
             f"{where}: ungranted_note describes a withheld grant leaving this "
-            "record with nothing to run, which cannot happen here - every "
-            "language it offers keeps a tool that answers from a read-only clone"
+            "record with nothing to run, which cannot happen here - no language "
+            "it offers is fully tiered: either it declares no tooling at all, "
+            "one of its languages lists no tools, or every language keeps a "
+            "tool that answers from a read-only clone. Remove ungranted_note, "
+            "or add a tooling entry that needs a grant if this record is meant "
+            "to be silenced"
         )
 
     optin = meta.get("optin", False)

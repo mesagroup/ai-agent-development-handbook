@@ -339,9 +339,16 @@ def test_an_unsilenced_record_needs_no_note(tmp_path):
 def test_the_notes_are_not_all_sentinels():
     """The requirement can be satisfied without thought by writing `none`
     everywhere. Nothing can tell a correct `none` from a lazy one, so hold
-    the number of records that say something real: the sweep behind #26
-    produced ten, and a change that drops one must say why rather than
-    pass quietly. Raise this floor when a later sweep adds notes; never
+    the number of records that say something real at a floor: the sweep
+    behind #26 produced ten. Be honest about what a floor on a count
+    catches and what it does not: it fails only once the count drops below
+    the floor, so it says nothing if the count already sits above it - a
+    change that trades one record's prose for another's passes silently,
+    because the guard counts records rather than naming them, and so does a
+    drop back down to just above the floor once a later change has raised
+    it. Issue #5 is expected to add notes, which raises the count and
+    therefore the slack above this floor rather than raising the floor
+    itself; raise the floor by hand if that slack should be closed. Never
     lower it to make a deletion pass.
     """
     checks, errors = ac.load_checks(ac.SKILLS_DIR)

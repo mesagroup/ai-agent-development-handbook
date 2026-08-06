@@ -10,8 +10,8 @@ tooling:
 needs:
   resolved-tree: [pip-licenses, pnpm licenses list, yarn licenses list]
 ungranted_note: >-
-  For a partition with a lockfile, the licence of each pinned release is available from
-  the registry without installing it: `https://pypi.org/pypi/<name>/<version>/json`
+  On a Python partition with a lockfile, the licence of each pinned release is available
+  from the registry without installing it: `https://pypi.org/pypi/<name>/<version>/json`
   carries the same three metadata channels the installed `METADATA` would, and all
   three must be read because none is universally populated - `license_expression` where
   the release declares an SPDX expression, `license` where it does not, and the
