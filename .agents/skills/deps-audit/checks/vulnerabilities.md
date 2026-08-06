@@ -7,6 +7,8 @@ handbook:
 tooling:
   python: [pip-audit, safety]
   typescript: ["npm audit", "pnpm audit", "yarn npm audit", osv-scanner]
+needs:
+  resolved-tree: [safety]
 ---
 
 # Known vulnerabilities
@@ -23,7 +25,7 @@ CVEs / advisories affecting the *pinned/resolved* versions, with the fixed versi
 
 ## Tooling fallback
 
-**Python** - `pip-audit` (PyPA, reads the environment or a requirements/lock file) or `safety`. Capture advisory id, affected range, and fixed version.
+**Python** - `pip-audit --locked .` (reads the lockfile in place) or `pip-audit -r <requirements>` (parses the requirements file and provisions its own throwaway virtualenv to resolve it, so it needs network rather than the target's tree). Run `pip-audit` with no arguments and it audits whatever environment it was launched from, which on a foreign target is the audit environment rather than the subject - not evidence about the target at all, so don't. `safety` is the alternative, but it requires authentication and is unusable in an unauthenticated audit whatever else is true, which is a separate reason from its tier. Capture advisory id, affected range, and fixed version.
 
 **JavaScript/TypeScript** - prefer the audit subcommand of the package manager the inventory records for the partition, which is already installed and already reads the lockfile that is present, but **read its version first**: npm retired the legacy audit endpoints (`/-/npm/v1/security/audits` and `/-/npm/v1/security/audits/quick`) on 2026-07-15 after brownouts from April, so a client still calling them returns 410 rather than a result. `npm audit` is unaffected, npm having moved its own client to `/-/npm/v1/security/advisories/bulk` first. `pnpm audit` works from **pnpm 11**, which rewired to that endpoint; on pnpm 10 or earlier it fails. `yarn npm audit` is Yarn Berry's maintained path. Yarn Classic's `yarn audit` calls a retired endpoint and Yarn 1 is unmaintained, so it will not be fixed - do not prefer it, and do not read its failure as a finding about the target. Each of these is a subcommand of its own package manager rather than a publishable package, so a one-shot runner cannot fetch any of them, and `npm audit` is not a stand-in for the others even where the `npm` binary happens to be installed: it resolves from `package-lock.json`, which a pnpm or yarn partition does not have.
 
