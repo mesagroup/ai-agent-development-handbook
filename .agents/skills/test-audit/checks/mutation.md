@@ -9,6 +9,7 @@ tooling:
   python: [mutmut, cosmic-ray]
 needs:
   target-execution: [mutmut, cosmic-ray]
+ungranted_note: none
 ---
 
 # Mutation testing (effectiveness)

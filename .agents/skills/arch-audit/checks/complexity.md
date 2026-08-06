@@ -9,6 +9,17 @@ tooling:
   typescript: [eslint, eslint-plugin-sonarjs]
 needs:
   target-execution: [eslint, eslint-plugin-sonarjs]
+ungranted_note: >-
+  Cyclomatic complexity is a property of the syntax tree, so the branch-point count
+  the `With none of them installed` paragraph below describes answers the metric on any
+  partition with nothing installed, in either language. ESLint answers it too under a
+  config the audit supplies rather than the target's: pointed at an audit-owned flat
+  config with `--config` and `--no-config-lookup`, with a TypeScript parser fetched
+  alongside ESLint rather than taken from the target, the core `complexity` and
+  `max-depth` rules read the target's source without loading the target's own flat
+  config, so no `node_modules` is needed. What the grant buys is the thresholds the
+  project set for itself, and `eslint-plugin-sonarjs`'s type-aware cognitive-complexity
+  rules, which need a real TypeScript program over the installed tree.
 ---
 
 # Complexity

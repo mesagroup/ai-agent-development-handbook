@@ -10,6 +10,16 @@ tooling:
 needs:
   resolved-tree: [deptry, depcheck]
   target-execution: [knip]
+ungranted_note: >-
+  Duplicate and conflicting pins, and a dependency declared in the wrong group, are
+  read from the manifest and the lockfile with nothing installed. The scanners give a
+  partial signal without the tree and must be reported with its limit rather than at
+  face value: `deptry` is correct where a distribution name equals its import name and
+  misreports in both directions at once where they diverge, emitting a
+  declared-but-unused finding for the distribution and a missing-dependency finding for
+  the import it could not resolve; `depcheck` resolves plain `require` and `import`
+  usage without `node_modules`, and its `bin` and config specials are exactly the part
+  that needs the tree. `knip` answers nothing trustworthy without it.
 ---
 
 # Hygiene

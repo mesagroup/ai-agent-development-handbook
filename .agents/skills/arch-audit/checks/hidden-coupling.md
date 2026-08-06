@@ -13,6 +13,14 @@ tooling:
   typescript: [eslint, knip]
 needs:
   target-execution: [eslint, knip]
+ungranted_note: >-
+  The tells this check looks for are patterns in source, and the TypeScript half lists
+  the same ones the Python half greps for: mutable module-level exports, string-keyed
+  container lookups, side-effectful top-level code, and dynamic `import()`. Reading
+  TypeScript source for them needs nothing installed. What a withheld grant costs is
+  `knip`'s export graph, which is what shows an exported binding written from more than
+  one module rather than merely exported - so the single-module tells survive and the
+  cross-module correlation does not.
 ---
 
 # Hidden coupling / implicit dependencies

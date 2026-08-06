@@ -8,6 +8,14 @@ tooling:
   python: [pytest-cov, coverage.py]
 needs:
   target-execution: [pytest-cov, coverage.py]
+ungranted_note: >-
+  What is excluded from measurement is readable with nothing installed:
+  `[tool.coverage.run]`'s `source` and `omit`, and `exclude_lines`, in `pyproject.toml`
+  or `.coveragerc`, name the code no coverage number will ever account for, which is
+  part of what this check asks. The reach measurement itself runs the suite and does
+  not survive a withheld grant. Whether a coverage threshold is *enforced* is a
+  different check's question - `ci/gate-enforcement` owns whether an intended gate is
+  actually required - so do not answer it here.
 ---
 
 # Coverage reach
