@@ -486,3 +486,90 @@ def test_every_review_lens_paragraph_carries_a_label():
             if para.strip() and not label_re.match(para.strip()):
                 unlabeled.append(f"{check_id}: {para.strip()[:60]}")
     assert unlabeled == [], f"unlabeled review-lens paragraphs: {unlabeled}"
+
+
+def test_a_tool_has_one_tier_across_the_family():
+    """A tool needs the same thing everywhere, so two records that name it
+    must agree. This is the only mechanical guard on the classification
+    sweep: an absent `needs:` entry is a positive claim that the tool runs
+    against a read-only clone, so a record nobody classified is
+    indistinguishable from one deliberately left at the default - except
+    when some *other* record classified the same tool, which is what this
+    catches. If this fails, classify the tool the same way in both records
+    - do not weaken the assertion.
+    """
+    checks, errors = ac.load_checks(ac.SKILLS_DIR)
+    assert errors == []
+    tier_of: dict[str, tuple[str, str]] = {}
+    disagreements = []
+    for check_id, check in sorted(checks.items()):
+        classified = {
+            name: tier for tier, names in check.needs.items() for name in names
+        }
+        for name in sorted({n for names in check.tooling.values() for n in names}):
+            tier = classified.get(name, "")
+            if name not in tier_of:
+                tier_of[name] = (tier, check_id)
+                continue
+            seen_tier, seen_in = tier_of[name]
+            if seen_tier != tier:
+                disagreements.append(
+                    f"{name!r}: {seen_in} says {seen_tier or 'read-only clone'}, "
+                    f"{check_id} says {tier or 'read-only clone'}"
+                )
+    assert disagreements == [], "the same tool is classified two ways: " + "; ".join(
+        disagreements
+    )
+
+
+def test_the_classification_is_not_vacuous():
+    """`test_a_tool_has_one_tier_across_the_family` passes trivially on a
+    tree where nothing is classified, which is the state this change exists
+    to leave behind. Assert the sweep actually happened, so deleting every
+    `needs:` key fails loudly instead of turning the guard above into a
+    no-op. If this fails, a classification was removed - restore it rather
+    than lowering the floor.
+    """
+    checks, errors = ac.load_checks(ac.SKILLS_DIR)
+    assert errors == []
+    classified = sorted(c.id for c in checks.values() if c.needs)
+    assert len(classified) >= 15, (
+        f"only {len(classified)} record(s) classify any tool: {classified}"
+    )
+    assert {t for c in checks.values() for t in c.needs} == set(ac.NEEDS_TIERS), (
+        "both tiers should be in use across the family"
+    )
+
+
+def test_a_record_that_classifies_a_tool_states_a_fallback():
+    """A `needs:` entry is machine-readable and says nothing about what to
+    do instead. `## Tooling fallback` is where an executing agent reads
+    that, so a record admitting one of its tools needs a grant must have
+    the section - otherwise the agent reaches for the tool, it fails, and
+    the check reports `no-evidence` for a reason the record could have
+    predicted. If this fails, write the section - do not weaken the
+    assertion.
+
+    This deliberately checks that the section exists and not that it names
+    each classified tool. `deps/transitive-licenses` defers its whole
+    fallback to `deps/licenses` by reference rather than restating the
+    tool list, which is the right shape for that record; an
+    every-name-must-appear rule would force it to duplicate exactly what
+    it was written to avoid. Whether the prose actually explains the
+    consequence is a reading pass, not a test.
+    """
+    checks, errors = ac.load_checks(ac.SKILLS_DIR)
+    assert errors == []
+    silent = sorted(
+        check_id
+        for check_id, check in checks.items()
+        if check.needs
+        and not re.search(
+            r"^## Tooling fallback\n\s*\S",
+            check.path.read_text(),
+            re.M,
+        )
+    )
+    assert silent == [], (
+        f"these records classify a tool and state no fallback: {silent}"
+    )
