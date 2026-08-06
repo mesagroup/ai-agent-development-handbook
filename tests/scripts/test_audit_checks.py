@@ -490,13 +490,16 @@ def test_every_review_lens_paragraph_carries_a_label():
 
 def test_a_tool_has_one_tier_across_the_family():
     """A tool needs the same thing everywhere, so two records that name it
-    must agree. This is the only mechanical guard on the classification
-    sweep: an absent `needs:` entry is a positive claim that the tool runs
-    against a read-only clone, so a record nobody classified is
-    indistinguishable from one deliberately left at the default - except
-    when some *other* record classified the same tool, which is what this
-    catches. If this fails, classify the tool the same way in both records
-    - do not weaken the assertion.
+    must agree. This is the guard that can see *into* a record's
+    classification, and it sees only through a tool some other record
+    already classified: an absent `needs:` entry is a positive claim that
+    the tool runs against a read-only clone, so a record nobody examined is
+    indistinguishable from one deliberately left at the default unless the
+    same tool is classified elsewhere. The vacuity test below covers the
+    other half - that the sweep happened at all - by counting the records
+    that classify anything; neither reaches a wrongly-defaulted tool no
+    other record names. If this fails, classify the tool the same way in
+    both records - do not weaken the assertion.
     """
     checks, errors = ac.load_checks(ac.SKILLS_DIR)
     assert errors == []
@@ -527,13 +530,18 @@ def test_the_classification_is_not_vacuous():
     tree where nothing is classified, which is the state this change exists
     to leave behind. Assert the sweep actually happened, so deleting every
     `needs:` key fails loudly instead of turning the guard above into a
-    no-op. If this fails, a classification was removed - restore it rather
-    than lowering the floor.
+    no-op. The floor is the number of records the sweep classified, with no
+    slack: a floor below that count would let a classification be deleted
+    silently, and a deleted tier is not visibly missing - it reads as the
+    positive claim that every tool in the record answers from a read-only
+    clone. Adding a record that needs a tier therefore raises the floor
+    with it. If this fails, a classification was removed - restore it
+    rather than lowering the floor.
     """
     checks, errors = ac.load_checks(ac.SKILLS_DIR)
     assert errors == []
     classified = sorted(c.id for c in checks.values() if c.needs)
-    assert len(classified) >= 15, (
+    assert len(classified) >= 18, (
         f"only {len(classified)} record(s) classify any tool: {classified}"
     )
     assert {t for c in checks.values() for t in c.needs} == set(ac.NEEDS_TIERS), (
