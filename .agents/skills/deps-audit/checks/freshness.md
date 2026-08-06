@@ -9,6 +9,19 @@ tooling:
   typescript: ["npm outdated", "pnpm outdated", npm-check-updates]
 needs:
   resolved-tree: [uv, pip, npm outdated, pnpm outdated]
+ungranted_note: >-
+  The pins are already in the clone. Read `uv.lock`, `poetry.lock` or the pip-compile
+  output for the direct and transitive pins, then ask the registry per package:
+  `https://pypi.org/pypi/<name>/json` reports the latest release in `info.version`,
+  which is the comparison the tiered tools would have made, and
+  `https://pypi.org/pypi/<name>/<version>/json` reports `yanked` for the pinned
+  release. Take the latest release from the project endpoint rather than the
+  per-version one, which describes only the version asked for and cannot tell you
+  something newer exists. That path needs network rather than the tree, so it survives
+  a withheld grant and fails instead where the audit has no network, which is
+  `no-evidence (tool-unavailable)` rather than `not-permitted`. What the resolved tree
+  adds is the versions actually installed, which can differ from the pins; on a foreign
+  repository the pins are the more faithful subject anyway.
 ---
 
 # Freshness

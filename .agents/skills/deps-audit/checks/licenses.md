@@ -9,6 +9,17 @@ tooling:
   typescript: ["pnpm licenses list", "yarn licenses list", "@cyclonedx/cdxgen"]
 needs:
   resolved-tree: [pip-licenses, pnpm licenses list, yarn licenses list]
+ungranted_note: >-
+  For a partition with a lockfile, the licence of each pinned release is available from
+  the registry without installing it: `https://pypi.org/pypi/<name>/<version>/json`
+  carries the same three metadata channels the installed `METADATA` would, and all
+  three must be read because none is universally populated - `license_expression` where
+  the release declares an SPDX expression, `license` where it does not, and the
+  `License ::` classifiers where neither is set. Read `license` with care: on older
+  releases it holds the full licence text rather than an identifier, so a report
+  echoing it verbatim prints a licence body where a name belongs. What the grant buys
+  is the licences of what is actually installed, and coverage of any package the
+  lockfile does not pin.
 ---
 
 # License compatibility

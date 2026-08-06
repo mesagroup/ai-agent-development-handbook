@@ -8,6 +8,11 @@ tooling:
   python: [pytest-timeout]
 needs:
   target-execution: [pytest-timeout]
+ungranted_note: >-
+  Reading test source for calls that hit the network, the filesystem or a database
+  answers the real-I/O axis with nothing installed. The `--durations` pass runs the
+  target's own suite, so without the grant the timing evidence is missing and this
+  check is answered on the I/O axis rather than `no-evidence` as a whole.
 ---
 
 # Isolation & speed

@@ -22,6 +22,12 @@ tooling:
   typescript: [eslint, eslint-plugin-sonarjs]
 needs:
   target-execution: [eslint, eslint-plugin-sonarjs]
+ungranted_note: >-
+  Whether a threshold is set, and whether a CI job fails the build on it, is read from
+  the partition's linter configuration and its CI workflow files, both present on a
+  read-only clone, so the gate question is answered in full with no grant. The
+  classified tools are the gate's subject rather than its instrument: running one
+  measures code against the threshold, which is `arch/complexity`'s question.
 ---
 
 # Complexity gate
@@ -35,8 +41,6 @@ Whether a complexity threshold is actually configured and enforced, not just mea
 ## Tooling fallback
 
 **Read the project's configured threshold before measuring, and treat its absence as a finding in its own right.** `C901` needs `mccabe` max-complexity set in `pyproject.toml`; if it is unset, passing a threshold on the command line yields clean numbers and silently hides the gap. Whichever tool you run, record what the project itself enforces - a number it never configured is a number nothing holds it to. On an uninstalled TypeScript tree, ESLint aborts with `ERR_MODULE_NOT_FOUND` before it reaches a threshold at all - that abort is a missing `node_modules`, not a verdict on whether the gate is configured, so don't record it as either a clean or a failing threshold check.
-
-**The gate question itself needs no grant, so withholding one costs this check nothing.** Whether a threshold is set, and whether a CI job fails the build on it, is answered by reading the partition's linter configuration and its CI workflow files, both of which are there on a read-only clone. The classified tools are named here because they are the gate's *subject*, not because answering needs them: running one measures code against the threshold, which is `arch/complexity`'s job rather than this check's. So answer this check even where the `target-execution` grant is withheld - reporting it `no-evidence (not-permitted)` on that ground would record an unanswered question that the config and the workflow already answer.
 
 ## Fix
 
