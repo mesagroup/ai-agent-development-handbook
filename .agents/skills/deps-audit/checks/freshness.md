@@ -10,8 +10,9 @@ tooling:
 needs:
   resolved-tree: [uv, pip, npm outdated, pnpm outdated]
 ungranted_note: >-
-  The pins are already in the clone. Read `uv.lock`, `poetry.lock` or the pip-compile
-  output for the direct and transitive pins, then ask the registry per package:
+  On a Python partition, the pins are already in the clone. Read `uv.lock`,
+  `poetry.lock` or the pip-compile output for the direct and transitive pins, then ask
+  the registry per package:
   `https://pypi.org/pypi/<name>/json` reports the latest release in `info.version`,
   which is the comparison the tiered tools would have made, and
   `https://pypi.org/pypi/<name>/<version>/json` reports `yanked` for the pinned
