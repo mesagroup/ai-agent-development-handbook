@@ -6,24 +6,26 @@
 
 [#19](https://github.com/mesagroup/ai-agent-development-handbook/issues/19) gave each `tooling:` name a tier saying what must be present in the target before that tool can answer. `audit-core` then derives a conclusion about the *check* from those facts about its *tools*: "Where the run holds no grant, the checks whose only tools need one are `no-evidence`, never clean." The sweep repeats it twice more, in its step 0 grants bullet and in its fan-out brief.
 
-The derivation is wrong whenever a check has an axis that needs no tool at all, and three records already say so in prose:
+The derivation is wrong whenever a check has an axis that needs no tool at all, and five records already say so in prose:
 
 | Record | Frontmatter implies | Prose says | Why the derivation fails |
 |---|---|---|---|
-| `arch/complexity-gate` | `no-evidence (not-permitted)` on a TypeScript partition | "The gate question itself needs no grant" | The tools are named as the gate's *subject*. Whether a threshold is configured and enforced is read from the linter config and the CI workflow, both present on a read-only clone. |
+| `arch/complexity` | `no-evidence (not-permitted)` on a TypeScript partition | "With none of them installed - walk each function's syntax tree and count its branch points" | Cyclomatic complexity is a property of the syntax tree, so a parser over the target's source answers it with nothing installed. |
+| `arch/complexity-gate` | the same | "The gate question itself needs no grant" | The tools are named as the gate's *subject*. Whether a threshold is configured and enforced is read from the linter config and the CI workflow, both present on a read-only clone. |
+| `deps/freshness` | `no-evidence (not-permitted)` on a Python partition | "the lockfile scan for floating direct pins is the part that survives without one" | The lockfile is in the clone. What the installed environment adds is the comparison against the registry, and that is a network question rather than a tree question. |
 | `test/determinism` | the same | "only the grep pass answers" | The tier is true - the randomized-order and repeat-run passes do run the suite - but grepping for `time.time()`, `datetime.now()`, unseeded `random.` and live network calls answers the non-determinism axis with nothing installed. |
 | `test/isolation` | the same | "answered on the I/O axis with the timing evidence missing" | The same shape: the `--durations` pass needs the grant, reading test source for real I/O does not. |
 
 [#26](https://github.com/mesagroup/ai-agent-development-handbook/issues/26) framed this as a collision between two `needs:` rules, on the strength of `arch/complexity-gate` alone. The wider reading is that a check-level claim is being *derived* from tool-level data and is unexpressible when the derivation is wrong, so the only place to correct it is prose that contradicts the frontmatter beside it.
 
-The exposure is measurable rather than estimated. Applying the rule per language partition silences a (record, language) pair whose every tool carries a tier. There are **12 such pairs across 11 records** - `deps/hygiene` is silenced in both of its languages - of which three carry overriding prose and eight are silenced with nothing recording whether that is correct:
+The exposure is measurable rather than estimated. Applying the rule per language partition silences a (record, language) pair whose every tool carries a tier. There are **12 such pairs across 11 records** - `deps/hygiene` is silenced in both of its languages - of which five carry overriding prose and six are silenced with nothing recording whether that is correct:
 
 | Record | Language | Overriding prose today |
 |---|---|---|
-| `arch/complexity` | typescript | no |
+| `arch/complexity` | typescript | yes |
 | `arch/complexity-gate` | typescript | yes |
 | `arch/hidden-coupling` | typescript | no |
-| `deps/freshness` | python | no |
+| `deps/freshness` | python | yes |
 | `deps/hygiene` | python, typescript | no |
 | `deps/licenses` | python | no |
 | `deps/transitive-licenses` | python | no |
@@ -55,13 +57,15 @@ ungranted_note: >-
 
 The field is required on a record where every tool in at least one language carries a tier, and rejected as vacuous on any other.
 
-This is `handbook_note`'s shape, for `handbook_note`'s reason: demand the field precisely where the default inference is load-bearing, so it cannot be left to a silent default. The eight records above that today say nothing are not making a claim - nobody examined them - and after this change the file cannot be in that state.
+This is `handbook_note`'s shape, for `handbook_note`'s reason: demand the field precisely where the default inference is load-bearing, so it cannot be left to a silent default. The six records above that today say nothing are not making a claim - nobody examined them - and after this change the file cannot be in that state.
 
 The rejection half matters as much as the requirement. A note on a record that keeps an untiered tool describes a situation that cannot arise, and a reader who finds one has no way to tell it from a note that is doing work.
 
 ### 3. A sentinel for the genuinely blocked case
 
-A record with nothing to add writes `ungranted_note: none`. Eight paraphrases of "both passes run the target's suite, so nothing answers" is duplication the validator should absorb.
+A record with nothing to add writes `ungranted_note: none`.
+
+The verification in decision 5 has since narrowed what this is for. It was drafted expecting eight records to use it, as a way to absorb eight paraphrases of "both passes run the target's suite, so nothing answers". The sweep found that ten of the eleven have something to answer and exactly one, `test/mutation`, does not. So the sentinel is not a duplication remedy; it is what makes the requirement in decision 2 satisfiable at all. Without it a record with genuinely nothing to say could not comply, and the rule would force invented prose - which is worse than a magic word, because invented prose reads as evidence.
 
 The loader accepts exactly the lowercase string `none`. `None` and `NONE` are rejected by name, because YAML leaves them as ordinary strings that would read as a real fallback claim rather than as the sentinel; `null` and an empty value are rejected because YAML turns them into nothing at all, which is indistinguishable from an omitted field.
 
@@ -75,9 +79,11 @@ A record carrying `none` is the blocked case and reports `no-evidence (not-permi
 
 Writing `none` asserts that nothing answers. Eight of those assertions have never been examined, and #19 is the precedent for what examining them is worth: its tier sweep was expected to be annotation and turned out to be four corrections, each a record sending an agent to a tool that could not answer where it was sent.
 
-So each pair is checked against the question the record actually asks, not against what its current tooling happens to offer. `deps/freshness` on Python is the case to expect something from: it is silenced only because `uv` and `pip` both read installed state, while comparing lockfile pins against the registry is exactly what `npm-check-updates` does on the JavaScript side, and that tool is untiered.
+So each pair is checked against the question the record actually asks, not against what its current tooling happens to offer.
 
-Where verification finds such a path, the fix is to give the record that tool or that prose. The record then has an untiered tool, drops out of the fully-tiered set, and by decision 2 may no longer carry `ungranted_note` at all. The field retreats as the underlying gaps close rather than accumulating beside them.
+**The sweep has been run, and it changed the picture.** Ten of the eleven records can answer something without a grant; only `test/mutation` cannot. `deps/freshness` on Python was the predicted case and it held: the pins are already in `uv.lock` or `poetry.lock`, and the registry supplies the rest over the network rather than out of a tree. The same two-step procedure answers both licence checks, since a full lockfile already pins the transitive graph. That the derived rule was silencing ten answerable checks is the finding that justifies the sweep, and it is why decision 2 requires the field rather than offering it.
+
+Where verification finds such a path, the fix is to give the record that tool or that prose. Where it is a *tool*, the record gains an untiered name, drops out of the fully-tiered set, and by decision 2 may no longer carry `ungranted_note` at all - the field retreats as the underlying gaps close rather than accumulating beside them. That did not happen here: every path the sweep found is a procedure rather than a package - read the lockfile, query the registry, walk the syntax tree, grep the tells - and `tooling:` holds tool names. So no record's `tooling:` or `needs:` changes in this work, which also keeps it clear of [#5](https://github.com/mesagroup/ai-agent-development-handbook/issues/5).
 
 ### 6. `arch/complexity-gate` keeps its tier
 
@@ -109,7 +115,7 @@ Two things the validator cannot reach, both stated here rather than discovered l
 
 **There is no foreign target in this repository, so nothing exercises an ungranted run end to end.** Decision 4 is prose an agent reads at run time. What is gated is that the obligations are stated, that the ledger accounts for each, and that no record's note contradicts its own `tooling:` and `needs:`.
 
-The prose-note floor in the test suite is the one guard against the failure mode this change could introduce: a later author who finds the required field inconvenient and satisfies it with `none` everywhere. It cannot tell a correct `none` from a lazy one, only that the three known prose notes have not all evaporated.
+The prose-note floor in the test suite is the one guard against the failure mode this change could introduce: a later author who finds the required field inconvenient and satisfies it with `none` everywhere. It cannot tell a correct `none` from a lazy one, only that the ten prose notes the sweep produced have not evaporated.
 
 ## Acceptance criteria, mapped
 
@@ -124,5 +130,5 @@ The issue also asks that the "an absent key is a positive claim" hazard be revis
 
 ## Related
 
-- [#19](https://github.com/mesagroup/ai-agent-development-handbook/issues/19) introduced `needs:` and the derived rule, and its PR patched all three of the contradicting records in prose.
+- [#19](https://github.com/mesagroup/ai-agent-development-handbook/issues/19) introduced `needs:` and the derived rule, and patched in prose the contradicting records its review happened to surface, which is the workaround this replaces.
 - [#5](https://github.com/mesagroup/ai-agent-development-handbook/issues/5) authors TypeScript tooling for fourteen records; every one that ends up fully tiered will need this field, which is why this lands first.
