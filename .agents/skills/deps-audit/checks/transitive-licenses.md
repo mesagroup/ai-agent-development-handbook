@@ -13,6 +13,8 @@ handbook_note: >-
 tooling:
   python: [pip-licenses]
   typescript: ["pnpm licenses list", "yarn licenses list", "@cyclonedx/cdxgen"]
+needs:
+  resolved-tree: [pip-licenses, pnpm licenses list, yarn licenses list]
 ---
 
 # Transitive-license deep dive
