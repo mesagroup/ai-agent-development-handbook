@@ -31,6 +31,7 @@ Frontmatter fields:
 | `handbook_note` | iff `handbook` is empty | Why the check exceeds the handbook |
 | `tooling` | no | Language to preferred tools; `any` for language-agnostic |
 | `needs` | no | Tier to tool names, for tools needing more than a read-only clone |
+| `ungranted_note` | no | What the check still answers when that grant is withheld |
 | `optin` | no | Default `false`; an opt-in sub-audit that produces findings |
 
 `handbook` is a list because a check is commonly grounded in several
@@ -53,6 +54,18 @@ repeated from `tooling` rather than folded into it, and the repetition is
 what is checked: every name under `needs` must be one the record actually
 offers, so a rename that misses one of the two places fails here instead of
 quietly describing a tool that is no longer listed.
+
+`ungranted_note` answers a third question, and it is about the check rather
+than about any tool: when the tools need a grant this run does not hold,
+what can the check still answer? `needs` cannot express this, because it
+is per-tool, and the engine's rule - a check whose every tool needs a
+grant is `no-evidence` without it - is a check-level conclusion derived
+from tool-level facts. That derivation is wrong wherever a check has an
+axis needing no tool, which is why the field exists rather than the
+records arguing with their own frontmatter in prose. The value is either
+what still answers, or the sentinel `none` where nothing does, and it is
+rejected on a record that keeps a tool answering from a read-only clone,
+because there the withheld-grant situation it describes cannot arise.
 
 Usage:
     from audit_checks import SKILLS_DIR, load_checks
@@ -83,6 +96,12 @@ LOCALITIES = ("local", "global")
 # fetch may answer from a lockfile alone. `target-execution` implies
 # `resolved-tree`. The common case carries no tier and no key.
 NEEDS_TIERS = ("resolved-tree", "target-execution")
+# The sentinel a record writes when a withheld grant really does leave it
+# nothing to answer. Spelled lowercase because YAML turns `None` and `NONE`
+# into ordinary strings, which would read as a fallback claim, and turns
+# `null` and an empty value into nothing at all, which reads as an omitted
+# key. The loader rejects each of those by name rather than guessing.
+UNGRANTED_NONE = "none"
 FIELDS = frozenset(
     {
         "id",
@@ -92,6 +111,7 @@ FIELDS = frozenset(
         "handbook_note",
         "tooling",
         "needs",
+        "ungranted_note",
         "optin",
     }
 )
@@ -112,6 +132,7 @@ class Check:
     handbook_note: str | None
     tooling: dict[str, tuple[str, ...]]
     needs: dict[str, tuple[str, ...]]
+    ungranted_note: str | None
     optin: bool
     path: Path
 
@@ -167,6 +188,33 @@ def _str_list(value: Any) -> tuple[str, ...] | None:
     if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
         return None
     return tuple(value)
+
+
+def _fully_tiered_languages(
+    tooling: dict[str, tuple[str, ...]], needs: dict[str, tuple[str, ...]]
+) -> tuple[str, ...]:
+    """Languages whose every offered tool needs a grant.
+
+    These are the (record, language) pairs the engine silences: with no
+    grant held, a check has nothing left to run in that language, so it
+    reports `no-evidence (not-permitted)` unless the record says otherwise.
+    A language offering no tools at all is not one of them - `all()` is
+    vacuously true over an empty list, and a record that lists a language
+    with no tools has said nothing about grants.
+
+    Args:
+        tooling: Language to the tools the record offers.
+        needs: Tier to the tools that need it.
+
+    Returns:
+        The languages, sorted, so a message naming them is stable.
+    """
+    tiered = {name for names in needs.values() for name in names}
+    return tuple(
+        lang
+        for lang, names in sorted(tooling.items())
+        if names and all(name in tiered for name in names)
+    )
 
 
 def _load_one(
@@ -298,6 +346,48 @@ def _load_one(
                         tier_of[name] = tier
                 needs[tier] = names
 
+    silenced = _fully_tiered_languages(tooling, needs)
+    ungranted = meta.get("ungranted_note")
+    if "ungranted_note" in meta:
+        if ungranted is None:
+            errors.append(
+                f"{where}: ungranted_note is empty - YAML reads `null`, `~` and a "
+                f"bare key as nothing, which is indistinguishable from omitting "
+                f"the key. Write {UNGRANTED_NONE!r} if nothing answers without a "
+                "grant, or say what does"
+            )
+        elif not isinstance(ungranted, str):
+            errors.append(
+                f"{where}: ungranted_note must be prose or {UNGRANTED_NONE!r}, "
+                f"got {ungranted!r}"
+            )
+        elif not ungranted.strip():
+            errors.append(
+                f"{where}: ungranted_note is blank - write {UNGRANTED_NONE!r} if "
+                "nothing answers without a grant, or say what does"
+            )
+        elif (
+            ungranted.strip().lower() == UNGRANTED_NONE
+            and ungranted.strip() != UNGRANTED_NONE
+        ):
+            errors.append(
+                f"{where}: write the sentinel as {UNGRANTED_NONE!r}, not "
+                f"{ungranted!r} - YAML leaves the capitalised spellings as "
+                "ordinary strings, so this would be read as a claim that "
+                "something answers"
+            )
+        else:
+            ungranted = ungranted.strip()
+    else:
+        ungranted = None
+
+    if not silenced and "ungranted_note" in meta:
+        errors.append(
+            f"{where}: ungranted_note describes a withheld grant leaving this "
+            "record with nothing to run, which cannot happen here - every "
+            "language it offers keeps a tool that answers from a read-only clone"
+        )
+
     optin = meta.get("optin", False)
     if not isinstance(optin, bool):
         errors.append(f"{where}: optin must be a boolean, got {optin!r}")
@@ -324,6 +414,7 @@ def _load_one(
             handbook_note=note,
             tooling=tooling,
             needs=needs,
+            ungranted_note=ungranted,
             optin=optin,
             path=path,
         ),

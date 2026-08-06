@@ -5,6 +5,8 @@ import re
 import sys
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 _SCRIPT = REPO_ROOT / "scripts" / "audit_checks.py"
 
@@ -179,6 +181,145 @@ def test_needs_must_be_a_mapping(tmp_path):
     )
     _, errors = ac.load_checks(tmp_path)
     assert any("needs must be a mapping" in e for e in errors)
+
+
+def _record(tooling=None, needs=None, extra=""):
+    """Build a minimal well-formed `demo/thing` record for `ungranted_note`
+    tests, with `tooling`, `needs` and any extra frontmatter lines the
+    caller wants layered in before the closing `---`.
+    """
+    lines = [
+        "---",
+        "id: demo/thing",
+        "domain: demo",
+        "locality: local",
+        "handbook: []",
+        "handbook_note: Fixture record for ungranted_note tests.",
+    ]
+    if tooling:
+        lines.append("tooling:")
+        for lang, tools in tooling.items():
+            lines.append(f"  {lang}: [{', '.join(tools)}]")
+    if needs:
+        lines.append("needs:")
+        for tier, tools in needs.items():
+            lines.append(f"  {tier}: [{', '.join(tools)}]")
+    text = "\n".join(lines) + "\n" + extra + "---\n\n# Thing\n\nFixture body.\n"
+    return text
+
+
+def _load_one(tmp_path, check):
+    """Write `check` as the sole record in a fresh tree and load it."""
+    _write(tmp_path, "demo-audit/checks/thing.md", check)
+    return ac.load_checks(tmp_path)
+
+
+def test_the_sentinel_is_accepted(tmp_path):
+    """A record with nothing to answer writes the lowercase sentinel."""
+    check = _record(
+        tooling={"python": ["pip-licenses"]},
+        needs={"resolved-tree": ["pip-licenses"]},
+        extra="ungranted_note: none\n",
+    )
+    checks, errors = _load_one(tmp_path, check)
+    assert errors == []
+    assert checks["demo/thing"].ungranted_note == "none"
+
+
+def test_prose_is_accepted_and_stripped(tmp_path):
+    check = _record(
+        tooling={"python": ["pip-licenses"]},
+        needs={"resolved-tree": ["pip-licenses"]},
+        extra="ungranted_note: |\n  Reading the lockfile answers the pinned set.\n",
+    )
+    checks, errors = _load_one(tmp_path, check)
+    assert errors == []
+    assert checks["demo/thing"].ungranted_note == (
+        "Reading the lockfile answers the pinned set."
+    )
+
+
+@pytest.mark.parametrize("spelling", ["None", "NONE", "nOnE"])
+def test_a_miscased_sentinel_is_rejected_by_name(tmp_path, spelling):
+    """YAML leaves `None` and `NONE` as ordinary strings, so a miscased
+    sentinel would be read as a claim that something answers. Reject it
+    with a message naming the spelling to use.
+    """
+    check = _record(
+        tooling={"python": ["pip-licenses"]},
+        needs={"resolved-tree": ["pip-licenses"]},
+        extra=f"ungranted_note: {spelling}\n",
+    )
+    _, errors = _load_one(tmp_path, check)
+    assert any("write the sentinel as 'none'" in e for e in errors)
+
+
+@pytest.mark.parametrize("value", ["null", "~", ""])
+def test_a_null_note_is_rejected_as_indistinguishable_from_omission(tmp_path, value):
+    """YAML turns `null`, `~` and a bare key into nothing, which the loader
+    cannot tell from an absent key. Say so rather than silently treating
+    the record as unclassified.
+    """
+    check = _record(
+        tooling={"python": ["pip-licenses"]},
+        needs={"resolved-tree": ["pip-licenses"]},
+        extra=f"ungranted_note: {value}\n",
+    )
+    _, errors = _load_one(tmp_path, check)
+    assert any("ungranted_note is empty" in e for e in errors)
+
+
+def test_a_blank_note_is_rejected(tmp_path):
+    check = _record(
+        tooling={"python": ["pip-licenses"]},
+        needs={"resolved-tree": ["pip-licenses"]},
+        extra='ungranted_note: "   "\n',
+    )
+    _, errors = _load_one(tmp_path, check)
+    assert any("ungranted_note is blank" in e for e in errors)
+
+
+def test_a_non_string_note_is_rejected(tmp_path):
+    check = _record(
+        tooling={"python": ["pip-licenses"]},
+        needs={"resolved-tree": ["pip-licenses"]},
+        extra="ungranted_note: [a, b]\n",
+    )
+    _, errors = _load_one(tmp_path, check)
+    assert any("must be prose or 'none'" in e for e in errors)
+
+
+def test_a_note_on_a_record_that_keeps_an_untiered_tool_is_vacuous(tmp_path):
+    """The field describes a withheld grant leaving the record with nothing
+    to run. A record keeping a tool that answers from a read-only clone
+    cannot reach that state, so a note there describes nothing and must
+    not be mistaken for one that is doing work.
+    """
+    check = _record(
+        tooling={"python": ["pip-licenses", "osv-scanner"]},
+        needs={"resolved-tree": ["pip-licenses"]},
+        extra="ungranted_note: none\n",
+    )
+    _, errors = _load_one(tmp_path, check)
+    assert any("cannot happen here" in e for e in errors)
+
+
+def test_a_language_with_no_tools_is_not_fully_tiered(tmp_path):
+    """`all()` is vacuously true over an empty list. A record listing a
+    language with no tools has said nothing about grants, so it must not
+    read as silenced - which would demand a note it has no basis to write.
+    """
+    check = _record(
+        tooling={"python": ["pip-licenses"], "typescript": []},
+        needs={"resolved-tree": ["pip-licenses"]},
+        extra="ungranted_note: none\n",
+    )
+    _, errors = _load_one(tmp_path, check)
+    assert errors == [], errors
+    assert ac._fully_tiered_languages(
+        {"python": ("pip-licenses",), "typescript": ()},
+        {"resolved-tree": ("pip-licenses",)},
+    ) == ("python",)
 
 
 def test_missing_frontmatter_is_reported_not_raised(tmp_path):
