@@ -124,6 +124,7 @@ def _check(cid, title, handbook, note=None):
         handbook_note=note,
         tooling={},
         needs={},
+        ungranted_note=None,
         optin=False,
         path=Path(f"{cid}.md"),
     )
