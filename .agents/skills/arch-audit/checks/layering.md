@@ -12,6 +12,8 @@ handbook:
 tooling:
   python: [import-linter, tach, grimp]
   typescript: [dependency-cruiser, madge]
+needs:
+  resolved-tree: [dependency-cruiser]
 ---
 
 # Layering / dependency-rule conformance
@@ -26,7 +28,7 @@ Every import that crosses a tier boundary the wrong way (a lower tier importing 
 
 **Python** - `import-linter` if a `.importlinter` contract exists, or `tach`. If neither, build the ground-truth edge set yourself - parse each module's `import` / `from ... import` statements (`grimp`, or an AST/`ast`-based walk, or a scoped grep) and check every cross-tier edge against the declared rules. Record the offending `file:line` for each violation.
 
-**TypeScript** - `dependency-cruiser` if the project has a `.dependency-cruiser` config, else read the `tsconfig` path aliases and project references as the declared boundaries, walk each module's import specifiers, and check every cross-boundary edge against them. Record the offending `file:line`.
+**TypeScript** - `dependency-cruiser` if the project has a `.dependency-cruiser` config, else read the `tsconfig` path aliases and project references as the declared boundaries, walk each module's import specifiers, and check every cross-boundary edge against them. Record the offending `file:line`. `dependency-cruiser` needs a resolvable TypeScript compiler to build that graph at all - without it, it reports zero modules cruised at exit 0, which reads as zero violations rather than as nothing having been checked; reach for `madge` first on a partition where the tree isn't resolved, since it excludes installed dependencies and carries its own TypeScript.
 
 ## Fix
 

@@ -12,6 +12,8 @@ handbook_note: >-
 tooling:
   python: [grimp]
   typescript: [madge, dependency-cruiser]
+needs:
+  resolved-tree: [dependency-cruiser]
 ---
 
 # Over-decomposition
@@ -28,7 +30,7 @@ Too **fine - over-decomposition** ("ravioli code", the nanoservice anti-pattern)
 
 **Python** - from the same edge set, compute graph-level shape, not per-module counts. Flag a high **edge-to-node ratio** (many dependencies relative to the number of modules), the distribution of **public-symbols-per-module** and **LOC-per-module** (a long tail of one-symbol / few-line modules), and **call chains that thread through pass-through units** - modules whose functions only forward to another module (the same one-caller detection `arch/over-abstraction` uses: for each single-function module or one-method wrapper class, count call sites with `grimp` refs or a scoped grep, and **one** is the trigger). Record the ratio / the count of trivial nodes / the offending chain as the evidence. A finding needs a **read** confirming the units are genuinely trivial and merging them raises cohesion (files that change together) - a fine-grained split that maps onto real, independently-changing responsibilities is correct design, not a finding.
 
-**TypeScript** - the same graph-level shape from `madge`'s or `dependency-cruiser`'s dependency map: the edge-to-node ratio, the distribution of exports-per-module and LOC-per-module, and the call chains threading through pass-through modules. The same read requirement applies - a fine-grained split that maps onto real, independently-changing responsibilities is correct design, not a finding.
+**TypeScript** - the same graph-level shape from `madge`'s or `dependency-cruiser`'s dependency map: the edge-to-node ratio, the distribution of exports-per-module and LOC-per-module, and the call chains threading through pass-through modules. The same read requirement applies - a fine-grained split that maps onto real, independently-changing responsibilities is correct design, not a finding. `madge` excludes installed dependencies and carries its own TypeScript, so it is the one to reach for first on an unresolved partition; `dependency-cruiser` needs a resolvable compiler just to build the map, and without one it reports zero modules cruised at exit 0 - an empty graph that looks like a clean, undecomposed project rather than an unanalysed one.
 
 ## Fix
 

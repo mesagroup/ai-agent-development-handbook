@@ -7,6 +7,8 @@ handbook:
 tooling:
   python: [grimp, pydeps]
   typescript: [dependency-cruiser, madge]
+needs:
+  resolved-tree: [pydeps, dependency-cruiser]
 ---
 
 # Coupling & cohesion
@@ -21,9 +23,9 @@ Too **coarse**: modules with too many afferent/efferent dependencies (a hub ever
 
 ## Tooling fallback
 
-**Python** - compute afferent/efferent counts per module from the same edge set; flag the top hubs. `pydeps` gives a visual; the counts are the evidence.
+**Python** - compute afferent/efferent counts per module from the same edge set; flag the top hubs. `pydeps` gives a visual; the counts are the evidence. `pydeps` reads import opcodes from compiled bytecode rather than executing the target, so a dependency the import machinery can't find just drops out of the graph - an uninstalled package thins a hub's count instead of flagging its own absence.
 
-**TypeScript** - compute the same afferent/efferent counts from `dependency-cruiser`'s or `madge`'s dependency map; flag the top hubs. The graph render is a visual; the counts are the evidence.
+**TypeScript** - compute the same afferent/efferent counts from `dependency-cruiser`'s or `madge`'s dependency map; flag the top hubs. The graph render is a visual; the counts are the evidence. `dependency-cruiser` needs its own TypeScript compiler resolvable beside it just to produce a map at all - without it, it reports zero modules cruised at exit 0, a hub count of nothing rather than an error; `madge` needs no install, since it excludes installed dependencies and carries its own TypeScript, so reach for it first on an unresolved partition.
 
 ## Fix
 
