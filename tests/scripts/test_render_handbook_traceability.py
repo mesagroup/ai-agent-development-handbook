@@ -123,6 +123,7 @@ def _check(cid, title, handbook, note=None):
         handbook=tuple(handbook),
         handbook_note=note,
         tooling={},
+        needs={},
         optin=False,
         path=Path(f"{cid}.md"),
     )

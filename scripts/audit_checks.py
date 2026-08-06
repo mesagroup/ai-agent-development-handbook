@@ -30,6 +30,7 @@ Frontmatter fields:
 | `handbook` | yes | Handbook row ids grounding the check; may be empty |
 | `handbook_note` | iff `handbook` is empty | Why the check exceeds the handbook |
 | `tooling` | no | Language to preferred tools; `any` for language-agnostic |
+| `needs` | no | Tier to tool names, for tools needing more than a read-only clone |
 | `optin` | no | Default `false`; an opt-in sub-audit that produces findings |
 
 `handbook` is a list because a check is commonly grounded in several
@@ -42,6 +43,16 @@ a registry package, a subcommand of the target's own package manager, or a
 standalone binary in no registry. Nothing here validates which - a name is
 only a string to this loader - so the record's `## Tooling fallback` is where
 the kind and the precedence between them are stated.
+
+`needs` answers a different question about the same names: not where the
+tool comes from, but what must be present in the target before it can
+answer. A tool absent from `needs` runs against a read-only clone;
+`resolved-tree` needs the dependency graph materialized; `target-execution`
+needs that and runs the target's own code. The names are deliberately
+repeated from `tooling` rather than folded into it, and the repetition is
+what is checked: every name under `needs` must be one the record actually
+offers, so a rename that misses one of the two places fails here instead of
+quietly describing a tool that is no longer listed.
 
 Usage:
     from audit_checks import SKILLS_DIR, load_checks
@@ -66,8 +77,23 @@ SKILL_SUFFIX = "-audit"
 CHECKS_SUBDIR = "checks"
 
 LOCALITIES = ("local", "global")
+# What a tool needs *present in the target* before it can answer, which is a
+# different axis from where the tool comes from: a registry package a runner
+# can fetch may still need the tree, and a standalone binary no runner can
+# fetch may answer from a lockfile alone. `target-execution` implies
+# `resolved-tree`. The common case carries no tier and no key.
+NEEDS_TIERS = ("resolved-tree", "target-execution")
 FIELDS = frozenset(
-    {"id", "domain", "locality", "handbook", "handbook_note", "tooling", "optin"}
+    {
+        "id",
+        "domain",
+        "locality",
+        "handbook",
+        "handbook_note",
+        "tooling",
+        "needs",
+        "optin",
+    }
 )
 
 _FRONTMATTER_RE = re.compile(r"\A---\n(.*?)\n---(?:\n(.*))?\Z", re.DOTALL)
@@ -85,6 +111,7 @@ class Check:
     handbook: tuple[str, ...]
     handbook_note: str | None
     tooling: dict[str, tuple[str, ...]]
+    needs: dict[str, tuple[str, ...]]
     optin: bool
     path: Path
 
@@ -235,6 +262,42 @@ def _load_one(
                     continue
                 tooling[lang] = names
 
+    needs: dict[str, tuple[str, ...]] = {}
+    raw_needs = meta.get("needs")
+    if raw_needs is not None:
+        if not isinstance(raw_needs, dict):
+            errors.append(f"{where}: needs must be a mapping of tier to tool list")
+        elif raw_tooling is None:
+            errors.append(
+                f"{where}: needs classifies tooling this record does not declare - "
+                "add a tooling map, or drop needs"
+            )
+        else:
+            offered = {name for names in tooling.values() for name in names}
+            tier_of: dict[str, str] = {}
+            for tier, tools in raw_needs.items():
+                names = _str_list(tools)
+                if tier not in NEEDS_TIERS or names is None:
+                    errors.append(
+                        f"{where}: needs[{tier!r}] must map one of {NEEDS_TIERS} to "
+                        "a list of tool-name strings"
+                    )
+                    continue
+                for name in names:
+                    if name not in offered:
+                        errors.append(
+                            f"{where}: needs[{tier}] names {name!r}, which is not in "
+                            "this record's tooling"
+                        )
+                    if name in tier_of:
+                        errors.append(
+                            f"{where}: {name!r} is classified both "
+                            f"{tier_of[name]} and {tier}"
+                        )
+                    else:
+                        tier_of[name] = tier
+                needs[tier] = names
+
     optin = meta.get("optin", False)
     if not isinstance(optin, bool):
         errors.append(f"{where}: optin must be a boolean, got {optin!r}")
@@ -260,6 +323,7 @@ def _load_one(
             handbook=handbook,
             handbook_note=note,
             tooling=tooling,
+            needs=needs,
             optin=optin,
             path=path,
         ),

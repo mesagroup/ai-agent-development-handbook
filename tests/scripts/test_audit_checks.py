@@ -86,6 +86,101 @@ def test_optin_and_empty_handbook_with_note_are_valid(tmp_path):
     assert check.optin is True
 
 
+NEEDS = """---
+id: deps/hygiene
+domain: deps
+locality: global
+handbook:
+  - security-supply-chain/depend-only-on-what-you-can-account-for-a
+tooling:
+  python: [deptry]
+  typescript: [depcheck, knip]
+needs:
+  resolved-tree: [deptry, knip]
+---
+
+# Hygiene
+
+Declared-but-unused dependencies.
+
+## Tooling fallback
+
+`depcheck` answers from source alone; `knip` and `deptry` need the tree.
+"""
+
+
+def test_needs_records_the_tier_of_each_tool(tmp_path):
+    _write(tmp_path, "deps-audit/checks/hygiene.md", NEEDS)
+    checks, errors = ac.load_checks(tmp_path)
+    assert errors == []
+    assert checks["deps/hygiene"].needs == {"resolved-tree": ("deptry", "knip")}
+
+
+def test_a_record_without_needs_claims_every_tool_runs_on_a_clone(tmp_path):
+    _write(tmp_path, "arch-audit/checks/layering.md", GOOD)
+    checks, errors = ac.load_checks(tmp_path)
+    assert errors == []
+    assert checks["arch/layering"].needs == {}
+
+
+def test_needs_must_name_a_known_tier(tmp_path):
+    _write(
+        tmp_path,
+        "deps-audit/checks/hygiene.md",
+        NEEDS.replace("resolved-tree: [deptry, knip]", "needs-network: [deptry]"),
+    )
+    _, errors = ac.load_checks(tmp_path)
+    assert any("needs-network" in e and "must map one of" in e for e in errors)
+
+
+def test_needs_must_name_a_tool_the_record_offers(tmp_path):
+    _write(
+        tmp_path,
+        "deps-audit/checks/hygiene.md",
+        NEEDS.replace("[deptry, knip]", "[deptry, kn1p]"),
+    )
+    _, errors = ac.load_checks(tmp_path)
+    assert any("'kn1p'" in e and "not in this record's tooling" in e for e in errors)
+
+
+def test_a_tool_may_not_sit_in_two_tiers(tmp_path):
+    _write(
+        tmp_path,
+        "deps-audit/checks/hygiene.md",
+        NEEDS.replace(
+            "  resolved-tree: [deptry, knip]",
+            "  resolved-tree: [deptry, knip]\n  target-execution: [knip]",
+        ),
+    )
+    _, errors = ac.load_checks(tmp_path)
+    assert any(
+        "'knip'" in e and "resolved-tree" in e and "target-execution" in e
+        for e in errors
+    )
+
+
+def test_needs_without_tooling_is_an_error(tmp_path):
+    _write(
+        tmp_path,
+        "deps-audit/checks/hygiene.md",
+        NEEDS.replace(
+            "tooling:\n  python: [deptry]\n  typescript: [depcheck, knip]\n", ""
+        ),
+    )
+    _, errors = ac.load_checks(tmp_path)
+    assert any("does not declare" in e for e in errors)
+
+
+def test_needs_must_be_a_mapping(tmp_path):
+    _write(
+        tmp_path,
+        "deps-audit/checks/hygiene.md",
+        NEEDS.replace("needs:\n  resolved-tree: [deptry, knip]", "needs: [deptry]"),
+    )
+    _, errors = ac.load_checks(tmp_path)
+    assert any("needs must be a mapping" in e for e in errors)
+
+
 def test_missing_frontmatter_is_reported_not_raised(tmp_path):
     _write(tmp_path, "arch-audit/checks/broken.md", "# No frontmatter here\n")
     checks, errors = ac.load_checks(tmp_path)
