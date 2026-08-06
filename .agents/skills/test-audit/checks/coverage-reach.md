@@ -6,6 +6,8 @@ handbook:
   - implementation-disciplines/tdd-b
 tooling:
   python: [pytest-cov, coverage.py]
+needs:
+  target-execution: [pytest-cov, coverage.py]
 ---
 
 # Coverage reach
@@ -22,7 +24,7 @@ Line and (crucially) **branch** coverage per module; uncovered load-bearing logi
 
 ## Tooling fallback
 
-**Coverage (with branches):** `pytest --cov=<pkg> --cov-branch --cov-report=term-missing` (or `coverage run -m pytest` + `coverage report --show-missing`). Branch coverage is the signal; capture the missing line/branch ranges per module as the evidence pointer.
+**Coverage (with branches):** `pytest --cov=<pkg> --cov-branch --cov-report=term-missing` (or `coverage run -m pytest` + `coverage report --show-missing`). Branch coverage is the signal; capture the missing line/branch ranges per module as the evidence pointer. Both commands run the target's own suite to produce that report, which is the `target-execution` grant; without it, this check is `no-evidence (not-permitted)`.
 
 ## Fix
 

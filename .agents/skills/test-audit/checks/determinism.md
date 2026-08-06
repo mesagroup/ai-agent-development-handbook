@@ -6,6 +6,8 @@ handbook:
   - implementation-disciplines/tdd-b
 tooling:
   python: [pytest-randomly, pytest-rerunfailures]
+needs:
+  target-execution: [pytest-randomly, pytest-rerunfailures]
 ---
 
 # Determinism / flakiness
@@ -18,7 +20,7 @@ Tests that depend on ordering, wall-clock time, randomness, network, or shared m
 
 ## Tooling fallback
 
-**Flakiness:** run the suite in randomized order (`pytest-randomly` randomizes automatically once installed; use `--randomly-seed=<n>` to reproduce a failing order) and, for suspected flakies, repeat runs; flag order-dependence and non-determinism. Grep tests for `time.time()`, `datetime.now()`, `random.` without a seed, and live network calls.
+**Flakiness:** run the suite in randomized order (`pytest-randomly` randomizes automatically once installed; use `--randomly-seed=<n>` to reproduce a failing order) and, for suspected flakies, repeat runs; flag order-dependence and non-determinism. Grep tests for `time.time()`, `datetime.now()`, `random.` without a seed, and live network calls. The randomized-order and repeat-run passes both run the target's own suite, which needs the `target-execution` grant; without it, they are `no-evidence (not-permitted)` and only the grep pass answers.
 
 ## Fix
 
