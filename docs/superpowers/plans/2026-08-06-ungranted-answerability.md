@@ -283,10 +283,12 @@ Pass it to the constructor: `ungranted_note=ungranted,` after `needs=needs,`.
 In the module docstring's frontmatter table, after the `needs` row:
 
 ```
-| `ungranted_note` | iff every tool in a language needs a grant | What the check still answers when that grant is withheld |
+| `ungranted_note` | no | What the check still answers when that grant is withheld |
 ```
 
-The "Required" column says `iff ...` because Task 3 makes it so; write it now so the table is not edited twice. Then add a paragraph after the existing `needs` paragraph:
+The `Required` column says `no` because at this commit it is optional; Task 3 changes it to `iff every tool in a language needs a grant` when the rule that makes it true lands. Do not write the stronger claim here - a commit whose documentation describes a rule the loader does not yet enforce is a commit that lies about itself.
+
+Then add a paragraph after the existing `needs` paragraph:
 
 ```
 `ungranted_note` answers a third question, and it is about the check rather
@@ -297,10 +299,12 @@ grant is `no-evidence` without it - is a check-level conclusion derived
 from tool-level facts. That derivation is wrong wherever a check has an
 axis needing no tool, which is why the field exists rather than the
 records arguing with their own frontmatter in prose. The value is either
-what still answers, or the sentinel `none` where nothing does. It is
-required on exactly the records the derivation would silence and rejected
-on any other, so absence is never a silent claim.
+what still answers, or the sentinel `none` where nothing does, and it is
+rejected on a record that keeps a tool answering from a read-only clone,
+because there the withheld-grant situation it describes cannot arise.
 ```
+
+Say nothing here about the field being required; Task 3 adds that sentence with the rule.
 
 - [ ] **Step 7: Run the tests and the gate**
 
@@ -619,14 +623,26 @@ In `_parse_record`, immediately before the `not silenced` vacuity check added in
         )
 ```
 
-- [ ] **Step 4: Run everything**
+- [ ] **Step 4: Make the documentation match the rule that now exists**
+
+Task 1 deliberately documented the field as optional, because it was. Now it is not.
+
+In the module docstring's frontmatter table, change the `ungranted_note` row's `Required` column from `no` to `iff every tool in a language needs a grant`. Then append to the `ungranted_note` paragraph:
+
+```
+It is required on exactly the records this rule would silence, so an absent
+key is never a silent claim - which is the hazard `needs` still carries and
+this field does not.
+```
+
+- [ ] **Step 5: Run everything**
 
 Run: `uv run pytest tests/ -q` - all pass, because Task 2 already wrote all eleven notes.
 Run: `uv run python scripts/render_handbook_traceability.py --check` - exit 0.
 
-Confirm the requirement is live by temporarily deleting the `ungranted_note` line from one record, running `--check`, seeing it fail, and restoring it. Report the error text you saw.
+Confirm the requirement is live by temporarily deleting the `ungranted_note` line from one record, running `--check`, seeing it fail, and restoring it. Report the error text you saw. Confirm with `git status --short` that the record is unmodified before you commit.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add scripts/audit_checks.py tests/scripts/test_audit_checks.py
