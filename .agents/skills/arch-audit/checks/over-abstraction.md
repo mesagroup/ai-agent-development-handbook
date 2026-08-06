@@ -8,6 +8,8 @@ handbook:
 tooling:
   python: [grimp, ruff]
   typescript: [knip, ts-morph]
+needs:
+  target-execution: [knip]
 ---
 
 # Over-abstraction / speculative generality
@@ -26,7 +28,7 @@ Structure that exceeds the problem it solves: an interface/ABC/protocol with a s
 
 **Python** - the signal is *fan-in to an abstraction*, computed from the same edge/AST set built for layering. For each `ABC`/`Protocol`/class with `@abstractmethod`, count concrete subclasses across the tree; **one** (or zero) is the trigger. For each single-function module or one-method wrapper class, count call sites (`grimp` refs or a scoped grep); **one** is the trigger. For each registry / entry-point / `match`-dispatch, count registrants/arms; **one** is the trigger. For each function parameter, feature flag, or settings field, count the **distinct values** bound across all call sites (AST of the call arguments, or a grep of the setter); a single value everywhere is the trigger - the knob is unexercised (YAGNI residue). Grep the project's forbidden-shim markers (`backward compat`, `deprecated`, `re-export`, a function body that is a single call to a renamed symbol) against the contributor guide's stated policy. **Record the count and the `file:line` of both the abstraction and its lone consumer** - the count is the evidence, but a row only becomes a finding after a read confirms (a) no second consumer or second value is imminent in-tree and (b) collapsing the construct (inlining the abstraction, dropping the knob) removes indirection without losing a genuine seam. A planned, documented extension point - one implementer, or one config value, *today* - is a suppression, not a finding, recorded with its reason.
 
-**TypeScript** - the same fan-in counts, from `knip` (unused files and exports, single-use exports) and a `ts-morph` walk of the AST: implementers per interface or abstract class, call sites per wrapper module or forwarding function, registrants per registry or dispatch table, type arguments bound per generic, and the distinct values bound to each parameter, flag, or config field across every call site. Record the count and the `file:line` of both the abstraction and its lone consumer, and apply the same read confirmation and suppression rule before a count becomes a finding.
+**TypeScript** - the same fan-in counts, from `knip` (unused files and exports, single-use exports) and a `ts-morph` walk of the AST: implementers per interface or abstract class, call sites per wrapper module or forwarding function, registrants per registry or dispatch table, type arguments bound per generic, and the distinct values bound to each parameter, flag, or config field across every call site. Record the count and the `file:line` of both the abstraction and its lone consumer, and apply the same read confirmation and suppression rule before a count becomes a finding. `knip` needs the tree to be accurate, not merely present - on an uninstalled one it reports first-party files and imported packages alike as unused, inflating the fan-in-to-abstraction counts this check is built on; `ts-morph` needs no install for a syntax-level walk, serving its own `lib.d.ts` from memory, but the moment it reaches into a dependency's own types to resolve an implementer or a bound generic, that resolution degrades silently without the tree, so keep this pass syntactic rather than type-aware.
 
 ## Fix
 

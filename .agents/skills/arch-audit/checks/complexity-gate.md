@@ -20,6 +20,8 @@ handbook_note: >-
 tooling:
   python: [ruff, radon, xenon]
   typescript: [eslint, eslint-plugin-sonarjs]
+needs:
+  target-execution: [eslint, eslint-plugin-sonarjs]
 ---
 
 # Complexity gate
@@ -32,7 +34,7 @@ Whether a complexity threshold is actually configured and enforced, not just mea
 
 ## Tooling fallback
 
-**Read the project's configured threshold before measuring, and treat its absence as a finding in its own right.** `C901` needs `mccabe` max-complexity set in `pyproject.toml`; if it is unset, passing a threshold on the command line yields clean numbers and silently hides the gap. Whichever tool you run, record what the project itself enforces - a number it never configured is a number nothing holds it to.
+**Read the project's configured threshold before measuring, and treat its absence as a finding in its own right.** `C901` needs `mccabe` max-complexity set in `pyproject.toml`; if it is unset, passing a threshold on the command line yields clean numbers and silently hides the gap. Whichever tool you run, record what the project itself enforces - a number it never configured is a number nothing holds it to. On an uninstalled TypeScript tree, ESLint aborts with `ERR_MODULE_NOT_FOUND` before it reaches a threshold at all - that abort is a missing `node_modules`, not a verdict on whether the gate is configured, so don't record it as either a clean or a failing threshold check.
 
 ## Fix
 

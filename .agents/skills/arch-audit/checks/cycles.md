@@ -9,6 +9,8 @@ handbook:
 tooling:
   python: [import-linter, pydeps, grimp]
   typescript: [madge, dependency-cruiser]
+needs:
+  resolved-tree: [pydeps, dependency-cruiser]
 ---
 
 # Cycles
@@ -23,9 +25,9 @@ Import cycles between modules or packages (they defeat isolation and make the gr
 
 ## Tooling fallback
 
-**Python** - `import-linter`'s cycle contract, `pydeps --show-cycles`, or `grimp`'s cycle detection on the built graph.
+**Python** - `import-linter`'s cycle contract, `pydeps --show-cycles`, or `grimp`'s cycle detection on the built graph. `pydeps` doesn't execute the target - it reads import opcodes from compiled bytecode - but it only sees modules the import machinery can find, so an uninstalled dependency drops out of the graph and a cycle running through it goes silently unreported rather than erroring.
 
-**TypeScript** - `madge --circular`, or `dependency-cruiser`'s `no-circular` rule on the built graph.
+**TypeScript** - `madge --circular`, or `dependency-cruiser`'s `no-circular` rule on the built graph. `madge` excludes installed dependencies and brings its own TypeScript, so it needs no install and is the one to reach for first on an unresolved partition; `dependency-cruiser` needs a resolvable TypeScript compiler just to build the graph at all, and without one it reports zero modules cruised at exit 0, which reads as a clean cycle-free project rather than as nothing having been analysed.
 
 **With none of them installed** - the edge set built for layering is all a cycle needs: walk it depth-first and record every back edge, or collapse it into strongly-connected components and report each component of size greater than one. Report the participating modules in cycle order, so the fix has a seam to cut.
 
