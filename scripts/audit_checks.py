@@ -396,9 +396,9 @@ def _load_one(
         errors.append(
             f"{where}: ungranted_note describes a withheld grant leaving this "
             "record with nothing to run, which cannot happen here - no language "
-            "it offers is fully tiered: either it declares no tooling at all, "
-            "one of its languages lists no tools, or every language keeps a "
-            "tool that answers from a read-only clone. Remove ungranted_note, "
+            "it offers is fully tiered, because every one of them either lists "
+            "no tools or keeps a tool that answers from a read-only clone. "
+            "Remove ungranted_note, "
             "or add a tooling entry that needs a grant if this record is meant "
             "to be silenced"
         )
