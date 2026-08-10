@@ -346,10 +346,13 @@ def test_the_notes_are_not_all_sentinels():
     change that trades one record's prose for another's passes silently,
     because the guard counts records rather than naming them, and so does a
     drop back down to just above the floor once a later change has raised
-    it. Issue #5 is expected to add notes, which raises the count and
-    therefore the slack above this floor rather than raising the floor
-    itself; raise the floor by hand if that slack should be closed. Never
-    lower it to make a deletion pass.
+    it. Issue #5 did not add notes, contrary to what this docstring first
+    predicted: it gave three already-silenced records a second fully
+    tiered language, which changes what a note must say and not whether
+    the record carries one, so the count did not move. A later change
+    that does add notes raises the count and therefore the slack above
+    this floor rather than the floor itself; raise the floor by hand if
+    that slack should be closed. Never lower it to make a deletion pass.
     """
     checks, errors = ac.load_checks(ac.SKILLS_DIR)
     assert errors == []
