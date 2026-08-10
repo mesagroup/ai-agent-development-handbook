@@ -347,9 +347,14 @@ def test_the_notes_are_not_all_sentinels():
     because the guard counts records rather than naming them, and so does a
     drop back down to just above the floor once a later change has raised
     it. Issue #5 did not add notes, contrary to what this docstring first
-    predicted: it gave three already-silenced records a second fully
-    tiered language, which changes what a note must say and not whether
-    the record carries one, so the count did not move. A later change
+    predicted: it gave records already silenced in one language a second
+    fully tiered language, which changes what a note must say and not
+    whether the record carries one, so the count did not move. Resist
+    naming how many records that was - an earlier draft of this sentence
+    said three and the number was four, because the three whose prose had
+    to be rewritten are not the same set as the records that gained a
+    second fully tiered language. The claim the floor rests on needs no
+    count of records at all. A later change
     that does add notes raises the count and therefore the slack above
     this floor rather than the floor itself; raise the floor by hand if
     that slack should be closed. Never lower it to make a deletion pass.
