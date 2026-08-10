@@ -1,0 +1,117 @@
+# A TypeScript lens for test-audit and security-audit
+
+Design for #5's remaining half. Status: approved 2026-08-10.
+
+## Goal
+
+Give the `test-audit` and `security-audit` check records a lens on a TypeScript partition, so those two domains stop reporting `not-applicable` for every check on a TypeScript target. `arch-audit` and `deps-audit` already carry `typescript:` tooling entries; these two carry none, which is the whole of what #5 has left.
+
+## What exists, measured
+
+Counted on `main` at the commit this spec lands on: `test-audit` has 7 records, of which 0 carry a `typescript:` key and 1 carries no `tooling:` at all; `security-audit` has 7 records, of which 0 carry a `typescript:` key, 2 already carry `any:` (the secret scanners) and 1 carries no `tooling:` at all. Ten records therefore need a TypeScript lens: `coverage-reach`, `determinism`, `isolation`, `mutation`, `new-code-coverage` and `property-based-gap` in `test-audit`, and `crypto`, `dangerous-calls`, `injection` and `unsafe-io` in `security-audit`.
+
+The two records with no `tooling:` key were read rather than assumed: `test/assertion-strength` prescribes reading tests against the code they cover and judging whether an assertion would fail on a regression, and `security/sensitive-data` prescribes reading logging and exception-handling call sites near secret-bearing variables. Neither names a Python construct, so both already have a lens on any partition and neither changes here.
+
+Why this costs anything: `audit-core` defines `not-applicable` as "the check has no lens in this partition's languages", so the language key on `tooling:` is what decides whether a partition gets looked at, and PR #17 verified the consequence on a real TypeScript repository - five of seven `test-audit` checks came back `not-applicable`.
+
+## The schema does not change
+
+`ungranted_note` is one field per record, required where *any* language the record offers is fully tiered. Every `test-audit` record that becomes fully tiered in TypeScript here is already fully tiered in Python, so no record's requirement bit flips: the notes need their prose extended to cover the TypeScript partition, not the field added or removed. `arch/complexity` is the precedent, and its note already reads across both languages ("answers the metric on any partition with nothing installed, in either language").
+
+That the field is per record while the rule requiring it is per language remains a real strain, and this work is the second body of evidence for it rather than the fix. It stays the follow-up PR #27 flagged. Deciding it here would put a schema change in the middle of a records sweep, and the sweep is what tells us how many records the strain actually reaches.
+
+## Decisions taken
+
+**Verification is documentation-based.** Every tool name, package scope, subcommand, config key and flag is checked against the tool's own documentation before it lands, plus the unit suite, both ruff passes and the integrity gate. No TypeScript target is executed. This matches how `arch-audit`'s and `deps-audit`'s TypeScript entries were authored, and it respects the repository's rule that a successful fetch is not verification. An end-to-end smoke run against a real TypeScript target is filed as a follow-up covering all four TypeScript-capable domains at once, since `arch`'s and `deps`' entries have never been run either.
+
+**The security lens is `semgrep` beside `eslint` and `eslint-plugin-security`.** This mirrors the Python list's shape, a dataflow scanner beside a linter, and it keeps `semgrep` - which needs nothing beyond a read-only clone - in the TypeScript list. The pair is therefore mixed rather than fully tiered, so `ungranted_note` stays rejected as vacuous on all four records, which is the correct outcome and not a gap.
+
+**`test/new-code-coverage` moves `diff-cover` from `python:` to `any:`.** The language key names the partitions a lens serves, and this record's own prose already argues that `diff-cover` needs nothing from the target: it reads a coverage report and a git diff. Its documentation states it accepts "Cobertura, Clover or JaCoCo XML format, or LCov format", and both TypeScript runners emit LCov, so the tool genuinely serves a TypeScript partition unchanged. No new tool is named; the fallback prose gains the TypeScript path to producing the report.
+
+## Frontmatter deltas
+
+### security-audit, four records, identical delta
+
+```yaml
+tooling:
+  python: [bandit, ruff, semgrep]
+  typescript: [semgrep, eslint, eslint-plugin-security]
+needs:
+  target-execution: [eslint, eslint-plugin-security]
+```
+
+These four carry no `needs:` key today, so this is the first tier any of them claims. `eslint` at `target-execution` is the tier `arch/complexity` and `arch/hidden-coupling` already assign it, so `test_a_tool_has_one_tier_across_the_family` agrees rather than reporting a disagreement. `semgrep` stays unclassified, which is the claim that it answers from a read-only clone, and it is the reason no note is required.
+
+### test-audit, six records
+
+| Record | new entry | tier | `ungranted_note` |
+| --- | --- | --- | --- |
+| `coverage-reach` | `typescript: [vitest, jest, c8]` | all three `target-execution` | extended to name the TypeScript exclusion keys |
+| `determinism` | `typescript: [vitest, jest]` | both `target-execution` | extended to name the TypeScript non-determinism greps and the statically readable sequence options |
+| `isolation` | `typescript: [vitest, jest]` | both `target-execution` | extended to name the statically readable isolation and timeout options |
+| `mutation` | `typescript: ["@stryker-mutator/core"]` | `target-execution` | stays the sentinel `none` |
+| `new-code-coverage` | `any: [diff-cover]`, replacing `python:` | unchanged, none | unchanged, none required |
+| `property-based-gap` | `typescript: [fast-check]` | unchanged, none | unchanged, none required |
+
+`mutation`'s note stays `none` for the same reason it is `none` now: Stryker's whole method is re-running the target's suite once per injected mutant, so with the grant withheld there is no residual axis, exactly as with `mutmut`.
+
+`property-based-gap` stays unclassified because `fast-check` is, in its own documentation's words, "agnostic to test runners" - a library imported inside existing tests, which is `hypothesis`'s role, and this check asks where property tests *would* strengthen the suite, a judgment made by reading source.
+
+`property-based-gap` also needs the most rewriting relative to its size: it is a single body line naming `hypothesis` and has no `## Tooling fallback` section at all, so the line becomes language-neutral and the section gets written.
+
+## Verified tool facts
+
+Everything below was checked against the named source before this spec was written. An implementer should not re-derive these, and should not add a name that has not had the same treatment.
+
+| Claim | Source |
+| --- | --- |
+| Stryker's package is `@stryker-mutator/core`, its CLI is `npx stryker run`, and it needs a runner plugin: `@stryker-mutator/vitest-runner`, `@stryker-mutator/jest-runner` or `@stryker-mutator/mocha-runner`, selected by `testRunner` and `plugins` in `stryker.config.json` | StrykerJS docs |
+| Vitest exposes `sequence.shuffle` and `sequence.seed` (also as `--sequence.shuffle` / `--sequence.seed=<n>`), `retry`, `repeats`, `coverage.include`, `coverage.exclude`, `coverage.thresholds.branches`, and an `lcov` coverage reporter | Vitest docs |
+| Vitest's `isolate` defaults to `true` and `pool` to `forks`, `--no-isolate` disables isolation, `slowTestThreshold` defaults to 300ms, `testTimeout` sets the per-test timeout | Vitest docs and `packages/vitest/src/defaults.ts` |
+| Jest exposes `collectCoverageFrom`, `coveragePathIgnorePatterns`, `coverageThreshold.global.branches`, and `coverageReporters` accepting "any istanbul reporter", with `lcov` and `clover` among the documented examples; `testTimeout` defaults to 5000ms; `jest --randomize --seed 1234` shuffles test order within a file and is supported only on the default `jest-circus` runner | Jest 30 docs |
+| `diff-cover` accepts "Cobertura, Clover or JaCoCo XML format, or LCov format", defaults to comparing against `origin/main`, takes `--compare-branch`, and accepts several report files at once, counting a line covered if any report covers it | diff-cover README |
+| Semgrep's registry carries `p/javascript` and `p/typescript` (alongside `p/nodejs`, `p/expressjs`, `p/eslint` and others), used as `semgrep scan --config p/javascript` | Semgrep docs |
+| `eslint-plugin-security` is the exact package name, configured in flat config as `pluginSecurity.configs.recommended`, providing `detect-child-process`, `detect-eval-with-expression`, `detect-non-literal-fs-filename`, `detect-non-literal-require`, `detect-non-literal-regexp`, `detect-object-injection`, `detect-unsafe-regex`, `detect-pseudoRandomBytes`, `detect-possible-timing-attacks`, `detect-disable-mustache-escape`, `detect-buffer-noassert`, `detect-new-buffer`, `detect-no-csrf-before-method-override` and `detect-bidi-characters`; its own README warns it "finds a lot of false positives which need triage by a human", and it requires no type information | eslint-plugin-security README |
+| `c8` wraps an arbitrary command (`c8 --check-coverage --lines 100 npm test`) and takes `-r`/`--reporter`, `-n`/`--include`, `-x`/`--exclude`, `--check-coverage` and `--branches` | c8 README |
+| `fast-check` is the exact package name and is "agnostic to test runners" | fast-check documentation |
+
+`c8`'s documentation does not confirm a `cobertura` reporter, so no record asserts one. The TypeScript path to a `diff-cover` input is stated as LCov, which is verified on both sides.
+
+Two facts still to read off their own sources during implementation, because this spec deliberately does not assert them: semgrep's supported installation channels beyond the Python registry, and whether the partition's own one-shot runners are named correctly for each package manager in the precedence the fallback states. Neither changes a decision above; both change a line an agent would run.
+
+## Prose conventions
+
+Where a record's fallback genuinely splits by language it takes `arch/complexity`'s convention, a `**Python** - ` paragraph beside a `**TypeScript** - ` one. Where the guidance is language-neutral the existing topic-keyed paragraph stays as it is. In practice `determinism`'s `**Flakiness:**` and `isolation`'s `**Speed/isolation:**` become per-language paragraphs, the four security records gain a `**TypeScript** - ` paragraph, and `new-code-coverage`'s single `**Diff coverage:**` paragraph stays one paragraph because the tool is one tool for both languages.
+
+Each TypeScript paragraph states which of the three kinds every entry is, because a record that does not distinguish them gets its entry attempted as a package, failing like a missing tool and reporting `no-evidence` for a check that could have been answered:
+
+- `vitest`, `jest` and Stryker are the **target's own runner**. A one-shot fetch of `vitest` cannot run a suite configured for jest, and Stryker drives whichever runner the target uses through a matching plugin. So the precedence is: read the inventory's test-runner field, use that runner, and never assume.
+- `c8` is **fetchable from the partition's own registry**, which is what makes it the runner-neutral fallback for coverage where the partition's runner has no coverage integration: the partition's own one-shot runner (`npx`, `pnpm dlx`, `yarn dlx`) obtains it.
+- `semgrep` and `diff-cover` are fetchable but **not from the JavaScript registry**, and a record that leaves this implicit invites `npx semgrep`, which fails like a missing tool and costs the check an answer it could have had. Both are Python-registry packages, so the one-shot runner is `uvx` or `pipx` whatever the partition's language is. Semgrep's other published install channels are not asserted here and must be read off its own installation documentation before a record names one. Naming the runner matters more on a TypeScript partition than on a Python one, because there the audit's own ecosystem and the target's differ, and the obvious runner is the wrong one.
+- `eslint` is the target's own runner in the ordinary case, and `eslint-plugin-security` needs no type information, so - unlike `eslint-plugin-sonarjs`, whose type-aware rules need a real TypeScript program - these rules can also run under an audit-owned flat config with `--config` and `--no-config-lookup`, with a TypeScript parser fetched alongside ESLint. What the target's own config buys is the project's own rule selection. This belongs in the fallback prose rather than in an `ungranted_note`, since the pair is mixed and the field is rejected there.
+
+The security records' TypeScript paragraphs also carry the per-record grep patterns, as the Python ones do: `child_process.exec`, `new Function(`, bare `eval(` for `dangerous-calls`; template-interpolated SQL and `path.join` on request-derived input for `injection` and `unsafe-io`; `createHash('md5')`, `Math.random()` used for anything token-shaped, and `rejectUnauthorized: false` for `crypto`. Each record keeps the instruction to read every hit rather than trusting the scanner, which matters more here than in Python given the plugin's own false-positive warning.
+
+## Skill descriptions
+
+Both domain `description:` fields currently state the gap this work closes: `test-audit` says its entries "are currently Python-first, so a partition in another language reports `not-applicable` where no lens exists rather than a clean result", and `security-audit` says the same of everything but its secret scanners. Both sentences become false when the records land, and the description is what a model reads to decide whether to invoke the skill, so both are corrected in the same change. A `grep` for `Python-first` finds these two occurrences and no others.
+
+Each skill's `**Detect**` paragraph gains the TypeScript names beside the Python ones it already gives as examples, because that paragraph is where an executing agent learns what to look for in the project inventory.
+
+## Consequences for the gates
+
+`tests/scripts/test_audit_checks.py::test_the_classification_is_not_vacuous` holds a floor on the number of records that classify any tool. That count is 18 today and becomes 22, because the four security records gain a `needs:` key and no test record gains or loses one. The floor moves to 22 in the same commit as the records, which is what the test's own docstring requires of work that adds a tier.
+
+`test_a_tool_has_one_tier_across_the_family` must keep passing without being weakened: `eslint` matches the `arch` records at `target-execution`, `semgrep` stays unclassified in every record that names it, and `eslint-plugin-security`, `vitest`, `jest`, `c8` and `@stryker-mutator/core` are new names classified once each and consistently.
+
+The `ungranted_note` floor test is unaffected: no note is added or removed, three are extended in place, and `mutation`'s stays the sentinel.
+
+Nothing here changes any record's `handbook:` list, so the traceability matrix needs no edit and the integrity gate should pass untouched. Nothing here edits `audit-core/SKILL.md` or `audit/SKILL.md`, so `docs/audit/sweep-obligations.md` needs no row and no disposition revisited.
+
+## Out of scope
+
+The `ungranted_note` per-record-versus-per-language schema question. An end-to-end run against a real TypeScript target, which becomes its own issue. Any language beyond TypeScript. The four domains whose tooling is already language-agnostic (`ci`, `docs`, `eval`, `prompt`), which are correct as they are. `test/assertion-strength` and `security/sensitive-data`, read and confirmed language-neutral.
+
+## Acceptance
+
+Ten records carry a TypeScript lens, no record's `ungranted_note` requirement flips, the classification floor moves with the count it measures, both domain descriptions stop asserting a Python-first limitation, and every tool name in the diff traces to the entry in the verified-facts table above. `uv run pytest tests/ -q`, `uv run ruff check .`, `uv run ruff format --check .` and `uv run python scripts/render_handbook_traceability.py --check` all pass. Issue #5's second acceptance criterion is ticked, and its first, third and fourth stay ticked.
