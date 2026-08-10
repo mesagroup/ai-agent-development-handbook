@@ -290,7 +290,7 @@
   gap:
     recommendation: extend-skill
     target: "#5"
-    note: ci-audit, prompt-audit and eval-audit are already language-neutral, so a TypeScript project still gets its pipeline, prompt and behavioural audits; what it loses is tooling - arch, deps, docs, security and test all declare Python, leaving the lint, format, type-check, docstring, dependency, structure and test checks with no TS equivalent.
+    note: ci-audit, prompt-audit and eval-audit are already language-neutral, so a TypeScript project still gets its pipeline, prompt and behavioural audits, and arch, deps, security and test now declare TypeScript tooling beside their Python tooling. What is left is two records that still declare `python:` alone - `arch/martin-metrics` (package stability metrics from a `grimp` graph) and `docs/docstring-coverage` (docstring presence from ruff's `D` rules, pydocstyle or interrogate) - and both set `optin` to true, so a default sweep of a TypeScript partition no longer meets a check with no lens. `tests/scripts/test_audit_checks.py::test_every_tooling_record_offers_a_typescript_lens` asserts that pair by equality, so this note goes stale loudly rather than quietly.
 
 - id: implementation-disciplines/ci-and-static-analysis-d
   section: "CI and static analysis"
