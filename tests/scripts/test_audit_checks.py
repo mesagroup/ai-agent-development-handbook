@@ -770,7 +770,9 @@ def test_every_tooling_record_offers_a_typescript_lens():
     in the set, and a record whose lens was added fails until it is removed
     from the set, so the set cannot quietly outlive the debt it names. A
     record with no `tooling:` key at all is not in scope - it prescribes a
-    reading pass, which needs no language. If this fails, add the lens or
+    reading pass, which needs no language. What this checks is that a
+    `typescript:` or `any:` key is present, not what is under it, so
+    `typescript: []` would satisfy it. If this fails, add the lens or
     add the record to the set with a reason; do not delete the assertion.
     """
     checks, errors = ac.load_checks(ac.SKILLS_DIR)
