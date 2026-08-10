@@ -15,8 +15,12 @@ ungranted_note: >-
   `[tool.coverage.report]`'s `exclude_lines`, in `pyproject.toml` (`[run]` and
   `[report]` respectively in `.coveragerc`), name the code no coverage number will
   ever account for. In TypeScript the same reading is `coverage.include` and
-  `coverage.exclude` in `vitest.config.*`, or `collectCoverageFrom` and
-  `coveragePathIgnorePatterns` in `jest.config.*` or `package.json`'s `jest` key; a
+  `coverage.exclude` in `vitest.config.*` or in the `test` block of `vite.config.*` -
+  Vitest looks for `vitest.config.*` first and `vite.config.*` second, so a project
+  with no `vitest.config.*` keeps these keys in its Vite config and a grep naming only
+  the former reads a project that excluded half its tree as one that configured
+  nothing - or `collectCoverageFrom` and `coveragePathIgnorePatterns` in
+  `jest.config.*` or `package.json`'s `jest` key; a
   branch threshold the project set for itself is readable in the same place
   (`coverage.thresholds.branches`, `coverageThreshold.global.branches`) and says what
   it asked of itself. That is part of what this check asks. The reach measurement
@@ -42,7 +46,7 @@ Line and (crucially) **branch** coverage per module; uncovered load-bearing logi
 
 **Python** - `pytest --cov=<pkg> --cov-branch --cov-report=term-missing` (or `coverage run -m pytest` + `coverage report --show-missing`). Branch coverage is the signal; capture the missing line/branch ranges per module as the evidence pointer.
 
-**TypeScript** - use the runner the project inventory says the partition has, because neither runner can run the other's suite: `vitest run --coverage`, whose coverage needs the coverage provider the partition has configured to be installed, or `jest --coverage`. Both report branch coverage. Where the partition's runner has no coverage integration, `c8` wraps an arbitrary command - `c8 --check-coverage --branches <n> <the partition's test command>` - and is fetchable from the partition's own registry, so its own one-shot runner obtains it. Capture the missing line/branch ranges per module, as in Python.
+**TypeScript** - use the runner the project inventory says the partition has, because neither runner can run the other's suite: `vitest run --coverage`, whose coverage needs the coverage provider the partition has configured to be installed, or `jest --coverage`. Both report branch coverage. Where the partition's runner has no coverage integration, `c8` wraps an arbitrary command - `c8 <the partition's test command>` - and is fetchable from the partition's own registry, so its own one-shot runner obtains it. That plain form is the measurement: `c8`'s reporter defaults to `text`, which is Istanbul's per-file table of `% Stmts`, `% Branch`, `% Funcs`, `% Lines` and `Uncovered Line #s`, exactly the evidence this check wants. Add `--check-coverage --branches <n>` only where the project already states a branch floor of its own and you are checking the suite against it: it is a gate rather than a measurement, exiting nonzero when coverage falls short, so reaching for it here would make you invent an `<n>` the project never asked for and would turn a measurement that worked into something that looks like `tool-failed`. Capture the missing line/branch ranges per module, as in Python.
 
 **Both** - every command above runs the target's own suite to produce that report, which is the `target-execution` grant; without it the reach measurement itself is `no-evidence (not-permitted)`, and what remains is the exclusion-config reading described in this record's `ungranted_note`.
 
