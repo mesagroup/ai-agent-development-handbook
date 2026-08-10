@@ -55,7 +55,7 @@ These four carry no `needs:` key today, so this is the first tier any of them cl
 
 `mutation`'s note stays `none` for the same reason it is `none` now: Stryker's whole method is re-running the target's suite once per injected mutant, so with the grant withheld there is no residual axis, exactly as with `mutmut`.
 
-`property-based-gap` stays unclassified because `fast-check` is, in its own documentation's words, "agnostic to test runners" - a library imported inside existing tests, which is `hypothesis`'s role, and this check asks where property tests *would* strengthen the suite, a judgment made by reading source.
+`property-based-gap` stays unclassified because `fast-check` is a library imported inside existing tests rather than a runner of its own - its README documents integration with ava, jasmine, jest, mocha and tape - which is `hypothesis`'s role, and this check asks where property tests *would* strengthen the suite, a judgment made by reading source.
 
 `property-based-gap` also needs the most rewriting relative to its size: it is a single body line naming `hypothesis` and has no `## Tooling fallback` section at all, so the line becomes language-neutral and the section gets written.
 
