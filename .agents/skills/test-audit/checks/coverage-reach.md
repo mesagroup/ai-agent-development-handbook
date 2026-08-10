@@ -6,17 +6,24 @@ handbook:
   - implementation-disciplines/tdd-b
 tooling:
   python: [pytest-cov, coverage.py]
+  typescript: [vitest, jest, c8]
 needs:
-  target-execution: [pytest-cov, coverage.py]
+  target-execution: [pytest-cov, coverage.py, vitest, jest, c8]
 ungranted_note: >-
-  What is excluded from measurement is readable with nothing installed:
-  `[tool.coverage.run]`'s `source` and `omit`, and `[tool.coverage.report]`'s
-  `exclude_lines`, in `pyproject.toml` (`[run]` and `[report]` respectively in
-  `.coveragerc`), name the code no coverage number will ever account for, which is
-  part of what this check asks. The reach measurement itself runs the suite and does
-  not survive a withheld grant. Whether a coverage threshold is *enforced* is a
-  different check's question - `ci/gate-enforcement` owns whether an intended gate is
-  actually required - so do not answer it here.
+  What is excluded from measurement is readable with nothing installed, in either
+  language. In Python, `[tool.coverage.run]`'s `source` and `omit`, and
+  `[tool.coverage.report]`'s `exclude_lines`, in `pyproject.toml` (`[run]` and
+  `[report]` respectively in `.coveragerc`), name the code no coverage number will
+  ever account for. In TypeScript the same reading is `coverage.include` and
+  `coverage.exclude` in `vitest.config.*`, or `collectCoverageFrom` and
+  `coveragePathIgnorePatterns` in `jest.config.*` or `package.json`'s `jest` key; a
+  branch threshold the project set for itself is readable in the same place
+  (`coverage.thresholds.branches`, `coverageThreshold.global.branches`) and says what
+  it asked of itself. That is part of what this check asks. The reach measurement
+  itself runs the suite and does not survive a withheld grant, in either language.
+  Whether a coverage threshold is *enforced* is a different check's question -
+  `ci/gate-enforcement` owns whether an intended gate is actually required - so do not
+  answer it here.
 ---
 
 # Coverage reach
@@ -33,7 +40,11 @@ Line and (crucially) **branch** coverage per module; uncovered load-bearing logi
 
 ## Tooling fallback
 
-**Coverage (with branches):** `pytest --cov=<pkg> --cov-branch --cov-report=term-missing` (or `coverage run -m pytest` + `coverage report --show-missing`). Branch coverage is the signal; capture the missing line/branch ranges per module as the evidence pointer. Both commands run the target's own suite to produce that report, which is the `target-execution` grant; without it, the reach measurement itself is `no-evidence (not-permitted)`.
+**Python** - `pytest --cov=<pkg> --cov-branch --cov-report=term-missing` (or `coverage run -m pytest` + `coverage report --show-missing`). Branch coverage is the signal; capture the missing line/branch ranges per module as the evidence pointer.
+
+**TypeScript** - use the runner the project inventory says the partition has, because neither runner can run the other's suite: `vitest run --coverage`, whose coverage needs the coverage provider the partition has configured to be installed, or `jest --coverage`. Both report branch coverage. Where the partition's runner has no coverage integration, `c8` wraps an arbitrary command - `c8 --check-coverage --branches <n> <the partition's test command>` - and is fetchable from the partition's own registry, so its own one-shot runner obtains it. Capture the missing line/branch ranges per module, as in Python.
+
+**Both** - every command above runs the target's own suite to produce that report, which is the `target-execution` grant; without it the reach measurement itself is `no-evidence (not-permitted)`, and what remains is the exclusion-config reading described in this record's `ungranted_note`.
 
 ## Fix
 
