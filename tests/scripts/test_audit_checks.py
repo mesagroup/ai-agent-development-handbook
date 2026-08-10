@@ -755,9 +755,6 @@ _NO_TYPESCRIPT_LENS = {
     # security-audit. Both are python-only and both are real gaps.
     "arch/martin-metrics",
     "docs/docstring-coverage",
-    "test/mutation",
-    "test/new-code-coverage",
-    "test/property-based-gap",
 }
 
 
