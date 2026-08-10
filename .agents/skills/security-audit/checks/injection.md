@@ -6,6 +6,9 @@ handbook:
   - security-supply-chain/first-party-code-trace-a-path-from-source-to-sink
 tooling:
   python: [bandit, ruff, semgrep]
+  typescript: [semgrep, eslint, eslint-plugin-security]
+needs:
+  target-execution: [eslint, eslint-plugin-security]
 ---
 
 # Injection
@@ -23,6 +26,10 @@ Command, SQL (string-built queries), path traversal (`../` into file ops), templ
 ## Tooling fallback
 
 **Python** - `bandit -r <pkg>` (captures test id like `B602`, severity, confidence, `file:line`), or `ruff check --select S` if the project standardizes on ruff, or `semgrep --config p/python` for dataflow-aware rules. Record test id + `file:line` per hit.
+
+**TypeScript** - `semgrep scan --config p/javascript` (add `--config p/typescript` for the TypeScript-specific rules; both are Semgrep Registry rulesets), or ESLint with `eslint-plugin-security`, whose `recommended` flat config turns on the `detect-*` rules. Record rule id + `file:line` per hit. Semgrep is not an npm package, so fetch it with `uvx` or `pipx`; the partition's own one-shot runner will not find it, and an attempt that fails that way is indistinguishable from a missing tool. ESLint is normally the target's own dependency and runs under the target's flat config; because `eslint-plugin-security`'s rules need no type information, it can also run under an audit-owned flat config with `--config` and `--no-config-lookup` and a parser fetched alongside ESLint, which is what makes it answerable without the target's `node_modules`. What the target's own config buys is the project's own rule selection. Triage every hit by reading it: the plugin's own documentation warns it "finds a lot of false positives which need triage by a human", so an untriaged hit list is not a finding list.
+
+**TypeScript rules and greps for this check** - `detect-object-injection`, `detect-disable-mustache-escape`, `detect-non-literal-regexp` and `detect-unsafe-regex`. Grep for template-interpolated SQL, `innerHTML =` and `dangerouslySetInnerHTML`, and read each hit. `detect-object-injection` in particular fires on ordinary dynamic property access, so it is the rule most likely to produce volume without findings.
 
 **Dataflow verification (the load-bearing step):** for each scanner hit, trace source → sink in the real code to confirm an attacker-reachable path and rule out false positives (a `subprocess` call on a hardcoded constant is not command injection). This is what separates a real finding from a scanner artifact.
 

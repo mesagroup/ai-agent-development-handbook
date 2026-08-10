@@ -741,11 +741,51 @@ def test_the_classification_is_not_vacuous():
     checks, errors = ac.load_checks(ac.SKILLS_DIR)
     assert errors == []
     classified = sorted(c.id for c in checks.values() if c.needs)
-    assert len(classified) >= 18, (
+    assert len(classified) >= 22, (
         f"only {len(classified)} record(s) classify any tool: {classified}"
     )
     assert {t for c in checks.values() for t in c.needs} == set(ac.NEEDS_TIERS), (
         "both tiers should be in use across the family"
+    )
+
+
+_NO_TYPESCRIPT_LENS = {
+    # arch/martin-metrics and docs/docstring-coverage are the debt this sweep
+    # did not clear: #5 scoped its remaining half to test-audit and
+    # security-audit. Both are python-only and both are real gaps.
+    "arch/martin-metrics",
+    "docs/docstring-coverage",
+    "test/coverage-reach",
+    "test/determinism",
+    "test/isolation",
+    "test/mutation",
+    "test/new-code-coverage",
+    "test/property-based-gap",
+}
+
+
+def test_every_tooling_record_offers_a_typescript_lens():
+    """`audit-core` reports `not-applicable` where a check "has no lens in
+    this partition's languages", so a record offering only `python:` tools
+    is how a TypeScript partition earns a clean bill of health for code
+    nobody looked at. Assert the exception set rather than a count, and
+    assert it by equality: a new python-only record fails because it is not
+    in the set, and a record whose lens was added fails until it is removed
+    from the set, so the set cannot quietly outlive the debt it names. A
+    record with no `tooling:` key at all is not in scope - it prescribes a
+    reading pass, which needs no language. If this fails, add the lens or
+    add the record to the set with a reason; do not delete the assertion.
+    """
+    checks, errors = ac.load_checks(ac.SKILLS_DIR)
+    assert errors == []
+    gaps = {
+        check_id
+        for check_id, check in checks.items()
+        if check.tooling and not ({"typescript", "any"} & set(check.tooling))
+    }
+    assert gaps == _NO_TYPESCRIPT_LENS, (
+        f"missing a TypeScript lens: {sorted(gaps - _NO_TYPESCRIPT_LENS)}; "
+        f"lens added but still listed: {sorted(_NO_TYPESCRIPT_LENS - gaps)}"
     )
 
 
