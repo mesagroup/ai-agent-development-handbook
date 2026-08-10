@@ -15,7 +15,10 @@ ungranted_note: >-
   seed and live network calls in Python; `Date.now()`, a `new Date()` with no fixed
   argument, `Math.random()` with no seeded generator, and live `fetch` or HTTP-client
   calls in TypeScript. What the project already asked for is readable too: a `retry` or
-  `repeats` setting, or a `sequence.shuffle` already enabled in `vitest.config.*`, says
+  `repeats` setting, or a `sequence.shuffle` already enabled in `vitest.config.*` or in
+  the `test` block of `vite.config.*` - Vitest looks for `vitest.config.*` first and
+  `vite.config.*` second, so a project with no `vitest.config.*` keeps these settings in
+  its Vite config and a grep naming only the former reports nothing configured - says
   the project knows its own suite is order- or timing-sensitive. The randomized-order
   and repeat-run passes run the target's own suite and do not survive a withheld grant,
   so order-dependence specifically goes unmeasured in either language. Ruff is not a
@@ -38,7 +41,7 @@ Tests that depend on ordering, wall-clock time, randomness, network, or shared m
 
 **Python** - run the suite in randomized order (`pytest-randomly` randomizes automatically once installed; use `--randomly-seed=<n>` to reproduce a failing order) and, for suspected flakies, repeat runs; flag order-dependence and non-determinism.
 
-**TypeScript** - use the partition's own runner. `vitest --sequence.shuffle --sequence.seed=<n>` randomizes order reproducibly, and `retry` or `repeats` re-runs tests to expose flakiness. `jest --randomize --seed <n>` shuffles order within a file, and is supported only on the default `jest-circus` runner, so a project on a custom runner has no randomize flag at all and the grep below carries this check on its own.
+**TypeScript** - use the partition's own runner. `vitest run --sequence.shuffle --sequence.seed=<n>` randomizes order reproducibly - `run`, not bare `vitest`, which enters watch mode on an interactive terminal and only falls back to a single run in CI or a non-interactive one - and `retry` or `repeats` re-runs tests to expose flakiness. `jest --randomize --seed <n>` shuffles order within a file, and is supported only on the default `jest-circus` runner, so a project on a custom runner has no randomize flag at all and the grep below carries this check on its own.
 
 **Both** - grep the tests for the non-deterministic constructs named in this record's `ungranted_note` and read each hit; a seeded generator is not a flake, and neither is a timestamp the test pins.
 
