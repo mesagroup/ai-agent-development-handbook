@@ -38,6 +38,21 @@ This repository uses the `github-issues-workflow` skill. An issue per unit of wo
 
 The `status:*` labels exist in the repository and are not decorative: move the issue as the work moves, removing the previous status before adding the next.
 
+## A push is not finished until the bots have reviewed it
+
+Cursor Bugbot and the Cursor Security Agent re-run on every push to an open PR and take several minutes to report. **Never hand the conversation back between pushing and reading what that run produced** - the reviewer then inherits an unreviewed head and has to notice the findings themselves. Waiting is not idle time: poll the checks while doing other work.
+
+The loop, from a fix to a quiet head:
+
+1. Fix, commit, push. Push once a coherent set of work is complete, not once per commit - every push costs a full bot cycle.
+2. Poll the PR's checks until the bot runs settle. `gh pr view <n> --json statusCheckRollup` gives each check's status and conclusion.
+3. **Enumerate the review comments on the pushed sha; do not read the conclusion as the verdict.** A run that posted a finding has reported `NEUTRAL`, so the rollup is not a reliable clean signal, and the comments are the finding: `gh api repos/{owner}/{repo}/pulls/<n>/comments --jq '.[] | select(.commit_id|startswith("<sha>")) | select(.user.login|test("bot";"i"))'`.
+4. Verify each finding's mechanism against the primary source before accepting it, and **verify its severity framing separately** - both have been wrong in the same comment, and a real mechanism under an inflated label produces a fix that misstates why it mattered.
+5. Reply on the bot's own comment thread, which a new top-level comment does not do: `gh api -X POST repos/{owner}/{repo}/pulls/<n>/comments/<comment-id>/replies -f body=...`. Name the sha that fixed it, or the reasoning where you did not.
+6. Commit, push, and return to step 2.
+
+Stop when a push produces no new findings. A round that finds something the previous round's fix introduced is ordinary rather than a sign the loop is broken, and it is the reason the terminating condition is a quiet push instead of a fixed number of rounds. Hand back early only where a finding needs a decision that is not yours - a fix you disagree with, or a loop that is not converging - and say where it stopped.
+
 ## Issue references and provenance
 
 The handbook, the skill family and this tooling were extracted from `lidia-tech/lidia-agents` with `git filter-repo`; that repository keeps the build record and the PRs. Write an issue that lives there as `lidia-tech/lidia-agents#NNN` and one that lives here as `#NNN`. Commit messages already follow this, so a bare number in history is a number in this repository.
