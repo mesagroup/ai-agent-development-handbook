@@ -130,6 +130,9 @@ Traceable to the observed output above; see the commits on [issue #29](https://g
 | `test/coverage-reach` | `c8` must not wrap Vitest; the provider goes into the audit copy, with `reportOnFailure` |
 | `test/mutation` | the one-shot form does not reliably supply `typescript`; install into the audit copy |
 | the four `security` code checks | what the Semgrep registry rulesets do and do not cover |
+| `deps/licenses`, `deps/transitive-licenses` (frontmatter) | `npm sbom` added to `tooling:`, since a run picks tools from there and prose alone leaves the prescribed command unpickable |
+| `test-audit/SKILL.md` | the domain header no longer offers `c8` for a Vitest partition without the condition that decides it |
+| `audit/SKILL.md`, and the [sweep obligations ledger](sweep-obligations.md) row describing it | the three-kinds taxonomy treated every registry package as one-shot-fetchable, which is the gap that let five records prescribe an import a runner cannot supply |
 
 ## Still open
 
