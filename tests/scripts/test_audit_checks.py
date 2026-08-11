@@ -604,6 +604,7 @@ def test_the_real_checks_tree_loads_clean():
         "eval/regression-tracking",
         "eval/reproducibility",
         "eval/smoke-test-gate",
+        "eval/verdict-scale",
         "prompt/cognitive-load",
         "prompt/cross-prompt-consistency",
         "prompt/examples-delimiters",
