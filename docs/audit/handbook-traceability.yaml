@@ -837,7 +837,7 @@
 - id: evaluation/ask-for-a-described-category-not-a-bare-number
   section: "Ask for a described category, not a bare number"
   claim: Where the model itself returns a judgment, ask for a point on a small closed scale whose every point carries a described trigger and keep free numbers for quantities the model did not self-report, because verbalized confidence clusters on a few round anchors, a bare number invites a threshold nobody argued for, and only a described anchor gives two raters the same referent.
-  class: artifact
+  class: static
   severity: important
   checks:
     - eval/verdict-scale
