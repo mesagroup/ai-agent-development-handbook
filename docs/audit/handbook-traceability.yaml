@@ -310,7 +310,7 @@
 
 - id: implementation-disciplines/the-code-review-protocol-b
   section: "The code-review protocol"
-  claim: Run the whole-branch review as a deliberately adversarial multi-perspective pass over the checklist's angles, score every finding against a fixed rubric and one agreed confidence threshold, post and fix at-or-above-threshold findings before merge, report all findings with their disposition, and hold scope discipline rather than dismissing a finding as pre-existing or forking new code away from its siblings.
+  claim: Run the whole-branch review as a deliberately adversarial multi-perspective pass over the checklist's angles, score every finding against a fixed rubric whose points are named and described, set one agreed confidence threshold at one of those points rather than between two of them, post and fix at-or-above-threshold findings before merge, report all findings with their disposition, and hold scope discipline rather than dismissing a finding as pre-existing or forking new code away from its siblings.
   class: artifact
   severity: important
   gap:
