@@ -8,7 +8,9 @@ The subject here is the **skill family**, not the audited codebase: a point-in-t
 
 The target is a real internal Next.js application: 381 TypeScript files, 57,551 lines of code, `npm` with `package-lock.json`, Vitest as the runner, no `.dependency-cruiser` config, a `tsconfig` that declares `paths` and `extends` nothing, and a second partition in C#. It is named, with its package manager, in [issue #29](https://github.com/mesagroup/ai-agent-development-handbook/issues/29); this file does not name it, because a repository name is an environment-specific identifier.
 
-Both grant states were run, against two `git clone`s of the target in a scratch directory, never the target itself:
+**A second target followed, to close the pnpm half.** It is a **pnpm 9.15.9 workspace** pinned by `packageManager`: 9 manifests under `apps/*` and `packages/*`, 653 `.ts` and 218 `.tsx` tracked, **254 declared dependencies of which 10 sit at the root**, a `pnpm-lock.yaml`, and a solution-style `tsconfig.json` in its frontend app. pnpm came from `corepack`, which honours the target's own pin. It is named in the same issue and not here, for the same reason. Everything below applies to the npm target unless it says pnpm.
+
+Both grant states were run against each target, as two `git clone`s in a scratch directory, never the target itself:
 
 - **no grant** - a read-only clone with no `node_modules`, which is what every `ungranted_note` makes a claim about.
 - **`target-execution`** (which implies `resolved-tree`) - the same clone with `npm ci --ignore-scripts`, which resolved 810 packages cleanly, so no escalation to install hooks was needed.
@@ -34,7 +36,11 @@ Both grant states were run, against two `git clone`s of the target in a scratch 
 | `tokei` (`arch/size`) | `no-evidence (tool-unavailable)` - standalone binary, absent, and `npx tokei` resolves a package with no bin | same |
 | `npm-check-updates` (`deps/freshness`) | **ok**, 33 upgradable | ok |
 | `npm outdated` (`deps/freshness`) | unusable as documented: no `current`, devDependencies dropped | **ok** |
-| `pnpm outdated`, `pnpm licenses list`, `yarn licenses list`, `yarn npm audit` | **not executed** - no pnpm or yarn target (open criterion) | same |
+| `pnpm audit` (`deps/vulnerabilities`) | **ok** on pnpm 9.15.9 from the lockfile - 106 advisories, against a record that said it fails below pnpm 11 | ok |
+| `pnpm outdated` (`deps/freshness`) | unusable as documented, and **root-only on a workspace**: 10 entries against `-r`'s 136 | **ok**, 7 of 7 carrying `current` |
+| `pnpm licenses list` (`deps/licenses`) | exit 1 without the tree, as documented | **ok**, 25 licences over 1325 packages, recursive by default |
+| `pnpm dlx` co-package form (four `arch` records, `test/mutation`) | **fails**: the flags belong before `dlx`, and on pnpm 11 the co-package never arrives either way | same |
+| `yarn licenses list`, `yarn npm audit`, `yarn dlx` | **not executed** - no yarn target (the criterion's remaining half) | same |
 | `depcheck` (`deps/hygiene`) | partial as documented, four false unused | **ok** |
 | `npm audit` (`deps/vulnerabilities`) | **ok** from the lockfile alone, 24 advisories | ok |
 | `osv-scanner` (`deps/vulnerabilities`) | `no-evidence (tool-unavailable)` - not fetchable by any one-shot runner | same |
@@ -105,7 +111,37 @@ The record did not strictly prescribe `c8` for this partition - its `c8` clause 
 
 `package-lock.json` carries a `license` per package. `npm sbom --package-lock-only --sbom-format cyclonedx` therefore returns a CycloneDX document with licence fields populated for **944 of 945** components, with no tree and no network, including every copyleft entry a reviewer would want to see. `deps/licenses` is right that npm has no `licenses` subcommand, and sends an npm partition to `cdxgen` over the network on the strength of it, while its `ungranted_note` describes only the PyPI path. `cdxgen` with `FETCH_LICENSE=true` does work, takes about nine minutes here, and buys exactly one thing: the single component the lockfile leaves unresolved.
 
-### 6. Smaller observations
+### 6. What only a pnpm target could show
+
+Four claims were wrong, and none of them could have failed on the npm target.
+
+**`deps/vulnerabilities` wrote off a check that answers in full.** The record gated `pnpm audit` on pnpm 11 and sent anything earlier to `osv-scanner` or to `no-evidence`. On **pnpm 9.15.9**, with no `node_modules`, `pnpm audit` returned **106 advisories - 3 critical, 47 high, 59 moderate, 9 low** - from `pnpm-lock.yaml`, covering 5 workspace packages by their advisory paths. Predicting a tool's failure from its version is how a check the clone could answer gets reported as unanswerable. The two sibling claims in the same paragraph held exactly: `npm audit` on a pnpm partition is `ENOLOCK`, and `npm sbom --package-lock-only` is `EUSAGE`, so the npm-only licence route added earlier is correctly scoped.
+
+**`pnpm dlx --package=` is not a thing.** Five records prescribed it. pnpm reads the flag as a package spec (`ERR_PNPM_SPEC_NOT_SUPPORTED_BY_ANY_RESOLVER`), and `--package X` fetches a package literally named `--package`. The flags belong **before** `dlx`: `pnpm --package=typescript@5 --package=dependency-cruiser dlx depcruise` enables `typescript@5.9.3` and cruised 220 modules of one app with 16 in cycles, on a read-only clone. On **pnpm 11** neither ordering delivers the co-package and nothing says so - loud failure on 9, silent on 11.
+
+**`pnpm outdated` audits the root and says nothing about the rest.**
+
+| invocation | entries |
+|---|---|
+| `pnpm outdated` | **10** (the root manifest) |
+| `pnpm outdated -r` | **136** |
+| declared across the 9 manifests | **254** |
+
+`pnpm audit` and `pnpm licenses list` are recursive by default on the same tree, so this is per-command rather than per-manager, and the domain header's "global is not a licence to audit one graph" needed the per-command check spelled out rather than the obligation restated.
+
+**A solution-style `tsconfig` makes `--ts-config` a no-op.** The frontend app's `tsconfig.json` is `{"files": [], "references": [...]}` with the compiler options in `tsconfig.app.json` - the Vite default. madge does not follow `references`:
+
+| madge on that app | result |
+|---|---|
+| `--ts-config .../tsconfig.json` | 45 warnings, **6 cycles** |
+| no `--ts-config` at all | 45 warnings, **6 cycles** |
+| `--ts-config .../tsconfig.app.json` | 31 warnings, **7 cycles** |
+
+Passing the obvious file is byte-for-byte passing nothing. This is a third route to the same false clean, alongside the missing flag and the `extends`-into-`node_modules` case neither target has exercised.
+
+Confirmed rather than corrected, on the pnpm side: `pnpm licenses list` needs the tree (exit 1 without it) and with it reported 25 distinct licences over 1325 packages, including `Unknown` and `SEE LICENSE IN LICENSE.md`, which is why the record says to flag `UNKNOWN`; `pnpm outdated` without an install reports entries whose `current` is undefined, and with one reports 7 of 7 carrying it; `npm-check-updates --packageManager pnpm` answers on the read-only clone.
+
+### 7. Smaller observations
 
 - **An ESLint exit code is not a verdict under an audit-owned config.** The target's own `eslint-disable` comments name rules the audit config does not load, and ESLint reports each as an **error-severity** `Definition for rule 'X' was not found`. Nineteen of them here, while every real hit was a warning: exit 1, no findings. Read the message list, not the status.
 - **The Semgrep registry rulesets are narrow.** `p/javascript` plus `p/typescript` ran **74 rules and returned 0 findings** on a tree where `eslint-plugin-security` produced 557 hits, six of them `detect-non-literal-fs-filename`. On this target Semgrep alone would have reported all four security checks clean. Semgrep also notes that the scan was **limited to files tracked by git**, so an untracked file is skipped silently.
@@ -134,10 +170,12 @@ Traceable to the observed output above; see the commits on [issue #29](https://g
 | `test-audit/SKILL.md` | the domain header no longer offers `c8` for a Vitest partition without the condition that decides it |
 | `audit/SKILL.md`, and the [sweep obligations ledger](sweep-obligations.md) row describing it | the three-kinds taxonomy treated every registry package as one-shot-fetchable, which is the gap that let five records prescribe an import a runner cannot supply |
 | `security/secrets-in-code`, `security/secret-history` | which of the three secret scanners a runner can fetch, and that `uvx trufflehog` runs a superseded namesake rather than failing; `secret-history` had no `## Tooling fallback` at all |
+| `deps/vulnerabilities`, `deps/freshness`, `deps-audit/SKILL.md`, and the four `arch` records again | the pnpm round: the `pnpm audit` version gate, the `pnpm dlx --package=` form, `pnpm outdated`'s non-recursion on a workspace, and the solution-style `tsconfig` |
 | the four `security` code checks again, and `audit/SKILL.md`'s untiered-tool preference | found in review of the corrections above, not by the run: the prose said the audit-owned ESLint path answers ungranted while `needs:` tiers those tools, and the sweep's preference for an untiered sibling then licensed a grant-withheld run to stop at Semgrep and report the zero findings this run recorded. A tier describes an invocation, not a tool |
 
 ## Still open
 
-- **No pnpm or yarn target was run.** Every `pnpm`/`yarn` entry in `deps` remains docs-verified only, and those are the entries most likely to be wrong, since they differ from npm's. The acceptance criterion asking for one stays unticked.
+- **No yarn target was run.** The `yarn licenses list`, `yarn npm audit` and `yarn dlx` entries remain docs-verified only. Given that every pnpm-specific claim tested turned out to need correction, and that the `yarn dlx -p` form is the one nothing has exercised, treat those entries as the least trustworthy in the family.
+- **`@cyclonedx/cdxgen` against `pnpm-lock.yaml` did not finish.** It ran past 40 minutes on the 1325-package workspace and wrote no SBOM before this record was written, where it took about nine minutes on the npm target's 945. Unresolved rather than disproved: the record's claim that it reads `pnpm-lock.yaml` is untested at this size.
 - **`gitleaks`, `trufflehog` and `osv-scanner` were absent.** `npx osv-scanner` 404s and `npx gitleaks` reports `could not determine executable to run`, both of which read as a missing tool. **`uvx trufflehog` does not fail at all**: PyPI carries `trufflehog` 2.2.1, the original `dxa4481/truffleHog` Python v2 line superseded by the Go TruffleHog v3, and it runs with a different CLI and weaker detectors - the same substitution hazard as `diff-cover`'s npm namesake, in a domain where the substituted tool answers a Critical check. Neither secret record said which of its tools were binaries; both now do. An audit environment expected to cover Yarn Classic or pnpm 10 partitions needs `osv-scanner` installed in advance.
 - **One partition was C#.** No `*-audit` domain offers a lens for it, so it reports `not-applicable` rather than clean, which is the intended behaviour and was not otherwise tested here.
