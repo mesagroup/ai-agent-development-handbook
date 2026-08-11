@@ -14,10 +14,15 @@ ungranted_note: >-
   the `With none of them installed` paragraph below describes answers the metric on any
   partition with nothing installed, in either language. ESLint answers it too under a
   config the audit supplies rather than the target's: pointed at an audit-owned flat
-  config with `--config` and `--no-config-lookup`, with a TypeScript parser fetched
-  alongside ESLint rather than taken from the target, the core `complexity` and
+  config with `--config` and `--no-config-lookup`, the core `complexity` and
   `max-depth` rules read the target's source without loading the target's own flat
-  config, so no `node_modules` is needed. What the grant buys is the thresholds the
+  config, so no `node_modules` is needed - 286 functions over a threshold of 10 on the
+  target this was first run against. Install ESLint and the TypeScript parser into an
+  audit-owned directory and keep that config in it; a parser handed to a one-shot runner
+  instead is not resolvable from a config living outside the runner's sandbox, which
+  aborts the run with `ERR_MODULE_NOT_FOUND` before any rule reads anything. What the
+  install needs is network rather than the target's tree, so this answer survives a
+  withheld grant. What the grant buys is the thresholds the
   project set for itself, and `eslint-plugin-sonarjs`'s type-aware cognitive-complexity
   rules, which need a real TypeScript program over the installed tree.
 ---
