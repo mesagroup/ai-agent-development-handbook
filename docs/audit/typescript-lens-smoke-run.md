@@ -133,6 +133,8 @@ Traceable to the observed output above; see the commits on [issue #29](https://g
 | `deps/licenses`, `deps/transitive-licenses` (frontmatter) | `npm sbom` added to `tooling:`, since a run picks tools from there and prose alone leaves the prescribed command unpickable |
 | `test-audit/SKILL.md` | the domain header no longer offers `c8` for a Vitest partition without the condition that decides it |
 | `audit/SKILL.md`, and the [sweep obligations ledger](sweep-obligations.md) row describing it | the three-kinds taxonomy treated every registry package as one-shot-fetchable, which is the gap that let five records prescribe an import a runner cannot supply |
+| `security/secrets-in-code`, `security/secret-history` | which of the three secret scanners a runner can fetch, and that `uvx trufflehog` runs a superseded namesake rather than failing; `secret-history` had no `## Tooling fallback` at all |
+| the four `security` code checks again, and `audit/SKILL.md`'s untiered-tool preference | found in review of the corrections above, not by the run: the prose said the audit-owned ESLint path answers ungranted while `needs:` tiers those tools, and the sweep's preference for an untiered sibling then licensed a grant-withheld run to stop at Semgrep and report the zero findings this run recorded. A tier describes an invocation, not a tool |
 
 ## Still open
 
