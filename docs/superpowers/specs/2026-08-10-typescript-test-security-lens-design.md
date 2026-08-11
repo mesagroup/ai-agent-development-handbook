@@ -2,6 +2,8 @@
 
 Design for #5's remaining half. Status: approved 2026-08-10.
 
+> **Two of the verified tool facts below were later disproved by running them (#29, 2026-08-11).** The text is left as written, because a spec is a record of what was verified at the time and correcting it in place would hide that documentation alone could not settle these. Both concern `c8`: it is described here as the runner-neutral coverage fallback, and it cannot observe coverage produced inside Vitest's worker processes at all - wrapped around a Vitest command it reported 96.35% statements over three files where the provider-based measurement of the same tree reported 8.05% over 339. The shipped `test/coverage-reach` record now says so, and [the smoke run](https://github.com/mesagroup/ai-agent-development-handbook/blob/main/docs/audit/typescript-lens-smoke-run.md) carries the observed output. Where this spec and that record disagree, the record wins.
+
 ## Goal
 
 Give the `test-audit` and `security-audit` check records a lens on a TypeScript partition, so those two domains stop reporting `not-applicable` for every check on a TypeScript target. `arch-audit` and `deps-audit` already carry `typescript:` tooling entries; these two carry none, which is the whole of what #5 has left.
