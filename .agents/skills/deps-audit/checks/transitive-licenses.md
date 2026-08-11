@@ -12,7 +12,7 @@ handbook_note: >-
   against.
 tooling:
   python: [pip-licenses]
-  typescript: ["pnpm licenses list", "yarn licenses list", "@cyclonedx/cdxgen"]
+  typescript: ["npm sbom", "pnpm licenses list", "yarn licenses list", "@cyclonedx/cdxgen"]
 needs:
   resolved-tree: [pip-licenses, pnpm licenses list, yarn licenses list]
 ungranted_note: >-
