@@ -90,7 +90,7 @@ Because the units have well-defined interfaces, evaluate them separately, each t
 
 ## Build escalation ladders: spend measurement where it pays
 
-A recurring shape across these decisions: let a cheap, high-precision method handle the common case, and escalate only the *residual* to a more expensive, higher-recall method. A rule-based fast-path settles the enumerable cases and hands the long tail to a model; a cheap-model filter feeds a capable-model verifier feeds a human adjudicator; cheap deterministic gates precede expensive semantic scoring.
+A recurring shape across these decisions: let a cheap, high-precision method handle the common case, and escalate only the *residual* to a more expensive, higher-recall method. A rule-based fast-path settles the enumerable cases and hands the long tail to a model; a cheap-model filter feeds a capable-model verifier feeds a human adjudicator; cheap deterministic gates precede expensive semantic scoring. Because each stage settles most of what reaches it, the most expensive method sees the least traffic - the same taper the staged screening funnel above draws, over a different population: there it is candidates eliminated in a one-off selection, here it is cases settled in a continuous stream.
 
 The ladder is itself a data-driven decision: **you need a measurement to know where the precision/recall crossover sits**: the point at which the next missed case is better handled by escalating than by extending the cheap method. A rule set is a *precision floor, not a recall guarantee*; extending it past the crossover (another pattern for a form nobody writes) costs more than it returns, and an independent recall probe is how you measure whether escalation earned its cost.
 
