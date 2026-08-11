@@ -51,7 +51,7 @@ Both grant states were run, against two `git clone`s of the target in a scratch 
 | `semgrep` (crypto, dangerous-calls, injection, unsafe-io) | **ok** via `uvx`, and see the coverage caveat below | ok |
 | `eslint-plugin-security` (same four) | **ok** from an audit-owned install | ok |
 | `detect-secrets` (`security/secrets-in-code`) | **ok** via `uvx`, 20 candidates triaged | ok |
-| `gitleaks`, `trufflehog` (`secrets-in-code`, `secret-history`) | `no-evidence (tool-unavailable)` - neither is an npm or PyPI package | same |
+| `gitleaks`, `trufflehog` (`secrets-in-code`, `secret-history`) | `no-evidence (tool-unavailable)` - both are standalone binaries, and **`uvx trufflehog` resolves a superseded namesake rather than failing** (below) | same |
 | `arch/martin-metrics` | nothing to execute - `tooling` is Python-only | same |
 
 ## What the run found
@@ -137,5 +137,5 @@ Traceable to the observed output above; see the commits on [issue #29](https://g
 ## Still open
 
 - **No pnpm or yarn target was run.** Every `pnpm`/`yarn` entry in `deps` remains docs-verified only, and those are the entries most likely to be wrong, since they differ from npm's. The acceptance criterion asking for one stays unticked.
-- **`gitleaks`, `trufflehog` and `osv-scanner` were absent** and cannot be fetched by any one-shot runner. Their entries are correct in saying so, and remain unexercised. An audit environment expected to cover Yarn Classic or pnpm 10 partitions needs `osv-scanner` installed in advance.
+- **`gitleaks`, `trufflehog` and `osv-scanner` were absent.** `npx osv-scanner` 404s and `npx gitleaks` reports `could not determine executable to run`, both of which read as a missing tool. **`uvx trufflehog` does not fail at all**: PyPI carries `trufflehog` 2.2.1, the original `dxa4481/truffleHog` Python v2 line superseded by the Go TruffleHog v3, and it runs with a different CLI and weaker detectors - the same substitution hazard as `diff-cover`'s npm namesake, in a domain where the substituted tool answers a Critical check. Neither secret record said which of its tools were binaries; both now do. An audit environment expected to cover Yarn Classic or pnpm 10 partitions needs `osv-scanner` installed in advance.
 - **One partition was C#.** No `*-audit` domain offers a lens for it, so it reports `not-applicable` rather than clean, which is the intended behaviour and was not otherwise tested here.

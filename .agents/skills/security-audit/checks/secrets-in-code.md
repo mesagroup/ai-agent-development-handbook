@@ -20,6 +20,8 @@ Hardcoded API keys, tokens, passwords, private keys, connection strings; secrets
 
 ## Tooling fallback
 
+**The three tools are not the same kind, and only one is fetchable.** `detect-secrets` is a PyPI package, so `uvx detect-secrets scan` obtains it whatever the partition's language and it is the default here. `gitleaks` and `trufflehog` are standalone binaries no runner supplies, and each fails misleadingly if one is asked to: `npx gitleaks` reports `could not determine executable to run`, and `uvx trufflehog` silently runs PyPI's `trufflehog` 2.2.1, the superseded Python v2 line rather than the Go v3 - see `security/secret-history` for both.
+
 **Secrets (working tree):** `detect-secrets scan`, `gitleaks detect --no-git` (or against history - see `security/secret-history`), or a targeted grep for high-signal patterns (`api_key`, `secret`, `-----BEGIN * PRIVATE KEY-----`, provider token prefixes). Every candidate must be **verified by reading the line** - a variable named `api_key` read from the environment is not a leaked secret.
 
 ## Fix
