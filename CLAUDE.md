@@ -38,10 +38,6 @@ This repository uses the `github-issues-workflow` skill. An issue per unit of wo
 
 The `status:*` labels exist in the repository and are not decorative: move the issue as the work moves, removing the previous status before adding the next.
 
-## A push is not finished until the bots have reviewed it
-
-Bugbot and the Cursor Security Agent re-run on every push to an open PR and take minutes, so **push once a set of work is complete, and never hand back before reading what that run produced** - poll the checks while doing other work. The bot comments on the pushed sha are the finding, not the check conclusion: `gh api repos/{owner}/{repo}/pulls/<n>/comments`. Verify each finding's mechanism and its severity framing separately; a comment can have one right and the other wrong. Reply on its own thread - `gh api -X POST .../comments/<id>/replies` - naming the sha that fixed it or the reason there is none, then commit, push and look again. Stop when a push produces nothing new, since a fix introducing the next finding is ordinary; hand back early only for a decision that is not yours.
-
 ## Issue references and provenance
 
 The handbook, the skill family and this tooling were extracted from `lidia-tech/lidia-agents` with `git filter-repo`; that repository keeps the build record and the PRs. Write an issue that lives there as `lidia-tech/lidia-agents#NNN` and one that lives here as `#NNN`. Commit messages already follow this, so a bare number in history is a number in this repository.
