@@ -1191,10 +1191,12 @@
   claim: Give every store holding personal data a deliberately chosen retention limit that something enforces (a TTL, a lifecycle rule, a scheduled job with a test), and build the deletion path as a feature that walks the data-flow map, because an agentic system's derived copies - embeddings and the vector index, cached model responses, stored traces, run artifacts, eval datasets and fixtures extracted from real cases, backups - are what a deletion reaching only the primary store misses.
   class: static
   severity: critical
+  checks:
+    - data-protection/retention-limits
+    - data-protection/deletion-path
   gap:
-    recommendation: new-domain
-    target: "#4"
-    note: nothing in the family enumerates a project's stores or reads for a retention limit on one, and the derived-copy half depends on the data-flow map this part's first row asks for; this is the domain the target issue creates.
+    recommendation: report-only
+    note: "partial - `data-protection/retention-limits` reads, per store, whether a limit exists and what enforces it, and `data-protection/deletion-path` reads whether the path walks the derived copies and whether a test asserts the walk, so between them they flag an unbounded store or an unreached copy rather than passing it. The residue is what a deletion actually did downstream, which is not in the repository at all: whether the provider deleted its retained copy, held by the provider as its own deletion confirmation, and whether the backups holding the record have aged out, held by whoever operates them. Where the repository records the mechanism and the window for those, the deletion check reports them as unverifiable-from-here rather than as clean; where it records neither, the absence is readable and the check settles it."
 
 - id: data-protection/personal-data-does-not-belong-in-the-trail
   section: "Personal data does not belong in the trail"
