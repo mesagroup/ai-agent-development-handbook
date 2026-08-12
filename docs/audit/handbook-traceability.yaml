@@ -1146,20 +1146,19 @@
   claim: Treat every third party that sees personal data on your behalf as a processor - model APIs, search, OCR, extraction and transcription, hosting and managed databases, and the ones forgotten because they receive prompts rather than documents (tracing and observability backends, error trackers, eval platforms) - and record per processor a signed DPA, whether the provider trains on your data and how you opted out, and the retention window including any longer abuse-monitoring one; the lawful basis for the processing is the controller's and is a separate question from the processor's contract.
   class: artifact
   severity: critical
+  checks:
+    - data-protection/processor-register
   gap:
-    recommendation: new-domain
-    target: "#4"
-    note: the evidence is a signed agreement and a provider's published terms, both outside the repository entirely; nothing in the family reads either. This row carries the legal-basis claim that used to sit on the Part 9 dependency row.
+    recommendation: report-only
+    note: "partial - `data-protection/processor-register` reads the register and whether the three fields and a reconciliation date are present, so it flags a missing field rather than passing it. The residue is the evidence that settles the claim, and none of it is in a repository: whether the agreement was actually signed, which is a contract held by whoever owns compliance, and whether the provider honours the retention window it publishes, which is the provider's current terms held by the provider. The check reports both as unverifiable-from-here rather than as clean. This row carries the legal-basis claim that used to sit on the Part 9 dependency row, and that clause is the controller's own obligation, so it is outside the check by design rather than by omission."
 
 - id: data-protection/every-processor-needs-an-agreement-and-the-register-must-match-the-code-b
   section: "Every processor needs an agreement, and the register must match the code"
   claim: Reconcile the register against what the code actually calls - SDK imports, configured base URLs, MCP servers and tool endpoints, the credentials the deployment carries - because a provider reachable from the code and missing from the register is the half of this question a repository can settle, and report it apart from the half it cannot.
   class: static
   severity: critical
-  gap:
-    recommendation: new-domain
-    target: "#4"
-    note: deps-audit's inventory is the package graph, so a provider reached over HTTP never enters it, and no skill derives an outbound-provider list from imports, base URLs or tool endpoints. `security/sensitive-data` reads outbound URL construction, but for exposure at the call site rather than to enumerate who is called.
+  checks:
+    - data-protection/provider-surface
 
 - id: data-protection/keep-the-data-where-the-law-lets-it-be-a
   section: "Keep the data where the law lets it be"
