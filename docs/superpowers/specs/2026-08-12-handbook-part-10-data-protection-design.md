@@ -101,14 +101,17 @@ Every place that asserts the part count, the part list, or a claim this change f
 | `docs/engineering/data-protection.md` | New. `# Part 10. Data protection & privacy`. |
 | `docs/engineering/README.md` | "the nine parts" in the story; the story's closing paragraph, which currently ends on Part 9; the parts-at-a-glance table; the throughlines table (a row 10); the Part 9 pointer in "Starting from zero". |
 | `docs/engineering/security-supply-chain.md` | The two clauses above; the closing hand-off, which now points at Part 10; See also. |
+| `docs/engineering/documentation.md` | Its hand-off line reads "the **one** obligation that stands over every change", which this change falsifies by making Part 10 the second. The line leads into two parts now. |
 | `docs/engineering/observability.md`, `evaluation.md` | See-also cross-links, since Part 10 reaches into both. |
 | `docs/engineering/troubleshooting.md` | "The nine parts" in its opening italic. |
 | `docs/engineering/coda.md` | Read it; likely unchanged. |
 | `scripts/render_handbook_artifact.py` | The `PARTS` list (a `p10` entry before `troubleshooting`) and the comment saying the nine parts follow. |
 | `scripts/render_handbook_traceability.py` | `PART_ORDER` and `PART_TITLES`; `validate_parts` fails on a part file absent from either. |
-| `docs/audit/handbook-traceability.yaml` | The new rows, the retiring row, the two edited Part 9 claims. Re-render `handbook-traceability.md`. |
+| `docs/audit/handbook-traceability.yaml` | The new rows, the retiring row, the two edited Part 9 claims, and any row whose own `claim` asserts the part count or quotes prose this change edits - `README/the-story-of-a-change` says "through the nine parts" today. Re-render `handbook-traceability.md`. |
 | `.agents/skills/security-audit/checks/sensitive-data.md` | The reciprocal `handbook:` anchor for the section-6 mapping. |
 | `CLAUDE.md`, root `README.md` | "nine parts". |
+
+The gate does not help with two rows of that table. Nothing validates a matrix row's `claim` text against the prose it paraphrases, and nothing validates a hand-off sentence against the parts it hands off to, so a stale claim and a falsified "the one obligation" both leave the whole suite green. They are found by reading, which is why the verification below ends with a stale-prose pass rather than with a command.
 
 Not in the blast radius, checked: the `*-audit` skills name domains rather than handbook parts, so none of them enumerates nine; `docs/audit/sweep-obligations.md` tracks `audit-core` obligations against the `audit` sweep and neither file changes here; `tests/scripts/test_render_handbook_traceability.py` monkeypatches `PART_ORDER` and `PART_TITLES` in every test that touches them, so no test hardcodes the real list.
 
