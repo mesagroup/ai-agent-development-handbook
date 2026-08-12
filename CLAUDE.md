@@ -15,7 +15,7 @@ Run `ruff check` AND `ruff format --check` before committing. CI runs both.
 
 ## Repository layout
 
-- `docs/engineering/` — the handbook. Normative prose, nine parts.
+- `docs/engineering/` — the handbook. Normative prose, ten parts.
 - `docs/audit/handbook-traceability.yaml` — the matrix. Source of truth.
 - `docs/audit/handbook-traceability.md` — generated. Never edit it; edit the YAML and re-render.
 - `docs/audit/sweep-obligations.md` — hand-maintained, unlike its neighbour: one row per `audit-core` obligation, recording how the `audit` sweep discharges it. Editing `audit-core/SKILL.md` or `audit/SKILL.md` means checking it. `tests/test_sweep_obligations.py` catches a row whose anchor no longer occurs in `audit-core` exactly once, a quotation that is no longer verbatim, and a row that has slipped out of the checked set; it cannot judge whether a disposition is still true, which is a reading pass over the whole of `audit-core`.

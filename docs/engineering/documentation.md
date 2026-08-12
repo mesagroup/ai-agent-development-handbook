@@ -74,7 +74,7 @@ Write one paragraph as one line in the source; let the renderer wrap. Never hard
 - [ ] Markdown source is **not hard-wrapped**.
 - [ ] A **link-and-index checker** guards this in CI where possible.
 
-*Next: the one obligation that stands over every change rather than following any single one. [Part 9. Security, dependencies & supply chain](security-supply-chain.md).*
+*Next: the two obligations that stand over every change rather than following any single one. [Part 9. Security, dependencies & supply chain](security-supply-chain.md), and then [Part 10. Data protection & privacy](data-protection.md).*
 
 ## See also
 

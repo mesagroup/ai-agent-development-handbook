@@ -67,4 +67,5 @@ Don't confine observability to the dev inner loop; use it to feed production exp
 - [Part 2. Implementation disciplines](implementation-disciplines.md), no swallowed exceptions, as a review rule.
 - [Part 5. Agent harness](agent-harness.md), bounded external calls, the reliability half of the loop.
 - [Part 7. Evaluation](evaluation.md), pairing efficiency with an independent quality metric.
+- [Part 10. Data protection & privacy](data-protection.md), the run records as a store of personal data: identifiers in the trail, not payloads.
 - [Handbook index](README.md).

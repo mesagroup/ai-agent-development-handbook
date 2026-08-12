@@ -19,13 +19,13 @@
 
 - id: README/the-story-of-a-change
   section: "The story of a change"
-  claim: Narrates the life of a single change through the nine parts and marks its human gates.
+  claim: Narrates the life of a single change through the ten parts and marks its human gates.
   class: informative
   note: Spine prose; every directive it alludes to is owned by the part it points at.
 
 - id: README/starting-from-zero
   section: "Starting from zero"
-  claim: Greenfield is the story of the first change, so the parts become a build order - thin end-to-end slice, tier skeleton, minimal harness, eval dataset and metric, rules file and gates from the first commit.
+  claim: Greenfield is the story of the first change, so the parts become a build order - thin end-to-end slice, tier skeleton, minimal harness, eval dataset and metric, rules file and gates from the first commit, and where personal data is in scope the data-flow map and processor register alongside them, while there is still one store and one provider.
   class: process
   severity: important
   note: The section's own claim is the ordering, which no snapshot can date; the artifacts it lists are audited by the Part 3, 5, 7, 8 and 9 rows.
@@ -719,7 +719,7 @@
 
 - id: observability/see-also
   section: "See also"
-  claim: Cross-links to Parts 2, 5 and 7 and the handbook index.
+  claim: Cross-links to Parts 2, 5, 7 and 10 and the handbook index.
   class: informative
 
 # --- Part 7: Evaluation -----------------------------------------------------
@@ -881,7 +881,7 @@
 
 - id: evaluation/see-also
   section: "See also"
-  claim: Cross-links to Parts 4, 6 and 8 and the handbook index.
+  claim: Cross-links to Parts 4, 6, 8 and 10 and the handbook index.
   class: informative
 
 # --- Part 8: Documentation & knowledge capture ------------------------------
@@ -1128,7 +1128,7 @@
 
 - id: security-supply-chain/see-also
   section: "See also"
-  claim: Cross-links to Parts 1, 2, 6 and 7 and the handbook index.
+  claim: Cross-links to Parts 1, 2, 6, 7 and 10 and the handbook index.
   class: informative
 
 # --- Part 10: Data protection & privacy -------------------------------------
