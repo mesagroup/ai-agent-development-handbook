@@ -1165,10 +1165,11 @@
   claim: Keep personal data in a permitted region or a destination covered by a lawful transfer route (adequacy, standard contractual clauses, binding corporate rules among others), and pin the region explicitly in configuration - required rather than defaulted, validated at startup, named in the error when missing - sorting configuration by whether a wrong setting fails visibly and reversibly (may default, as Part 5 asks of a model parameter) or invisibly and irreversibly (must be required).
   class: static
   severity: critical
+  checks:
+    - data-protection/residency-pinning
   gap:
-    recommendation: new-domain
-    target: "#4"
-    note: a region setting, its absence and whether startup validates it are all readable from configuration, and no skill reads for any of them; ci-audit's `ci/permissions-secrets` is the nearest thing in the family and scopes to pipeline credentials rather than to where a request lands.
+    recommendation: report-only
+    note: "partial - `data-protection/residency-pinning` reads the pinning and its startup validation out of a partition's configuration, so it flags a defaulted or unvalidated region rather than passing it, and it carries Part 5's opposite treatment of a model parameter with it so that a correct default is not flagged as one. The residue is the other half of the claim: whether a destination outside the permitted region is actually covered by a lawful transfer route - an adequacy decision, standard contractual clauses, binding corporate rules or another route the regime allows - which is a contract and a legal determination held by whoever owns compliance, with the provider's own terms behind it, and no repository holds either. The check reports what is pinned and does not rule on whether the destination is lawful, which is this domain's stated non-goal rather than an omission in the lens."
 
 - id: data-protection/keep-the-data-where-the-law-lets-it-be-b
   section: "Keep the data where the law lets it be"
@@ -1182,10 +1183,8 @@
   claim: Redact, pseudonymize or truncate personal data before it crosses the trust boundary and prefer a reference over a payload, placing the redaction in the one call path every request goes through rather than at each call site; and settle its quality cost as an eval dimension rather than assuming it away in either direction, because a team that assumes it away ships a regression under a privacy justification.
   class: static
   severity: important
-  gap:
-    recommendation: new-domain
-    target: "#4"
-    note: eval-audit owns whether a behaviour is evaluated and has no dimension for redaction, and no skill reads the outbound call path for a minimization step; the whole claim needs the domain the target issue creates.
+  checks:
+    - data-protection/boundary-minimization
 
 - id: data-protection/retention-and-deletion-are-design-decisions-not-cleanup
   section: "Retention and deletion are design decisions, not cleanup"

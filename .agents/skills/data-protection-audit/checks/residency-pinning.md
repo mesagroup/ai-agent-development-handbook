@@ -1,0 +1,45 @@
+---
+id: data-protection/residency-pinning
+domain: data-protection
+locality: local
+handbook:
+  - data-protection/keep-the-data-where-the-law-lets-it-be-a
+---
+
+# Region pinning and startup validation
+
+Whether the region is pinned explicitly in this partition's configuration, required rather than defaulted, and validated at startup with the missing key named in the error - which is the half of this section a repository settles, as against whether a destination outside the permitted region is covered by a lawful transfer route, a legal determination this check does not make.
+
+## Severity
+
+The bands that assert a jurisdiction was lost rest on personal data reaching the provider or store in question, and that condition is sourced the way `SKILL.md` fixes it rather than inferred: the operator's declaration at scope time, an edge or store the data-flow map names, or a call site plainly handing over user content. Where none of those establishes it, **each of those bands drops one level and the row reports the region as unpinned with the payload undocumented** - an unpinned region on a path nothing documents is a true finding and a fixable one, while the same row called Critical asserts that personal data left the jurisdiction on the strength of a client construction, which is what `SKILL.md` withdraws rather than downgrades. The bands about validation and its error message are about the configuration mechanism rather than about a transfer, so they stand whatever established the surface.
+
+**Critical** - no region configuration at all where a provider or store is reached, or a region key that silently falls back to a default in the project's own code. Part 10's rule has teeth in exactly this place: a default is what a forgotten configuration line resolves to, and the run it produces already happened in the wrong jurisdiction and looks exactly like one that did not.
+
+**Critical** also for a default that names a real region, which is the worse case rather than the tidier one. An absent value can still fail loudly somewhere downstream; a plausible one cannot, so the forgotten line resolves to a jurisdiction nobody chose and nothing reads as wrong afterwards.
+
+**Important** - a key that is required but that nothing validates at startup, so a missing value surfaces as a failed request rather than as a failed boot. The difference is when you find out, and by then requests have been made.
+
+**Minor** - validation that runs and fails without naming which key was missing. That costs a deploy cycle rather than a jurisdiction, and it is worth a row because the fix is a message in code that already exists.
+
+## Tooling fallback
+
+No scanner knows which setting is a region, so this is a reading pass; and it is `local` because the configuration is, so a monorepo where one service pins its region while another defaults is the finding rather than an average that describes neither. Read this partition's environment templates and example configuration, the settings or configuration module where its defaults live, the client construction sites for each provider and store it reaches, and the startup or lifespan hook where validation would run. Take the provider and store list from the shared outbound-provider surface `SKILL.md` builds once in `audit-core` step 1, restricted to this partition's share of it, rather than enumerating providers again here, because a second enumeration is free to disagree with the first and the disagreement would be invisible in the report.
+
+**Carry the test that separates this check from Part 5's opposite advice**, because an agent that has read Part 5 will otherwise flag a correct default as a finding. Part 5 asks for a model parameter to be an optional flag with a provider default, and both directives are right because the two kinds of value fail differently: a value whose wrong setting produces a **visible, reversible** result may default, and one whose wrong setting is **invisible and irreversible** must be required. A defaulted temperature gives a run you can inspect, question and redo; a defaulted region gives a run that already happened in the wrong jurisdiction. So a temperature, a top-p, a retry budget or a model alias is not a finding under this check, and a region, a bucket location or a residency endpoint is.
+
+Look for the default beneath the one you found, because a key the application calls required is not required if something under it supplies a value: the provider SDK's own environment lookup, the platform's default region for the account, or an environment variable baked into a base image. Name the layers the pass reached, since the ones it could not read are where a default survives the fix.
+
+## Fix
+
+Make the region key required, validate it at startup, and name every missing key at once in the error rather than failing on the first, so one boot tells the operator the whole list rather than one item of it per deploy. Where the provider SDK takes a region argument, pass the validated value explicitly rather than relying on the SDK's own environment lookup, which is a default one layer down and fails in the same silent way a default in your own code does.
+
+Say in the report that the pinning is the engineering half. Whether a destination outside the permitted region is covered by an adequacy decision, standard contractual clauses, binding corporate rules or another route the regime allows is a contract and a legal determination held by whoever owns compliance; it is the residue this row carries in the matrix rather than a band in this check, and the audit reports what is pinned rather than ruling on whether the destination is lawful.
+
+## Review lens
+
+**Default-layer completeness** - a key called required in the application is not required if the SDK, the platform or the image supplies a default beneath it, so the finding says which layers the pass checked and which it could not see.
+
+**Scope discipline** - this check is the pinned configuration and its validation. Where a destination actually lands under provider failover, a store whose region was fixed at creation, telemetry routing or a cross-region backup is a deployment fact rather than a repository one, and it belongs in the report's prose and the adoption roadmap rather than in a row here; the lawful-transfer question is likewise this row's residue in the matrix and not a band.
+
+**Partition honesty** - the row names the partition whose configuration it read, because a region pinned in one service says nothing about the next, and a finding phrased as repository-wide on one partition's evidence overstates what the pass covered.
