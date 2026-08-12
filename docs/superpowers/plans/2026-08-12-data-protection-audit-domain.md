@@ -556,14 +556,11 @@ for rid in ('data-protection/personal-data-does-not-belong-in-the-trail',
 
 The last two are the precedent for step 4: both are standing-check rows, both carry `report-only`, and neither cites a check.
 
-- [ ] **Step 2: Resolve the tooling question, then write `checks/stored-artifact-pii.md`**
+- [ ] **Step 2: Write `checks/stored-artifact-pii.md`**
 
-The research described in the spec's open question decides whether this record carries a `tooling:` key. The bar, all three of which must hold: a name verified against **the tool's own documentation**; of a kind a one-shot runner can **execute as a command** rather than import; and present for **both** Python and TypeScript, because a record with `tooling:` and no `typescript:` or `any:` key fails `test_every_tooling_record_offers_a_typescript_lens` and would have to join that test's exception set, which is reserved for named debt.
+The tooling question the spec opened is **resolved**: this is the one record in the domain that carries a `tooling:` key, and the tool is `pdscan`, under `any:`. Do not re-run the research, and do not add a second tool without verifying it against its own documentation the same way.
 
-- **If no candidate clears all three:** omit `tooling:` entirely and say so in the fallback prose, naming the near miss to reject - `gitleaks`, `trufflehog` and `detect-secrets` find credentials, and a credential is not a data subject, so a clean secret scan is no evidence about this check.
-- **If a candidate does clear all three:** add `tooling:` with the verified names, add `needs:` for any tool that requires more than a read-only clone, and then `ungranted_note` becomes **required** if every tool in some language carries a tier - the validator enforces that, and the note says what the check still answers with the grant withheld, or the sentinel `none`.
-
-Frontmatter (the `tooling:` block appears only in the second case):
+Frontmatter, verbatim:
 
 ```yaml
 ---
@@ -572,15 +569,30 @@ domain: data-protection
 locality: global
 handbook:
   - data-protection/personal-data-does-not-belong-in-the-trail
+tooling:
+  any: [pdscan]
 ---
 ```
+
+Four things about that frontmatter, each of which a plausible-looking edit would break:
+
+- **`any:` rather than `python:` and `typescript:`.** `pdscan` scans files and knows nothing about the language that wrote them, and `any:` is the lens shape `security/secrets-in-code` already uses for a language-agnostic scanner. It also satisfies `test_every_tooling_record_offers_a_typescript_lens`, which checks for a `typescript:` **or** `any:` key.
+- **No `needs:` key.** `pdscan` answers from a read-only clone: no dependency graph, no execution of the target's code. An omitted tier is the positive claim that this is so, which is the correct claim here.
+- **Therefore no `ungranted_note`.** The validator *rejects* the field where no tool in any language carries a tier, because a note about a withheld grant that silences nothing is vacuous. Adding one out of caution fails the loader.
+- **`pdscan` is a standalone binary in no language registry**, so no one-shot runner can fetch it - the same kind, and the same consequence, as `osv-scanner` in `deps/vulnerabilities`. The fallback prose must say so, or an agent will try `uvx pdscan`, watch it fail like a missing package, and report `no-evidence` for a check the reading pass could have answered.
 
 - H1: `# Personal data in stored artifacts`
 - **Lead prose**: whether personal data has reached the artifacts that outlive the call - stored traces and run records, eval datasets, and the fixtures extracted from real cases - and state in the first sentence that the call-site half of this claim belongs to `security/sensitive-data`, so the two do not overlap.
 - `## Severity` - **Critical**: personal data found in a stored artifact that is committed to the repository, since it is then in the history and on every clone. **Critical**: an eval dataset or fixture built from a raw copy of production. **Important**: a trace or run-record schema that captures a payload field, where no artifact is committed but the production store will hold them. **Minor**: an artifact carrying an identifier where a reference would do, which is the shape Part 10 asks for rather than a leak.
-- `## Tooling fallback` - the reading procedure, or the tool plus the procedure. Say what to read: committed fixture and test-data directories; eval datasets and their generation scripts, which is where "built from real inputs" is visible even when the data is not committed; the trace and run-record schema or emitter, for which fields it captures; and the log and trace configuration for what is sent to a backend. Say what the check cannot see and report it as unverifiable-from-here: whether a fixture's source was synthetic, consented, or a real case somebody redacted is provenance, and provenance is not in the file. Reject the secret-scanner substitution explicitly, as above.
+- `## Tooling fallback` - the tool **and** the reading pass, because neither is sufficient alone. In order:
+  - **Detect first**, per `audit-core`: prefer `pdscan` if the inventory reports the audit environment already carries it. It is a standalone binary in no language registry, so no one-shot runner can fetch it - do not attempt `uvx pdscan` or `npx pdscan`, which fails the way a missing package fails and lands as `no-evidence` for a check the reading pass could have answered.
+  - **Scope the invocation to the artifact directories** rather than the clone root - `pdscan file://<dir>` over the log, trace, fixture and eval-data directories. It line-scans every file that is not video or bzip2 and descends into zip and gzip, so pointed at the whole tree it reports `.git` objects and binary assets as noise.
+  - **Two caveats that decide what its output means**, and both belong in the prose because either one turns a tool that ran into a false clean. Its rules are US-shaped and regex-based - a US social-security number's shape, US street suffixes, a list of common US surnames - with nothing for passports, IBANs or non-US national identifiers, so **empty output discharges this check only on the axes it scans** and the rest falls to the reading pass below. And its flag that prints matched values propagates the very leak the check exists to find, so a finding reports the location and the rule name, and quotes a value only where a false positive has to be demonstrated.
+  - **The reading pass, which runs whether or not the tool did**: committed fixture and test-data directories; eval datasets and their generation scripts, which is where "built from real inputs" is visible even when the data is not committed; the trace and run-record schema or emitter, for which fields it captures; and the log and trace configuration for what is shipped to a backend.
+  - **What no pass can see**: whether a fixture's source was synthetic, consented, or a real case somebody redacted is provenance, and provenance is not in the file. Report it as unverifiable-from-here with who would know.
+  - **Reject the secret-scanner substitution explicitly.** `gitleaks`, `trufflehog` and `detect-secrets` each scope themselves to credentials in their own documentation, and a credential is not a data subject, so `security/secrets-in-code`'s tooling list is not transferable and a clean secret scan is no evidence about this check.
 - `## Fix` - replace the payload with the identifier you can join back; rebuild fixtures from synthetic or consented data, or from real data put through the production redaction path; and where a committed artifact already holds personal data, say that removing it from the working tree does not remove it from the history, so the fix is a history rewrite or a rotation of what was exposed, decided with whoever owns the risk.
-- `## Review lens` - **Boundary with the code lens** - a finding here is about a stored artifact; a personal-data leak at a logging or exception call site is `security/sensitive-data`'s row and is not restated in this one. **Provenance honesty** - a fixture is not reported as synthetic because it looks synthetic; where provenance is not recorded, the row says so and names who would know.
+- `## Review lens` - three paragraphs. **Boundary with the code lens** - a finding here is about a stored artifact; a personal-data leak at a logging or exception call site is `security/sensitive-data`'s row and is not restated in this one. **Provenance honesty** - a fixture is not reported as synthetic because it looks synthetic; where provenance is not recorded, the row says so and names who would know. **Scan-axis honesty** - a row resting on an empty scanner run names the axes that run covered, because the scanner's rules are regionally shaped and a clean result over them is not a clean result over personal data; and no row quotes a matched value it did not have to quote to demonstrate a false positive.
 
 - [ ] **Step 3: Add the trail row's reciprocal edge**
 
