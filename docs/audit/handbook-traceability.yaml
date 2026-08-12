@@ -1193,6 +1193,28 @@
     target: "#4"
     note: eval-audit owns whether a behaviour is evaluated and has no dimension for redaction, and no skill reads the outbound call path for a minimization step; the whole claim needs the domain the target issue creates.
 
+- id: data-protection/retention-and-deletion-are-design-decisions-not-cleanup
+  section: "Retention and deletion are design decisions, not cleanup"
+  claim: Give every store holding personal data a deliberately chosen retention limit that something enforces (a TTL, a lifecycle rule, a scheduled job with a test), and build the deletion path as a feature that walks the data-flow map, because an agentic system's derived copies - embeddings and the vector index, cached model responses, stored traces, run artifacts, eval datasets and fixtures extracted from real cases, backups - are what a deletion reaching only the primary store misses.
+  class: static
+  severity: critical
+  gap:
+    recommendation: new-domain
+    target: "#4"
+    note: nothing in the family enumerates a project's stores or reads for a retention limit on one, and the derived-copy half depends on the data-flow map this part's first row asks for; this is the domain the target issue creates.
+
+- id: data-protection/personal-data-does-not-belong-in-the-trail
+  section: "Personal data does not belong in the trail"
+  claim: Keep personal data out of logs, traces, error messages, run artifacts and eval fixtures - log the identifier you can join back rather than the record, keep payloads out of exception messages because an exception travels further than a log line, and build fixtures from synthetic, consented or already-redacted data - because capture-the-trail and data protection reconcile by redacting the payload, not by capturing less.
+  class: static
+  severity: critical
+  checks:
+    - security/sensitive-data
+  gap:
+    recommendation: new-domain
+    target: "#4"
+    note: "partial - `security/sensitive-data` reads logging and exception-handling call sites near secret- or PII-bearing variables, so it flags the log and error-message half of this claim rather than passing it, which is what the near-miss rule requires of a mapping. The residue is everything that is a stored artifact rather than a call site: traces and run records, eval datasets, and the fixtures extracted from real documents. A first-party-code lens does not read those, and they are the copies that persist longest, so their status needs the domain the target issue creates."
+
 # --- Troubleshooting guide --------------------------------------------------
 
 - id: troubleshooting/cost-and-latency

@@ -5,6 +5,7 @@ locality: local
 handbook:
   - implementation-disciplines/coding-hygiene-rules-that-surface-at-review-a
   - observability/make-errors-diagnosable
+  - data-protection/personal-data-does-not-belong-in-the-trail
 ---
 
 # Sensitive-data handling
