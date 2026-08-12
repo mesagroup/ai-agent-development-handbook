@@ -674,7 +674,7 @@
   gap:
     recommendation: new-domain
     target: "#2"
-    note: not one of the eight skills declares a check for run instrumentation; eval-audit's `eval/regression-tracking` is the nearest and asks whether eval results are tracked over time and cheap to produce, never whether a run emits a per-agent, per-tool usage record at all.
+    note: no skill in the family declares a check for run instrumentation; eval-audit's `eval/regression-tracking` is the nearest and asks whether eval results are tracked over time and cheap to produce, never whether a run emits a per-agent, per-tool usage record at all.
 
 - id: observability/account-for-the-full-cost-not-the-convenient-part
   section: "Account for the full cost, not the convenient part"
