@@ -22,7 +22,7 @@ Whether the outbound provider surface derived from the code - SDK imports, confi
 
 ## Tooling fallback
 
-No tool enumerates a project's outbound provider surface, so this is a reading pass over a stated derivation - and the derivation is not stated here. Take the shared outbound-provider surface `SKILL.md` defines and builds once in `audit-core` step 1, rather than re-deriving it, so this row and `data-protection/data-flow-map`'s outbound edges cannot disagree about the one list the domain rests on. Reconciling that union against the register is this check's work; producing it is not.
+No tool enumerates a project's outbound provider surface, so this is a reading pass over a stated derivation - and the derivation is not stated here. Take the derived personal-data surface `SKILL.md` defines and builds once in `audit-core` step 1, and read its outbound-edge axis, which is this check's subject, rather than re-deriving it - so this row and `data-protection/data-flow-map`'s outbound edges cannot disagree about the one list the domain rests on. Reconciling that union against the register is this check's work; producing it is not.
 
 The surface has a consumer beyond this domain, which is the other reason to take it rather than rebuild it: the planned model and provider supply-chain lens wants the same list for its pinning, end-of-life and region questions, and is meant to consume this derivation rather than derive a second one that is free to disagree with it.
 
@@ -42,4 +42,4 @@ Add the missing providers to the register with the three fields `data-protection
 
 **Reachability honesty** - a provider named in code that no configuration reaches is reported as such rather than as an unaccounted transfer, and a dynamic call path the derivation could not resolve is stated as a limit of the pass rather than left implied by a surface presented as complete.
 
-**Single derivation** - the row cites the shared outbound surface rather than a list assembled while writing it, because a second derivation is free to disagree with the first and the disagreement would be invisible in the report.
+**Single derivation** - the row cites the derived personal-data surface rather than a list assembled while writing it, because a second derivation is free to disagree with the first and the disagreement would be invisible in the report.
