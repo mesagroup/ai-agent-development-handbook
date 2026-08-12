@@ -1205,10 +1205,10 @@
   severity: critical
   checks:
     - security/sensitive-data
+    - data-protection/stored-artifact-pii
   gap:
-    recommendation: new-domain
-    target: "#4"
-    note: "partial - `security/sensitive-data` reads logging and exception-handling call sites near secret- or PII-bearing variables, so it flags the log and error-message half of this claim rather than passing it, which is what the near-miss rule requires of a mapping. The residue is everything that is a stored artifact rather than a call site: traces and run records, eval datasets, and the fixtures extracted from real documents. A first-party-code lens does not read those, and they are the copies that persist longest, so their status needs the domain the target issue creates."
+    recommendation: report-only
+    note: "partial - `security/sensitive-data` reads logging and exception-handling call sites near secret- or PII-bearing variables and the URLs an outbound call builds, and `data-protection/stored-artifact-pii` reads the artifacts that outlive the call, which are stored traces and run records, eval datasets, and the fixtures extracted from real cases; so between them they flag the call sites and the stored copies rather than passing this claim. The split holds in both directions and neither check restates the other: a payload reaching a log statement is the first check's row, a payload resting in a committed fixture is the second's, and the near-miss mapping on the call-site half stands as it was written rather than being rewritten. The residue is provenance - whether a fixture's or a dataset's source was synthetic, consented, or a real case somebody put through redaction is a fact about how the file was made rather than something in the file, so neither a scan nor a reading pass reaches it and whoever created the fixture holds the answer. The stored-artifact check reports it as unverifiable-from-here rather than as clean."
 
 - id: data-protection/verify-against-the-real-artifacts
   section: "Verify against the real artifacts"
@@ -1216,9 +1216,8 @@
   class: artifact
   severity: important
   gap:
-    recommendation: new-domain
-    target: "#4"
-    note: the standing check this row describes is the skill the target issue creates. audit-core already owns the report-only-then-fix cadence and the rule that absence of evidence is never a clean result, and has no lens in this domain to apply them through; the audit cadence itself sits outside every skill's evidence base, as it does on the Part 1 and Part 9 rows that make the same claim.
+    recommendation: report-only
+    note: "this row was `new-domain` because audit-core already owned the report-only-then-fix cadence and the rule that absence of evidence is never a clean result, and had no lens in this domain to apply them through. The `data-protection` domain skill and its check records now exist, so that reason is gone. What remains is the audit cadence itself - whether the sweep is actually run, and whether past reports separated what the repository says is clean from what it cannot see at all - which sits outside every skill's evidence base, so a check citing this row would have to audit the auditor. That is the disposition `lifecycle/make-the-standard-executable-and-audit-periodically-b` and `security-supply-chain/verify-against-the-real-artifacts` already carry, both report-only and citing no check, and this row joins them rather than acquiring one."
 
 - id: data-protection/checklist-a-data-protection-sweep
   section: "Checklist: a data-protection sweep"

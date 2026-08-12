@@ -590,6 +590,7 @@ def test_the_real_checks_tree_loads_clean():
         "data-protection/provider-surface",
         "data-protection/residency-pinning",
         "data-protection/retention-limits",
+        "data-protection/stored-artifact-pii",
         "deps/freshness",
         "deps/hygiene",
         "deps/inventory",
