@@ -43,7 +43,7 @@ Know your third-party surface **transitively**, because most vulnerabilities and
 - **Freshness**: outdated, yanked, or end-of-life versions.
 - **Hygiene**: declared-but-unused, used-but-undeclared (silently relying on a transitive), and conflicting pins.
 
-**Pin for reproducibility.** A floating direct dependency means a build that resolved clean yesterday can pull a vulnerable or newly-copyleft version today; the lockfile is the record of what actually ran. And apply the AI-specific extension: **treat the model and the provider as dependencies too.** Pin model versions where the provider allows it, record which model produced a given result, and know your providers' data-retention terms, a silent model upgrade is an unpinned dependency that can move your eval numbers out from under you. Where you operate under a data-protection regime ([GDPR](https://eur-lex.europa.eu/eli/reg/2016/679/oj) and the like), also confirm each provider that processes personal data has the legal basis to (a signed DPA, acceptable residency and retention), the compliance face of the same "account for what you depend on" rule.
+**Pin for reproducibility.** A floating direct dependency means a build that resolved clean yesterday can pull a vulnerable or newly-copyleft version today; the lockfile is the record of what actually ran. And apply the AI-specific extension: **treat the model and the provider as dependencies too.** Pin model versions where the provider allows it, record which model produced a given result, and know your providers' data-retention terms; a silent model upgrade is an unpinned dependency that can move your eval numbers out from under you. A provider that processes personal data is accountable on a second axis as well, the legal one, and that axis has its own part: [Part 10](data-protection.md) owns the register, the legal basis, residency and retention where a data-protection regime applies.
 
 ## Treat the pipeline as a privileged environment
 
@@ -85,7 +85,7 @@ Each surface here has a counterpart that *verifies* it against the real artifact
 
 - [ ] Transitive graph audited for licenses, CVEs (resolved versions), freshness, and hygiene.
 - [ ] Direct deps **pinned**; lockfile committed.
-- [ ] Models/providers pinned and recorded; retention terms and (where applicable) **DPA/GDPR basis** confirmed.
+- [ ] Models/providers pinned and recorded; retention terms known. Their **legal basis** is [Part 10](data-protection.md)'s checklist, not this one.
 
 **Pipeline**
 
@@ -97,7 +97,7 @@ Each surface here has a counterpart that *verifies* it against the real artifact
 
 - [ ] Each class of fix is now an **executable gate** (SAST + secret scan, CVE+license gate, workflow linter, action-pin checker).
 
-*And the loop begins again: the next idea becomes the next issue. First, a few [closing words](coda.md).*
+*This obligation has a twin, which asks not what an attacker could do to your system but what your system does to the people whose data passes through it: [Part 10. Data protection & privacy](data-protection.md).*
 
 ## See also
 
@@ -105,4 +105,5 @@ Each surface here has a counterpart that *verifies* it against the real artifact
 - [Part 2. Implementation disciplines](implementation-disciplines.md), the CI gates that enforce these checks.
 - [Part 6. Observability](observability.md), errors that don't leak secrets/PII, and no swallowed exceptions hiding a security failure.
 - [Part 7. Evaluation](evaluation.md), behavioral injection-resistance as an eval dimension.
+- [Part 10. Data protection & privacy](data-protection.md), the legal basis for every processor, residency, minimization before the boundary, retention and deletion.
 - [Handbook index](README.md).

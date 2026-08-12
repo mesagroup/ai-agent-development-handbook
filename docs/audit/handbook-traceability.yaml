@@ -1079,7 +1079,7 @@
 
 - id: security-supply-chain/depend-only-on-what-you-can-account-for-b
   section: "Depend only on what you can account for"
-  claim: Apply the same rule to the AI surface - treat the model and the provider as dependencies too, pinning model versions where the provider allows it and recording which model produced a given result, because a silent model upgrade is an unpinned dependency that can move your eval numbers out from under you.
+  claim: Apply the same rule to the AI surface - treat the model and the provider as dependencies too, pinning model versions where the provider allows it, recording which model produced a given result, and knowing your providers' data-retention terms, because a silent model upgrade is an unpinned dependency that can move your eval numbers out from under you.
   class: static
   severity: important
   checks:
@@ -1087,16 +1087,6 @@
   gap:
     recommendation: extend-skill
     note: eval-audit's `eval/reproducibility` asks for a pinned, recorded model version and so covers the eval surface exactly; deps-audit is the owner of the wider claim and its inventory is the package graph, so a model or a provider never enters the dependency surface it accounts for.
-
-- id: security-supply-chain/depend-only-on-what-you-can-account-for-c
-  section: "Depend only on what you can account for"
-  claim: Know your providers' data-retention terms, and where you operate under a data-protection regime confirm that each provider processing personal data has the legal basis to - a signed DPA, acceptable residency and retention.
-  class: artifact
-  severity: critical
-  gap:
-    recommendation: new-domain
-    target: "#4"
-    note: nothing in the family reads provider terms, a processor register or a signed DPA, and the compliance evidence lives outside the repo entirely; this is squarely the data-protection domain the target issue creates.
 
 - id: security-supply-chain/treat-the-pipeline-as-a-privileged-environment
   section: "Treat the pipeline as a privileged environment"
@@ -1131,7 +1121,7 @@
 
 - id: security-supply-chain/checklist-a-security--supply-chain-sweep
   section: "Checklist: a security & supply-chain sweep"
-  claim: Fifteen-item recap in six groups - first-party code (a verified source-to-sink path behind each finding, model and tool outputs treated as untrusted, sinks neutralized and input validated at the boundary), agent privileges (no lethal trifecta in one agent without a human gate, diagnostic and research agents read-only, no convenience write grants), secrets (no literals in source, tests, fixtures or notebooks, an exposed credential rotated then removed then purged), dependencies (transitive licenses, CVEs, freshness and hygiene, direct deps pinned with the lockfile committed, models and providers pinned and recorded with retention and DPA basis confirmed), pipeline (least-privilege token, actions pinned to commit SHAs, no untrusted pull-request code with secrets and federated credentials preferred), and standing (each class of fix now an executable gate).
+  claim: Fifteen-item recap in six groups - first-party code (a verified source-to-sink path behind each finding, model and tool outputs treated as untrusted, sinks neutralized and input validated at the boundary), agent privileges (no lethal trifecta in one agent without a human gate, diagnostic and research agents read-only, no convenience write grants), secrets (no literals in source, tests, fixtures or notebooks, an exposed credential rotated then removed then purged), dependencies (transitive licenses, CVEs, freshness and hygiene, direct deps pinned with the lockfile committed, models and providers pinned and recorded with retention terms known, their legal basis handed to Part 10's checklist), pipeline (least-privilege token, actions pinned to commit SHAs, no untrusted pull-request code with secrets and federated credentials preferred), and standing (each class of fix now an executable gate).
   class: process
   severity: critical
   note: A recap, so what it adds is the act of working the list during a sweep. Each of the fifteen items is owned by a Part 9 row above.
