@@ -664,6 +664,8 @@ Read each hit and decide what kind of claim it is before editing. **Not every "e
 
 - [ ] **Step 2: Edit `audit/SKILL.md`**
 
+**Two bullets in this file already carry the personal-data declaration** - one in the step-0 list, one in the fan-out brief - added when Task 1's review found that the domain skill cited a step-0 question no engine file asks. Do not add a third, and do not reword them into the count sweep's edits; read them first so the domain list you are about to fix stays consistent with what they say.
+
 - The `description` frontmatter: the parenthesised domain list `(docs, dependencies, architecture, security, CI/CD, tests, evals, prompts/SOPs)` gains data protection, and the `*-audit` list in the body's opening paragraph gains `data-protection-audit`.
 - "eight domain agents would otherwise each re-derive the same partition and language map" and the second instance in the materialize-the-tree paragraph: these are counts of the agents a sweep fans out, so they become nine.
 - "the graph the other seven domains are measuring at the same moment" and "the other seven domains": arithmetic over the family minus the one being discussed, so it becomes eight.
