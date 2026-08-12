@@ -2,7 +2,7 @@
 
 *The previous part keeps the machine safe from whoever attacks it. This one keeps the data lawful for the people it belongs to, which is a different obligation with a different subject: the risk here is the system working exactly as designed, shipping personal data somewhere it may not be. It stands over every change alongside Part 9, and it reaches back into the trail and the datasets the earlier parts asked you to keep.*
 
-Part 9 asks what an attacker could do to your system. This part asks what your system does to the people whose data passes through it, and the two questions have almost disjoint answers. An agentic product makes the second one sharper than most: the trust boundary is crossed on every model call, so personal data leaves your control as a matter of routine rather than by accident, and the artifacts the rest of this handbook asks you to keep are themselves stores of personal data that nobody set out to create, the run trail ([Part 6](observability.md)), the eval dataset built from real inputs ([Part 7](evaluation.md)), the decision trail ([Part 8](documentation.md)). Where you operate under a data-protection regime ([GDPR](https://eur-lex.europa.eu/eli/reg/2016/679/oj) and the like), that posture has to be demonstrable rather than merely intended, and the thing you have to demonstrate it with is the repository.
+Part 9 asks what an attacker could do to your system. This part asks what your system does to the people whose data passes through it, and the two questions have almost disjoint answers. An agentic product makes the second one sharper than most: the trust boundary is crossed on every model call, so personal data leaves your control as a matter of routine rather than by accident, and the artifacts the rest of this handbook asks you to keep are themselves stores of personal data that nobody set out to create: the run trail ([Part 6](observability.md)), the eval dataset built from real inputs ([Part 7](evaluation.md)), the decision trail ([Part 8](documentation.md)). Where you operate under a data-protection regime ([GDPR](https://eur-lex.europa.eu/eli/reg/2016/679/oj) and the like), that posture has to be demonstrable rather than merely intended, and the thing you have to demonstrate it with is the repository.
 
 This part is engineering, not legal advice. It states what to build and maintain so the legal question has an answer, and it says plainly which half of each answer no repository can settle. Take that half to whoever owns compliance where you work; the point of the half you can settle is that they should not have to ask you for it twice.
 
@@ -64,4 +64,58 @@ Logs, traces, error messages, run artifacts and eval fixtures become stores of p
 
 This is where the handbook's own **capture the trail** throughline meets this part head on, and the resolution is not to capture less. Capture the trail and redact the payload. A record that identifies the run, the shape and size of its inputs, the tools called, the timings, the token counts and the cost is the whole of what [Part 6](observability.md) asks for, and none of it needs personal data in it. What makes a trail diagnosable is that it lets you find the run and reconstruct what happened, not that it quotes the document.
 
-[Part 9](security-supply-chain.md) already reads the code for this at the call site: secrets and personal data reaching a log or an error message, and tokens carried in URLs. What this section adds is the artifacts that outlive the call, the stored traces, the run records, and the eval datasets and fixtures. Nothing in a first-party-code lens reads those, and they are the copies that persist longest and get shared widest.
+[Part 9](security-supply-chain.md) already reads the code for this at the call site: secrets and personal data reaching a log or an error message, and tokens carried in URLs. What this section adds is the artifacts that outlive the call: the stored traces, the run records, and the eval datasets and fixtures. Nothing in a first-party-code lens reads those, and they are the copies that persist longest and get shared widest.
+
+## Verify against the real artifacts
+
+This part's obligations are checkable, and the check reads four things. The **register against the outbound calls the code makes**, which is the reconciliation the processor section describes. The **pinned regions against the providers actually configured**. The **retention limits against the stores that actually exist**, taken from the data-flow map rather than from the ones anyone remembers. And a **scan of logs, fixtures and run artifacts** for personal data that reached them. Run it report-only first to see where the repository hurts, then fix one surface at a time in its own reviewed change, which is what [Part 1](lifecycle.md) asks of any audit and what [Part 9](security-supply-chain.md) does with its own surfaces.
+
+The rule that makes such a report worth reading is the one it is easiest to break here: **separate what the repository says is clean from what the repository cannot see at all.** Whether an agreement was signed, whether a provider honours the retention window it publishes, whether a deletion request was actually carried out downstream: none of that is visible from a snapshot of your code, and none of it becomes visible by not finding a problem. A report that lists those as passing has not audited them; it has failed to look, and said so in the vocabulary of success. Name each one as unverifiable from here, with what would settle it and who holds that evidence. This is the same discipline the rest of the handbook applies to a test that did not run and to an eval whose tooling was missing: absence of evidence is a distinct result from evidence of absence, and collapsing the two is how a system acquires a clean bill of health nobody ever issued.
+
+## Checklist: a data-protection sweep
+
+**The map**
+
+- [ ] A **data-flow map** exists beside the code, listing every entry point, every store, and every outbound edge that leaves the trust boundary.
+- [ ] It is maintained with the code and falsifiable against it, not a document produced once for an audit.
+
+**Processors**
+
+- [ ] Every third party that sees personal data is in the **register**, telemetry, error tracking and eval platforms included.
+- [ ] Each carries a signed **DPA**, a recorded position on **training** (opted out where the default is not), and a stated **retention window**.
+- [ ] The register has been **reconciled against what the code actually calls**, and the date of the last reconciliation is recorded.
+
+**Residency**
+
+- [ ] The region is **pinned explicitly in configuration**, required rather than defaulted, and validated at startup.
+- [ ] Every destination outside the permitted region is covered by an **adequacy decision or standard contractual clauses**.
+- [ ] Failover, backups, replicas and telemetry backends checked for the region they actually land in.
+
+**Minimization**
+
+- [ ] Personal data is **redacted, pseudonymized or reduced before the trust boundary**, in the shared call path rather than per call site.
+- [ ] The **quality cost** of that redaction is measured as an eval dimension, not assumed in either direction.
+
+**Retention and deletion**
+
+- [ ] Every store holding personal data has a **retention limit that something enforces**.
+- [ ] The **deletion path walks the data-flow map**, derived copies included: embeddings, caches, traces, run artifacts, eval datasets and fixtures, backups.
+- [ ] The deletion path is **tested**, not merely written down.
+
+**The trail**
+
+- [ ] Logs and traces carry **identifiers, not payloads**; exception messages carry neither.
+- [ ] Eval fixtures are **synthetic, consented, or redacted**, never a raw copy of production.
+
+**Standing**
+
+- [ ] The sweep above is run as a **standing check**, and its report separates *clean* from *not visible from here*.
+
+*And the loop begins again: the next idea becomes the next issue. First, a few [closing words](coda.md).*
+
+## See also
+
+- [Part 6. Observability](observability.md), the run records this part treats as a store of personal data.
+- [Part 7. Evaluation](evaluation.md), datasets built from real inputs, and redaction's quality cost as an eval dimension.
+- [Part 9. Security, dependencies & supply chain](security-supply-chain.md), the first-party-code lens on personal data reaching logs and errors, and the provider-as-dependency rule this part's register extends.
+- [Handbook index](README.md).
