@@ -60,7 +60,7 @@ from pathlib import Path
 # README is the intro section (#top), the numbered parts follow, then the
 # troubleshooting companion and the coda close. Every `*.md` in the handbook
 # directory must appear here or it renders out of the page in silence, which
-# `test_parts_lists_every_handbook_file_on_disk` is what catches.
+# `test_parts_lists_every_handbook_file_on_disk` catches.
 PARTS: list[tuple[str, str, str]] = [
     ("top", "README", "Overview &amp; the story"),
     ("p1", "lifecycle", "Development lifecycle"),

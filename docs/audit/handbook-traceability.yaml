@@ -1042,7 +1042,7 @@
   severity: critical
   gap:
     recommendation: extend-skill
-    note: security-audit is the owner, since prompt injection as application security is explicitly its surface, but no check of its reads an agent's granted tool and MCP surface; ci-audit's `ci/permissions-secrets` is the nearest and scopes least privilege to the pipeline token rather than to what an agent is allowed to do.
+    note: security-audit is the owner, since prompt injection as application security is explicitly its surface, but none of its checks reads an agent's granted tool and MCP surface; ci-audit's `ci/permissions-secrets` is the nearest and scopes least privilege to the pipeline token rather than to what an agent is allowed to do.
 
 - id: security-supply-chain/secrets-never-commit-them-and-rotate-dont-just-delete-a
   section: "Secrets: never commit them, and rotate: don't just delete"
@@ -1143,9 +1143,9 @@
     target: "#4"
     note: no skill reads for a data-flow map or reconstructs one from the code, and absence of the map is itself the finding rather than a pass; this is squarely the data-protection domain the target issue creates.
 
-- id: data-protection/every-processor-needs-a-legal-basis-and-the-register-must-match-the-code-a
-  section: "Every processor needs a legal basis, and the register must match the code"
-  claim: Treat every third party that sees personal data on your behalf as a processor - model APIs, search, OCR, extraction and transcription, hosting and managed databases, and the ones forgotten because they receive prompts rather than documents (tracing and observability backends, error trackers, eval platforms) - and record per processor a signed DPA, whether the provider trains on your data and how you opted out, and the retention window including any longer abuse-monitoring one.
+- id: data-protection/every-processor-needs-an-agreement-and-the-register-must-match-the-code-a
+  section: "Every processor needs an agreement, and the register must match the code"
+  claim: Treat every third party that sees personal data on your behalf as a processor - model APIs, search, OCR, extraction and transcription, hosting and managed databases, and the ones forgotten because they receive prompts rather than documents (tracing and observability backends, error trackers, eval platforms) - and record per processor a signed DPA, whether the provider trains on your data and how you opted out, and the retention window including any longer abuse-monitoring one; the lawful basis for the processing is the controller's and is a separate question from the processor's contract.
   class: artifact
   severity: critical
   gap:
@@ -1153,8 +1153,8 @@
     target: "#4"
     note: the evidence is a signed agreement and a provider's published terms, both outside the repository entirely; nothing in the family reads either. This row carries the legal-basis claim that used to sit on the Part 9 dependency row.
 
-- id: data-protection/every-processor-needs-a-legal-basis-and-the-register-must-match-the-code-b
-  section: "Every processor needs a legal basis, and the register must match the code"
+- id: data-protection/every-processor-needs-an-agreement-and-the-register-must-match-the-code-b
+  section: "Every processor needs an agreement, and the register must match the code"
   claim: Reconcile the register against what the code actually calls - SDK imports, configured base URLs, MCP servers and tool endpoints, the credentials the deployment carries - because a provider reachable from the code and missing from the register is the half of this question a repository can settle, and report it apart from the half it cannot.
   class: static
   severity: critical
@@ -1163,15 +1163,22 @@
     target: "#4"
     note: deps-audit's inventory is the package graph, so a provider reached over HTTP never enters it, and no skill derives an outbound-provider list from imports, base URLs or tool endpoints. `security/sensitive-data` reads outbound URL construction, but for exposure at the call site rather than to enumerate who is called.
 
-- id: data-protection/keep-the-data-where-the-law-lets-it-be
+- id: data-protection/keep-the-data-where-the-law-lets-it-be-a
   section: "Keep the data where the law lets it be"
-  claim: Keep personal data in a permitted region or a destination covered by an adequacy decision or standard contractual clauses, and pin the region explicitly in configuration, required rather than defaulted, validated at startup and named in the error when missing, sorting configuration by whether a wrong setting fails visibly and reversibly (may default, as Part 5 asks of a model parameter) or invisibly and irreversibly (must be required) - then check the places residency is actually lost (provider failover, a store whose region was chosen once at creation, telemetry in another jurisdiction, cross-region backups, a payload copied to a laptop to reproduce a bug).
+  claim: Keep personal data in a permitted region or a destination covered by a lawful transfer route (adequacy, standard contractual clauses, binding corporate rules among others), and pin the region explicitly in configuration - required rather than defaulted, validated at startup, named in the error when missing - sorting configuration by whether a wrong setting fails visibly and reversibly (may default, as Part 5 asks of a model parameter) or invisibly and irreversibly (must be required).
   class: static
   severity: critical
   gap:
     recommendation: new-domain
     target: "#4"
-    note: a region setting and its absence are both readable from configuration and no skill reads for either; ci-audit's `ci/permissions-secrets` is the nearest thing in the family and scopes to pipeline credentials rather than to where a request lands. The failover and backup cases need deployment facts a repository snapshot does not carry, so they stay unreachable even once the domain exists.
+    note: a region setting, its absence and whether startup validates it are all readable from configuration, and no skill reads for any of them; ci-audit's `ci/permissions-secrets` is the nearest thing in the family and scopes to pipeline credentials rather than to where a request lands.
+
+- id: data-protection/keep-the-data-where-the-law-lets-it-be-b
+  section: "Keep the data where the law lets it be"
+  claim: Check the places residency is actually lost rather than the endpoint you remembered to pin - provider failover to another region, a store whose region was chosen once at creation, telemetry in a different jurisdiction from the application it watches, cross-region backups and replicas, and a support workflow that copies a payload onto a laptop to reproduce a bug.
+  class: process
+  severity: critical
+  note: Split from the -a row because the classes differ, which is the convention the legend states for a section whose claims do not share one. Where each destination lands is a deployment fact rather than a repository one - a provider's failover behaviour is not in the target's tree at all, and the laptop case is a transfer with no configuration anywhere to pin - so this half stays unreachable even once the data-protection domain exists, and belongs in report prose and an adoption roadmap.
 
 - id: data-protection/minimize-before-the-boundary
   section: "Minimize before the boundary"
@@ -1217,7 +1224,7 @@
 
 - id: data-protection/checklist-a-data-protection-sweep
   section: "Checklist: a data-protection sweep"
-  claim: Sixteen-item recap in seven groups - the map (it exists beside the code and is falsifiable against it), processors (every third party registered including telemetry and eval platforms, each with a DPA, a training position and a retention window, the register reconciled against the code with the date recorded), residency (region pinned and validated at startup, every outside destination covered by adequacy or SCCs, failover and backups and telemetry checked), minimization (redaction in the shared call path, its quality cost measured), retention and deletion (an enforced limit per store, a deletion path walking the map through the derived copies, and tested), the trail (identifiers not payloads, fixtures synthetic or redacted), and standing (the sweep is run, and its report separates clean from not-visible-from-here).
+  claim: Sixteen-item recap in seven groups - the map (it exists beside the code and is falsifiable against it), processors (every third party registered including telemetry and eval platforms, each with a DPA, a training position and a retention window, the register reconciled against the code with the date recorded), residency (region pinned and validated at startup, every outside destination covered by a lawful transfer route, failover and backups and telemetry checked for where they land), minimization (redaction in the shared call path, its quality cost measured), retention and deletion (an enforced limit per store, a deletion path walking the map through the derived copies, and tested), the trail (identifiers not payloads and no payload in an exception message, fixtures synthetic or redacted), and standing (the sweep is run, and its report separates clean from not-visible-from-here).
   class: process
   severity: critical
   note: A recap, so what it adds is the act of working the list during a sweep. It takes the maximum severity of what it recaps, per the legend's rule for a checklist row, which is the critical band the register, residency, retention-and-deletion and trail rows sit in; each item is owned by a row above.
