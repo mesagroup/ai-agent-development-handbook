@@ -600,3 +600,13 @@ def test_build_accepts_an_absolute_md_url_and_in_handbook_links(tmp_path):
     html = rh.build(docs, [("top", "solo", "Solo")])
     assert "engineering-notes.md" in html
     assert 'href="#top"' in html
+
+
+def test_parts_lists_every_handbook_file_on_disk():
+    # A part file absent from PARTS is silently missing from the artifact: no
+    # error, no warning, just a page one section short. The traceability
+    # renderer guards its own two constants in `validate_parts`; nothing
+    # guarded this one, so a handbook that grew a part could render into the
+    # matrix and out of the page at the same time.
+    handbook = Path(__file__).resolve().parents[2] / "docs" / "engineering"
+    assert {stem for _, stem, _ in rh.PARTS} == {p.stem for p in handbook.glob("*.md")}

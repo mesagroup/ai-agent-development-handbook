@@ -57,8 +57,10 @@ from itertools import pairwise
 from pathlib import Path
 
 # (anchor id, markdown stem, sidebar label). Order defines the page order;
-# README is the intro section (#top), the nine parts follow, then the
-# troubleshooting companion and the coda close.
+# README is the intro section (#top), the numbered parts follow, then the
+# troubleshooting companion and the coda close. Every `*.md` in the handbook
+# directory must appear here or it renders out of the page in silence, which
+# `test_parts_lists_every_handbook_file_on_disk` is what catches.
 PARTS: list[tuple[str, str, str]] = [
     ("top", "README", "Overview &amp; the story"),
     ("p1", "lifecycle", "Development lifecycle"),
@@ -70,6 +72,7 @@ PARTS: list[tuple[str, str, str]] = [
     ("p7", "evaluation", "Evaluation"),
     ("p8", "documentation", "Documentation"),
     ("p9", "security-supply-chain", "Security &amp; supply chain"),
+    ("p10", "data-protection", "Data protection &amp; privacy"),
     ("troubleshooting", "troubleshooting", "Troubleshooting"),
     ("coda", "coda", "Coda"),
 ]

@@ -83,6 +83,7 @@ PART_ORDER = [
     "evaluation",
     "documentation",
     "security-supply-chain",
+    "data-protection",
     "troubleshooting",
     "coda",
 ]
@@ -97,6 +98,7 @@ PART_TITLES = {
     "evaluation": "Part 7: Evaluation",
     "documentation": "Part 8: Documentation & knowledge capture",
     "security-supply-chain": "Part 9: Security, dependencies & supply chain",
+    "data-protection": "Part 10: Data protection & privacy",
     "troubleshooting": "Troubleshooting guide",
     "coda": "Coda",
 }
