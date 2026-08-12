@@ -84,7 +84,7 @@ Then read the row this record grounds, including its `gap.note`, which says in r
 ```bash
 uv run python -c "
 import yaml, pathlib
-rows = yaml.safe_load(pathlib.Path('docs/audit/handbook-traceability.yaml').read_text())['rows']
+rows = yaml.safe_load(pathlib.Path('docs/audit/handbook-traceability.yaml').read_text())
 row = next(r for r in rows if r['id'] == 'data-protection/know-what-personal-data-you-hold-and-where-it-goes')
 print(yaml.safe_dump(row, sort_keys=False, width=200, allow_unicode=True))
 "
@@ -162,7 +162,7 @@ uv run pytest tests/ -q
 uv run ruff check . && uv run ruff format --check .
 ```
 
-Expected: `--check` prints OK; the test suite passes. If `--check` reports a dangling edge, the `handbook:` id and the row `id` disagree - fix the record, not the row.
+Expected: `--check` **prints nothing and exits 0** - silence is the pass, so do not watch for a success string, and read `$?` rather than the output. Where it does print, it is naming a broken edge: a `handbook:` id with no matching row `id`, or a row citing a check that does not load. Fix the record, not the row, unless the row id is genuinely what you mistyped.
 
 - [ ] **Step 7: Verify the loader sees the new domain**
 
@@ -229,7 +229,7 @@ Read the Part 10 section "Every processor needs an agreement, and the register m
 ```bash
 uv run python -c "
 import yaml, pathlib
-rows = yaml.safe_load(pathlib.Path('docs/audit/handbook-traceability.yaml').read_text())['rows']
+rows = yaml.safe_load(pathlib.Path('docs/audit/handbook-traceability.yaml').read_text())
 for rid in ('data-protection/every-processor-needs-an-agreement-and-the-register-must-match-the-code-a',
             'data-protection/every-processor-needs-an-agreement-and-the-register-must-match-the-code-b'):
     print(yaml.safe_dump(next(r for r in rows if r['id'] == rid), sort_keys=False, width=200, allow_unicode=True))
@@ -340,7 +340,7 @@ Read "Keep the data where the law lets it be" and "Minimize before the boundary"
 ```bash
 uv run python -c "
 import yaml, pathlib
-rows = yaml.safe_load(pathlib.Path('docs/audit/handbook-traceability.yaml').read_text())['rows']
+rows = yaml.safe_load(pathlib.Path('docs/audit/handbook-traceability.yaml').read_text())
 for rid in ('data-protection/keep-the-data-where-the-law-lets-it-be-a',
             'data-protection/keep-the-data-where-the-law-lets-it-be-b',
             'data-protection/minimize-before-the-boundary'):
@@ -449,7 +449,7 @@ Read "Retention and deletion are design decisions, not cleanup" in `docs/enginee
 ```bash
 uv run python -c "
 import yaml, pathlib
-rows = yaml.safe_load(pathlib.Path('docs/audit/handbook-traceability.yaml').read_text())['rows']
+rows = yaml.safe_load(pathlib.Path('docs/audit/handbook-traceability.yaml').read_text())
 print(yaml.safe_dump(next(r for r in rows if r['id'] == 'data-protection/retention-and-deletion-are-design-decisions-not-cleanup'), sort_keys=False, width=200, allow_unicode=True))
 "
 ```
@@ -545,7 +545,7 @@ Read "Personal data does not belong in the trail" and "Verify against the real a
 ```bash
 uv run python -c "
 import yaml, pathlib
-rows = yaml.safe_load(pathlib.Path('docs/audit/handbook-traceability.yaml').read_text())['rows']
+rows = yaml.safe_load(pathlib.Path('docs/audit/handbook-traceability.yaml').read_text())
 for rid in ('data-protection/personal-data-does-not-belong-in-the-trail',
             'data-protection/verify-against-the-real-artifacts',
             'security-supply-chain/verify-against-the-real-artifacts',
@@ -764,7 +764,7 @@ Expected: one more skill than before this branch. If the count is unchanged, the
 ```bash
 uv run python -c "
 import yaml, pathlib
-rows = yaml.safe_load(pathlib.Path('docs/audit/handbook-traceability.yaml').read_text())['rows']
+rows = yaml.safe_load(pathlib.Path('docs/audit/handbook-traceability.yaml').read_text())
 dp = [r for r in rows if r['id'].startswith('data-protection/')]
 print('rows:', len(dp))
 for r in dp:
