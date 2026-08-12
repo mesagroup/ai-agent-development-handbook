@@ -12,11 +12,13 @@ Whether the outbound provider surface derived from the code - SDK imports, confi
 
 ## Severity
 
-**Critical** - a provider reachable from the code, with personal data crossing to it, and absent from the register. That is an unaccounted transfer, and it is the row this check exists to produce.
+**Critical** - a provider reachable from the code, absent from the register, and with personal data crossing to it *established by an artifact* rather than assumed: the data-flow map's edge, the operator's declaration at scope time, or a call site plainly handing over user content. That is an unaccounted transfer, and it is the row this check exists to produce.
+
+**Important** - the same provider, reachable and unregistered, where nothing documents what crosses to it. An unregistered provider whose payload is undocumented is a true finding and a fixable one; the same row called Critical asserts a transfer of personal data on the strength of a base URL, which is what `SKILL.md` withdraws rather than downgrades. An error tracker's endpoint or a geocoding service in an environment template is exactly this case.
 
 **Important** - a provider present in both but reached from a path the register does not describe: a second base URL, a fallback endpoint, a gateway in front of the provider the register names. The processor is accounted for and the route is not, so what the register says about region and retention may be true of one path and not of the other.
 
-**Minor** - a registered provider with no reachable call path. That is a stale register entry rather than an unaccounted transfer, so it is not a Critical, and it is worth reporting because it is evidence the register is not being maintained - the same evidence the missing reconciliation date gives `data-protection/processor-register`.
+**Minor** - a registered provider with no reachable call path. That is evidence the register is not being maintained, which is the same evidence a missing reconciliation date gives `data-protection/processor-register`, and it is not an unaccounted transfer, so it is not a Critical. **Report it as an entry to confirm and re-date, never as one to remove.** A provider the derivation could not reach is indistinguishable here from one that is genuinely no longer called - and the providers the derivation misses are precisely the ones whose call path it could not resolve, the case this record already tells you to declare as a limit. The register's owner decides; an audit that talks a team into deleting the entry has removed a processor from the document that exists to account for it.
 
 ## Tooling fallback
 
@@ -26,17 +28,17 @@ The surface has a consumer beyond this domain, which is the other reason to take
 
 Read the register the same way `data-protection/processor-register` does, and reconcile in both directions: a provider in the surface and not the register is the Critical band, and a provider in the register with no reachable path is the Minor one. Record which source of the derivation produced each provider, because it is what a reader needs to judge the row's confidence - an SDK import is a call path, and a credential name is an inference that a call path exists somewhere.
 
-**The package graph is not the answer, and a clean one is no evidence about this check.** `deps/inventory` enumerates declared packages; a provider reached over plain HTTP never enters the dependency tree at all, and neither does one an agent reaches through a configured tool endpoint. Hand the package question there and do not accept its result as covering this one. `security/sensitive-data` also reads outbound URL construction, but to judge exposure at the call site rather than to enumerate who is called, so its rows answer a different question over the same lines of code.
+**The package graph is not the answer, and a clean one is no evidence about this check.** `deps/inventory` enumerates declared packages; a provider reached over plain HTTP never enters the dependency tree at all, and neither does one an agent reaches through a configured tool endpoint. Hand the package question there and do not accept its result as covering this one. `security/sensitive-data` also reads outbound URL construction, but to judge exposure at the call site rather than to enumerate who is called, so its rows answer a different question over the same lines of code. **Do not restate its findings here and do not treat its rows as covering this check either** - a call site it cleared for exposure is still an unregistered provider if the register does not name it.
 
 Where the derivation could not resolve a call path - a base URL assembled at run time, an endpoint read from a database - say so as a limit of the pass rather than reporting the surface as complete.
 
 ## Fix
 
-Add the missing providers to the register with the three fields Part 10 asks for, and record the reconciliation date, which is what makes the next pass cheap. Where the surface is large or dynamic, move the outbound calls behind one client layer, so the surface becomes enumerable by construction rather than by search - the same shape `data-protection/boundary-minimization` wants for the redaction step, and the two fixes land in the same place.
+Add the missing providers to the register with the three fields `data-protection/processor-register` reads for - a signed data processing agreement, the provider's training position and, where its default is to train, the mechanism opted out by, and the retention window including any longer abuse-monitoring one - then record the reconciliation date, which is what makes the next pass cheap. The fields are named here rather than cited, because the plugin ships only `.agents/skills/` and an agent running this check from a plugin cache in another repository cannot open the handbook to look them up. Where the surface is large or dynamic, move the outbound calls behind one client layer, so the surface becomes enumerable by construction rather than by search - the same shape `data-protection/boundary-minimization` wants for the redaction step, and the two fixes land in the same place.
 
 ## Review lens
 
-**Derivation completeness** - the finding names which of the derivation's four sources produced each provider, so a reader can tell an SDK import from a credential name and judge the confidence of the row accordingly.
+**Derivation completeness** - the finding names which source of the derivation produced each provider, so a reader can tell an SDK import from a credential name and judge the confidence of the row accordingly.
 
 **Reachability honesty** - a provider named in code that no configuration reaches is reported as such rather than as an unaccounted transfer, and a dynamic call path the derivation could not resolve is stated as a limit of the pass rather than left implied by a surface presented as complete.
 
