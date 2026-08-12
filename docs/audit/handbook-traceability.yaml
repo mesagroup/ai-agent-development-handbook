@@ -28,7 +28,7 @@
   claim: Greenfield is the story of the first change, so the parts become a build order - thin end-to-end slice, tier skeleton, minimal harness, eval dataset and metric, rules file and gates from the first commit, and where personal data is in scope the data-flow map and processor register alongside them, while there is still one store and one provider.
   class: process
   severity: important
-  note: The section's own claim is the ordering, which no snapshot can date; the artifacts it lists are audited by the Part 3, 5, 7, 8 and 9 rows.
+  note: The section's own claim is the ordering, which no snapshot can date; the artifacts it lists are audited by the Part 3, 5, 7, 8, 9 and 10 rows.
 
 - id: README/the-four-throughlines
   section: "The four throughlines"
@@ -1042,7 +1042,7 @@
   severity: critical
   gap:
     recommendation: extend-skill
-    note: security-audit is the owner, since prompt injection as application security is explicitly its surface, but none of its six checks reads an agent's granted tool and MCP surface; ci-audit's `ci/permissions-secrets` is the nearest and scopes least privilege to the pipeline token rather than to what an agent is allowed to do.
+    note: security-audit is the owner, since prompt injection as application security is explicitly its surface, but no check of its reads an agent's granted tool and MCP surface; ci-audit's `ci/permissions-secrets` is the nearest and scopes least privilege to the pipeline token rather than to what an agent is allowed to do.
 
 - id: security-supply-chain/secrets-never-commit-them-and-rotate-dont-just-delete-a
   section: "Secrets: never commit them, and rotate: don't just delete"

@@ -2,7 +2,7 @@
 
 | Area | What is in it |
 |------|---------------|
-| [`engineering/`](engineering/README.md) | **The handbook.** Nine parts covering the life of a change, from problem framing through evaluation to operation. Normative prose; the source of every claim the audit skills check. Ships as a standalone HTML artifact via `scripts/render_handbook_artifact.py`. |
+| [`engineering/`](engineering/README.md) | **The handbook.** Ten parts covering the life of a change, from problem framing through evaluation to operation. Normative prose; the source of every claim the audit skills check. Ships as a standalone HTML artifact via `scripts/render_handbook_artifact.py`. |
 | [`engineering-notes.md`](engineering-notes.md) | Practices true enough to write down but too contingent on one execution environment to be normative. The cutting-room floor, with the reason each was cut. |
 | [`audit/`](audit/README.md) | The traceability matrix: every handbook section mapped onto the checks that cover it, with a class and severity per clause and the gap list ordered by severity. |
 | [`stories/`](stories/) | Narrative records of completed work: what was built, what the data showed, what transferred. |

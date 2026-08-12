@@ -5,7 +5,7 @@ An engineering handbook for building agentic systems, and the audit skill family
 Two halves that reference each other:
 
 - **The handbook** ([`docs/engineering/`](docs/engineering/README.md)) — normative directives covering the life of a change through ten parts, from problem framing to operation. Prose, meant to be read.
-- **The audit skills** ([`.agents/skills/`](.agents/skills)) — the handbook's executable distillate for the subset that can be checked from a repository. Eight domains, 68 check records.
+- **The audit skills** ([`.agents/skills/`](.agents/skills)) — the handbook's executable distillate for the subset that can be checked from a repository. Eight domains, 69 check records.
 
 They are joined by the [traceability matrix](docs/audit/handbook-traceability.md), which maps every `##` section of the handbook onto the checks that cover it, and records honestly what is process-only and cannot be audited from a snapshot. Coverage is not chased to 100%; it is chased to 100% *accounted for*.
 
