@@ -1165,7 +1165,7 @@
 
 - id: data-protection/keep-the-data-where-the-law-lets-it-be
   section: "Keep the data where the law lets it be"
-  claim: Keep personal data in a permitted region or a destination covered by an adequacy decision or standard contractual clauses, and enforce it the way the handbook enforces any environment-selecting value - the region pinned explicitly in configuration, required rather than defaulted, validated at startup and named in the error when missing - then check the places residency is actually lost (provider failover, a store whose region was chosen once at creation, telemetry in another jurisdiction, cross-region backups, a payload copied to a laptop to reproduce a bug).
+  claim: Keep personal data in a permitted region or a destination covered by an adequacy decision or standard contractual clauses, and pin the region explicitly in configuration, required rather than defaulted, validated at startup and named in the error when missing, sorting configuration by whether a wrong setting fails visibly and reversibly (may default, as Part 5 asks of a model parameter) or invisibly and irreversibly (must be required) - then check the places residency is actually lost (provider failover, a store whose region was chosen once at creation, telemetry in another jurisdiction, cross-region backups, a payload copied to a laptop to reproduce a bug).
   class: static
   severity: critical
   gap:
