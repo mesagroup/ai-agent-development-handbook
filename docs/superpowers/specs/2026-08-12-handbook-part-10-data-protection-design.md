@@ -1,10 +1,10 @@
 # Handbook Part 10: Data Protection & Privacy. Design Spec
 
-**Issue:** [#47](https://github.com/mesagroup/ai-agent-development-handbook/issues/47) · **Date:** 2026-08-12 · **Status:** approved design, pending implementation plan
+**Issue:** #47 · **Date:** 2026-08-12 · **Status:** approved design, pending implementation plan
 
 ## Context
 
-The handbook (`docs/engineering/`) is nine parts plus a README spine, a troubleshooting companion and a coda. [Issue #4](https://github.com/mesagroup/ai-agent-development-handbook/issues/4) asks for a `data-protection-audit` domain skill on the `audit-core` engine, covering provider DPAs, EU residency, PII minimization at the trust boundary, retention and deletion, personal data in logs and eval artifacts, and a sub-processor inventory as a deliverable.
+The handbook (`docs/engineering/`) is nine parts plus a README spine, a troubleshooting companion and a coda. Issue #4 asks for a `data-protection-audit` domain skill on the `audit-core` engine, covering provider DPAs, EU residency, PII minimization at the trust boundary, retention and deletion, personal data in logs and eval artifacts, and a sub-processor inventory as a deliverable.
 
 The handbook grounds that family. Every check record carries a `handbook:` list of matrix row ids, validated in both directions against `docs/audit/handbook-traceability.yaml`; a record that deliberately exceeds the handbook carries an empty list plus a `handbook_note` saying why.
 

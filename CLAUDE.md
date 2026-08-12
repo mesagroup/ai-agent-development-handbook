@@ -76,7 +76,7 @@ Where a consistency property can move out of prose and into the validator, move 
 - Markdown is never hard-wrapped: one paragraph is one source line. Never reflow lines you did not change.
 - No em-dash (U+2014) in `docs/engineering/`, `docs/superpowers/specs/`, `docs/superpowers/plans/`. Use ` - `.
 - Never commit environment-specific values: absolute personal paths, profile names, tokens, hostnames, emails. Use `<placeholder>` and say what it resolves to.
-- Handbook and skill links to files in this repo are absolute GitHub URLs. The skills run from a plugin cache in other repositories, where a relative path resolves to nothing.
+- Links in `.agents/skills/` to files in this repo are absolute GitHub URLs, because the skills run from a plugin cache in other repositories where a relative path resolves to nothing. Everything under `docs/` links relatively: those files are read in the repo or on GitHub, the plugin does not ship them (`plugin.json` points only at `.agents/skills/`), and an absolute URL bakes the org and repo name into every report and artifact the file is copied into.
 
 ## Prose about the code — write claims that cannot go stale
 
