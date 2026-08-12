@@ -30,7 +30,13 @@ app -> b -> p: model, search, OCR, tracing
 
 Every third party that sees personal data on your behalf is a **processor**, and each one needs a basis you can produce on request. Enumerating them is most of the work, because the real list is longer than the one a team writes from memory: the model and LLM APIs, but also search providers, OCR, extraction and transcription services, the hosting and managed-database vendors underneath all of it, and the three that get forgotten because they receive *prompts* rather than documents, namely tracing and observability backends, error trackers, and eval platforms. A prompt carries whatever personal data the task put into it, so a tracing vendor that stores prompts is processing personal data exactly as the model provider is.
 
-Record three things per processor. A signed **data processing agreement**. Whether the provider **trains on your data**, and where the default is that it does, that you have opted out and by what mechanism. And the **retention window**: how long the provider keeps your inputs and outputs, including any separate window for abuse monitoring, which is often longer than the one advertised for the service itself. A provider whose retention window you cannot state is a provider you have not accounted for, which is the test [Part 9](security-supply-chain.md) applies to any dependency, asked about data instead of about code.
+Record three things per processor:
+
+- **A signed data processing agreement**, and what it actually permits. "We have a contract" is not the same claim.
+- **Whether the provider trains on your data**, and where the default is that it does, that you have opted out and by what mechanism.
+- **The retention window**: how long the provider keeps your inputs and outputs, including any separate window for abuse monitoring, which is often longer than the one advertised for the service itself.
+
+A provider whose retention window you cannot state is a provider you have not accounted for, which is the test [Part 9](security-supply-chain.md) applies to any dependency, asked about data instead of about code.
 
 Then the half that is yours to enforce: **reconcile the register against what the code actually calls.** Derive the provider list from the repository, from the SDK imports, the configured base URLs, the MCP servers and tool endpoints, and the credentials the deployment carries, then compare it with the register. A provider reachable from the code and missing from the register is a finding, and it is the only half of this question a repository can settle. Whether the agreement was signed, and whether the provider honours it, is not visible from here at all. Keep the two apart whenever you report on this, because a register nobody has ever checked against the code and a register that matches it look identical from the outside.
 
@@ -40,7 +46,13 @@ Personal data stays in a region the law permits, or reaches a destination covere
 
 This is the handbook's required-never-defaulted rule applied to a border. A defaulted value quietly points a forgotten config line at the wrong environment; here the wrong environment is a jurisdiction, and nothing about the run looks different when it happens. The failure has no symptom, which is why it has to be prevented by construction rather than caught by observation.
 
-Then check the places where residency is actually lost, none of which is the endpoint you remembered to pin. A model provider that fails over to another region under load, or serves a newer model only from one. A managed vector store or queue whose region was chosen once at creation and never revisited. A tracing or logging backend in a different jurisdiction from the application it watches, which is the common case precisely because nobody thinks of telemetry as carrying the payload. A backup or a disaster-recovery replica in a second region, which is usually the point of it. And a support workflow that copies a payload onto somebody's laptop to reproduce a bug, which is a transfer with no configuration anywhere to pin.
+Then check the places where residency is actually lost, none of which is the endpoint you remembered to pin:
+
+- **Provider failover**, to another region under load, or a newer model served only from one.
+- **A store whose region was chosen once**, at creation, and never revisited: a managed vector index, a queue, a search cluster.
+- **Telemetry in another jurisdiction** from the application it watches, which is the common case precisely because nobody thinks of a tracing backend as carrying the payload.
+- **Cross-region backups and disaster-recovery replicas**, which is usually the entire point of them.
+- **A support workflow that copies a payload onto somebody's laptop** to reproduce a bug: a transfer with no configuration anywhere to pin, so the only control is the process.
 
 ## Minimize before the boundary
 
@@ -70,7 +82,7 @@ This is where the handbook's own **capture the trail** throughline meets this pa
 
 This part's obligations are checkable, and the check reads four things. The **register against the outbound calls the code makes**, which is the reconciliation the processor section describes. The **pinned regions against the providers actually configured**. The **retention limits against the stores that actually exist**, taken from the data-flow map rather than from the ones anyone remembers. And a **scan of logs, fixtures and run artifacts** for personal data that reached them. Run it report-only first to see where the repository hurts, then fix one surface at a time in its own reviewed change, which is what [Part 1](lifecycle.md) asks of any audit and what [Part 9](security-supply-chain.md) does with its own surfaces.
 
-The rule that makes such a report worth reading is the one it is easiest to break here: **separate what the repository says is clean from what the repository cannot see at all.** Whether an agreement was signed, whether a provider honours the retention window it publishes, whether a deletion request was actually carried out downstream: none of that is visible from a snapshot of your code, and none of it becomes visible by not finding a problem. A report that lists those as passing has not audited them; it has failed to look, and said so in the vocabulary of success. Name each one as unverifiable from here, with what would settle it and who holds that evidence. This is the same discipline the rest of the handbook applies to a test that did not run and to an eval whose tooling was missing: absence of evidence is a distinct result from evidence of absence, and collapsing the two is how a system acquires a clean bill of health nobody ever issued.
+The rule that makes such a report worth reading is the one it is easiest to break here: **separate what the repository says is clean from what the repository cannot see at all.** Whether an agreement was signed, whether a provider honours the retention window it publishes, whether a deletion request was actually carried out downstream: none of that is visible from a snapshot of your code, and none of it becomes visible by failing to find a problem. A report that lists those as passing has not audited them; it has failed to look, and said so in the vocabulary of success. So name each one as unverifiable from here, with what would settle it and who holds that evidence. Absence of evidence is a distinct result from evidence of absence, and collapsing the two is how a system acquires a clean bill of health nobody ever issued.
 
 ## Checklist: a data-protection sweep
 
