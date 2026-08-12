@@ -64,9 +64,51 @@ def test_mark_task_items_leaves_plain_items():
     assert rh.mark_task_items("<li>ordinary bullet</li>") == "<li>ordinary bullet</li>"
 
 
+def test_unlink_out_of_tree_keeps_the_text_and_drops_the_anchor():
+    # A relative .md target with a path separator is outside the handbook
+    # directory, so it is not in this artifact and no anchor can reach it.
+    html = '<a href="../engineering-notes.md">Engineering notes</a> matter'
+    out, unlinked = rh.unlink_out_of_tree(html)
+    assert out == "Engineering notes matter"
+    assert unlinked == ["../engineering-notes.md"]
+
+
+def test_unlink_out_of_tree_leaves_siblings_and_absolute_urls_alone():
+    # A bare stem is an in-tree part for rewrite_links to map; an absolute URL
+    # is meant to leave the page. Neither is this function's business.
+    html = (
+        '<a href="evaluation.md#loop">the loop</a> and '
+        '<a href="https://example.com/docs/a.md">out</a>'
+    )
+    out, unlinked = rh.unlink_out_of_tree(html)
+    assert out == html
+    assert unlinked == []
+
+
+def test_post_process_unlinks_out_of_tree_before_mapping_in_tree():
+    html = (
+        '<p><a href="lifecycle.md">Part 1</a> and '
+        '<a href="../engineering-notes.md">notes</a></p>'
+    )
+    out, unmapped, unlinked = rh.post_process(html, {"lifecycle.md": "#p1"})
+    assert 'href="#p1"' in out
+    assert "notes" in out and "engineering-notes.md" not in out
+    # Handled, not skipped: build raises on an unmapped relative link, so an
+    # out-of-tree link reported as unmapped would fail the render.
+    assert unmapped == []
+    assert unlinked == ["../engineering-notes.md"]
+
+
+def test_build_accepts_a_relative_out_of_tree_link(tmp_path):
+    docs = _one_part_docs(tmp_path, "[notes](../engineering-notes.md)\n")
+    html = rh.build(docs, [("top", "solo", "Solo")])
+    assert "notes" in html
+    assert "engineering-notes.md" not in html
+
+
 def test_post_process_applies_all_transforms():
     html = '<a href="lifecycle.md">L</a><table></table><li>[ ] check</li>'
-    out, unmapped = rh.post_process(html, {"lifecycle.md": "#p1"})
+    out, unmapped, _ = rh.post_process(html, {"lifecycle.md": "#p1"})
     assert 'href="#p1"' in out
     assert '<div class="tablewrap"><table>' in out
     assert '<li class="task">check</li>' in out
@@ -580,12 +622,14 @@ def _one_part_docs(tmp_path: Path, body: str) -> Path:
     return tmp_path
 
 
-def test_build_rejects_a_relative_link_the_artifact_cannot_resolve(tmp_path):
-    # A relative link out of the handbook resolves on GitHub and is dead in
-    # the single-page artifact, and no site gate sees it because
-    # docs/engineering/ is excluded from the build - so warning alone would
-    # be a silent pass.
-    docs = _one_part_docs(tmp_path, "[notes](../engineering-notes.md)\n")
+def test_build_rejects_a_sibling_link_naming_no_part(tmp_path):
+    # The parts are siblings, so a bare stem is a claim that this artifact
+    # contains that part. When it does not, the link is dead in the page and
+    # resolves on GitHub, and nothing else in the repository reads the
+    # handbook's links - so warning alone would be a silent pass. An
+    # out-of-tree target (with a path separator) is a different case and is
+    # unlinked rather than rejected; see the build test above.
+    docs = _one_part_docs(tmp_path, "[gone](nonexistent.md)\n")
     with pytest.raises(ValueError, match=r"relative link\(s\)"):
         rh.build(docs, [("top", "solo", "Solo")])
 

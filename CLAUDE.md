@@ -48,7 +48,7 @@ Path-based history surgery matches *historical* paths. A file renamed out of a d
 
 - ruff's `extend-exclude = ["docs"]` is load-bearing. Recent ruff formats Python inside Markdown fences, and specs, plans and stories are a record of what was written at the time; reformatting their samples edits that record.
 - `scripts/render_handbook_artifact.py` imports `markdown` lazily, so a missing dependency surfaces when the renderer runs rather than at import. It is declared in `pyproject.toml`; a lazy import is not a reason to leave one undeclared.
-- The artifact renderer warns about one unmapped link to `engineering-notes.md`. That link leaves the handbook tree, so there is no in-artifact anchor to map it onto. Expected, not a regression.
+- The artifact renderer reports `residual .md hrefs: 0`. A relative `.md` link out of the handbook tree (only `engineering-notes.md` today) is *unlinked* rather than mapped - it prints a `NOTE`, keeps the link text and drops the anchor, because a self-contained page cannot link to a file it does not contain. A *sibling* `.md` link naming no part still raises.
 - Diagrams need the `d2` CLI.
 
 ## Check records
