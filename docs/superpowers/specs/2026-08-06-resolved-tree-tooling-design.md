@@ -1,10 +1,10 @@
-# Tooling that needs a materialized dependency tree ([#19](https://github.com/mesagroup/ai-agent-development-handbook/issues/19))
+# Tooling that needs a materialized dependency tree (#19)
 
-**Status:** draft 2026-08-06. Unblocks [#5](https://github.com/mesagroup/ai-agent-development-handbook/issues/5), which cannot add a TypeScript tooling entry to `test/coverage-reach` without the policy this spec settles.
+**Status:** draft 2026-08-06. Unblocks #5, which cannot add a TypeScript tooling entry to `test/coverage-reach` without the policy this spec settles.
 
 ## Problem
 
-[#17](https://github.com/mesagroup/ai-agent-development-handbook/pull/17) replaced a hardcoded `uv run --with <tool>` with the one-shot runner of the partition's own package manager, and `audit/SKILL.md` now classifies a `tooling:` name by **kind**: a registry package a runner can fetch, a subcommand of the target's own package manager, or a standalone binary in no registry. That axis answers *how do I obtain this tool*.
+#17 replaced a hardcoded `uv run --with <tool>` with the one-shot runner of the partition's own package manager, and `audit/SKILL.md` now classifies a `tooling:` name by **kind**: a registry package a runner can fetch, a subcommand of the target's own package manager, or a standalone binary in no registry. That axis answers *how do I obtain this tool*.
 
 It does not answer the question the fixture runs kept failing on: *what must be present in the target before the tool can produce an answer*. Two cases were observed. On the single-package target, `npx vitest run` fails because the project's `vitest.config.ts` imports from `vitest/config`, which resolves out of a `node_modules` that a read-only clone does not have; a one-shot runner can fetch `vitest` and cannot satisfy the config's own imports. On the polyglot monorepo, `pip-audit` and `pip-licenses` need materialized packages, and the fixture recorded those checks `no-evidence` rather than guessing.
 
@@ -17,7 +17,7 @@ The two axes are orthogonal, and the family has vocabulary for only one of them:
 
 So a run can hold a tool it cannot use, and can use a tool it cannot hold. With no way to say which, an agent discovers the difference by failing, and the failure lands in the report as `no-evidence` for a check that was never going to run - indistinguishable from a check whose tooling merely happened to be absent.
 
-`no-evidence` is the honest status and the reports do say so, which is the `audit-core` status rule working as designed. But a foreign-repository audit returning `no-evidence` for coverage, licences and vulnerabilities has told the reader very little, and the reason it cannot do better is a rule this family chose: [#8](https://github.com/mesagroup/ai-agent-development-handbook/issues/8) made writing to the target a stated violation, and installing dependencies writes to the target.
+`no-evidence` is the honest status and the reports do say so, which is the `audit-core` status rule working as designed. But a foreign-repository audit returning `no-evidence` for coverage, licences and vulnerabilities has told the reader very little, and the reason it cannot do better is a rule this family chose: #8 made writing to the target a stated violation, and installing dependencies writes to the target.
 
 ## Decisions
 
@@ -130,6 +130,6 @@ The sweep-obligations ledger earns its keep here for the first time. #19 is the 
 
 ## Related
 
-- [#17](https://github.com/mesagroup/ai-agent-development-handbook/pull/17) introduced the per-package-manager runner and surfaced this during fixture verification.
-- [#8](https://github.com/mesagroup/ai-agent-development-handbook/issues/8) established the no-writes-to-the-target invariant this has to respect.
-- [#5](https://github.com/mesagroup/ai-agent-development-handbook/issues/5) is blocked on decision 1: `test/coverage-reach` prescribes running the project's own test command with coverage, which is `target-execution`, and it cannot gain a TypeScript entry until there is a way to say so.
+- #17 introduced the per-package-manager runner and surfaced this during fixture verification.
+- #8 established the no-writes-to-the-target invariant this has to respect.
+- #5 is blocked on decision 1: `test/coverage-reach` prescribes running the project's own test command with coverage, which is `target-execution`, and it cannot gain a TypeScript entry until there is a way to say so.

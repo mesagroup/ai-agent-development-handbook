@@ -1,6 +1,6 @@
-# Auditing a foreign repository ([#8](https://github.com/mesagroup/ai-agent-development-handbook/issues/8), with the residue of [#5](https://github.com/mesagroup/ai-agent-development-handbook/issues/5) and [#7](https://github.com/mesagroup/ai-agent-development-handbook/issues/7))
+# Auditing a foreign repository (#8, with the residue of #5 and #7)
 
-**Status:** draft 2026-08-05. Delivers what wave 1 of [#1](https://github.com/mesagroup/ai-agent-development-handbook/issues/1) left behind. The checks database shipped the *data* those three issues needed and none of the *behaviour*, so each is half done in a way its acceptance criteria no longer describe. One PR covers all three.
+**Status:** draft 2026-08-05. Delivers what wave 1 of #1 left behind. The checks database shipped the *data* those three issues needed and none of the *behaviour*, so each is half done in a way its acceptance criteria no longer describe. One PR covers all three.
 
 ## Problem
 
@@ -12,7 +12,7 @@ Wave 1 restructured the family onto a checks database: 68 check records across e
 | #7 citations | the `handbook:` lists and their bidirectional validation | the findings matrix has no citation column, and the front door's report template carries none |
 | #8 foreign repos | nothing | the front door tells every subagent to audit "THIS repo" and hands it a path relative to a repo root |
 
-The last row is the load-bearing one, and it is worse than an absent feature. The front door's subagent brief says to read `.agents/skills/<domain>-audit/SKILL.md` and load records from `.agents/skills/<domain>-audit/checks/`. Those paths are relative to a repo root, and they work today only because the lenses and the audited code are the same tree. Against a foreign target they resolve inside the target: to nothing in a repository that has never carried the family, or to that repository's own copy in one that has. `lidia-tech/lidia-agents` is the second case. It still carries a complete copy of all eight domains with the same per-domain record counts, because the extraction copied rather than moved. So the dry run in [#10](https://github.com/mesagroup/ai-agent-development-handbook/issues/10) would audit using that repository's fork of the lenses while reporting success, and its stated value as a regression check on the skills would be vacuous.
+The last row is the load-bearing one, and it is worse than an absent feature. The front door's subagent brief says to read `.agents/skills/<domain>-audit/SKILL.md` and load records from `.agents/skills/<domain>-audit/checks/`. Those paths are relative to a repo root, and they work today only because the lenses and the audited code are the same tree. Against a foreign target they resolve inside the target: to nothing in a repository that has never carried the family, or to that repository's own copy in one that has. `lidia-tech/lidia-agents` is the second case. It still carries a complete copy of all eight domains with the same per-domain record counts, because the extraction copied rather than moved. So the dry run in #10 would audit using that repository's fork of the lenses while reporting success, and its stated value as a regression check on the skills would be vacuous.
 
 There is a second instance of the same defect, found while planning, and it is the more damaging one. Step 0 decides which domains are available by testing whether `.agents/skills/<domain>-audit/checks/` exists, which is again a path relative to a repo root. Against the single-package target that directory is absent entirely; against the monorepo target it exists and holds that project's own skills, with no `*-audit` directory among them. Either way step 0 resolves **zero** available domains, and its own parenthetical, "project-agnostic; a repo may have a subset", reads that empty result as a legitimate subset rather than as a failure. So the sweep is not merely Python-flavoured on a foreign target: it cannot run at all, and it says so in language that sounds like a successful scope resolution.
 
@@ -44,7 +44,7 @@ Domain discovery moves the same way, to `../<domain>-audit/checks/` relative to 
 
 ### 4. The invariant is no writes to the target's working tree or git history
 
-Stated that way rather than as "do not touch the target repository", because the emitter in [#9](https://github.com/mesagroup/ai-agent-development-handbook/issues/9) will open issues in the audited project's tracker. Creating an issue leaves the working tree untouched, so the narrow wording is the one that survives the family growing, and the broad wording would have to be broken within weeks of being written.
+Stated that way rather than as "do not touch the target repository", because the emitter in #9 will open issues in the audited project's tracker. Creating an issue leaves the working tree untouched, so the narrow wording is the one that survives the family growing, and the broad wording would have to be broken within weeks of being written.
 
 The invariant is checked rather than promised: capture `git status --porcelain` at the target at scope time and again after consolidation, and report any delta as a defect of the audit run. This has teeth immediately, because package managers write caches and lockfiles into a tree they were asked only to read.
 
