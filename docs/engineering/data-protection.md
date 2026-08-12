@@ -29,7 +29,9 @@ b -> p: model, search, OCR, tracing
 
 ## Every processor needs an agreement, and the register must match the code
 
-Every third party that sees personal data on your behalf is a **processor**, and each one needs an agreement you can produce on request. (The term of art is worth keeping straight: your *legal basis* is what makes the processing lawful in the first place and is yours, not the vendor's; what the processor relationship needs is the contract, plus a lawful route for any transfer.) Enumerating them is most of the work, because the real list is longer than the one a team writes from memory: the model and LLM APIs, but also search providers, OCR, extraction and transcription services, the hosting and managed-database vendors underneath all of it, and the three that get forgotten because they receive *prompts* rather than documents, namely tracing and observability backends, error trackers, and eval platforms. A prompt carries whatever personal data the task put into it, so a tracing vendor that stores prompts is processing personal data exactly as the model provider is.
+Every third party that sees personal data on your behalf is a **processor**, and each one needs an agreement you can produce on request. Keep the term of art straight, because the two get conflated and they fail differently: your *legal basis* is what makes the processing lawful at all, and it is yours rather than any vendor's, while what the processor relationship needs is the contract plus a lawful route for the transfer.
+
+Enumerating the processors is most of the work, because the real list is longer than the one a team writes from memory: the model and LLM APIs, but also search providers, OCR, extraction and transcription services, the hosting and managed-database vendors underneath all of it, and the three that get forgotten because they receive *prompts* rather than documents, namely tracing and observability backends, error trackers, and eval platforms. A prompt carries whatever personal data the task put into it, so a tracing vendor that stores prompts is processing personal data exactly as the model provider is.
 
 Record three things per processor:
 
