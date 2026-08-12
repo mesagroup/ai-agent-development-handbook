@@ -584,6 +584,8 @@ def test_the_real_checks_tree_loads_clean():
         "ci/trigger-safety",
         "ci/workflow-correctness",
         "data-protection/data-flow-map",
+        "data-protection/processor-register",
+        "data-protection/provider-surface",
         "deps/freshness",
         "deps/hygiene",
         "deps/inventory",
