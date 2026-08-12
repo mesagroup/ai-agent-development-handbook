@@ -23,7 +23,8 @@ p: Third-party processor
 s: Your stores {shape: cylinder}
 u -> app
 app -> s: at rest, under a retention limit
-app -> b -> p: model, search, OCR, tracing
+app -> b
+b -> p: model, search, OCR, tracing
 ```
 
 ## Every processor needs a legal basis, and the register must match the code
