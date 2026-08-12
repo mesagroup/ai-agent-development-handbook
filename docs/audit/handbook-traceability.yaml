@@ -1143,11 +1143,35 @@
 
 # --- Part 10: Data protection & privacy -------------------------------------
 
-- id: data-protection/data-protection
-  section: "Part 10. Data protection & privacy"
-  claim: Locates the part as the second standing obligation beside Part 9 - the data subject rather than the attacker as the subject, the model call as a routine crossing of the trust boundary, and the handbook's own trail and eval artifacts as unintended stores of personal data.
-  class: informative
-  note: Part-opening prose while the part carries no sections; the rows for its sections replace this one as they are written.
+- id: data-protection/know-what-personal-data-you-hold-and-where-it-goes
+  section: "Know what personal data you hold, and where it goes"
+  claim: Keep a data-flow map beside the code and maintained with it, answering where personal data enters, every store it rests in (primary store, object store, vector index, caches, logs, eval datasets, backups) and every outbound edge that leaves the trust boundary; derive it from the repository rather than from memory, so it is falsifiable against the code.
+  class: artifact
+  severity: important
+  gap:
+    recommendation: new-domain
+    target: "#4"
+    note: no skill reads for a data-flow map or reconstructs one from the code, and absence of the map is itself the finding rather than a pass; this is squarely the data-protection domain the target issue creates.
+
+- id: data-protection/every-processor-needs-a-legal-basis-and-the-register-must-match-the-code-a
+  section: "Every processor needs a legal basis, and the register must match the code"
+  claim: Treat every third party that sees personal data on your behalf as a processor - model APIs, search, OCR, extraction and transcription, hosting and managed databases, and the ones forgotten because they receive prompts rather than documents (tracing and observability backends, error trackers, eval platforms) - and record per processor a signed DPA, whether the provider trains on your data and how you opted out, and the retention window including any longer abuse-monitoring one.
+  class: artifact
+  severity: critical
+  gap:
+    recommendation: new-domain
+    target: "#4"
+    note: the evidence is a signed agreement and a provider's published terms, both outside the repository entirely; nothing in the family reads either. This row carries the legal-basis claim that used to sit on the Part 9 dependency row.
+
+- id: data-protection/every-processor-needs-a-legal-basis-and-the-register-must-match-the-code-b
+  section: "Every processor needs a legal basis, and the register must match the code"
+  claim: Reconcile the register against what the code actually calls - SDK imports, configured base URLs, MCP servers and tool endpoints, the credentials the deployment carries - because a provider reachable from the code and missing from the register is the half of this question a repository can settle, and report it apart from the half it cannot.
+  class: static
+  severity: critical
+  gap:
+    recommendation: new-domain
+    target: "#4"
+    note: deps-audit's inventory is the package graph, so a provider reached over HTTP never enters it, and no skill derives an outbound-provider list from imports, base URLs or tool endpoints. `security/sensitive-data` reads outbound URL construction, but for exposure at the call site rather than to enumerate who is called.
 
 # --- Troubleshooting guide --------------------------------------------------
 
