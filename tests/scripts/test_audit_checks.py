@@ -549,6 +549,7 @@ def test_the_real_checks_tree_covers_every_domain():
     assert domains == {
         "arch",
         "ci",
+        "data-protection",
         "deps",
         "docs",
         "eval",
@@ -582,6 +583,7 @@ def test_the_real_checks_tree_loads_clean():
         "ci/self-hosted-runners",
         "ci/trigger-safety",
         "ci/workflow-correctness",
+        "data-protection/data-flow-map",
         "deps/freshness",
         "deps/hygiene",
         "deps/inventory",

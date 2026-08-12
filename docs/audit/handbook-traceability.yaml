@@ -1138,10 +1138,8 @@
   claim: Keep a data-flow map beside the code and maintained with it, answering where personal data enters, every store it rests in (primary store, object store, vector index, caches, logs, eval datasets, backups) and every outbound edge that leaves the trust boundary; derive it from the repository rather than from memory, so it is falsifiable against the code.
   class: artifact
   severity: important
-  gap:
-    recommendation: new-domain
-    target: "#4"
-    note: no skill reads for a data-flow map or reconstructs one from the code, and absence of the map is itself the finding rather than a pass; this is squarely the data-protection domain the target issue creates.
+  checks:
+    - data-protection/data-flow-map
 
 - id: data-protection/every-processor-needs-an-agreement-and-the-register-must-match-the-code-a
   section: "Every processor needs an agreement, and the register must match the code"
