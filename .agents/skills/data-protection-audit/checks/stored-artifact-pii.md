@@ -52,7 +52,7 @@ Replace the payload with the identifier you can join back to it. That is what Pa
 
 ## Review lens
 
-**Boundary with the code lens** - a finding here is about a stored artifact. Personal data reaching a logging or exception call site, and an identifier carried in a URL, are `security/sensitive-data`'s rows and are not restated in this one, because a claim counted in both domains is one gap reported twice with its fix split across two owners.
+**Boundary with the code lens** - a finding here is about a stored artifact. Personal data reaching a logging or exception call site, and an identifier carried in a URL, are `security/sensitive-data`'s rows and are not restated in this one, because a claim counted in both domains is one gap reported twice with its fix split across two owners. The emitter is the one place the two lenses read the same line of code, so hold the test there: this row cites the emitter as **evidence about what the store will hold**, and a claim about what that same statement exposes where it stands is the other row's.
 
 **Provenance honesty** - a fixture is not reported as synthetic because it looks synthetic, nor as real because its filename suggests it. Where provenance is recorded nowhere in the repository, the row says so and names who would know, rather than resolving it in whichever direction the rest of the row was already heading.
 

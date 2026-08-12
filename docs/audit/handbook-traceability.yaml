@@ -1084,9 +1084,11 @@
   severity: important
   checks:
     - eval/reproducibility
+    - data-protection/processor-register
   gap:
     recommendation: extend-skill
-    note: eval-audit's `eval/reproducibility` asks for a pinned, recorded model version and so covers the eval surface exactly; deps-audit is the owner of the wider claim and its inventory is the package graph, so a model or a provider never enters the dependency surface it accounts for.
+    target: "#6"
+    note: "partial - the claim has three parts and two of them are now checked. `eval/reproducibility` asks for a pinned, recorded model version, which covers the eval surface exactly. `data-protection/processor-register` reads the retention window per processor and flags at Critical a provider whose window the register does not state, which is this claim's data-retention-terms part, so the row maps it under the near-miss rule rather than gapping it. The sentence this note used to carry - that a model or a provider never enters the surface anything accounts for - stopped being true when `data-protection/provider-surface` began deriving the provider list from SDK imports, configured base URLs, MCP and tool endpoints and credential names. deps-audit's inventory is still the package graph, and it is no longer the only lens that sees a provider. The residue is the pinning asked of the provider rather than of the eval: whether a model version is pinned where the provider allows it, and whether a model or an endpoint is approaching end of life. No check reads either, and that is the target issue's scope."
 
 - id: security-supply-chain/treat-the-pipeline-as-a-privileged-environment
   section: "Treat the pipeline as a privileged environment"

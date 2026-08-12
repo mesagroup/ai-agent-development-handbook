@@ -11,7 +11,7 @@ A domain specialization of **[audit-core](../audit-core/SKILL.md)** - read that 
 
 **Announce:** "I'm using the security-audit skill (on the audit-core engine) to audit the first-party code for security weaknesses."
 
-**Not for:** third-party dependency CVEs (use `deps-audit`), CI/pipeline secret and permission hardening (use `ci-audit`), or a formal pentest of a deployed service (out of scope - this is static, first-party).
+**Not for:** third-party dependency CVEs (use `deps-audit`), CI/pipeline secret and permission hardening (use `ci-audit`), the stored artifacts that outlive a call - traces, run records, eval datasets, fixtures extracted from real cases (use `data-protection-audit`, which owns them; this skill owns the call site that wrote them), or a formal pentest of a deployed service (out of scope - this is static, first-party).
 
 **Subject:** the project's own source tree (the importable package plus scripts and entry points), and the trust boundaries in it. Establish first, because they set what "untrusted" means:
 

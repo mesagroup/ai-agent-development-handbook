@@ -12,6 +12,8 @@ Whether personal data is redacted, pseudonymized or truncated before it crosses 
 
 ## Severity
 
+The two bands about **no minimization at all** rest on personal data crossing the path, sourced the way `SKILL.md` fixes it, and the first drops to the second where nothing establishes it. The bands about **where the step sits and whether its cost was measured** - per-call-site placement, an unmeasured quality cost, a documented bypass - are mechanism bands and stand whatever established the surface: each cites the shape of the code or the absence of an eval dimension rather than a payload.
+
 **Critical** - no minimization anywhere on an outbound path, where personal data crossing that path is *established by an artifact* rather than assumed: the data-flow map's edge, the operator's declaration at scope time, or a call site plainly handing over user content or an uploaded document. Part 10's reason for putting this ahead of the rest is that the cheapest personal data to protect is the personal data that was never sent.
 
 **Important** - the same absence, on an outbound path where nothing documents what crosses it. An unminimized path whose payload is undocumented is true and actionable; the same row called Critical asserts that personal data left the boundary on the strength of a call to a provider, which is what `SKILL.md` withdraws rather than downgrades, so the row reports the payload as undocumented instead of asserting a transfer.
