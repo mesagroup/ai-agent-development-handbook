@@ -1141,6 +1141,14 @@
   claim: Cross-links to Parts 1, 2, 6 and 7 and the handbook index.
   class: informative
 
+# --- Part 10: Data protection & privacy -------------------------------------
+
+- id: data-protection/data-protection
+  section: "Part 10. Data protection & privacy"
+  claim: Locates the part as the second standing obligation beside Part 9 - the data subject rather than the attacker as the subject, the model call as a routine crossing of the trust boundary, and the handbook's own trail and eval artifacts as unintended stores of personal data.
+  class: informative
+  note: Part-opening prose while the part carries no sections; the rows for its sections replace this one as they are written.
+
 # --- Troubleshooting guide --------------------------------------------------
 
 - id: troubleshooting/cost-and-latency

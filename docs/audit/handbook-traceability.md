@@ -215,6 +215,12 @@ Two rules keep the walk reproducible. Apply them when adding or revising a row.
 | [Checklist: a security & supply-chain sweep](https://github.com/mesagroup/ai-agent-development-handbook/blob/main/docs/engineering/security-supply-chain.md#checklist-a-security--supply-chain-sweep)<br>Fifteen-item recap in six groups - first-party code (a verified source-to-sink path behind each finding, model and tool outputs treated as untrusted, sinks neutralized and input validated at the boundary), agent privileges (no lethal trifecta in one agent without a human gate, diagnostic and research agents read-only, no convenience write grants), secrets (no literals in source, tests, fixtures or notebooks, an exposed credential rotated then removed then purged), dependencies (transitive licenses, CVEs, freshness and hygiene, direct deps pinned with the lockfile committed, models and providers pinned and recorded with retention and DPA basis confirmed), pipeline (least-privilege token, actions pinned to commit SHAs, no untrusted pull-request code with secrets and federated credentials preferred), and standing (each class of fix now an executable gate). | process | Critical | - | - | A recap, so what it adds is the act of working the list during a sweep. Each of the fifteen items is owned by a Part 9 row above. |
 | [See also](https://github.com/mesagroup/ai-agent-development-handbook/blob/main/docs/engineering/security-supply-chain.md#see-also)<br>Cross-links to Parts 1, 2, 6 and 7 and the handbook index. | informative | - | - | - | - |
 
+## Part 10: Data protection & privacy
+
+| Section / claim | Class | Severity | Mapped checks | Gap | Notes |
+|---|---|---|---|---|---|
+| [Part 10. Data protection & privacy](https://github.com/mesagroup/ai-agent-development-handbook/blob/main/docs/engineering/data-protection.md)<br>Locates the part as the second standing obligation beside Part 9 - the data subject rather than the attacker as the subject, the model call as a routine crossing of the trust boundary, and the handbook's own trail and eval artifacts as unintended stores of personal data. | informative | - | - | - | Part-opening prose while the part carries no sections; the rows for its sections replace this one as they are written. |
+
 ## Troubleshooting guide
 
 | Section / claim | Class | Severity | Mapped checks | Gap | Notes |
@@ -324,7 +330,7 @@ Ordered by severity - the risk a violation carries - then by kind, then by handb
 | static | 69 |
 | artifact | 20 |
 | process | 21 |
-| informative | 16 |
+| informative | 17 |
 
 ### Severity x coverage
 
@@ -336,4 +342,4 @@ The actionable question: which high-risk clauses does nothing check? The Unmappe
 | Important | 15 | 17 | 30 | 62 | 15 |
 | Minor | 2 | 4 | 13 | 19 | 2 |
 
-126 rows total. Of the 89 auditable rows (69 static + 20 artifact): **21 fully mapped** (24%), **22 partially mapped** (a check that reaches part of the claim, with the residue recorded as a gap), and **46 unmapped** (no check reaches the claim; every one of them still carries a gap entry saying so and why, which the schema requires). All 68 gap entries sit on auditable rows: the 46 unmapped ones plus the 22 partial. The remaining 21 process and 16 informative rows are not auditable by design - the honest record of what a snapshot cannot settle.
+127 rows total. Of the 89 auditable rows (69 static + 20 artifact): **21 fully mapped** (24%), **22 partially mapped** (a check that reaches part of the claim, with the residue recorded as a gap), and **46 unmapped** (no check reaches the claim; every one of them still carries a gap entry saying so and why, which the schema requires). All 68 gap entries sit on auditable rows: the 46 unmapped ones plus the 22 partial. The remaining 21 process and 17 informative rows are not auditable by design - the honest record of what a snapshot cannot settle.
