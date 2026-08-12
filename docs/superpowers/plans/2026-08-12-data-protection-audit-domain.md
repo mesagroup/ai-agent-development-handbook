@@ -751,15 +751,25 @@ uv run python scripts/render_handbook_artifact.py
 
 Record the numbers. The artifact renderer's line should still read `sections: 13 ... em-dashes: 0  residual .md hrefs: 0` - the handbook is unchanged by this issue, so a change there is a regression.
 
-- [ ] **Step 2: Verify the plugin actually discovers the new skill**
+- [ ] **Step 2: Verify the new skill is discoverable, with a check that reads this tree**
 
-`claude plugin validate` passes on a plugin that discovers no skills, so it proves nothing here. Read the count:
+`claude plugin validate` passes on a plugin that discovers no skills, so it proves nothing. **And `claude plugin details handbook-audit` does not prove it either on an unmerged branch** - it reads the installed marketplace clone under `~/.claude/plugins/marketplaces/`, which tracks a pushed commit and is typically many commits behind, so it reports the old skill count and the old description no matter what this tree holds. Running it here and reading its count as this branch's would be a verification step measuring the wrong tree.
+
+Two checks that do read this tree:
 
 ```bash
-claude plugin details handbook-audit
+uv run python -c "
+import sys; sys.path.insert(0, 'scripts')
+from audit_checks import SKILLS_DIR, load_checks
+checks, errors = load_checks(SKILLS_DIR)
+assert errors == [], errors
+print('domains:', len({c.domain for c in checks.values()}), 'records:', len(checks))
+"
 ```
 
-Expected: one more skill than before this branch. If the count is unchanged, the skill directory is not under the path `plugin.json` declares (`./.agents/skills/`) or the `SKILL.md` frontmatter is malformed.
+That proves the records parse and the domain resolves from this working tree. The second is the running session's own available-skills list, which names a newly written skill within a turn or two of its `SKILL.md` landing - the only live evidence that the frontmatter parses *as a skill* rather than as a file. Note it in the report when it happens, because nothing re-creates it later.
+
+Then re-run `claude plugin details handbook-audit` **after the merge**, where the installed clone has the commit and the count means what it says.
 
 - [ ] **Step 3: Confirm the gap accounting moved the way the spec said**
 
