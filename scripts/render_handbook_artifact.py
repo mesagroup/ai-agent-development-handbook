@@ -34,7 +34,8 @@ layout engine offers either. Both render to a light and a dark SVG and are
 wrapped in the same ``<figure>``.
 
 NOT a CI test. Everything except ``run_d2`` is unit-tested in
-``tests/scripts/``: the pure transforms (``rewrite_links``, ``wrap_tables``,
+``tests/scripts/``: the pure transforms (``unlink_out_of_tree``,
+``rewrite_links``, ``wrap_tables``,
 ``mark_task_items``, ``extract_diagram_blocks``, ``parse_funnel``,
 ``wrap_label``, ``group_digits``, ``funnel_svg``, ``prepare_svg``,
 ``diagram_figure``, ``substitute_diagrams``, ``count_em_dashes``), the
@@ -634,6 +635,38 @@ def count_em_dashes(html: str) -> int:
     return html.count("—") + html.count("&#8212;")
 
 
+def unlink_out_of_tree(html: str) -> tuple[str, list[str]]:
+    """Unwrap anchors whose relative ``.md`` target lies outside the handbook.
+
+    The parts are all siblings in one directory, so an in-tree link is a bare
+    ``<stem>.md`` and any relative ``.md`` href carrying a ``/`` points out of
+    the tree. That target is not in this artifact and cannot be, so there is no
+    anchor to rewrite it to. Keep the link text and drop the anchor: the
+    sentence still reads, and the reader is not handed an href that resolves to
+    nothing. On GitHub the same source link resolves normally, which is why it
+    is written relatively rather than as an absolute URL that would carry the
+    org and repository name into every artifact the page is published as.
+
+    Args:
+        html: Converted HTML for one doc.
+
+    Returns:
+        The HTML with those anchors unwrapped, and the hrefs that were, so the
+        caller can report them rather than let them vanish silently.
+    """
+    unlinked: list[str] = []
+
+    def repl(m: re.Match[str]) -> str:
+        href = m.group(1)
+        if _SCHEME_RE.match(href) or "/" not in href.split("#")[0]:
+            return m.group(0)
+        unlinked.append(href)
+        return m.group(2)
+
+    out = re.sub(r'<a href="([^"]+\.md[^"]*)"[^>]*>(.*?)</a>', repl, html, flags=re.S)
+    return out, unlinked
+
+
 def rewrite_links(html: str, linkmap: dict[str, str]) -> tuple[str, list[str]]:
     """Rewrite ``*.md`` hrefs to in-page anchors.
 
@@ -673,24 +706,32 @@ def mark_task_items(html: str) -> str:
     return html
 
 
-def post_process(html: str, linkmap: dict[str, str]) -> tuple[str, list[str]]:
-    """Apply all HTML transforms; return the result and any unmapped hrefs."""
+def post_process(
+    html: str, linkmap: dict[str, str]
+) -> tuple[str, list[str], list[str]]:
+    """Apply all HTML transforms; return the result, unmapped and unlinked hrefs.
+
+    Out-of-tree links are unwrapped before the in-tree rewrite, so they never
+    reach `unmapped` - they were handled rather than skipped, and `build`
+    raises on an unmapped relative link.
+    """
+    html, unlinked = unlink_out_of_tree(html)
     html, unmapped = rewrite_links(html, linkmap)
     html = wrap_tables(html)
     html = mark_task_items(html)
-    return html, unmapped
+    return html, unmapped, unlinked
 
 
 def render_doc(
     docs_dir: Path, stem: str, linkmap: dict[str, str]
-) -> tuple[str, list[str]]:
+) -> tuple[str, list[str], list[str]]:
     """Convert one markdown doc to post-processed HTML (lazy-imports markdown)."""
     import markdown  # lazy: keeps the pure helpers importable without the dep
 
     md = (docs_dir / f"{stem}.md").read_text()
     md, blocks = extract_diagram_blocks(md, stem)
     html = markdown.markdown(md, extensions=["tables", "fenced_code", "sane_lists"])
-    html, unmapped = post_process(html, linkmap)
+    html, unmapped, unlinked = post_process(html, linkmap)
     if blocks:
         html = substitute_diagrams(
             html,
@@ -699,7 +740,7 @@ def render_doc(
                 for block in blocks
             },
         )
-    return html, unmapped
+    return html, unmapped, unlinked
 
 
 def render_variants(block: DiagramBlock, stem: str) -> tuple[str, str]:
@@ -762,16 +803,20 @@ def build(docs_dir: Path, parts: list[tuple[str, str, str]] = PARTS) -> str:
     sections = []
     for anchor, stem, _ in parts:
         cls = "part intro" if anchor == "top" else "part"
-        html, unmapped = render_doc(docs_dir, stem, linkmap)
+        html, unmapped, unlinked = render_doc(docs_dir, stem, linkmap)
         dead = [h for h in unmapped if not _SCHEME_RE.match(h)]
         if dead:
             raise ValueError(
                 f"{stem}.md: relative link(s) the artifact cannot resolve: "
                 + ", ".join(dead)
-                + ". Link outside the handbook with an absolute URL."
+                + ". A sibling link must name a part this artifact contains; a "
+                "target outside the handbook is written relatively and gets "
+                "unlinked here."
             )
         for href in unmapped:
             print(f"  WARNING unmapped link in {stem}.md: {href}")
+        for href in unlinked:
+            print(f"  NOTE unlinked out-of-tree link in {stem}.md: {href}")
         sections.append(
             f'    <section id="{anchor}" class="{cls}">\n'
             f'      <div class="col doc">\n{html}\n      </div>\n    </section>'
