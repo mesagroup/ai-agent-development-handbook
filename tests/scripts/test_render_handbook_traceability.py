@@ -301,10 +301,14 @@ def test_render_produces_tables_gap_list_and_summary():
     rows = _valid_rows()
     out = rht.render(rows, _DEMO_CHECKS)
     assert "generated file" in out.lower()
-    # Absolute GitHub URL: the handbook is excluded from the built site, so a
-    # relative link would 404 there and fail the site link crawler.
+    # Relative link, and no absolute one anywhere in the document. The guard is
+    # the negative half: this file is read in the repo or on GitHub and the
+    # plugin does not ship it, so an absolute URL only bakes the org and
+    # repository name into every report the matrix is copied into. Forbidding
+    # the scheme rather than one spelling of the org keeps the assertion from
+    # passing on a URL nothing could produce.
     assert f"[Mapped section]({_ALPHA_URL}#mapped-section)<br>c1" in out
-    assert "../engineering/" not in out
+    assert "https://github.com/" not in out
     assert "`demo/injection` / Injection" in out
     assert "### Critical" in out and "#2" in out
     assert "| static | 1 |" in out

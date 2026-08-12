@@ -751,10 +751,12 @@ def build(docs_dir: Path, parts: list[tuple[str, str, str]] = PARTS) -> str:
     Raises:
         ValueError: If a page carries a relative `.md` link the linkmap
             cannot resolve. Such a link resolves on GitHub and is dead in
-            this artifact, and neither `mkdocs build --strict` nor
-            `check_site_links.py` can catch it because `docs/engineering/`
-            is excluded from the site - so a warning here would be a
-            silent pass. Absolute URLs are unmapped by design and pass.
+            this artifact, and nothing else in this repository looks at the
+            handbook's links, so a warning here would be a silent pass.
+            This raise is the only check there is. Absolute URLs are
+            unmapped by design and pass, which is why the one link out of
+            the handbook tree (`engineering-notes.md`, from the README's
+            parts table) has to be absolute.
     """
     linkmap = {stem + ".md": "#" + anchor for anchor, stem, _ in parts}
     sections = []
