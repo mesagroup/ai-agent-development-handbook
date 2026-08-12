@@ -1,7 +1,7 @@
 {
   "name": "handbook-audit",
   "displayName": "Handbook Audit",
-  "description": "Audits a codebase against the AI agent development handbook across eight domains: architecture, CI, dependencies, docs, evaluation, prompts, security and tests.",
+  "description": "Audits a codebase against the AI agent development handbook across nine domains: architecture, CI, data protection, dependencies, docs, evaluation, prompts, security and tests.",
   "skills": "./.agents/skills/",
   "homepage": "https://github.com/mesagroup/ai-agent-development-handbook",
   "repository": "https://github.com/mesagroup/ai-agent-development-handbook",

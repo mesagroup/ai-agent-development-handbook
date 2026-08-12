@@ -8,7 +8,7 @@ run time - a domain's checks, sliced by locality - instead of eight
 
 A domain's records live inside that domain's own skill, not in a shared
 tree under `audit-core`. Each skill then stands alone - a repo adopting
-three of the eight domains copies three directories plus the engine - and
+three of the nine domains copies three directories plus the engine - and
 a record is one hop from the `SKILL.md` that names it rather than two hops
 through a sibling skill, which is the nesting depth Anthropic's skill
 guidance warns leads agents to preview a file rather than read it.
