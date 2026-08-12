@@ -8,7 +8,7 @@ Arriving with a problem rather than a curriculum? The [troubleshooting guide](tr
 
 ## The story of a change
 
-Every part of this handbook attaches to one story: the life of a single change. Follow it once, end to end, and the nine parts stop being a list of best practices; they become the stations where the change (and you) will need them.
+Every part of this handbook attaches to one story: the life of a single change. Follow it once, end to end, and the ten parts stop being a list of best practices; they become the stations where the change (and you) will need them.
 
 It starts with an idea. A bug report comes in, an eval number dips, a user asks for a feature. The idea becomes an **issue**, because work that is not traceable to an issue evaporates: nobody can find its reasoning later, and nobody notices when it silently dies. From here on, though, you will rarely be the one writing the code. You direct agents that write most of it, and that single fact shapes the whole path ahead, because delegation on that scale only works if the human moments are chosen deliberately. The first one comes before any code exists: the issue becomes a **spec** (what exactly are we building, and how will we know it is right?), and the story stops until a human approves it. This is the cheapest moment in the whole story to discover we are building the wrong thing; every later stage multiplies the cost of that discovery. Then the spec becomes a **plan**: the work decomposed into tasks so complete that an implementer with zero context can execute them, and today that implementer is increasingly an agent. Raising the level of abstraction does not abolish the hard work: it relocates it upward, into the spec, the plan, the review, and the judgment calls between them. [Part 1](lifecycle.md) is this path in operational detail: the gates, the reviews, and the judgment calls that keep delegation from becoming guessing at scale. The craft each station on that path demands (how the code and the agent's behaviour get written, and the mechanical, human, and behavioural gates that catch what the writing missed) is [Part 2](implementation-disciplines.md).
 
@@ -16,7 +16,7 @@ The change needs a home, and the home has a shape. It lands in a codebase layere
 
 Implemented, tested, reviewed, merged. That is half the story, and the easy half. Now the change ships and starts doing things no unit test can see: fetching, spending, taking seconds and dollars in places you did not predict. The run records tell you what it actually did (what it fetched, what it used, what it cost, where its time went), because we instrument before we tune and keep the instruments out of the model's context ([Part 6](observability.md)). And then comes the question the whole handbook exists to answer honestly: **is the product actually better?** Not "do the tests pass": a change can be green on every unit test and still make an agent measurably worse. Better means measured, against a dataset the change did not get to define, with variance reported and the full cost on the table ([Part 7](evaluation.md)).
 
-Here the loop closes. What the measurement teaches (a new failure form, a surprising cost, an assumption that did not survive contact with production) becomes the next issue. What the change leaves behind (the spec, the plan, a story of what surprised us, a recorded result) is the trail that lets someone who was not there, including a future you and the next agent, recover the decision and its evidence ([Part 8](documentation.md)). And over every change, not just this one, stands the obligation that no test and no eval will enforce: keeping the machine safe, from your own code's trust boundaries to your dependency graph to the pipeline that builds you ([Part 9](security-supply-chain.md)).
+Here the loop closes. What the measurement teaches (a new failure form, a surprising cost, an assumption that did not survive contact with production) becomes the next issue. What the change leaves behind (the spec, the plan, a story of what surprised us, a recorded result) is the trail that lets someone who was not there, including a future you and the next agent, recover the decision and its evidence ([Part 8](documentation.md)). And over every change, not just this one, stand the two obligations that no test and no eval will enforce. Keeping the machine safe, from your own code's trust boundaries to your dependency graph to the pipeline that builds you ([Part 9](security-supply-chain.md)). And keeping the data lawful for the people it belongs to, which is the same story told from the other side: every model call hands their data to somebody else, and the trail and the datasets you just built to make the change measurable are stores of it ([Part 10](data-protection.md)).
 
 Do not expect the loop to terminate. That the story ends where it began is not a defect; it is how the system stays honest as the data, the models, and the team drift.
 
@@ -49,7 +49,8 @@ decide -> idea: the next issue
 | **[6. Observability](observability.md)** | The change ships: instrument before you tune, account for the full cost. |
 | **[7. Evaluation: how to decide](evaluation.md)** | The loop closes: was it actually better, measured against a dataset you trust? |
 | **[8. Documentation & knowledge capture](documentation.md)** | What the change leaves behind: the trail that outlives the moment. |
-| **[9. Security, dependencies & supply chain](security-supply-chain.md)** | The standing obligation: safe code, accounted dependencies, a trustworthy pipeline. |
+| **[9. Security, dependencies & supply chain](security-supply-chain.md)** | The first standing obligation: safe code, accounted dependencies, a trustworthy pipeline. |
+| **[10. Data protection & privacy](data-protection.md)** | The second: what the system owes the people whose data passes through it. |
 | **[Troubleshooting](troubleshooting.md)** | The other entry point: from a symptom (it burns money, it hangs, it hallucinates) to the sections that fix it. |
 | **[Coda](coda.md)** | Closing words: the loop, and what stays. |
 | **[Engineering notes](https://github.com/mesagroup/ai-agent-development-handbook/blob/main/docs/engineering-notes.md)** (`docs/engineering-notes.md`) | *Not part of the handbook.* An advisory sidecar, outside this tree, for practices too contingent on one execution environment to be normative here, kept with the reason each was cut. |
@@ -60,7 +61,7 @@ The story above assumes a system for the change to land in. Building an agent, o
 
 Begin where every change begins, with an issue and a spec, scoped to a thin end-to-end slice a user could exercise rather than to the whole application ([Part 1](lifecycle.md)). The narrow first slice forces the "how will we know it is right?" question while answering it is still cheap, and it gives every later station something real to attach to. Lay the tier skeleton before writing the first agent ([Part 3](codebase-structure.md)): that first agent will be almost entirely task layer, and that is correct. Resist building the reusable core speculatively; respect the boundaries from day one and let the core condense out of what the second and third agents turn out to need.
 
-Stand up the minimal harness before the second agent exists ([Part 5](agent-harness.md)): model aliases, one named profile, a headless CLI, a mock backend. This looks premature exactly once. It is the precondition for every measurement you will ever make, and retrofitting it under a grown agent costs more than building it under a new one. Create the eval dataset and the metric while writing the spec, before there is anything to tune ([Part 7](evaluation.md)), and instrument from the first run ([Part 6](observability.md)): the first slice's numbers are the baseline every later change is judged against. Give the project its rules file, its CI gates, and its security sweep with the first commit, not as a retrofit ([Part 8](documentation.md), [Part 9](security-supply-chain.md)); a gate added later must fight every habit that grew in its absence.
+Stand up the minimal harness before the second agent exists ([Part 5](agent-harness.md)): model aliases, one named profile, a headless CLI, a mock backend. This looks premature exactly once. It is the precondition for every measurement you will ever make, and retrofitting it under a grown agent costs more than building it under a new one. Create the eval dataset and the metric while writing the spec, before there is anything to tune ([Part 7](evaluation.md)), and instrument from the first run ([Part 6](observability.md)): the first slice's numbers are the baseline every later change is judged against. Give the project its rules file, its CI gates, and its security sweep with the first commit, not as a retrofit ([Part 8](documentation.md), [Part 9](security-supply-chain.md)); a gate added later must fight every habit that grew in its absence. If the first slice will touch personal data at all, the data-flow map and the processor register belong in that same first commit ([Part 10](data-protection.md)), for the same reason and more sharply: both are cheap to write while there is one store and one provider, and reconstructing them later means auditing everything you built without them.
 
 ### Checklist: standing up a project from zero
 
@@ -69,6 +70,7 @@ Stand up the minimal harness before the second agent exists ([Part 5](agent-harn
 - [ ] Minimal **harness** up: model aliases, a named profile, a headless CLI, a mock backend.
 - [ ] **Eval dataset and metric** exist before tuning starts; the first run is instrumented and becomes the baseline.
 - [ ] **Rules file, CI gates, and the security sweep** present from the first commit.
+- [ ] If personal data is in scope: **data-flow map and processor register** written while there is one store and one provider.
 
 ## The four throughlines
 
@@ -80,7 +82,7 @@ Treat every non-trivial change to an agent, a prompt, or an extractor as a *hypo
 
 ### 2. Capture the trail: a decision and its evidence should outlive the moment
 
-Work in the open and write things down: a spec before code, a plan before implementation, a story after a piece of work lands, a recorded result after an experiment. The point is not ceremony. It is that a decision made six months ago, and the evidence that justified it, must be recoverable by someone who was not there, including your future self and the next agent dispatched with zero history. [Part 8](documentation.md) is this idea made concrete; [Part 1](lifecycle.md)'s gates are where the artifacts get produced.
+Work in the open and write things down: a spec before code, a plan before implementation, a story after a piece of work lands, a recorded result after an experiment. The point is not ceremony. It is that a decision made six months ago, and the evidence that justified it, must be recoverable by someone who was not there, including your future self and the next agent dispatched with zero history. [Part 8](documentation.md) is this idea made concrete; [Part 1](lifecycle.md)'s gates are where the artifacts get produced; and [Part 10](data-protection.md) is where it stops being a courtesy, because a data-flow map and a processor register are the only form in which what your system does with somebody's personal data outlives whoever last knew.
 
 ### 3. The reusable core vs. the disposable task layer
 
@@ -105,6 +107,7 @@ The map of throughlines to parts (● a primary home, ○ drawn on):
 | 7 Evaluation | ● | ○ | | |
 | 8 Documentation | | ● | | ○ |
 | 9 Security | ○ | | | ● |
+| 10 Data protection | ○ | ● | | ○ |
 
 ## How to use this handbook
 
