@@ -4,6 +4,7 @@ domain: data-protection
 locality: global
 handbook:
   - data-protection/every-processor-needs-an-agreement-and-the-register-must-match-the-code-a
+  - security-supply-chain/depend-only-on-what-you-can-account-for-b
 ---
 
 # Processor register
@@ -12,11 +13,13 @@ Whether a register of processors exists and records, per processor, a signed dat
 
 ## Severity
 
+The two bands about a **missing register** rest on personal data crossing to the third party, sourced the way `SKILL.md` fixes it rather than inferred, and drop one level where nothing establishes it. The bands about a **field the register itself omits** - a missing retention window, a missing reconciliation date, a value recorded as free prose - are mechanism bands and stand whatever established the surface: the register's own entry declares that party a processor, which is at least as strong as the operator's declaration, and the finding cites a field absent from a document rather than a payload in a store.
+
 **Critical** - no register at all, or a register with no DPA field, where the code reaches a third party and an artifact establishes that personal data crosses to it. Both halves of that condition are sourced, and neither is an impression. The **reachability** half comes from the derived personal-data surface `SKILL.md` builds once in `audit-core` step 1, not from `data-protection/provider-surface`'s output: that check is `global` too, so it is running in its own agent at the same moment as this one and its result does not exist yet. The **crossing** half comes from what `SKILL.md` says establishes a surface.
 
 **Important** - the same register gap where the code reaches a third party and nothing documents what crosses to it. Report an unregistered processor whose payload is undocumented, which is true and actionable, rather than an unaccounted transfer of personal data, which is the row `SKILL.md` withdraws.
 
-**Critical** also for a processor recorded with no retention window. Part 10 makes that the test: a provider whose retention window you cannot state is a provider you have not accounted for, which is Part 9's dependency test asked about data instead of about code.
+**Critical** also for a processor recorded with no retention window - a mechanism band, per the rule above. Part 10 makes that the test: a provider whose retention window you cannot state is a provider you have not accounted for, which is Part 9's dependency test asked about data instead of about code. This band is why the record also grounds Part 9's own AI-surface row, whose claim asks for exactly this: the pinning half of that row is `eval/reproducibility`'s and the retention-terms half is read here.
 
 **Important** - a register whose fields are all present but which records no reconciliation date, so nobody can say when it last matched the code. The fields are the easy half; the date is what makes the register a claim about the current system rather than about the day it was written.
 

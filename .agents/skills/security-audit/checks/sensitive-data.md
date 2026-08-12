@@ -10,7 +10,7 @@ handbook:
 
 # Sensitive-data handling
 
-Secrets/PII written to logs or error messages, overly broad exception handling that hides security failures, tokens in URLs.
+Secrets/PII written to logs or error messages, overly broad exception handling that hides security failures, tokens or personal identifiers in URLs. The identifier case is named because a token is a credential and a personal identifier is not, and the row that hands the call site here disclaims both - so an identifier in a URL would otherwise be claimed by nobody.
 
 ## Tooling fallback
 
