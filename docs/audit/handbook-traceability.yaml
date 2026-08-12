@@ -1173,6 +1173,26 @@
     target: "#4"
     note: deps-audit's inventory is the package graph, so a provider reached over HTTP never enters it, and no skill derives an outbound-provider list from imports, base URLs or tool endpoints. `security/sensitive-data` reads outbound URL construction, but for exposure at the call site rather than to enumerate who is called.
 
+- id: data-protection/keep-the-data-where-the-law-lets-it-be
+  section: "Keep the data where the law lets it be"
+  claim: Keep personal data in a permitted region or a destination covered by an adequacy decision or standard contractual clauses, and enforce it the way the handbook enforces any environment-selecting value - the region pinned explicitly in configuration, required rather than defaulted, validated at startup and named in the error when missing - then check the places residency is actually lost (provider failover, a store whose region was chosen once at creation, telemetry in another jurisdiction, cross-region backups, a payload copied to a laptop to reproduce a bug).
+  class: static
+  severity: critical
+  gap:
+    recommendation: new-domain
+    target: "#4"
+    note: a region setting and its absence are both readable from configuration and no skill reads for either; ci-audit's `ci/permissions-secrets` is the nearest thing in the family and scopes to pipeline credentials rather than to where a request lands. The failover and backup cases need deployment facts a repository snapshot does not carry, so they stay unreachable even once the domain exists.
+
+- id: data-protection/minimize-before-the-boundary
+  section: "Minimize before the boundary"
+  claim: Redact, pseudonymize or truncate personal data before it crosses the trust boundary and prefer a reference over a payload, placing the redaction in the one call path every request goes through rather than at each call site; and settle its quality cost as an eval dimension rather than assuming it away in either direction, because a team that assumes it away ships a regression under a privacy justification.
+  class: static
+  severity: important
+  gap:
+    recommendation: new-domain
+    target: "#4"
+    note: eval-audit owns whether a behaviour is evaluated and has no dimension for redaction, and no skill reads the outbound call path for a minimization step; the whole claim needs the domain the target issue creates.
+
 # --- Troubleshooting guide --------------------------------------------------
 
 - id: troubleshooting/cost-and-latency
