@@ -12,7 +12,7 @@ Whether a register of processors exists and records, per processor, a signed dat
 
 ## Severity
 
-**Critical** - no register at all, or a register with no DPA field, where the code reaches a third party and an artifact establishes that personal data crosses to it. Both halves of that condition are sourced, and neither is an impression. The **reachability** half comes from the shared outbound-provider surface `SKILL.md` builds once in `audit-core` step 1, not from `data-protection/provider-surface`'s output: that check is `global` too, so it is running in its own agent at the same moment as this one and its result does not exist yet. The **crossing** half comes from what `SKILL.md` says establishes a surface.
+**Critical** - no register at all, or a register with no DPA field, where the code reaches a third party and an artifact establishes that personal data crosses to it. Both halves of that condition are sourced, and neither is an impression. The **reachability** half comes from the derived personal-data surface `SKILL.md` builds once in `audit-core` step 1, not from `data-protection/provider-surface`'s output: that check is `global` too, so it is running in its own agent at the same moment as this one and its result does not exist yet. The **crossing** half comes from what `SKILL.md` says establishes a surface.
 
 **Important** - the same register gap where the code reaches a third party and nothing documents what crosses to it. Report an unregistered processor whose payload is undocumented, which is true and actionable, rather than an unaccounted transfer of personal data, which is the row `SKILL.md` withdraws.
 
@@ -42,4 +42,4 @@ The audit can supply the list of who is called, from `data-protection/provider-s
 
 **Term precision** - the row is about the processor's agreement, its training position and its retention window. Never the controller's legal basis, which is a different obligation and not the audited project's vendor paperwork; and never the lawful transfer route, which belongs to `data-protection/residency-pinning` and its own row, so a transfer-route claim here has no band to land in and duplicates that check.
 
-**Enumeration provenance** - a processor the row reports as unregistered is cited from the shared outbound-provider surface rather than named from the auditor's own reading, so the two checks over this section cannot disagree about who is called.
+**Enumeration provenance** - a processor the row reports as unregistered is cited from the derived personal-data surface rather than named from the auditor's own reading, so the two checks over this section cannot disagree about who is called.
