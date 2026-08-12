@@ -73,7 +73,7 @@ Naming it forfeits nothing, because `audit-core` defines `no-evidence` as no too
 
 ### The reciprocal matrix half
 
-The matrix row's `checks:` entry and the record's `handbook:` entry are two directions of one edge, so every row below changes in the same commit as the record that cites it. Five gaps retire because the check answers the whole claim. Four convert to a residue, which is a different entry rather than a smaller one: `unchecked` means nothing checks the clause and closing it needs new capability, `residue` means something checks it and part of the claim is still out of reach.
+The matrix row's `checks:` entry and the record's `handbook:` entry are two directions of one edge, so every row below changes in the same commit as the record that cites it. Eight rows carry `gap: {new-domain, target: "#4"}` today, and the table below disposes of each. Three retire outright, because a check answers the whole claim. Four convert to a residue, which is a different entry rather than a smaller one: `unchecked` means nothing checks the clause and closing it needs new capability, `residue` means something checks it and part of the claim is still out of reach. The eighth, the standing-check row, keeps an `unchecked` gap and only changes recommendation, for the reason set out below it. (An earlier draft of this paragraph said five retire, which contradicted its own table - the dispositions in the table are the ones to read, and the totals here are counted from it.)
 
 | Row | `checks:` after | Gap after |
 |---|---|---|
