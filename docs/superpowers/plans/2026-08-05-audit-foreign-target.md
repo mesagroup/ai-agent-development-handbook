@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make the `*-audit` family able to audit a repository that is not this one, and make its findings cite the handbook, delivering [#8](https://github.com/mesagroup/ai-agent-development-handbook/issues/8) with the residue of [#5](https://github.com/mesagroup/ai-agent-development-handbook/issues/5) and [#7](https://github.com/mesagroup/ai-agent-development-handbook/issues/7).
+**Goal:** Make the `*-audit` family able to audit a repository that is not this one, and make its findings cite the handbook, delivering #8 with the residue of #5 and #7.
 
 **Architecture:** The audit runs with the audited repository as the working directory and the lenses supplied by the installed `handbook-audit` plugin. Nothing threads a skills path anywhere: subagents are dispatched to *invoke* `handbook-audit:<domain>-audit` by name, and the front door discovers its sibling domains through paths relative to its own skill directory. A project inventory, built once before the fan-out, carries per-partition language sets and already-installed tooling, which is what lets a check select a toolchain and lets a report distinguish "clean" from "we could not look".
 

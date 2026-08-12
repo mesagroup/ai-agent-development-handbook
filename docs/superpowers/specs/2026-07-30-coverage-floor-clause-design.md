@@ -1,6 +1,6 @@
 # Coverage-floor clause design (lidia-tech/lidia-agents#551)
 
-**Status:** approved 2026-07-30. Implements wave 0 of [#1](https://github.com/mesagroup/ai-agent-development-handbook/issues/1), after [lidia-tech/lidia-agents#552](https://github.com/lidia-tech/lidia-agents/issues/552).
+**Status:** approved 2026-07-30. Implements wave 0 of #1, after [lidia-tech/lidia-agents#552](https://github.com/lidia-tech/lidia-agents/issues/552).
 
 ## Problem
 

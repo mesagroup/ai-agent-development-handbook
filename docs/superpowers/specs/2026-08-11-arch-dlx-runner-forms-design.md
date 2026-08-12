@@ -1,6 +1,6 @@
-# Concrete `dlx` forms for the four arch-audit `dependency-cruiser` records ([#32](https://github.com/mesagroup/ai-agent-development-handbook/issues/32))
+# Concrete `dlx` forms for the four arch-audit `dependency-cruiser` records (#32)
 
-Status: accepted. Successor to the same fix in `test-audit/checks/mutation.md` ([#5](https://github.com/mesagroup/ai-agent-development-handbook/issues/5), commit `32043c4`), which is the precedent this follows rather than a design to redo.
+Status: accepted. Successor to the same fix in `test-audit/checks/mutation.md` (#5, commit `32043c4`), which is the precedent this follows rather than a design to redo.
 
 ## Problem
 
@@ -48,9 +48,9 @@ Rows for the three runners' package options are already verified in `2026-08-10-
 
 ## Out of scope
 
-**Yarn 1 has no `dlx`.** Yarn classic's documented command list carries 43 commands and `dlx` is not among them; `dlx` is a Yarn 2+ command. `audit/SKILL.md`'s runner table says "`yarn dlx <tool>` for yarn" without qualification, so a Yarn 1 partition has no one-shot runner and the table does not say so. That is one defect in one shared sentence rather than four in the records, the records here match family precedent by naming `yarn dlx`, and [#29](https://github.com/mesagroup/ai-agent-development-handbook/issues/29) already requires a pnpm or yarn target, which is where it surfaces empirically. Left for a follow-up issue against `audit/SKILL.md`.
+**Yarn 1 has no `dlx`.** Yarn classic's documented command list carries 43 commands and `dlx` is not among them; `dlx` is a Yarn 2+ command. `audit/SKILL.md`'s runner table says "`yarn dlx <tool>` for yarn" without qualification, so a Yarn 1 partition has no one-shot runner and the table does not say so. That is one defect in one shared sentence rather than four in the records, the records here match family precedent by naming `yarn dlx`, and #29 already requires a pnpm or yarn target, which is where it surfaces empirically. Left for a follow-up issue against `audit/SKILL.md`.
 
-**The taxonomy that misroutes a foreign-registry package** is [#28](https://github.com/mesagroup/ai-agent-development-handbook/issues/28). This change is consistent with it either way: `dependency-cruiser` is a package in the partition's own registry, which is the kind the taxonomy already handles.
+**The taxonomy that misroutes a foreign-registry package** is #28. This change is consistent with it either way: `dependency-cruiser` is a package in the partition's own registry, which is the kind the taxonomy already handles.
 
 ## Acceptance
 

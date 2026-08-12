@@ -1,6 +1,6 @@
 # Gap-entry kinds in the traceability matrix (lidia-tech/lidia-agents#553 + lidia-tech/lidia-agents#554)
 
-**Status:** draft 2026-07-30. Closes the two matrix stragglers filed during [lidia-tech/lidia-agents#552](https://github.com/lidia-tech/lidia-agents/issues/552) and [lidia-tech/lidia-agents#551](https://github.com/lidia-tech/lidia-agents/issues/551), ahead of the wave-1 skill sweep in [#1](https://github.com/mesagroup/ai-agent-development-handbook/issues/1).
+**Status:** draft 2026-07-30. Closes the two matrix stragglers filed during [lidia-tech/lidia-agents#552](https://github.com/lidia-tech/lidia-agents/issues/552) and [lidia-tech/lidia-agents#551](https://github.com/lidia-tech/lidia-agents/issues/551), ahead of the wave-1 skill sweep in #1.
 
 ## Problem
 

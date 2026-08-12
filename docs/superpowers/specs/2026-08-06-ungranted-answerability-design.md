@@ -1,10 +1,10 @@
-# What a check can still answer when a grant is withheld ([#26](https://github.com/mesagroup/ai-agent-development-handbook/issues/26))
+# What a check can still answer when a grant is withheld (#26)
 
-**Status:** draft 2026-08-06. Follows [#19](https://github.com/mesagroup/ai-agent-development-handbook/issues/19), which introduced `needs:` and the rule this spec corrects. Should land before [#5](https://github.com/mesagroup/ai-agent-development-handbook/issues/5), which gives fourteen `test-audit` and `security-audit` records their first TypeScript tooling and would otherwise author them against the defect described here.
+**Status:** draft 2026-08-06. Follows #19, which introduced `needs:` and the rule this spec corrects. Should land before #5, which gives fourteen `test-audit` and `security-audit` records their first TypeScript tooling and would otherwise author them against the defect described here.
 
 ## Problem
 
-[#19](https://github.com/mesagroup/ai-agent-development-handbook/issues/19) gave each `tooling:` name a tier saying what must be present in the target before that tool can answer. `audit-core` then derives a conclusion about the *check* from those facts about its *tools*: "Where the run holds no grant, the checks whose only tools need one are `no-evidence`, never clean." The sweep repeats it twice more, in its step 0 grants bullet and in its fan-out brief.
+#19 gave each `tooling:` name a tier saying what must be present in the target before that tool can answer. `audit-core` then derives a conclusion about the *check* from those facts about its *tools*: "Where the run holds no grant, the checks whose only tools need one are `no-evidence`, never clean." The sweep repeats it twice more, in its step 0 grants bullet and in its fan-out brief.
 
 The derivation is wrong whenever a check has an axis that needs no tool at all, and five records already say so in prose:
 
@@ -16,7 +16,7 @@ The derivation is wrong whenever a check has an axis that needs no tool at all, 
 | `test/determinism` | the same | "only the grep pass answers" | The tier is true - the randomized-order and repeat-run passes do run the suite - but grepping for `time.time()`, `datetime.now()`, unseeded `random.` and live network calls answers the non-determinism axis with nothing installed. |
 | `test/isolation` | the same | "answered on the I/O axis with the timing evidence missing" | The same shape: the `--durations` pass needs the grant, reading test source for real I/O does not. |
 
-[#26](https://github.com/mesagroup/ai-agent-development-handbook/issues/26) framed this as a collision between two `needs:` rules, on the strength of `arch/complexity-gate` alone. The wider reading is that a check-level claim is being *derived* from tool-level data and is unexpressible when the derivation is wrong, so the only place to correct it is prose that contradicts the frontmatter beside it.
+#26 framed this as a collision between two `needs:` rules, on the strength of `arch/complexity-gate` alone. The wider reading is that a check-level claim is being *derived* from tool-level data and is unexpressible when the derivation is wrong, so the only place to correct it is prose that contradicts the frontmatter beside it.
 
 The exposure is measurable rather than estimated. Applying the rule per language partition silences a (record, language) pair whose every tool carries a tier. There are **12 such pairs across 11 records** - `deps/hygiene` is silenced in both of its languages - of which five carry overriding prose and six are silenced with nothing recording whether that is correct:
 
@@ -83,7 +83,7 @@ So each pair is checked against the question the record actually asks, not again
 
 **The sweep has been run, and it changed the picture.** Ten of the eleven records can answer something without a grant; only `test/mutation` cannot. `deps/freshness` on Python was the predicted case and it held: the pins are already in `uv.lock` or `poetry.lock`, and the registry supplies the rest over the network rather than out of a tree. The same two-step procedure answers both licence checks, since a full lockfile already pins the transitive graph. That the derived rule was silencing ten answerable checks is the finding that justifies the sweep, and it is why decision 2 requires the field rather than offering it.
 
-Where verification finds such a path, the fix is to give the record that tool or that prose. Where it is a *tool*, the record gains an untiered name, drops out of the fully-tiered set, and by decision 2 may no longer carry `ungranted_note` at all - the field retreats as the underlying gaps close rather than accumulating beside them. That did not happen here, but not because every path is tool-free: `arch/complexity`'s TypeScript answer is ESLint itself, a package, run under an audit-supplied flat config rather than the target's own. It is already in that record's `tooling:`, tiered `target-execution` for the invocation that reads the target's own config from `node_modules` - and `tooling:` cannot express one package answering at two tiers, so the alternative, untiered invocation goes into the note rather than into the tool list, the same place every tool-free path - read the lockfile, query the registry, walk the syntax tree, grep the tells - already had to go. So no record's `tooling:` or `needs:` changes in this work, which also keeps it clear of [#5](https://github.com/mesagroup/ai-agent-development-handbook/issues/5).
+Where verification finds such a path, the fix is to give the record that tool or that prose. Where it is a *tool*, the record gains an untiered name, drops out of the fully-tiered set, and by decision 2 may no longer carry `ungranted_note` at all - the field retreats as the underlying gaps close rather than accumulating beside them. That did not happen here, but not because every path is tool-free: `arch/complexity`'s TypeScript answer is ESLint itself, a package, run under an audit-supplied flat config rather than the target's own. It is already in that record's `tooling:`, tiered `target-execution` for the invocation that reads the target's own config from `node_modules` - and `tooling:` cannot express one package answering at two tiers, so the alternative, untiered invocation goes into the note rather than into the tool list, the same place every tool-free path - read the lockfile, query the registry, walk the syntax tree, grep the tells - already had to go. So no record's `tooling:` or `needs:` changes in this work, which also keeps it clear of #5.
 
 ### 6. `arch/complexity-gate` keeps its tier
 
@@ -119,7 +119,7 @@ The prose-note floor in the test suite is the one guard against the failure mode
 
 ## Acceptance criteria, mapped
 
-| Criterion (from [#26](https://github.com/mesagroup/ai-agent-development-handbook/issues/26)) | Where it is met |
+| Criterion (from #26) | Where it is met |
 |---|---|
 | A record that names a tool it does not run can express that without asserting a false tier | Decisions 1 and 6, with the criterion reinterpreted: the record expresses that the *check* does not need the tool, and the tier stays because it is true of the tool |
 | The consistency guard still catches a record that forgot to classify a tool it does run | Decision 1 leaves `test_a_tool_has_one_tier_across_the_family` untouched |
@@ -130,5 +130,5 @@ The issue also asks that the "an absent key is a positive claim" hazard be revis
 
 ## Related
 
-- [#19](https://github.com/mesagroup/ai-agent-development-handbook/issues/19) introduced `needs:` and the derived rule, and patched in prose the contradicting records its review happened to surface, which is the workaround this replaces.
-- [#5](https://github.com/mesagroup/ai-agent-development-handbook/issues/5) authors TypeScript tooling for fourteen records; every one that ends up fully tiered will need this field, which is why this lands first.
+- #19 introduced `needs:` and the derived rule, and patched in prose the contradicting records its review happened to surface, which is the workaround this replaces.
+- #5 authors TypeScript tooling for fourteen records; every one that ends up fully tiered will need this field, which is why this lands first.
