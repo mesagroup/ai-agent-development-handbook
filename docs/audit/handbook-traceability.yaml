@@ -1215,6 +1215,28 @@
     target: "#4"
     note: "partial - `security/sensitive-data` reads logging and exception-handling call sites near secret- or PII-bearing variables, so it flags the log and error-message half of this claim rather than passing it, which is what the near-miss rule requires of a mapping. The residue is everything that is a stored artifact rather than a call site: traces and run records, eval datasets, and the fixtures extracted from real documents. A first-party-code lens does not read those, and they are the copies that persist longest, so their status needs the domain the target issue creates."
 
+- id: data-protection/verify-against-the-real-artifacts
+  section: "Verify against the real artifacts"
+  claim: Run the verification counterpart of this part as a standing check over four things - the register against the outbound calls the code makes, the pinned regions against the providers configured, the retention limits against the stores the data-flow map lists, and a scan of logs, fixtures and run artifacts for personal data - report-only first and then one surface at a time; and separate what the repository says is clean from what it cannot see at all, naming each unverifiable item with what would settle it and who holds that evidence.
+  class: artifact
+  severity: important
+  gap:
+    recommendation: new-domain
+    target: "#4"
+    note: the standing check this row describes is the skill the target issue creates. audit-core already owns the report-only-then-fix cadence and the rule that absence of evidence is never a clean result, and has no lens in this domain to apply them through; the audit cadence itself sits outside every skill's evidence base, as it does on the Part 1 and Part 9 rows that make the same claim.
+
+- id: data-protection/checklist-a-data-protection-sweep
+  section: "Checklist: a data-protection sweep"
+  claim: Sixteen-item recap in seven groups - the map (it exists beside the code and is falsifiable against it), processors (every third party registered including telemetry and eval platforms, each with a DPA, a training position and a retention window, the register reconciled against the code with the date recorded), residency (region pinned and validated at startup, every outside destination covered by adequacy or SCCs, failover and backups and telemetry checked), minimization (redaction in the shared call path, its quality cost measured), retention and deletion (an enforced limit per store, a deletion path walking the map through the derived copies, and tested), the trail (identifiers not payloads, fixtures synthetic or redacted), and standing (the sweep is run, and its report separates clean from not-visible-from-here).
+  class: process
+  severity: critical
+  note: A recap, so what it adds is the act of working the list during a sweep. It takes the maximum severity of what it recaps, per the legend's rule for a checklist row, which is the critical band four of this part's rows sit in; each item is owned by a row above.
+
+- id: data-protection/see-also
+  section: "See also"
+  claim: Cross-links to Parts 6, 7 and 9 and the handbook index.
+  class: informative
+
 # --- Troubleshooting guide --------------------------------------------------
 
 - id: troubleshooting/cost-and-latency
