@@ -33,6 +33,17 @@ FULL_PARTITION = "uv"
 
 PACKAGE = "fixture_app"
 
+# The interpreter floor is one fact each manifest format spells its own way
+# (`requires-python = ">=x.y"`, `python_version = "x.y"`), so it is named once
+# and interpolated rather than written out per format, where the copies would be
+# free to disagree.
+PYTHON_FLOOR = "3.12"
+
+# Every partition installs the seeded package under this version. It is the
+# fixture's own version, unrelated to any dependency pin, and it is named here
+# so that the manifest renderers and the build metadata cannot drift apart.
+PACKAGE_VERSION = "0.1.0"
+
 
 @dataclass(frozen=True)
 class Dependency:
@@ -336,3 +347,142 @@ SOURCE_FILES = (
 def source_tree() -> dict[str, str]:
     """Map every seeded path to its body."""
     return {f.path: f.body for f in SOURCE_FILES}
+
+
+def declared() -> tuple[Dependency, ...]:
+    """The dependencies a manifest names. Excludes the undeclared-import seed."""
+    return tuple(d for d in DEPENDENCIES if d.pin)
+
+
+# One partition declares the shared set in exactly one file. Two files both
+# naming the set would let each tool pick whichever format it prefers, and a
+# partition whose format is never the one read has stopped exercising the lens
+# it exists for while still producing a full, plausible result - the failure the
+# round is built to catch, arriving from the fixture rather than from the tool.
+#
+# That is why the `pip` and `pipenv` partitions carry a `setup.py` rather than a
+# `pyproject.toml` for their build metadata. The seeded package is src-layout,
+# so materializing a partition has to install the project and not only its
+# dependencies, which needs a build manifest; but a `[project]` table declares a
+# dependency list even when the key is absent, and an absent list is the claim
+# that there are none. `setup.py` carries `package_dir` and `packages` and no
+# `install_requires`, so it makes the project installable while declaring
+# nothing, leaving `requirements.txt` and the `Pipfile` as the only declaration
+# in their trees.
+_SETUP_PY = f'''"""Build metadata only, so that the src-layout package installs.
+
+The dependency set is declared in this partition's own manifest format rather
+than here: `install_requires` would be a second declaration of the same set, and
+a tool reading it would report this partition's format as untested while looking
+like it had run.
+"""
+
+from setuptools import find_packages, setup
+
+setup(
+    name="{PACKAGE}",
+    version="{PACKAGE_VERSION}",
+    python_requires=">={PYTHON_FLOOR}",
+    package_dir={{"": "src"}},
+    packages=find_packages(where="src"),
+)
+'''
+
+
+def _pep621_pyproject() -> str:
+    """PEP 621 metadata with a static dependency list, for `uv` and `pylock`."""
+    pins = "\n".join(f'    "{d.name}=={d.pin}",' for d in declared())
+    return (
+        "[project]\n"
+        f'name = "{PACKAGE}"\n'
+        f'version = "{PACKAGE_VERSION}"\n'
+        f'requires-python = ">={PYTHON_FLOOR}"\n'
+        "dependencies = [\n"
+        f"{pins}\n"
+        "]\n"
+        "\n"
+        "[build-system]\n"
+        'requires = ["hatchling"]\n'
+        'build-backend = "hatchling.build"\n'
+    )
+
+
+def _poetry_pyproject() -> str:
+    """PEP 621 metadata whose dependency list is dynamic and comes from poetry.
+
+    The declaration lives in `[tool.poetry.dependencies]`, which is the table
+    the poetry lens exists to read, and `dynamic = ["dependencies"]` is what
+    makes that table the source rather than a second copy of a static
+    `[project]` list. Poetry's older all-in-`[tool.poetry]` form declares the
+    same thing but reports its metadata keys as deprecated, so a partition built
+    on it would be testing a route poetry is retiring.
+    """
+    pins = "\n".join(f'{d.name} = "{d.pin}"' for d in declared())
+    return (
+        "[project]\n"
+        f'name = "{PACKAGE}"\n'
+        f'version = "{PACKAGE_VERSION}"\n'
+        'description = "Seeded audit fixture"\n'
+        f'requires-python = ">={PYTHON_FLOOR}"\n'
+        'dynamic = ["dependencies"]\n'
+        "\n"
+        "[tool.poetry]\n"
+        f'packages = [{{ include = "{PACKAGE}", from = "src" }}]\n'
+        "\n"
+        "[tool.poetry.dependencies]\n"
+        f"{pins}\n"
+        "\n"
+        "[build-system]\n"
+        # The floor is load-bearing rather than tidy: PEP 621 metadata with a
+        # dynamic dependency list is what poetry-core 2 added.
+        'requires = ["poetry-core>=2.0"]\n'
+        'build-backend = "poetry.core.masonry.api"\n'
+    )
+
+
+def _pipfile() -> str:
+    """A Pipfile whose `[packages]` pins use pipenv's `"==x.y.z"` string form."""
+    pins = "\n".join(f'{d.name} = "=={d.pin}"' for d in declared())
+    return (
+        "[[source]]\n"
+        'url = "https://pypi.org/simple"\n'
+        "verify_ssl = true\n"
+        'name = "pypi"\n'
+        "\n"
+        "[packages]\n"
+        f"{pins}\n"
+        "\n"
+        "[requires]\n"
+        f'python_version = "{PYTHON_FLOOR}"\n'
+    )
+
+
+def _requirements() -> str:
+    return "".join(f"{d.name}=={d.pin}\n" for d in declared())
+
+
+def render_manifests(partition: str) -> dict[str, str]:
+    """Return {relative path: content} for one partition's declared manifests.
+
+    Lock files are absent by design: each manager generates its own, which is
+    the difference the five partitions exist to exercise.
+    """
+    if partition not in PARTITIONS:
+        raise ValueError(
+            f"unknown partition {partition!r}; expected one of {PARTITIONS}"
+        )
+    if partition in ("uv", "pylock"):
+        return {"pyproject.toml": _pep621_pyproject()}
+    if partition == "poetry":
+        return {"pyproject.toml": _poetry_pyproject()}
+    if partition == "pip":
+        return {"requirements.txt": _requirements(), "setup.py": _SETUP_PY}
+    if partition == "pipenv":
+        return {"Pipfile": _pipfile(), "setup.py": _SETUP_PY}
+    # Unreachable while PARTITIONS and the branches above agree. Adding a name
+    # to PARTITIONS and no rendering for it lands here rather than falling
+    # through to whichever branch happened to be written last, which would give
+    # the new partition another partition's manifest and no error.
+    raise ValueError(
+        f"partition {partition!r} is named in PARTITIONS but has no manifest rendering"
+    )
