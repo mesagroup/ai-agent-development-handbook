@@ -1,5 +1,6 @@
 """Tests for scripts/python_fixture_spec.py (#45)."""
 
+import re
 import tomllib
 
 import pytest
@@ -13,10 +14,19 @@ from python_fixture_spec import (
     source_tree,
 )
 
-# The manifest formats that are TOML and so can be parsed rather than eyeballed.
-# `requirements.txt` and `setup.py` are neither, and are checked by their own
-# assertions below.
-_TOML_MANIFESTS = ("pyproject.toml", "Pipfile")
+
+def test_every_dependency_name_is_a_bare_toml_key():
+    """A dotted distribution name silently becomes a nested TOML table.
+
+    The poetry and Pipfile renderers write `name = "pin"`, so a name such as
+    `ruamel.yaml` parses as a table `ruamel` containing `yaml` rather than as
+    one dependency. `tomllib` accepts it, every substring assertion here accepts
+    it, and the manager reads a dependency that does not exist. The set is meant
+    to be edited whenever a pin is re-verified, so this guards the next edit
+    rather than the current contents.
+    """
+    for dependency in DEPENDENCIES:
+        assert re.fullmatch(r"[A-Za-z0-9_-]+", dependency.name), dependency.name
 
 
 def test_every_seed_is_carried_by_exactly_one_dependency():
@@ -82,9 +92,18 @@ def test_every_partition_renders_a_manifest():
 
 
 def test_the_undeclared_dependency_reaches_no_manifest():
+    """Derived from the definition rather than naming the package.
+
+    Written against the literal string, this test goes on passing after the
+    undeclared seed is swapped for another package - it would then assert that a
+    name nothing renders is absent, which nothing can fail.
+    """
+    undeclared = [d.name.lower() for d in DEPENDENCIES if not d.pin]
+    assert undeclared, "the undeclared-import seed has gone missing"
     for partition in PARTITIONS:
         for body in render_manifests(partition).values():
-            assert "markupsafe" not in body.lower(), partition
+            for name in undeclared:
+                assert name not in body.lower(), (partition, name)
 
 
 def test_each_partition_uses_its_own_manifest_format():
@@ -119,19 +138,35 @@ def test_every_toml_manifest_parses_as_toml():
     lost newline produces a file that reads correctly and that no manager can
     load. Parsing here is what stops that reaching a fixture tree, where it would
     surface as the manager failing and be read as a missing tool.
+
+    Selected by shape rather than by a list of filenames, so a renderer that
+    later emits `uv.toml` or `poetry.toml` is parsed too instead of silently
+    escaping the check, and counted so that the whole test cannot pass by
+    parsing nothing.
     """
+    parsed = 0
     for partition in PARTITIONS:
         for name, body in render_manifests(partition).items():
-            if name in _TOML_MANIFESTS:
+            if name.endswith(".toml") or name == "Pipfile":
                 tomllib.loads(body)
+                parsed += 1
+    assert parsed >= len(PARTITIONS) - 1, parsed
 
 
 def test_every_declared_dependency_reaches_every_partition_at_its_pin():
+    """Name and pin have to meet on one line, not merely both be present.
+
+    Searching the concatenated bodies cannot tell a correct rendering from one
+    with two pins swapped between packages: both names and both pins are still
+    somewhere in the text. The round rests on the exact pins - jinja2 3.1.2 is
+    what makes the vulnerability seed real - so the pairing is the property.
+    """
     for partition in PARTITIONS:
-        bodies = "".join(render_manifests(partition).values())
+        lines = "".join(render_manifests(partition).values()).splitlines()
         for dependency in declared():
-            assert dependency.name in bodies, (partition, dependency.name)
-            assert dependency.pin in bodies, (partition, dependency.name)
+            assert any(
+                dependency.name in line and dependency.pin in line for line in lines
+            ), (partition, dependency.name, dependency.pin)
 
 
 def test_each_partition_declares_the_set_in_exactly_one_file():
@@ -140,13 +175,18 @@ def test_each_partition_declares_the_set_in_exactly_one_file():
     Each tool reads whichever manifest it prefers, so a partition whose format
     is never the one read still produces a full result and the run records the
     lens as exercised. The build manifest the `pip` and `pipenv` partitions need
-    for their src-layout install therefore has to declare nothing, which is what
-    this holds.
+    for their src-layout install therefore has to declare nothing.
+
+    The carrier is found by dependency *name*, not by pin: an unpinned
+    `install_requires=["jinja2"]` added to the build manifest declares the set a
+    second time while carrying no pin at all, so a pin-based search would report
+    one carrier and miss it.
     """
     for partition in PARTITIONS:
         files = render_manifests(partition)
         for dependency in declared():
-            carriers = [name for name, body in files.items() if dependency.pin in body]
+            pattern = rf"(?i)(?<![\w.-]){re.escape(dependency.name)}(?![\w.-])"
+            carriers = [n for n, body in files.items() if re.search(pattern, body)]
             assert len(carriers) == 1, (partition, dependency.name, carriers)
 
 

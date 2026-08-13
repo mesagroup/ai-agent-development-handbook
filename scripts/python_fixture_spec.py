@@ -417,7 +417,9 @@ def _poetry_pyproject() -> str:
     same thing but reports its metadata keys as deprecated, so a partition built
     on it would be testing a route poetry is retiring.
     """
-    pins = "\n".join(f'{d.name} = "{d.pin}"' for d in declared())
+    # Quoted keys, so a distribution name containing a dot stays one key rather
+    # than parsing as a nested table that TOML accepts and poetry misreads.
+    pins = "\n".join(f'"{d.name}" = "{d.pin}"' for d in declared())
     return (
         "[project]\n"
         f'name = "{PACKAGE}"\n'
@@ -441,8 +443,19 @@ def _poetry_pyproject() -> str:
 
 
 def _pipfile() -> str:
-    """A Pipfile whose `[packages]` pins use pipenv's `"==x.y.z"` string form."""
-    pins = "\n".join(f'{d.name} = "=={d.pin}"' for d in declared())
+    """A Pipfile whose `[packages]` pins use pipenv's `"==x.y.z"` string form.
+
+    No `[requires]` table. Pipenv's `python_version` there is an exact
+    interpreter requirement rather than the floor every other format states, so
+    including it would make this the one partition that refuses to materialize
+    on a host whose interpreter is newer - a fixture failing for a reason that
+    has nothing to do with what it is testing. The floor is stated by `setup.py`,
+    which this partition renders alongside the Pipfile.
+
+    Keys are quoted so that a distribution name containing a dot stays one key
+    instead of parsing as a nested table.
+    """
+    pins = "\n".join(f'"{d.name}" = "=={d.pin}"' for d in declared())
     return (
         "[[source]]\n"
         'url = "https://pypi.org/simple"\n'
@@ -451,9 +464,6 @@ def _pipfile() -> str:
         "\n"
         "[packages]\n"
         f"{pins}\n"
-        "\n"
-        "[requires]\n"
-        f'python_version = "{PYTHON_FLOOR}"\n'
     )
 
 
