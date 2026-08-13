@@ -146,8 +146,17 @@ TOOL_PACKAGES = {
 # installs the project and not only its dependencies: a dependency-only install
 # leaves `import fixture_app` raising `ModuleNotFoundError`, which reads as a
 # broken fixture rather than as an incomplete install.
+# Every route installs from the committed lock and never refreshes it. The
+# distinction is not cosmetic: `uv sync` and `pipenv install` both re-resolve
+# when they judge the lock stale, so without the frozen form the tools would
+# observe a resolution the fixture never committed - and the build smoke that
+# established the ground truth materialized with `uv sync --frozen`, so the two
+# would be measuring different trees with nothing to say so. The refresh does
+# not reach a fixture (materialization runs in a copy), which is why this is a
+# correctness question about the observation rather than about the invariant.
+# FROZEN_FORM below names what makes each route read rather than resolve.
 MATERIALIZE: dict[str, tuple[tuple[str, ...], ...]] = {
-    "uv": (("uv", "sync"),),
+    "uv": (("uv", "sync", "--frozen"),),
     "pip": (
         ("python", "-m", "venv", ".venv"),
         (".venv/bin/pip", "install", "-r", "requirements.txt"),
@@ -155,7 +164,7 @@ MATERIALIZE: dict[str, tuple[tuple[str, ...], ...]] = {
     ),
     "poetry": (("poetry", "install"),),
     "pipenv": (
-        ("pipenv", "install"),
+        ("pipenv", "sync"),
         ("pipenv", "run", "pip", "install", "-e", ".", "--no-deps"),
     ),
     "pylock": (
@@ -166,6 +175,20 @@ MATERIALIZE: dict[str, tuple[tuple[str, ...], ...]] = {
         ("uv", "pip", "install", "-r", "pylock.toml"),
         ("uv", "pip", "install", "-e", ".", "--no-deps"),
     ),
+}
+
+# What makes each partition's route read the committed lock instead of
+# resolving a new one. `pip` and `pylock` need nothing: a `requirements.txt` of
+# exact pins and a `pylock.toml` are both already the resolution, so there is no
+# lock for the installer to refresh. Named per partition rather than asserted as
+# a blanket rule, because a route that genuinely needs no flag and one that lost
+# its flag look identical in a list of commands.
+FROZEN_FORM = {
+    "uv": "--frozen",
+    "pipenv": "sync",
+    "poetry": "install",
+    "pip": "",
+    "pylock": "",
 }
 
 
