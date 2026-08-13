@@ -6,16 +6,29 @@ are produced from the same definition on purpose: expectations kept in a second
 file are free to drift, and a seed present in the tree but missing from the
 expectations reads exactly like a tool that correctly found nothing.
 
+Every pin below carries an `evidence` string, and each was checked against OSV
+and PyPI on VERIFIED_ON rather than recalled. Re-checking one means querying
+those two sources again and updating both the pin and its evidence, because a
+pin whose advisories nobody re-read is the unverified claim this whole round
+exists to remove.
+
 Pure. Nothing here touches the filesystem, the network or a subprocess.
 """
 
 from dataclasses import dataclass
 
+# The date every `Dependency.evidence` string below was measured. It is rendered
+# into the published expectations record, so a reader can tell how old the
+# numbers are without opening the git history.
+VERIFIED_ON = "2026-08-13"
+
 PARTITIONS = ("uv", "pip", "poetry", "pipenv", "pylock")
 
 # The partition that carries every `python:` entry. The other four carry the
-# six `deps` records plus pytest-cov, which is tiered `target-execution` and so
+# `deps` records plus pytest-cov, which is tiered `target-execution` and so
 # fails if either half of that partition's materialization route is broken.
+# The `deps` records are counted from DEPS_CHECKS rather than stated here, so
+# the claim cannot go stale when a record is added to that domain.
 FULL_PARTITION = "uv"
 
 PACKAGE = "fixture_app"
@@ -27,11 +40,18 @@ class Dependency:
 
     `pin` is empty for the dependency the fixture imports without declaring,
     which arrives transitively instead.
+
+    `module` is the name the source imports, which is not always the name the
+    manifest declares - `Unidecode` is declared under that name and imported as
+    `unidecode`. Keeping both means a test can assert that an `imported=True`
+    entry really is imported somewhere in the seeded tree, which is the half of
+    the single-definition promise the seed lists alone cannot keep.
     """
 
     name: str
     pin: str
     imported: bool
+    module: str
     seeds: tuple[str, ...]
     evidence: str
 
@@ -39,40 +59,61 @@ class Dependency:
 DEPENDENCIES = (
     Dependency(
         "jinja2",
-        "2.11.3",
+        "3.1.2",
         True,
+        "jinja2",
         ("vulnerable", "transitive-root"),
-        "OSV: 8 advisories over CVE-2024-22195, CVE-2024-34064, CVE-2024-56326, CVE-2025-27516; pulls markupsafe",
+        "OSV: 10 advisories over CVE-2024-22195, CVE-2024-34064, CVE-2024-56201, "
+        "CVE-2024-56326 and CVE-2025-27516; requires MarkupSafe, which is what makes "
+        "it the transitive root. 2.11.3 carries four of the same CVEs and is not "
+        "usable here: it imports soft_unicode, removed in markupsafe 2.1, so the "
+        "seeded package would not import at all",
     ),
     Dependency(
-        "packaging", "20.9", True, ("stale",), "latest is 26.3, six majors ahead"
+        "packaging",
+        "20.9",
+        True,
+        "packaging",
+        ("stale",),
+        "no advisories; latest is 26.3, six majors ahead",
     ),
     Dependency(
         "Unidecode",
         "1.4.0",
         True,
+        "unidecode",
         ("copyleft",),
-        "classifier: GNU General Public License v2 or later (GPLv2+)",
+        "classifier: GNU General Public License v2 or later (GPLv2+); pure Python, "
+        "declares no dependencies of its own",
     ),
     Dependency(
         "six",
         "1.10.0",
         False,
+        "six",
         ("declared-unused",),
-        "declared and never imported: deptry DEP002",
+        "no advisories; declared and never imported, which is deptry DEP002",
     ),
     Dependency(
         "markupsafe",
         "",
         True,
+        "markupsafe",
         ("undeclared-import",),
-        "arrives through jinja2 and is imported directly: deptry DEP003",
+        "arrives through jinja2 and is imported directly, which is deptry DEP003",
     ),
 )
 
 
 @dataclass(frozen=True)
 class SourceFile:
+    """One file written into every fixture tree.
+
+    `seeds` names the findings this file is planted to produce, and every name
+    in it has to appear in some expectation: a seed nothing expects is a
+    planted finding no run would notice going missing.
+    """
+
     path: str
     body: str
     seeds: tuple[str, ...]
@@ -138,8 +179,17 @@ def classify(a, b, c, d, e):
     return total
 '''
 
+# security/unsafe-io scopes itself to XXE, unchecked archive extraction,
+# world-writable temp files and symlink following - none of which `eval`,
+# `shell=True`, string-built SQL or md5 are. Without a surface in that scope the
+# check would look exercised because bandit's shell rule fires, while its own
+# subject went untested, and a clean result would then be recorded as a hole in
+# the family rather than a gap in the fixture. So extractall and a bare XML
+# parse are seeded for it specifically.
 _UNSAFE = """import hashlib
 import subprocess
+import tarfile
+import xml.etree.ElementTree
 
 
 def run_expression(expr):
@@ -156,6 +206,15 @@ def digest(value):
 
 def query(cursor, user_id):
     cursor.execute("SELECT * FROM users WHERE id = '%s'" % user_id)
+
+
+def unpack(archive_path, destination):
+    with tarfile.open(archive_path) as archive:
+        archive.extractall(destination)
+
+
+def parse_document(raw):
+    return xml.etree.ElementTree.fromstring(raw)
 """
 
 _DEADCODE = '''"""Nothing imports or calls this."""
@@ -223,11 +282,17 @@ def test_reads():
     assert _SEEN == [1]
 '''
 
-_TEST_SLOW = """import time
+# The sleep and the timeout the check runs with are one fact in two places, so
+# they are named here and interpolated rather than written twice. Lowering the
+# sleep below the timeout would silently retire the seed.
+SLOW_TEST_SECONDS = 2
+ISOLATION_TIMEOUT_SECONDS = 1
+
+_TEST_SLOW = f"""import time
 
 
 def test_slow_but_passing():
-    time.sleep(2)
+    time.sleep({SLOW_TEST_SECONDS})
     assert True
 """
 
