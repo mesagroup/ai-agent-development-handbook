@@ -496,3 +496,348 @@ def render_manifests(partition: str) -> dict[str, str]:
     raise ValueError(
         f"partition {partition!r} is named in PARTITIONS but has no manifest rendering"
     )
+
+
+# The `deps` records are the ones every partition runs, because a dependency
+# lens reads the partition's own manifest and lock format and so answers a
+# different question in each of the five. Listed here rather than derived from
+# the `deps/` prefix in EXPECTATIONS so that the thin-partition scoping has a
+# name to be written against; a test holds the two views equal.
+DEPS_CHECKS = (
+    "deps/inventory",
+    "deps/vulnerabilities",
+    "deps/freshness",
+    "deps/licenses",
+    "deps/transitive-licenses",
+    "deps/hygiene",
+)
+
+# The one non-deps check the thin partitions run. pytest-cov is tiered
+# `target-execution`, so it fails if either half of that partition's
+# materialization route is broken: the tree, and the suite running against it.
+THIN_EXTRA_CHECK = "test/coverage-reach"
+
+_ALL = PARTITIONS
+_FULL = (FULL_PARTITION,)
+
+
+def _partitions_except(*excluded: str) -> tuple[str, ...]:
+    """Every partition but the named ones.
+
+    Written as a subtraction over PARTITIONS rather than as a literal tuple for
+    two reasons. A literal stops tracking PARTITIONS, so a sixth partition would
+    drop out of a scoped check with nothing to say so; and a misspelled
+    exclusion silently returns every partition, which is the opposite of what
+    the caller asked for - the expectation would then claim the one partition it
+    was written to exclude. Both scoped checks here exclude exactly one
+    partition for a stated reason, so getting that name wrong inverts the claim.
+    """
+    unknown = sorted(set(excluded) - set(PARTITIONS))
+    if unknown:
+        raise ValueError(f"not partitions: {unknown}; expected names from {PARTITIONS}")
+    return tuple(p for p in PARTITIONS if p not in excluded)
+
+
+# Every file the fixture writes without a module docstring. The docstring seed
+# lives in one of them, but a per-file report names them all, so the expectation
+# is written against this rather than against the seeded file alone.
+_FILES_WITHOUT_MODULE_DOCSTRING = tuple(
+    f.path for f in SOURCE_FILES if not f.body.startswith('"""')
+)
+
+# The seeded package's module count, for the over-decomposition expectation.
+# Computed rather than stated: the claim there is that the package is far below
+# any threshold, and a typed-in number stops being that claim the first time a
+# seed is added.
+_SRC_MODULE_COUNT = sum(1 for f in SOURCE_FILES if f.path.startswith(f"src/{PACKAGE}/"))
+
+
+@dataclass(frozen=True)
+class Expectation:
+    """What a check must observe on a partition, and why that form.
+
+    `claim` is prose because the observation is prose: what a reader needs is
+    the thing to look for, not a number a later tool version invalidates.
+
+    `partitions` is a scope rather than a convenience. A check whose answer
+    differs by partition is written as two entries with disjoint scopes, not as
+    one entry with a hedge, so that a run against one partition has exactly one
+    right answer to fail against.
+    """
+
+    check: str
+    partitions: tuple[str, ...]
+    form: str
+    claim: str
+    seeds: tuple[str, ...]
+
+
+EXPECTATIONS = (
+    Expectation(
+        "deps/vulnerabilities",
+        _ALL,
+        "floor",
+        "at least 5 advisories against jinja2 3.1.2, covering CVE-2024-22195, "
+        "CVE-2024-34064, CVE-2024-56201, CVE-2024-56326 and CVE-2025-27516. A floor "
+        "because new advisories against a frozen pin only ever arrive",
+        ("vulnerable",),
+    ),
+    Expectation(
+        "deps/freshness",
+        _ALL,
+        "exact",
+        "every declared dependency except Unidecode is outdated, packaging 20.9 most "
+        "obviously at six majors behind 26.3. Unidecode 1.4.0 is the latest release "
+        "and is the control: a route that reports it outdated is producing a false "
+        "positive, which an expectation naming all of them could never have caught. "
+        "Named rather than counted, because the count moves with the dependency set "
+        "while which one is the control does not",
+        ("stale",),
+    ),
+    Expectation(
+        "deps/licenses",
+        _ALL,
+        "exact",
+        "Unidecode 1.4.0 is reported under a GPLv2+ licence. A copyleft entry the "
+        "check must surface rather than a count",
+        ("copyleft",),
+    ),
+    Expectation(
+        "deps/transitive-licenses",
+        _ALL,
+        "floor",
+        "at least markupsafe appears as a transitive component with a licence, "
+        "since it is never declared and arrives through jinja2",
+        ("transitive-root",),
+    ),
+    Expectation(
+        "deps/hygiene",
+        ("pipenv",),
+        "exact",
+        "deptry finds no dependency specification at all and raises "
+        "DependencySpecificationNotFoundError. A Pipfile is not a format it reads, so "
+        "this partition has no hygiene lens on any grant - which is a finding about "
+        "the family rather than about the fixture, and is why the check is scoped "
+        "away from this partition instead of being expected to answer here",
+        (),
+    ),
+    Expectation(
+        "deps/hygiene",
+        _partitions_except("pipenv"),
+        "exact",
+        "six is reported declared-and-unused (deptry DEP002) and markupsafe is "
+        "reported as a transitive dependency being imported (deptry DEP003). Two "
+        "further DEP003 rows name fixture_app's own modules, because deptry treats a "
+        "src-layout package's self-imports as third-party; they are expected output "
+        "rather than a seed, and the run records them as the tool's behaviour on this "
+        "layout instead of configuring them away, since suppressing them would hide a "
+        "false positive an audited project would also meet",
+        ("declared-unused", "undeclared-import"),
+    ),
+    Expectation(
+        "deps/inventory",
+        _partitions_except("poetry"),
+        "floor",
+        "an SBOM listing at least the four declared dependencies plus markupsafe, "
+        "with a licence field populated for Unidecode",
+        (),
+    ),
+    Expectation(
+        "deps/inventory",
+        ("poetry",),
+        "exact",
+        "cyclonedx-py's poetry subcommand fails with CRITICAL | CDX > 'name' and "
+        "writes no SBOM, because it reads name from [tool.poetry] and this partition "
+        "carries PEP 621 metadata, which is the form poetry 2 pushes projects towards "
+        "and the form that emits no deprecation warning. Measured both ways on one "
+        "tree with one tool: the legacy all-in-[tool.poetry] manifest produces a valid "
+        "CycloneDX 1.6 document, so the finding is that the subcommand has no route "
+        "for PEP 621 poetry metadata rather than no poetry route at all. Recorded "
+        "before the run precisely so PR 2 cannot mistake the narrow claim for the "
+        "broad one",
+        (),
+    ),
+    Expectation(
+        THIN_EXTRA_CHECK,
+        _ALL,
+        "exact",
+        "coverage reports the two unreached branches of fixture_app.invariant.clamp; "
+        "on a thin partition this doubles as proof that the materialization route works",
+        ("uncovered-branch",),
+    ),
+    Expectation(
+        "arch/complexity",
+        _FULL,
+        "exact",
+        "fixture_app.complexity.classify is reported over threshold by every tool that "
+        "carries one",
+        ("complexity",),
+    ),
+    Expectation(
+        "arch/complexity-gate",
+        _FULL,
+        "absence",
+        "no complexity threshold is configured anywhere in the fixture, so the expected "
+        "finding is the absence of a gate rather than a hit",
+        (),
+    ),
+    Expectation(
+        "arch/cycles",
+        _FULL,
+        "exact",
+        "one cycle between fixture_app.domain.model and fixture_app.infra.store",
+        ("cycle",),
+    ),
+    Expectation(
+        "arch/layering",
+        _FULL,
+        "exact",
+        "fixture_app.domain.model imports fixture_app.infra.store, which is the "
+        "layering violation",
+        ("layering",),
+    ),
+    Expectation(
+        "arch/coupling",
+        _FULL,
+        "floor",
+        "the two modules in the cycle are each other's dependents, so neither is a leaf",
+        ("cycle",),
+    ),
+    Expectation(
+        "arch/over-decomposition",
+        _FULL,
+        "floor",
+        f"the seeded package is {_SRC_MODULE_COUNT} files under src/, far below any "
+        "over-decomposition threshold, so the expected result is a clean row and a hit "
+        "here is a false positive. The count is computed from SOURCE_FILES rather than "
+        "typed in, since a typed-in one would go stale the first time a seed is added",
+        (),
+    ),
+    Expectation(
+        "arch/over-abstraction",
+        _FULL,
+        "floor",
+        "no abstraction with a single implementation is seeded, so a hit here is a false "
+        "positive rather than a find",
+        (),
+    ),
+    Expectation(
+        "arch/martin-metrics",
+        _FULL,
+        "floor",
+        "the cycle puts both of its modules in the zone of pain or uselessness, "
+        "whichever the tool's own formula selects",
+        ("cycle",),
+    ),
+    Expectation(
+        "arch/hidden-coupling",
+        _FULL,
+        "floor",
+        "the call-time attribute access across the cycle is reachable from the graph, "
+        "so a tool that reports nothing has missed the deferred edge",
+        ("cycle",),
+    ),
+    Expectation(
+        "arch/dead-code",
+        _FULL,
+        "floor",
+        "fixture_app.deadcode.never_referenced appears among the unused symbols. A "
+        "floor rather than an exact claim because several other seeded functions are "
+        "also never called - the seeded suite exercises the package thinly on purpose "
+        "- so a tool naming only this one and a tool naming every function both "
+        "satisfy the check, and the run records which it was",
+        ("dead-code",),
+    ),
+    Expectation(
+        "security/dangerous-calls",
+        _FULL,
+        "exact",
+        "the eval call in fixture_app.unsafe.run_expression",
+        ("dangerous-calls",),
+    ),
+    Expectation(
+        "security/injection",
+        _FULL,
+        "exact",
+        "the shell=True subprocess in run_shell and the string-formatted SQL in query",
+        ("injection",),
+    ),
+    Expectation(
+        "security/crypto",
+        _FULL,
+        "exact",
+        "the md5 digest in fixture_app.unsafe.digest",
+        ("crypto",),
+    ),
+    Expectation(
+        "security/unsafe-io",
+        _FULL,
+        "exact",
+        "the unchecked tarfile.extractall in fixture_app.unsafe.unpack and the bare "
+        "xml.etree parse in parse_document. These are seeded for this check "
+        "specifically: its record scopes itself to XXE, archive extraction and symlink "
+        "following, none of which eval, shell=True, built SQL or md5 are, so without "
+        "them bandit's shell rule would fire and make the check look exercised while "
+        "its own subject went untested",
+        ("unsafe-io",),
+    ),
+    Expectation(
+        "docs/docstring-coverage",
+        _FULL,
+        "exact",
+        "fixture_app.unsafe is the one non-empty module under src/ with no module "
+        f"docstring, so it carries the seed. It is not alone: {len(_FILES_WITHOUT_MODULE_DOCSTRING)} "
+        "of the seeded files have no module docstring, the others being the empty "
+        "package __init__ files and those seeded test files that open with code, so a "
+        "per-file report names them too and the expectation is that unsafe.py is among "
+        "them rather than the only one. Written that way because naming one file would "
+        "correct output read as over-reporting. Function-level coverage is low across "
+        "the whole seeded package rather than in that file alone, so the percentage "
+        "each tool reports is recorded at the run rather than predicted here",
+        ("undocumented",),
+    ),
+    Expectation(
+        "test/determinism",
+        _FULL,
+        "exact",
+        "tests/test_order.py fails under the shuffle seed recorded here and passes in "
+        "file order. The seed is measured when the fixture is first built, never guessed",
+        ("order-dependence",),
+    ),
+    Expectation(
+        "test/isolation",
+        _FULL,
+        "exact",
+        f"tests/test_slow.py::test_slow_but_passing sleeps {SLOW_TEST_SECONDS}s and so "
+        f"exceeds a pytest-timeout of {ISOLATION_TIMEOUT_SECONDS}s, while passing with "
+        "no timeout configured. Both numbers are interpolated from the module constants "
+        "the seeded file itself is written from, because the sleep and the timeout are "
+        "one fact and lowering either alone would retire the seed in silence",
+        ("slow-test",),
+    ),
+    Expectation(
+        "test/mutation",
+        _FULL,
+        "floor",
+        "at least one surviving mutant in fixture_app.invariant.clamp, whose two guard "
+        "branches no test asserts. A floor because the count moves with the operator set",
+        ("mutation-survivor",),
+    ),
+    Expectation(
+        "test/property-based-gap",
+        _FULL,
+        "exact",
+        "fixture_app.invariant.clamp has an obvious invariant, low <= result <= high, "
+        "and no property test anywhere in the fixture",
+        ("property-gap",),
+    ),
+)
+
+
+def expectations_for(partition: str) -> tuple[Expectation, ...]:
+    """Every expectation that applies to one partition."""
+    if partition not in PARTITIONS:
+        raise ValueError(
+            f"unknown partition {partition!r}; expected one of {PARTITIONS}"
+        )
+    return tuple(e for e in EXPECTATIONS if partition in e.partitions)
