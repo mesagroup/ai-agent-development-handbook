@@ -7,3 +7,10 @@ __pycache__/
 
 # Default output dir of scripts/render_handbook_artifact.py
 test-reports/
+
+# Default output dir of scripts/build_python_fixtures.py. The seeded fixture
+# trees are generated, and each one is its own git repository - committing them
+# would nest a repository inside this one and freeze a resolution that the pins
+# in scripts/python_fixture_spec.py are the real record of. Rebuild them rather
+# than reading them from history.
+fixtures/
