@@ -82,18 +82,21 @@ REASONS = ("not-permitted", "tool-unavailable", "tool-failed")
 # inside these two.
 GRANTS = ("none", "target-execution")
 
-# The distribution to fetch for a tool whose package name is not the name the
-# records use. Harness plumbing rather than a claim from any record: `coverage.py`
-# is the project's own name for a distribution published as `coverage`, and the
-# three pytest plugins are fetched alongside pytest rather than being commands of
-# their own. A tool absent from here is fetched under its own name.
+# What has to be installed for a tool whose own name is not enough. Harness
+# plumbing rather than a claim from any record, and a tool absent from here is
+# fetched under its own name.
+#
+# Two things put an entry here. `coverage.py` is the project's own name for a
+# distribution published as `coverage`. And **the fixture declares no pytest**,
+# so a route whose transcribed command runs the target's suite has to bring one:
+# `coverage run -m pytest` and `mutmut run` both die on `No module named pytest`
+# otherwise, which reads as a tool that failed rather than as a package nobody
+# installed - a failure this harness would have invented, on an entry the record
+# had right. The pytest plugins need no entry because each depends on pytest
+# already, so naming the plugin brings the runner with it.
 TOOL_PACKAGES = {
-    "coverage.py": "coverage",
-    "pytest-cov": "pytest-cov",
-    "pytest-randomly": "pytest-randomly",
-    "pytest-rerunfailures": "pytest-rerunfailures",
-    "pytest-timeout": "pytest-timeout",
-    "import-linter": "import-linter",
+    "coverage.py": ("coverage", "pytest"),
+    "mutmut": ("mutmut", "pytest"),
 }
 
 # How each partition's tree is materialized, verified end to end when the
@@ -827,8 +830,13 @@ def invocations_for(partition: str) -> tuple[Invocation, ...]:
     return tuple(i for i in INVOCATIONS if i.check in carried)
 
 
-def _package_for(tool: str) -> str:
-    return TOOL_PACKAGES.get(tool, tool)
+def packages_for(tool: str) -> tuple[str, ...]:
+    """Everything that has to be installed for this tool's route to run.
+
+    The first is the tool itself; anything after it is what the route needs
+    present and the fixture does not declare.
+    """
+    return TOOL_PACKAGES.get(tool, (tool,))
 
 
 # The partitions whose materialization route builds a `.venv` in the copy, read
@@ -890,9 +898,12 @@ def launcher(
     has nothing to hand, and the environment's own `bin` goes on `PATH` for the
     subprocess instead.
     """
-    package = _package_for(invocation.tool)
+    packages = packages_for(invocation.tool)
+    extra = tuple(word for name in packages[1:] for word in ("--with", name))
     if not (invocation.in_env and granted):
-        return ("uvx", "--from", package) if package != invocation.tool else ("uvx",)
+        if packages == (invocation.tool,):
+            return ("uvx",)
+        return ("uvx", "--from", packages[0], *extra)
     match partition:
         case "poetry":
             return ("poetry", "run")
@@ -901,7 +912,7 @@ def launcher(
         case partition if partition in VENV_PARTITIONS:
             return ()
         case _:
-            return ("uv", "run", "--with", package)
+            return ("uv", "run", "--with", packages[0], *extra)
 
 
 def classify(
@@ -1095,12 +1106,18 @@ def run_partition(
         # bars both, and a package the audit added is never evidence about the
         # target whichever tree it landed in.
         if invocation.in_env and granted:
-            provision = provision_command(partition, _package_for(invocation.tool))
-            if provision:
-                row["provision"] = {
-                    "command": list(provision),
-                    **_run(provision, copy, timeout, bin_dir),
-                }
+            installs = []
+            for package in packages_for(invocation.tool):
+                provision = provision_command(partition, package)
+                if provision:
+                    installs.append(
+                        {
+                            "command": list(provision),
+                            **_run(provision, copy, timeout, bin_dir),
+                        }
+                    )
+            if installs:
+                row["provision"] = installs
         command = (*prefix, *argv)
         outcome = _run(command, copy, timeout, bin_dir)
         status, reason = classify(
