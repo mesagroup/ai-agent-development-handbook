@@ -26,13 +26,15 @@ These were checked against OSV and PyPI on 2026-08-13 before this plan was writt
 
 | Package | Pin | Seeds | Evidence |
 |---|---|---|---|
-| `jinja2` | `2.11.3` | vulnerable, transitive root | OSV returns 8 advisories over 4 distinct CVEs: CVE-2024-22195, CVE-2024-34064, CVE-2024-56326, CVE-2025-27516. Pulls `markupsafe`, giving depth 2. Latest is 3.1.6 |
+| `jinja2` | `3.1.2` | vulnerable, transitive root | OSV returns 10 advisories over 5 distinct CVEs: CVE-2024-22195, CVE-2024-34064, CVE-2024-56201, CVE-2024-56326, CVE-2025-27516. Requires `MarkupSafe`, giving depth 2. Latest is 3.1.6 |
 | `packaging` | `20.9` | stale | 0 advisories. Latest is 26.3, six majors ahead |
-| `Unidecode` | `1.4.0` | copyleft | Classifier `License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)`. Pure Python, `requires_dist` is null |
+| `Unidecode` | `1.4.0` | copyleft | Classifier `License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)`. Pure Python, `requires_dist` is null. **This is the latest release**, which makes it the freshness check's false-positive control |
 | `six` | `1.10.0` | declared and never imported | 0 advisories. Latest is 1.17.0 |
 | `markupsafe` | not declared | imported without being declared | Arrives transitively through `jinja2` |
 
-The advisory expectation is a **floor**: at least those four CVEs. New advisories against a frozen pin only ever arrive, so an exact count goes stale silently while a floor does not.
+The advisory expectation is a **floor**: at least those five CVEs. New advisories against a frozen pin only ever arrive, so an exact count goes stale silently while a floor does not.
+
+**Why not `jinja2==2.11.3`,** which carries four of the same CVEs and was this plan's first choice: it declares `MarkupSafe>=0.23` unbounded, so a fresh resolution takes markupsafe 3.0.3, and 2.11.3 imports `soft_unicode`, removed in markupsafe 2.1. The seeded package then fails at **collection**, taking out every `target-execution` expectation at once - and pinning `markupsafe<2.1` to fix it would declare the dependency whose whole purpose is to be undeclared. This was found by both Task 1 reviewers independently, and it is the shape of defect the round exists to find: the pin was verified against OSV and PyPI without anyone co-installing the set and importing it.
 
 ## File structure
 
@@ -126,11 +128,17 @@ class Dependency:
 
     `pin` is empty for the dependency the fixture imports without declaring,
     which arrives transitively instead.
+
+    `module` is the name the source imports, which is not always the name the
+    manifest declares - `Unidecode` is declared under that name and imported as
+    `unidecode`. Keeping both means a test can assert that an `imported=True`
+    entry really is imported somewhere in the seeded tree.
     """
 
     name: str
     pin: str
     imported: bool
+    module: str
     seeds: tuple[str, ...]
     evidence: str
 
@@ -138,34 +146,46 @@ class Dependency:
 DEPENDENCIES = (
     Dependency(
         "jinja2",
-        "2.11.3",
+        "3.1.2",
         True,
+        "jinja2",
         ("vulnerable", "transitive-root"),
-        "OSV: 8 advisories over CVE-2024-22195, CVE-2024-34064, CVE-2024-56326, CVE-2025-27516; pulls markupsafe",
+        "OSV: 10 advisories over CVE-2024-22195, CVE-2024-34064, CVE-2024-56201, "
+        "CVE-2024-56326 and CVE-2025-27516; requires MarkupSafe, which is what makes "
+        "it the transitive root",
     ),
     Dependency(
-        "packaging", "20.9", True, ("stale",), "latest is 26.3, six majors ahead"
+        "packaging",
+        "20.9",
+        True,
+        "packaging",
+        ("stale",),
+        "no advisories; latest is 26.3, six majors ahead",
     ),
     Dependency(
         "Unidecode",
         "1.4.0",
         True,
+        "unidecode",
         ("copyleft",),
-        "classifier: GNU General Public License v2 or later (GPLv2+)",
+        "classifier: GNU General Public License v2 or later (GPLv2+); pure Python, "
+        "declares no dependencies of its own",
     ),
     Dependency(
         "six",
         "1.10.0",
         False,
+        "six",
         ("declared-unused",),
-        "declared and never imported: deptry DEP002",
+        "no advisories; declared and never imported, which is deptry DEP002",
     ),
     Dependency(
         "markupsafe",
         "",
         True,
+        "markupsafe",
         ("undeclared-import",),
-        "arrives through jinja2 and is imported directly: deptry DEP003",
+        "arrives through jinja2 and is imported directly, which is deptry DEP003",
     ),
 )
 
@@ -540,8 +560,19 @@ def test_every_expectation_names_a_known_partition_and_form():
         assert e.form in ("exact", "floor", "absence"), e.check
 
 
-def test_every_seed_in_the_source_tree_is_expected_by_some_check():
-    seeded = {s for f in SOURCE_FILES for s in f.seeds}
+def test_every_seed_anywhere_in_the_definition_is_expected_by_some_check():
+    """Both seed sources, not just the source tree.
+
+    Five of the six dependency seeds never appear in SOURCE_FILES, so unioning
+    only the tree would leave `vulnerable`, `stale`, `copyleft`,
+    `transitive-root` and `declared-unused` unguarded - which is most of what
+    the deps half of the round is for.
+    """
+    from python_fixture_spec import DEPENDENCIES
+
+    seeded = {s for f in SOURCE_FILES for s in f.seeds} | {
+        s for d in DEPENDENCIES for s in d.seeds
+    }
     expected = {s for e in EXPECTATIONS for s in e.seeds}
     assert seeded - expected == set()
 
@@ -614,17 +645,19 @@ EXPECTATIONS = (
         "deps/vulnerabilities",
         _ALL,
         "floor",
-        "at least 4 advisories against jinja2 2.11.3, covering CVE-2024-22195, "
-        "CVE-2024-34064, CVE-2024-56326 and CVE-2025-27516. A floor because new "
-        "advisories against a frozen pin only ever arrive",
+        "at least 5 advisories against jinja2 3.1.2, covering CVE-2024-22195, "
+        "CVE-2024-34064, CVE-2024-56201, CVE-2024-56326 and CVE-2025-27516. A floor "
+        "because new advisories against a frozen pin only ever arrive",
         ("vulnerable",),
     ),
     Expectation(
         "deps/freshness",
         _ALL,
         "exact",
-        "all four declared dependencies are outdated; packaging 20.9 is six majors "
-        "behind 26.3, which is the one no freshness route can call current",
+        "three of the four declared dependencies are outdated, packaging 20.9 most "
+        "obviously at six majors behind 26.3. Unidecode 1.4.0 is the latest release "
+        "and is the control: a route that reports it outdated is producing a false "
+        "positive, which an all-four expectation could never have caught",
         ("stale",),
     ),
     Expectation(
@@ -709,8 +742,10 @@ EXPECTATIONS = (
         "arch/over-decomposition",
         _FULL,
         "floor",
-        "the module graph has 8 modules, which is below any over-decomposition "
-        "threshold: the expected result is a clean row, and a hit here is a false positive",
+        "the seeded package is far below any over-decomposition threshold, so the "
+        "expected result is a clean row and a hit here is a false positive. The module "
+        "count is computed from SOURCE_FILES rather than stated, since stating it "
+        "would go stale the first time a seed is added",
         (),
     ),
     Expectation(
@@ -740,8 +775,12 @@ EXPECTATIONS = (
     Expectation(
         "arch/dead-code",
         _FULL,
-        "exact",
-        "fixture_app.deadcode.never_referenced is reported unused",
+        "floor",
+        "fixture_app.deadcode.never_referenced appears among the unused symbols. A "
+        "floor rather than an exact claim because several other seeded functions are "
+        "also never called - the seeded suite exercises the package thinly on purpose "
+        "- so a tool naming only this one and a tool naming every function both "
+        "satisfy the check, and the run records which it was",
         ("dead-code",),
     ),
     Expectation(
@@ -768,17 +807,23 @@ EXPECTATIONS = (
     Expectation(
         "security/unsafe-io",
         _FULL,
-        "floor",
-        "the shell=True subprocess is the only unsafe-io surface seeded, so this check "
-        "and security/injection overlap on it by construction",
+        "exact",
+        "the unchecked tarfile.extractall in fixture_app.unsafe.unpack and the bare "
+        "xml.etree parse in parse_document. These are seeded for this check "
+        "specifically: its record scopes itself to XXE, archive extraction and symlink "
+        "following, none of which eval, shell=True, built SQL or md5 are, so without "
+        "them bandit's shell rule would fire and make the check look exercised while "
+        "its own subject went untested",
         ("unsafe-io",),
     ),
     Expectation(
         "docs/docstring-coverage",
         _FULL,
         "exact",
-        "fixture_app.unsafe carries no docstring on its module or on any of its four "
-        "functions, and is the file every docstring tool must name",
+        "fixture_app.unsafe is the one seeded module with no module docstring, so it "
+        "is the file a docstring tool must name. Function-level coverage is low across "
+        "the whole seeded package rather than in that file alone, so the percentage "
+        "each tool reports is recorded at the run rather than predicted here",
         ("undocumented",),
     ),
     Expectation(
@@ -793,8 +838,11 @@ EXPECTATIONS = (
         "test/isolation",
         _FULL,
         "exact",
-        "tests/test_slow.py::test_slow_but_passing exceeds a 1-second pytest-timeout "
-        "and passes with no timeout configured",
+        "tests/test_slow.py::test_slow_but_passing sleeps SLOW_TEST_SECONDS and so "
+        "exceeds a pytest-timeout of ISOLATION_TIMEOUT_SECONDS, while passing with no "
+        "timeout configured. Both are module constants rather than literals, because "
+        "the sleep and the timeout are one fact and lowering either alone would retire "
+        "the seed in silence",
         ("slow-test",),
     ),
     Expectation(
@@ -1055,6 +1103,8 @@ Refs #45"
 Each fixture is a **git repository with everything committed**, for two reasons that both bite otherwise: Semgrep limits its scan to git-tracked files and says so only in a note, so an untracked tree would make all four `security` checks pass vacuously; and `git status --porcelain` empty before and after, which is the read-only check every run makes, is meaningless outside a repository.
 
 Provision each manager from a pinned one-shot invocation rather than from whatever the machine carries, and record the version used in a `FIXTURE.md` inside each tree.
+
+**The seeded package is src-layout, so materializing a partition has to install the project itself, not only its dependencies.** Running the suite against a tree where only the dependencies were installed fails at collection with `ModuleNotFoundError: No module named 'fixture_app'`, which looks exactly like a broken fixture rather than an incomplete install. Every manifest in Task 2 declares a build backend for this reason, and each partition's materialization route has to exercise it: `uv sync` installs the project, and the `pip`, `poetry` and `pipenv` routes each need their own equivalent rather than a bare dependency install. Confirmed by running the seeded suite both ways: without the package importable it is 2 collection errors, with it 5 passed.
 
 - [ ] **Step 1: Write the failing test**
 
