@@ -38,7 +38,7 @@ Effectful. Writes `fixtures/python/<partition>/` for the five partitions, into a
 
 **Each fixture is a git repository with everything committed.** Two reasons, both load-bearing. Semgrep limits its scan to files tracked by git and says so only in a note, so an untracked fixture tree would make all four `security` checks pass vacuously - the exact false clean this exercise exists to catch. And `git status --porcelain` empty before and after, which #44 requires as the read-only check, is only meaningful inside a repository.
 
-**Each fixture is provisioned from its own pinned manager.** Python has no `corepack`, so the generator states its route per partition rather than using whichever manager the machine happens to carry, and records the version it used.
+**Each fixture is provisioned from its own pinned manager, with one stated exception.** Python has no `corepack`, so the generator states its route per partition rather than using whichever manager the machine happens to carry, and records the version it used. The exception is `uv` itself, which is how the generator runs at all: pinning a second copy of it through a one-shot runner would exercise a uv no caller of the script uses, so the host's uv is used and its measured version recorded in every tree it builds. Every other manager is pinned.
 
 The trees are pure outputs: regenerating replaces them, and nothing reads state that only a previous run could have written. A fixture directory is therefore disposable, which also keeps this clear of the hazard where ignored paths exist only in the checkout that created them.
 
