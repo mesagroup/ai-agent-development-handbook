@@ -1168,7 +1168,7 @@ Refs #45"
 
 Each fixture is a **git repository with everything committed**, for two reasons that both bite otherwise: Semgrep limits its scan to git-tracked files and says so only in a note, so an untracked tree would make all four `security` checks pass vacuously; and `git status --porcelain` empty before and after, which is the read-only check every run makes, is meaningless outside a repository.
 
-Provision each manager from a pinned one-shot invocation rather than from whatever the machine carries, and record the version used in a `FIXTURE.md` inside each tree.
+Provision each manager from a pinned one-shot invocation rather than from whatever the machine carries, and record the version used in a `FIXTURE.md` inside each tree. `uv` is the exception and is used from the host: it is what runs the generator, so a pinned second copy would exercise a uv no caller uses. Its measured version is recorded the same way.
 
 **The seeded package is src-layout, so materializing a partition has to install the project itself, not only its dependencies.** Running the suite against a tree where only the dependencies were installed fails at collection with `ModuleNotFoundError: No module named 'fixture_app'`, which looks exactly like a broken fixture rather than an incomplete install. Every partition therefore renders exactly one build manifest, and each partition's materialization route has to install through it rather than stopping at the dependencies. Confirmed by running the seeded suite both ways: without the package importable it is 2 collection errors, with it 5 passed.
 
@@ -1188,7 +1188,7 @@ def test_every_partition_plans_manifests_and_the_seeded_source():
         tree = plan_tree(partition)
         assert "src/fixture_app/unsafe.py" in tree, partition
         assert "tests/test_order.py" in tree, partition
-        assert any(p in tree for p in ("pyproject.toml", "Pipfile")), partition
+        assert declaring_manifest(partition) in tree, partition
 
 
 def test_each_partition_locks_with_its_own_manager():
@@ -1235,6 +1235,15 @@ git commit -m "feat: generate the five seeded Python fixture partitions
 
 Refs #45"
 ```
+
+**Review findings folded back (landed as `cf08edc`, corrections above and in the spec).** The generated trees byte-match the definition on all five partitions, each is a clean committed git repository, `pylock` carries no `uv.lock`, and nothing materializes into any tree. Four deviations from this plan as written, recorded here because three of them were made during implementation and the fourth left two committed documents asserting something false of the code:
+
+- **`uv` is used from the host, not pinned.** Step 1's provisioning line and the spec's "provisioned from its own pinned manager" both said every manager is pinned. The code pins poetry and pipenv only, and it is right to: uv is what runs the generator, so a pinned second copy would exercise a uv no caller uses. Both documents now state the exception, and the measured host version is recorded in every tree.
+- **Step 1's tree assertion was wrong for `pip`.** It accepted `pyproject.toml` or `Pipfile` for every partition, and `render_manifests("pip")` returns neither - it returns `requirements.txt` and `setup.py`, which this same task's prose explains at length. Amended above to assert each partition's own declaring manifest, which is also the stronger claim.
+- **`lock_command` was one command and `pylock` needs three steps** - lock, export, then delete the lock. Split into `prelock_commands` and `discard_after_lock`, both pure and both tested, rather than overloading one function with a partition special case.
+- **`declaring_manifest` and `BUILD_METADATA` were added** because the first `FIXTURE.md` told its reader that pip and pipenv declare dependencies in `requirements.txt` *and* `setup.py`, which is the opposite of what `setup.py` is written to do - it carries build metadata and no `install_requires`, precisely so deptry cannot read it as a competing declaration.
+
+One thing the review found that Task 7 should not re-litigate: the `pip` tree's `FIXTURE.md` calls `requirements.txt` "this partition's lock". It pins the declared set with `==` and nothing else, and the expectations record says in as many words that the partition has no transitive resolution - so the wording is corrected there rather than the record being loosened to match it.
 
 ---
 
