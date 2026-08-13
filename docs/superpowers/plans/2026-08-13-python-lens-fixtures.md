@@ -941,6 +941,15 @@ git commit -m "feat: state the expected result per check per fixture partition
 Refs #45"
 ```
 
+**Review findings folded back (landed as `eca1ff9`).** The spec-compliance reviewer materialized the tree and ran the tools rather than reasoning about them, which is why these were catchable at all. Four claims were false of the tree Tasks 1 and 2 build: `arch/complexity` sat one decision point below ruff's default and so would have recorded a correct run as a miss; `deps/inventory` claimed licences no route populates and transitives a `requirements.txt` cannot carry; `arch/martin-metrics` claimed a zone a mutual cycle makes arithmetically unreachable; `arch/hidden-coupling` asked the check to report something its record defines as out of scope. `arch/over-decomposition` and `arch/over-abstraction` both said a hit was a false positive while their records name triggers this fixture meets, so both are now hits with the records' read requirement stated.
+
+Two structural additions the later tasks depend on:
+
+- **`Expectation.ungranted`** - the round runs every entry under two grant states and several answers differ, deptry's DEP001-versus-DEP003 most sharply. Which entries carry it is derived from the records, never judged per entry: every Python tool tiered plus a non-`none` `ungranted_note`. Task 4 renders it; Task 6 grades against it.
+- **`SEED_MARKERS` / `ABSENCE_SEEDS`** - the code-quality reviewer deleted the `eval` out of `run_expression` and the suite stayed green, because the module, the function, the seed list and every claim naming it all survived. A marker names the construct rather than the import that enables it, and the two collections partition every planted seed so a new one has to be classified rather than defaulting into silence.
+
+The shuffle seed for `test/determinism` is recorded in the build smoke record that Task 7 writes, not in this module: it is a property of pytest-randomly's ordering rather than of the definition, and a placeholder constant would otherwise land in a published commit.
+
 ---
 
 ### Task 4: The expectations record, its gate and its README row
@@ -1003,7 +1012,9 @@ Expected: FAIL with `FileNotFoundError` on the renderer path
 
 - [ ] **Step 3: Write the renderer**
 
-Render, in order: a header saying the file is generated and must not be hand-edited; the dependency table with pin, seeds and evidence; a partition table saying which checks each partition carries; and the expectation table with check, partitions, form and claim. Emit exactly one trailing newline. Support `--check` by comparing `render()` against the file on disk, printing a diff to stderr and exiting 1 on mismatch, printing nothing and exiting 0 on match.
+Render, in order: a header saying the file is generated and must not be hand-edited, naming `VERIFIED_ON` so a reader can date the evidence without opening the history; the dependency table with pin, seeds and evidence; a partition table saying which checks each partition carries; and the expectation table with check, partitions, form and claim. Emit exactly one trailing newline. Support `--check` by comparing `render()` against the file on disk, printing a diff to stderr and exiting 1 on mismatch, printing nothing and exiting 0 on match.
+
+The expectation table needs a second section for the grant axis, not a sixth column: `ungranted` is set on a minority of entries and prose long enough that a column would wrap unreadably. Render one row per entry that carries it, and state above the section how the rest are read - a check whose every Python tool needs a grant and whose record's `ungranted_note` is the `none` sentinel answers `no-evidence (not-permitted)` ungranted, and one with an untiered Python tool answers its `claim` in both states. Both are derived, so writing them out per entry would add copies to keep in step.
 
 ```python
 """Render docs/audit/python-fixture-expectations.md from the fixture spec.
