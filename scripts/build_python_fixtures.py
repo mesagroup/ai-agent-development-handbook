@@ -59,8 +59,9 @@ PINNED_MANAGERS = {
 }
 
 # What each partition's lock step leaves behind, and therefore what the second
-# commit carries. `pip` has none because its `requirements.txt` is already a
-# fully pinned list: there is no resolution step to record.
+# commit carries. `pip` has none: its `requirements.txt` pins the declared set
+# with `==` and there is no separate lock format to generate, so that partition's
+# transitive graph stays unpinned.
 LOCK_ARTIFACTS = {
     "uv": ("uv.lock",),
     "pip": (),
@@ -68,6 +69,11 @@ LOCK_ARTIFACTS = {
     "pipenv": ("Pipfile.lock",),
     "pylock": ("pylock.toml",),
 }
+
+# The record every built tree carries, written by the generator rather than
+# planned by the definition, and the marker `_clear` recognizes a previous build
+# by. Named once because three places have to agree on it.
+FIXTURE_README = "FIXTURE.md"
 
 # The identity the fixture commits are made under. A fake domain, because a real
 # one in a generated tree is an environment-specific value in everything the
@@ -88,7 +94,12 @@ def _known(partition: str) -> str:
 
 
 def plan_tree(partition: str) -> dict[str, str]:
-    """Every file one partition's tree holds before its lock step runs.
+    """The files one partition's tree holds whose content this module renders.
+
+    Not the whole tree: `build` also writes `FIXTURE.md`, which is rendered from
+    the plan rather than part of it, and the lock step adds this partition's lock
+    artifact afterwards. `committed_files` is the union of the three and is what
+    a built tree is checked against.
 
     The manifests differ per partition and the seeded source does not, which is
     what makes one expectations table serve all five.
@@ -112,8 +123,9 @@ def prelock_commands(partition: str) -> tuple[tuple[str, ...], ...]:
 def lock_command(partition: str) -> tuple[str, ...]:
     """The one invocation that produces this partition's committed lock artifact.
 
-    Empty for `pip`, whose `requirements.txt` is written fully pinned by the
-    definition and so is its own lock.
+    Empty for `pip`: the definition writes `requirements.txt` with every declared
+    dependency pinned by `==`, and that partition has no separate lock format to
+    generate, so there is no resolution step and no transitive pin set.
     """
     match _known(partition):
         case "uv":
@@ -156,12 +168,32 @@ def discard_after_lock(partition: str) -> tuple[str, ...]:
     return ()
 
 
+def committed_files(partition: str) -> tuple[str, ...]:
+    """Every path a finished build of this partition has committed, sorted.
+
+    The planned tree, plus the `FIXTURE.md` the generator writes, plus the lock
+    artifacts the lock step produces, minus whatever that step produced and this
+    partition throws away again. `build` compares the tree's own `git ls-files`
+    against this, which is what makes the pylock partition's missing `uv.lock` an
+    asserted property of the build rather than a step that could stop running
+    without anything noticing - and what makes the whole expected set assertable
+    here, without a package manager.
+    """
+    kept = (
+        set(plan_tree(partition)) | {FIXTURE_README} | set(LOCK_ARTIFACTS[partition])
+    ) - set(discard_after_lock(partition))
+    return tuple(sorted(kept))
+
+
 def _manager_line(partition: str, uv_version: str) -> str:
     """How the partition's lock step was provisioned, for the tree's own record."""
     if partition in PINNED_MANAGERS:
         return f"`uvx {PINNED_MANAGERS[partition]}`, pinned by the generator"
     if partition == "pip":
-        return "none; `requirements.txt` is written fully pinned and is this partition's lock"
+        return (
+            "none; `requirements.txt` pins each declared dependency with `==`, this "
+            "partition has no separate lock format, and its transitive graph is unpinned"
+        )
     return f"`{uv_version}`, taken from the host that ran the generator"
 
 
@@ -171,12 +203,13 @@ BUILD_METADATA = "setup.py"
 def declaring_manifest(partition: str) -> str:
     """The one file in this partition's tree that declares the dependency set.
 
-    Every partition declares the set in exactly one file, and the `pip` and
-    `pipenv` trees carry a second manifest that declares nothing: `setup.py` is
-    build metadata with no `install_requires`, there so the src-layout package
-    installs without competing with the partition's own declaration format.
-    Listing both as declarations in the tree's own record would say the opposite
-    of what that file was written to do.
+    Every partition declares the set in exactly one file, and this partition may
+    render a second manifest that declares nothing: `setup.py` is build metadata
+    with no `install_requires`, there so the src-layout package installs without
+    competing with the partition's own declaration format. Listing both as
+    declarations in the tree's own record would say the opposite of what that
+    file was written to do, so the build-metadata name is excluded by name and
+    the result is required to be unique.
     """
     declaring = [p for p in render_manifests(_known(partition)) if p != BUILD_METADATA]
     if len(declaring) != 1:
@@ -233,14 +266,37 @@ def fixture_readme(partition: str, uv_version: str) -> str:
 def _fixture_env() -> dict[str, str]:
     """The environment the fixture subprocesses run under.
 
-    The generator itself runs under `uv run`, which exports `VIRTUAL_ENV`
-    pointing at this repository's environment. A package manager invoked in a
-    fixture tree with that set resolves against the handbook's environment
-    instead of the fixture's, so it comes out of the environment here rather
-    than being worked around per command.
+    Two kinds of host setting decide what a lock step produces, and both are
+    removed here rather than worked around per command.
+
+    An environment pointer, first. The generator itself runs under `uv run`,
+    which exports `VIRTUAL_ENV` pointing at this repository's environment; a
+    package manager invoked in a fixture tree with that set resolves against the
+    handbook's environment instead of the fixture's. The in-project variants are
+    the same failure in the other direction - each one puts a `.venv` inside the
+    tree the build is about to commit, which is the write the tree's own
+    read-only invariant forbids.
+
+    An index override, second. A lock resolved against a private index records
+    versions and hashes another host cannot obtain, which contradicts the one
+    property the pinned managers above exist to give the fixture. Both the
+    current and the deprecated uv spellings are removed, since uv still reads
+    the deprecated pair.
     """
     env = dict(os.environ)
-    for name in ("VIRTUAL_ENV", "UV_PROJECT_ENVIRONMENT", "PYTHONPATH"):
+    for name in (
+        "VIRTUAL_ENV",
+        "UV_PROJECT_ENVIRONMENT",
+        "PYTHONPATH",
+        "PIPENV_VENV_IN_PROJECT",
+        "POETRY_VIRTUALENVS_IN_PROJECT",
+        "UV_INDEX",
+        "UV_DEFAULT_INDEX",
+        "UV_INDEX_URL",
+        "UV_EXTRA_INDEX_URL",
+        "PIP_INDEX_URL",
+        "PIP_EXTRA_INDEX_URL",
+    ):
         env.pop(name, None)
     # Pipenv otherwise adopts an already-active environment rather than
     # resolving the Pipfile in front of it.
@@ -248,12 +304,27 @@ def _fixture_env() -> dict[str, str]:
     return env
 
 
+def _output_block(label: str, stream: str) -> str:
+    """One labelled stream for a failure message, or nothing when it is empty.
+
+    A bare `stderr:` header over nothing reads as a tool that failed silently,
+    which is a different diagnosis from the tool that reported on the other
+    stream - so an empty stream contributes no header at all.
+    """
+    stripped = stream.strip()
+    return f"\n{label}:\n{stripped}" if stripped else ""
+
+
 def _run(command: Sequence[str], cwd: Path) -> str:
-    """Run one command in a fixture tree, or raise naming it and its stderr.
+    """Run one command in a fixture tree, or raise naming it and its output.
 
     Nothing here swallows a failure: a lock step that errored and was ignored
     produces a tree that looks built and carries no resolution, which is
     indistinguishable at review from a partition whose manager has no lock.
+
+    Both streams reach the message. Poetry and pipenv report much of a failed
+    resolution on stdout, so a message carrying stderr alone drops the part that
+    says what went wrong.
     """
     try:
         completed = subprocess.run(
@@ -272,7 +343,9 @@ def _run(command: Sequence[str], cwd: Path) -> str:
     if completed.returncode != 0:
         raise RuntimeError(
             f"{' '.join(command)} failed in {cwd.name!r} with exit code "
-            f"{completed.returncode}\nstderr:\n{completed.stderr.strip()}"
+            f"{completed.returncode}"
+            + _output_block("stdout", completed.stdout)
+            + _output_block("stderr", completed.stderr)
         )
     return completed.stdout
 
@@ -326,10 +399,10 @@ def _clear(root: Path, partition: str) -> None:
     """
     if not root.exists():
         return
-    if root.name != partition or not (root / "FIXTURE.md").exists():
+    if root.name != partition or not (root / FIXTURE_README).exists():
         raise RuntimeError(
             f"{root} exists and was not written by this generator "
-            f"(expected a directory named {partition!r} carrying FIXTURE.md); "
+            f"(expected a directory named {partition!r} carrying {FIXTURE_README}); "
             "remove it yourself or build somewhere else"
         )
     shutil.rmtree(root)
@@ -363,8 +436,10 @@ def build(partition: str, root: Path, uv_version: str | None = None) -> dict[str
         uv_version: The host uv version to record; measured when omitted.
 
     Returns:
-        A mapping of partition, root, tracked file count and dirty file count,
-        each as a string, for the caller to print or assert on.
+        A mapping of partition, root and tracked file count, each as a string,
+        for the caller to print or assert on. No dirty count: the build refuses
+        to return at all from a dirty tree, so a number here could only ever be
+        zero and would read as a property somebody checked.
     """
     _known(partition)
     uv_version = uv_version if uv_version is not None else _measure_uv_version()
@@ -373,10 +448,10 @@ def build(partition: str, root: Path, uv_version: str | None = None) -> dict[str
 
     files = plan_tree(partition)
     _write_tree(root, files)
-    (root / "FIXTURE.md").write_text(fixture_readme(partition, uv_version))
+    (root / FIXTURE_README).write_text(fixture_readme(partition, uv_version))
 
     _git(root, "init", "--quiet", "--initial-branch", "main")
-    _stage(root, [*sorted(files), "FIXTURE.md"])
+    _stage(root, [*sorted(files), FIXTURE_README])
     _git(
         root, "commit", "--quiet", "-m", f"Seeded fixture source, {partition} manifests"
     )
@@ -412,18 +487,25 @@ def build(partition: str, root: Path, uv_version: str | None = None) -> dict[str
             f"the {partition!r} tree is dirty after its build, which no run can "
             "start from:\n" + "\n".join(dirty)
         )
-    tracked = _git(root, "ls-files").splitlines()
+    tracked = sorted(_git(root, "ls-files").splitlines())
     for name in discard_after_lock(partition):
         if name in tracked:
             raise RuntimeError(
                 f"{name} was discarded from the {partition!r} tree and is tracked "
-                "anyway; a previous build committed it"
+                "anyway; the staging list this build committed from grew to include "
+                "an artifact this partition exists to leave out"
             )
+    expected = list(committed_files(partition))
+    if tracked != expected:
+        raise RuntimeError(
+            f"the {partition!r} tree committed a different set of files than planned"
+            f"\nunplanned: {sorted(set(tracked) - set(expected))}"
+            f"\nmissing: {sorted(set(expected) - set(tracked))}"
+        )
     return {
         "partition": partition,
         "root": str(root),
         "tracked": str(len(tracked)),
-        "dirty": str(len(dirty)),
     }
 
 
@@ -462,8 +544,8 @@ def main(argv: list[str] | None = None) -> int:
     for partition in requested:
         summary = build(partition, args.output_dir / partition, uv_version)
         print(
-            f"{summary['partition']}: {summary['tracked']} tracked, "
-            f"{summary['dirty']} dirty, in {summary['root']}"
+            f"{summary['partition']}: {summary['tracked']} tracked files "
+            f"in {summary['root']}"
         )
     return 0
 
