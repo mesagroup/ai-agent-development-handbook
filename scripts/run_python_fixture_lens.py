@@ -9,6 +9,15 @@ the transcription. So `argv` is what the record says, `completion` is what had
 to be added for the command to run at all, and `note` says why - and the set of
 entries carrying a completion is a finding list before any tool has spoken.
 
+A route the record does not prescribe at all is a third thing, and it is held
+apart from both: `supplied_by_partition` carries a command **this round
+contributed** rather than transcribed, and it never renders as `record_argv` in
+the results. Two of them are SBOM routes the record has no subcommand for and
+one is the vulnerability route the record's own text writes off, so each is a
+candidate answer to a named hole rather than a correction to the record - and
+keeping it out of `record_argv` is what stops a later pass reading "the harness
+ran this" as "the record said this".
+
 Three fields are derived from the records rather than transcribed, because a
 second copy of a fact the records already state is a copy free to drift:
 
@@ -22,7 +31,10 @@ second copy of a fact the records already state is a copy free to drift:
 it. **A non-zero exit is not a tool failure by itself**: bandit, ruff, deptry,
 pip-audit and a shuffled pytest all exit non-zero precisely when they find what
 this fixture planted, so the failure signal is a non-zero exit with nothing on
-stdout - a tool that ran and produced no report.
+the stream that tool reports its findings on. Which stream that is varies -
+deptry writes its whole report to stderr and leaves stdout empty - so it is a
+per-entry fact in `findings_stream` rather than an assumption that every tool
+reports on stdout.
 
 Nothing here writes into a fixture tree. Every run happens in a copy made in a
 scratch directory that does not resolve under the fixture root, because a tool
@@ -70,11 +82,37 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 FIXTURE_ROOT = DEFAULT_OUTPUT_DIR
 RESULTS_DIRNAME = "results"
 
-# The engine's scale, from `audit-core`. It does not grow: a fourth status would
-# collapse a distinction the engine draws on purpose, and the round exists to
-# test the family against this vocabulary rather than to extend it.
+# Where a supplied route parks an intermediate it has to hand to the next step.
+# Named rather than defaulted so that the file is recognisable as the harness's
+# in the copy afterwards, and distinct from any manifest a partition declares -
+# a step writing `requirements.txt` would overwrite the pip partition's own.
+SUPPLIED_REQUIREMENTS = "audit-export-requirements.txt"
+
+# The engine's scale, from `audit-core`. Neither tuple grows: a fourth status
+# would collapse a distinction the engine draws on purpose, and `audit-core`
+# introduces the reasons as "the three ways a check can fail to run", so a
+# fourth reason is a value the pass that grades this file has no row for. The
+# round exists to test the family against this vocabulary rather than to extend
+# it, which is why both are pinned by literal equality in the tests.
+#
+# Two things in this file are outside the scale on purpose. `not-applicable` is
+# a status `classify` can never return: it means the check has no lens in the
+# partition's language, which is settled by the record before the harness runs
+# rather than by an observation. And a row for a record that prescribes no
+# command carries `status: ""` - not a fourth status but the absence of one,
+# because nothing ran to have a status.
 STATUSES = ("ok", "no-evidence", "not-applicable")
 REASONS = ("not-permitted", "tool-unavailable", "tool-failed")
+
+# Harness-local, and deliberately a separate field from `reason` rather than
+# more reasons. Both name a way a row failed to produce evidence that the
+# engine's three reasons cannot tell apart on their own: a hung command reads
+# exactly like a tool that ran and printed nothing, and a route whose
+# environment was never built reads exactly like a tool nobody could fetch. The
+# engine's reason still governs what the row *is*; the detail says which of them
+# it was, so that a later pass reading this file can separate a genuine tool
+# defect from the harness's own environment giving out.
+DETAILS = ("timed-out", "environment-unmaterialized")
 
 # The two grant states every entry is run under. `target-execution` implies
 # `resolved-tree`, so the granted run holds both and the ungranted run holds
@@ -86,8 +124,11 @@ GRANTS = ("none", "target-execution")
 # plumbing rather than a claim from any record, and a tool absent from here is
 # fetched under its own name.
 #
-# Two things put an entry here. `coverage.py` is the project's own name for a
-# distribution published as `coverage`. And **the fixture declares no pytest**,
+# Three things put an entry here. `coverage.py` is the project's own name for a
+# distribution published as `coverage`, and `cyclonedx-py` is the command name
+# of a distribution published as `cyclonedx-bom` - naming the distribution makes
+# the resolution direct instead of leaving the runner to guess from an alias.
+# And **the fixture declares no pytest**,
 # so a route whose transcribed command runs the target's suite has to bring one:
 # `coverage run -m pytest` and `mutmut run` both die on `No module named pytest`
 # otherwise, which reads as a tool that failed rather than as a package nobody
@@ -96,6 +137,7 @@ GRANTS = ("none", "target-execution")
 # already, so naming the plugin brings the runner with it.
 TOOL_PACKAGES = {
     "coverage.py": ("coverage", "pytest"),
+    "cyclonedx-py": ("cyclonedx-bom",),
     "mutmut": ("mutmut", "pytest"),
 }
 
@@ -145,6 +187,22 @@ class Invocation:
             with `()` is one the record prescribes no route for at all. Pairs
             rather than a mapping so that the whole entry is hashable, which is
             what freezing it is otherwise promising.
+        supplied_by_partition: A route **this round contributed** for a
+            partition the record prescribes none for, as `(partition, steps)`
+            pairs where `steps` is the sequence of commands that route runs. It
+            never reaches `record_argv`, so the difference between what the
+            record said and what the audit supplied stays visible in the output
+            rather than depending on somebody reading this file. Each step is
+            written in full, **including how it obtains its own tool**, because
+            a supplied route is authored here rather than transcribed: there is
+            no record naming a tool for the launcher to go and fetch, and one of
+            these routes runs the target's own package manager while the next
+            runs a fetched one. A partition may carry a prescribed route or a
+            supplied one, never both.
+        supplied_note: What the supplied route is for and why the record has
+            none. Required whenever `supplied_by_partition` is non-empty, for
+            the reason `note` is required beside a completion: an unexplained
+            supplied route reads as a command the record prescribed.
         completion: What had to be added to `argv` for the command to run.
             Recorded separately rather than folded in, because this is the
             round's output: a record whose command needs completing is a record
@@ -158,10 +216,29 @@ class Invocation:
             missing. Required whenever `completion` is non-empty.
         in_env: Whether the tool has to run from inside the materialized
             environment rather than through a one-shot runner.
-        record_quote: A sentence occurring **exactly once** in the record, taken
-            by reading it. This is what the verbatim guard compares, so it is
-            the half that fails when a record's prescription changes under the
-            table.
+        findings_stream: Which stream this tool writes its report to, and so
+            which one `classify` reads to tell a tool that answered from one
+            that failed. `stdout` for all but deptry, which writes its whole
+            report to stderr and leaves stdout empty - measured, and the reason
+            this is a field rather than an assumption: read on stdout, a deptry
+            run that finds every planted seed grades as a tool failure and one
+            that finds nothing grades clean, which is the classification exactly
+            inverted on the entry the fixture was seeded for.
+        record_quote: The record's own **prescribing sentence** for this route,
+            occurring exactly once in the record, taken by reading it. This is
+            what the verbatim guard compares, so it is the half that fails when
+            a record's prescription changes under the table - and it only fails
+            there if it is anchored off the sentence that names the command,
+            which is why the guard also holds the transcribed tokens against it.
+
+            Where the record prescribes no command the quote is instead the
+            sentence that says what it prescribes instead, and `note` says so.
+            Two entries are worth naming because they read as oversights: the
+            `deps/vulnerabilities` quote is two adjacent sentences, because the
+            record prescribes `--locked` in one and `-r` in the next and this
+            entry runs both; and `deps/transitive-licenses` quotes a delegation
+            rather than a command, because the record's prescription there *is*
+            the delegation to `deps/licenses`.
     """
 
     check: str
@@ -169,10 +246,13 @@ class Invocation:
     record_quote: str
     argv: tuple[str, ...] = ()
     argv_by_partition: tuple[tuple[str, tuple[str, ...]], ...] = ()
+    supplied_by_partition: tuple[tuple[str, tuple[tuple[str, ...], ...]], ...] = ()
+    supplied_note: str = ""
     completion: tuple[str, ...] = ()
     then: tuple[str, ...] = ()
     note: str = ""
     in_env: bool = False
+    findings_stream: str = "stdout"
 
     def __post_init__(self) -> None:
         if self.completion and not self.note:
@@ -192,12 +272,55 @@ class Invocation:
                 f"{self.check}/{self.tool}: names a partition twice in "
                 f"argv_by_partition ({named}), so one of the two never runs"
             )
+        if self.findings_stream not in ("stdout", "stderr"):
+            raise ValueError(
+                f"{self.check}/{self.tool}: findings_stream is "
+                f"{self.findings_stream!r}; a tool reports on stdout or on stderr, "
+                "and classifying on a third thing would grade every run of it"
+            )
+        self._check_supplied()
+
+    def _check_supplied(self) -> None:
+        """The three ways a supplied route would stop being distinguishable."""
+        if self.supplied_by_partition and not self.supplied_note:
+            raise ValueError(
+                f"{self.check}/{self.tool}: a supplied route needs a note saying what "
+                "it is for; an unexplained one reads as a command the record "
+                "prescribed"
+            )
+        supplied = [p for p, _ in self.supplied_by_partition]
+        if len(supplied) != len(set(supplied)):
+            raise ValueError(
+                f"{self.check}/{self.tool}: names a partition twice in "
+                f"supplied_by_partition ({supplied}), so one of the two never runs"
+            )
+        for partition in supplied:
+            if self.argv or self.prescribed(partition):
+                raise ValueError(
+                    f"{self.check}/{self.tool}: {partition} carries both a prescribed "
+                    "route and a supplied one, so the results row could not say which "
+                    "of the two it ran"
+                )
+        if supplied and self.in_env:
+            raise ValueError(
+                f"{self.check}/{self.tool}: a supplied route writes each step in full "
+                "and so takes no launcher prefix, which is what an in_env entry needs "
+                "to reach the materialized environment"
+            )
 
     def prescribed(self, partition: str) -> tuple[str, ...]:
         """The record's own command for this partition, before any completion."""
         if not self.argv_by_partition:
             return self.argv
         return dict(self.argv_by_partition).get(partition, ())
+
+    def supplied(self, partition: str) -> tuple[tuple[str, ...], ...]:
+        """The route this round contributed for this partition, if any.
+
+        Returns `()` where the round supplied nothing, which is every entry
+        except the two named holes this round exists to test a candidate for.
+        """
+        return dict(self.supplied_by_partition).get(partition, ())
 
 
 def argv_for(invocation: Invocation, partition: str) -> tuple[str, ...]:
@@ -221,7 +344,8 @@ def argv_for(invocation: Invocation, partition: str) -> tuple[str, ...]:
 # several checks needs a different invocation for each: ruff selects `C901` for
 # `arch/complexity`, the `S` ruleset for the four `security` checks and the `D`
 # ruleset for `docs/docstring-coverage`, and collapsing those into one entry
-# would test one rule selection and report it as six.
+# would test one rule selection and report it as evidence about every check that
+# names the tool.
 INVOCATIONS: tuple[Invocation, ...] = (
     # --- arch ---------------------------------------------------------------
     Invocation(
@@ -465,10 +589,9 @@ INVOCATIONS: tuple[Invocation, ...] = (
         argv=("pip", "list", "--outdated"),
         in_env=True,
         record_quote=(
-            "Two things survive without one: the lockfile scan for floating direct "
-            "pins, and the per-package registry comparison this record's "
-            "`ungranted_note` sets out, which answers outdated-ness and yanked-ness "
-            "from the pins already in the clone."
+            "`uv pip list --outdated` / `pip list --outdated`, both of which read the "
+            "installed environment rather than the lockfile, so they need the tree "
+            "resolved."
         ),
     ),
     Invocation(
@@ -477,6 +600,9 @@ INVOCATIONS: tuple[Invocation, ...] = (
         argv=("deptry",),
         completion=(".",),
         in_env=True,
+        # Measured: on a seeded partition `deptry .` exits 1 with an empty
+        # stdout and its whole DEP002/DEP001 report on stderr.
+        findings_stream="stderr",
         note=(
             "deptry takes a scan root and the record prescribes none; the answer moves "
             "with it - `deptry src` makes the package local and the self-import rows "
@@ -492,19 +618,29 @@ INVOCATIONS: tuple[Invocation, ...] = (
         check="deps/inventory",
         tool="cyclonedx-py",
         argv_by_partition=(
-            ("uv", ("uv", "export", "--format", "cyclonedx1.5", "--frozen")),
+            ("uv", ()),
             ("pip", ("cyclonedx-py", "requirements")),
             ("poetry", ("cyclonedx-py", "poetry")),
             ("pipenv", ("cyclonedx-py", "pipenv")),
-            ("pylock", ("cyclonedx-py", "requirements", "pylock.toml")),
+            ("pylock", ()),
+        ),
+        supplied_by_partition=(
+            ("uv", (("uv", "export", "--format", "cyclonedx1.5", "--frozen"),)),
+            ("pylock", (("uvx", "cyclonedx-py", "requirements", "pylock.toml"),)),
         ),
         note=(
             "the record prescribes the subcommand 'matching the partition's own "
-            "dependency file', so the command is per partition rather than shared. The "
-            "`uv` row is the record's other route, the tool's native SBOM export, "
-            "which is what a partition cyclonedx-py has no subcommand for is left "
-            "with; the `pylock` row points the requirements subcommand at a PEP 751 "
-            "file because the record names no route that reads one"
+            "dependency file', so the command is per partition rather than shared - "
+            "and it names none for a uv tree or a PEP 751 one, which is why those two "
+            "rows carry no prescribed command"
+        ),
+        supplied_note=(
+            "the record's first named hole. Neither of these is transcribed: the `uv` "
+            "step is the tool's own native SBOM export, which the record's text allows "
+            "in the abstract without naming a command, and the `pylock` step points "
+            "the requirements subcommand at a PEP 751 file, which the record names no "
+            "route for at all. Both are candidates the round tests rather than "
+            "corrections it has already made, so neither reaches record_argv"
         ),
         record_quote=(
             "`cyclonedx-py`'s `requirements`, `poetry` or `pipenv` subcommand, "
@@ -544,6 +680,33 @@ INVOCATIONS: tuple[Invocation, ...] = (
             ("pipenv", ()),
             ("pylock", ("pip-audit", "--locked", ".")),
         ),
+        supplied_by_partition=(
+            (
+                "uv",
+                (
+                    (
+                        "uv",
+                        "export",
+                        "--frozen",
+                        "--format",
+                        "requirements.txt",
+                        "-o",
+                        SUPPLIED_REQUIREMENTS,
+                    ),
+                    ("uvx", "pip-audit", "-r", SUPPLIED_REQUIREMENTS),
+                ),
+            ),
+        ),
+        supplied_note=(
+            "the record's second named hole: it names no mode for a uv tree, so a "
+            "uv-locked partition has no vulnerability lens on a read-only clone. The "
+            "candidate is the export the record does not name, written to a file "
+            "because pip-audit's `-r` takes a path rather than a pipe, and then the "
+            "`-r` mode the record does name. Supplied for uv alone: the same export is "
+            "what a poetry or pipenv partition has no lockfile for - `uv export "
+            "--frozen` reads a uv.lock and those partitions carry none by "
+            "construction - so there is no equivalent route to supply them"
+        ),
         note=(
             "the record makes the mode a function of what the partition locks with, "
             "and names no mode at all for a uv, poetry or pipenv tree: `--locked` "
@@ -553,9 +716,14 @@ INVOCATIONS: tuple[Invocation, ...] = (
             "fixture's own file"
         ),
         record_quote=(
-            "Run `pip-audit` with no arguments and it audits whatever environment it "
-            "was launched from, which on a foreign target is the audit environment "
-            "rather than the subject - not evidence about the target at all, so don't."
+            "`pip-audit --locked .` reads a PEP 751 lock file (`pylock.*.toml`) and "
+            "the project's `pyproject.toml`, and nothing else: it does not read "
+            "`uv.lock`, `poetry.lock`, `Pipfile.lock` or a requirements file, so a "
+            "target locked with uv or poetry alone is not served by `--locked` and is "
+            "the ordinary case rather than the exotic one. Where the partition has a "
+            "requirements file, `pip-audit -r <requirements>` parses it and provisions "
+            "its own throwaway virtualenv to resolve it, so it needs network rather "
+            "than the target's tree."
         ),
     ),
     Invocation(
@@ -590,8 +758,8 @@ INVOCATIONS: tuple[Invocation, ...] = (
         tool="pydocstyle",
         argv=("pydocstyle",),
         record_quote=(
-            "Which public modules/classes/functions lack docstrings. Report per "
-            "package."
+            "`ruff` `D` rules / `pydocstyle` / `interrogate` if present, else an "
+            "AST/grep sweep."
         ),
     ),
     Invocation(
@@ -599,8 +767,8 @@ INVOCATIONS: tuple[Invocation, ...] = (
         tool="interrogate",
         argv=("interrogate",),
         record_quote=(
-            "docstring fixes **touch code**, so they are **not** docs-only - they need "
-            "the normal lint/typecheck/test gate and may need the code-review gate."
+            "`ruff` `D` rules / `pydocstyle` / `interrogate` if present, else an "
+            "AST/grep sweep."
         ),
         note=(
             "the record's fallback is one line naming three tools and no arguments; "
@@ -650,9 +818,10 @@ INVOCATIONS: tuple[Invocation, ...] = (
                 tool="semgrep",
                 argv=("semgrep", "--config", "p/python"),
                 record_quote=(
-                    "Semgrep is a Python-registry package, so fetch it with `uvx "
-                    "semgrep` or `pipx run semgrep` whatever the partition's language "
-                    "is"
+                    "`bandit -r <pkg>` (captures test id like `B602`, severity, "
+                    "confidence, `file:line`), or `ruff check --select S` if the "
+                    "project standardizes on ruff, or `semgrep --config p/python` for "
+                    "dataflow-aware rules."
                 ),
             ),
         )
@@ -680,8 +849,8 @@ INVOCATIONS: tuple[Invocation, ...] = (
         then=("coverage", "report", "--show-missing"),
         in_env=True,
         record_quote=(
-            "Branch coverage is the signal; capture the missing line/branch ranges per "
-            "module as the evidence pointer."
+            "`pytest --cov=<pkg> --cov-branch --cov-report=term-missing` (or `coverage "
+            "run -m pytest` + `coverage report --show-missing`)."
         ),
         note=(
             "the record prescribes two commands in sequence for this route, so the "
@@ -735,17 +904,19 @@ INVOCATIONS: tuple[Invocation, ...] = (
     Invocation(
         check="test/mutation",
         tool="cosmic-ray",
-        argv=("cosmic-ray",),
         in_env=True,
         record_quote=(
-            "every one of these re-runs the target's own suite once per injected "
-            "mutant, so this check needs the `target-execution` grant, and it is the "
-            "most expensive tool in this family to run"
+            "Run `mutmut` / `cosmic-ray` on the highest-risk modules to measure "
+            "whether tests kill injected faults (the truest test-effectiveness signal, "
+            "but slow) - enable via argument or ask the user; default off for a quick "
+            "pass, recommend on for a scorer/parser-heavy core."
         ),
         note=(
-            "the record names the tool and no subcommand; cosmic-ray drives a session "
-            "from a TOML config, and writing one would manufacture the input rather "
-            "than transcribe the record"
+            "the record names the tool and no subcommand, so there is no command here "
+            "to run: cosmic-ray drives a session from a TOML config, and writing one "
+            "would manufacture the input rather than transcribe the record. Left "
+            "empty rather than run bare, which would report a record with no runnable "
+            "command as a tool that failed"
         ),
     ),
     Invocation(
@@ -768,9 +939,9 @@ INVOCATIONS: tuple[Invocation, ...] = (
 def _records() -> dict[str, object]:
     """Every check record, parsed once.
 
-    Cached because the derivations below are called per (check, tool) pair and
-    re-walking the skill tree fifty-one times is fifty-one chances for the run
-    to be reading a different tree than the one it started on.
+    Cached because the derivations below are called once per (check, tool) pair,
+    and every re-walk of the skill tree is another chance for the run to be
+    reading a different tree than the one it started on.
     """
     checks, errors = load_checks(SKILLS_DIR)
     if errors:
@@ -922,6 +1093,7 @@ def classify(
     tool_present: bool,
     *,
     permitted: bool = True,
+    findings_stream: str = "stdout",
 ) -> tuple[str, str]:
     """Map one observation into the engine's vocabulary.
 
@@ -933,14 +1105,31 @@ def classify(
     pip-audit and a shuffled pytest all exit non-zero exactly when they find
     what this fixture planted, so reading the exit code alone would grade every
     correct run as a tool defect. What distinguishes a failure is a non-zero
-    exit with nothing on stdout - a tool that ran and produced no report.
+    exit with nothing on the stream that tool reports on - a tool that ran and
+    produced no report. Which stream that is comes from the entry, because it
+    varies: measured, `deptry .` on a seeded partition exits 1 with an empty
+    stdout and its whole report on stderr, so reading stdout for it would grade
+    a run that found every planted seed as a tool failure and a run that found
+    nothing as clean.
+
+    **This is triage rather than grading, and the limit is real in both
+    directions.** Nothing here can tell a report from an error message on the
+    same stream: `deps/hygiene` on the pipenv partition is *expected* to exit
+    non-zero with `DependencySpecificationNotFoundError` on stderr, and under a
+    stderr findings-stream that grades `ok` - a false clean where reading stdout
+    would have given a false failure. Neither reading is the answer, and neither
+    is meant to be: what actually grades a row is matching its content against
+    the written expectation, which is the next round's work. What this function
+    owes that round is a status that is right about the ordinary case and a
+    record complete enough to re-classify from without re-running.
 
     Args:
         returncode: The command's exit status.
         stdout: What it wrote to stdout.
-        stderr: What it wrote to stderr, kept for the caller's record.
+        stderr: What it wrote to stderr.
         tool_present: Whether the tool could be obtained at all.
         permitted: Whether the run holds the grant this tool needs.
+        findings_stream: Which of the two streams this tool reports on.
 
     Returns:
         The status and its reason; the reason is empty for `ok`.
@@ -949,10 +1138,57 @@ def classify(
         return ("no-evidence", "not-permitted")
     if not tool_present:
         return ("no-evidence", "tool-unavailable")
-    if returncode == 0 or stdout.strip():
+    findings = stderr if findings_stream == "stderr" else stdout
+    if returncode == 0 or findings.strip():
         return ("ok", "")
-    del stderr  # recorded by the caller; the classification does not read it
     return ("no-evidence", "tool-failed")
+
+
+# How each launcher says it could not obtain the tool it was asked to run.
+#
+# `_run` detects an absent tool by `FileNotFoundError` on the binary it
+# launched, which only ever fires where the command *is* the tool. Everywhere a
+# launcher goes in front - `uvx`, `uv run`, `poetry run`, `pipenv run` - that
+# binary exists whatever happens next, so the launcher's own resolution failure
+# comes back as an ordinary non-zero exit and grades `tool-failed`: a tool
+# nobody could fetch, reported as a tool that ran and broke. Measured: `uvx
+# no-such-package-45xyzq` exits 1 with "not found in the package registry".
+#
+# Matching a message is fragile and this is the only signal there is, so the
+# match is narrowed twice - it is consulted only when the command's first word
+# is one of these launchers, and only when the command failed.
+LAUNCHER_MISSES: dict[str, tuple[str, ...]] = {
+    "uvx": (
+        "not found in the package registry",
+        "no solution found when resolving tool dependencies",
+    ),
+    "uv": (
+        "not found in the package registry",
+        "no solution found when resolving tool dependencies",
+    ),
+    "poetry": ("command not found",),
+    "pipenv": ("could not be found within path",),
+}
+
+
+def launcher_missed(
+    command: Sequence[str], returncode: int | None, stderr: str
+) -> bool:
+    """Whether the launcher failed to obtain the tool rather than the tool failing.
+
+    Args:
+        command: The argv as it was run, launcher words included.
+        returncode: Its exit status; `None` where it never exited.
+        stderr: What it wrote to stderr.
+
+    Returns:
+        `True` where this is `tool-unavailable` wearing a `tool-failed` exit.
+    """
+    if returncode == 0 or not command:
+        return False
+    markers = LAUNCHER_MISSES.get(command[0], ())
+    lowered = stderr.lower()
+    return any(marker in lowered for marker in markers)
 
 
 def _fixture_env() -> dict[str, str]:
@@ -962,10 +1198,24 @@ def _fixture_env() -> dict[str, str]:
     this repository's environment. A package manager invoked in a fixture copy
     with that set resolves against the handbook's environment instead of the
     fixture's, and every `deps` answer would then be about this repository.
+
+    `uv run` also puts this repository's own `.venv/bin` at the front of `PATH`,
+    which is the same leak by the other door and a quieter one: that directory
+    carries a `pytest` and a `ruff`, so on a partition whose provisioning failed
+    a bare `pytest` resolves from the handbook's environment and answers about
+    the handbook's tree. It is dropped by path rather than by emptying `PATH`,
+    because the launchers themselves - `uv`, `uvx`, `poetry`, `pipenv` - are
+    installed outside it and have to stay findable.
     """
     env = dict(os.environ)
     for name in ("VIRTUAL_ENV", "UV_PROJECT_ENVIRONMENT", "PYTHONPATH"):
         env.pop(name, None)
+    own_bin = os.path.normpath(str(REPO_ROOT / ".venv" / "bin"))
+    env["PATH"] = os.pathsep.join(
+        entry
+        for entry in env.get("PATH", "").split(os.pathsep)
+        if entry and os.path.normpath(entry) != own_bin
+    )
     env["PIPENV_IGNORE_VIRTUALENVS"] = "1"
     return env
 
@@ -1028,6 +1278,13 @@ def reconstruct(partition: str, source: Path, work_root: Path) -> Path:
 
     The copy carries `.git`, because some tools read only tracked files and a
     copy without it would make them pass having scanned nothing.
+
+    Two refusals rather than one, because the destructive step is `rmtree` on
+    `work_root / partition` and not on `work_root` itself. A work directory that
+    is the fixture *root* - `--work-dir fixtures/python`, the obvious choice,
+    and where the results file already goes - resolves nowhere under the
+    fixture, so the first guard passes; but the destination is then the seeded
+    partition itself, and the rmtree deletes it before copytree reads it.
     """
     if (
         work_root.resolve() == source.resolve()
@@ -1039,10 +1296,100 @@ def reconstruct(partition: str, source: Path, work_root: Path) -> Path:
             "forbids"
         )
     destination = work_root / partition
+    if destination.resolve() == source.resolve():
+        raise ValueError(
+            f"the copy of {partition} would land on the fixture itself ({source}); "
+            "reconstructing onto the target is the write the read-only invariant "
+            "forbids, and the rmtree below would delete the seeded partition before "
+            "anything read it"
+        )
     if destination.exists():
         shutil.rmtree(destination)
     shutil.copytree(source, destination)
     return destination
+
+
+def _verdict(
+    ran: Sequence[tuple[Sequence[str], dict[str, object]]],
+    findings_stream: str,
+) -> dict[str, object]:
+    """The status of a route, read from every command it ran.
+
+    A route is as good as its worst step: the first step that does not answer
+    decides, and where all of them answer the last one does. So a two-command
+    route whose reporting half died is a failure rather than a clean run on the
+    strength of its measuring half - which is what classifying on the first
+    command alone would have made it.
+
+    Args:
+        ran: Each step's argv paired with what `_run` returned for it, in the
+            order they ran.
+        findings_stream: Which stream this tool reports its findings on.
+
+    Returns:
+        The `status` and `reason` keys, plus `detail` where one of `DETAILS`
+        says what the engine's reason cannot.
+    """
+    status, reason, detail = "ok", "", ""
+    for command, outcome in ran:
+        returncode = outcome["returncode"]
+        stderr = str(outcome["stderr"])
+        code = 1 if returncode is None else int(returncode)
+        # A hung command exits nowhere, and mapping that to 0 would read every
+        # timeout as a clean run. It is a failure carrying a name of its own,
+        # because a tool that never returned and a tool that returned nothing
+        # are one `tool-failed` to the engine and two different facts to a
+        # reader deciding whether the tool or the budget was wrong.
+        timed_out = returncode is None and bool(outcome["tool_present"])
+        present = bool(outcome["tool_present"]) and not launcher_missed(
+            command, returncode if returncode is None else code, stderr
+        )
+        status, reason = classify(
+            code,
+            str(outcome["stdout"]),
+            stderr,
+            tool_present=present,
+            findings_stream=findings_stream,
+        )
+        detail = "timed-out" if timed_out and status != "ok" else ""
+        if status != "ok":
+            break
+    verdict: dict[str, object] = {"status": status, "reason": reason}
+    if detail:
+        verdict["detail"] = detail
+    return verdict
+
+
+def _run_supplied(
+    invocation: Invocation,
+    steps: Sequence[tuple[str, ...]],
+    copy: Path,
+    timeout: int,
+    row: dict[str, object],
+) -> dict[str, object]:
+    """Run a route this round contributed, and record it as contributed.
+
+    Each step runs exactly as written, with no launcher prefix: a supplied route
+    names its own runner, because there is no record naming a tool for the
+    launcher to go and fetch, and these routes mix the target's own package
+    manager with a fetched one inside a single route.
+
+    A step that does not answer stops the route, so a failed export is never
+    followed by an audit of the file it did not write.
+    """
+    ran: list[tuple[Sequence[str], dict[str, object]]] = []
+    for step in steps:
+        outcome = _run(step, copy, timeout)
+        ran.append((step, outcome))
+        if outcome["returncode"] != 0:
+            break
+    row |= {
+        "ran": True,
+        "steps": [{"command": list(c), **o} for c, o in ran],
+        **ran[-1][1],
+    }
+    row |= _verdict(ran, invocation.findings_stream)
+    return row
 
 
 def run_partition(
@@ -1064,11 +1411,19 @@ def run_partition(
     granted = grant != "none"
     copy = reconstruct(partition, source, work_root)
     materialization = []
+    # The command that stopped the materialization, or `None` where it finished.
+    # A route that fails leaves the copy unresolved, and every row needing the
+    # tree then has to say so rather than run against it: run anyway and each
+    # such row classifies on its own, `tool-failed` here and spuriously `ok`
+    # there, with nothing in the file pointing back at the one cause - which is
+    # the harness inventing a finding rather than reporting one.
+    blocked_by: list[str] | None = None
     if granted:
         for command in MATERIALIZE[partition]:
             outcome = _run(command, copy, timeout)
             materialization.append({"command": list(command), **outcome})
             if outcome["returncode"] != 0:
+                blocked_by = list(command)
                 break
 
     rows = []
@@ -1076,6 +1431,7 @@ def run_partition(
         tier = grant_tier(invocation.check, invocation.tool)
         permitted = granted or not tier
         argv = argv_for(invocation, partition)
+        supplied = invocation.supplied(partition)
         row: dict[str, object] = {
             "check": invocation.check,
             "tool": invocation.tool,
@@ -1085,7 +1441,15 @@ def run_partition(
             "needs": tier,
             "in_env": invocation.in_env,
         }
-        if not argv:
+        if supplied:
+            # Never as `record_argv`: this round contributed the route, and a
+            # later pass reading it out of the prescribed field would read a
+            # candidate answer as something the record already said.
+            row |= {
+                "supplied": [list(step) for step in supplied],
+                "supplied_note": invocation.supplied_note,
+            }
+        if not argv and not supplied:
             row |= {
                 "ran": False,
                 "status": "",
@@ -1098,6 +1462,27 @@ def run_partition(
             status, reason = classify(0, "", "", tool_present=True, permitted=False)
             row |= {"ran": False, "status": status, "reason": reason}
             rows.append(row)
+            continue
+        # A row needing the tree is one carrying a tier or running inside the
+        # environment; the two sets are not the same, because `pydeps` needs the
+        # resolved tree to see the graph and still launches through `uvx`.
+        if blocked_by is not None and (tier or invocation.in_env):
+            row |= {
+                "ran": False,
+                "status": "no-evidence",
+                "reason": "tool-unavailable",
+                "detail": "environment-unmaterialized",
+                "blocked_by": blocked_by,
+                "why": (
+                    "the partition's materialization stopped at "
+                    f"{' '.join(blocked_by)}, so the tree this route reads was never "
+                    "built and no tool ran; this says nothing about the tool"
+                ),
+            }
+            rows.append(row)
+            continue
+        if supplied:
+            rows.append(_run_supplied(invocation, supplied, copy, timeout, row))
             continue
         prefix = launcher(invocation, partition, granted=granted)
         bin_dir = copy / VENV_BIN if not prefix and invocation.in_env else None
@@ -1120,28 +1505,18 @@ def run_partition(
                 row["provision"] = installs
         command = (*prefix, *argv)
         outcome = _run(command, copy, timeout, bin_dir)
-        status, reason = classify(
-            outcome["returncode"] if outcome["returncode"] is not None else 1,
-            str(outcome["stdout"]),
-            str(outcome["stderr"]),
-            tool_present=bool(outcome["tool_present"]),
-        )
-        row |= {
-            "ran": True,
-            "command": list(command),
-            "status": status,
-            "reason": reason,
-            **outcome,
-        }
-        # A route the record writes as two commands is one route: dropping the
-        # half that prints the report would record the half that produces the
-        # data as a tool that answered nothing.
+        row |= {"ran": True, "command": list(command), **outcome}
+        # A route the record writes as two commands is one route, so both halves
+        # reach the verdict. Classifying on the first alone would grade a route
+        # whose measuring half ran and whose reporting half died as `ok` with no
+        # coverage table behind it - the shape `then` exists to prevent.
+        ran: list[tuple[Sequence[str], dict[str, object]]] = [(command, outcome)]
         if invocation.then:
             follow_up = (*prefix, *invocation.then)
-            row["then"] = {
-                "command": list(follow_up),
-                **_run(follow_up, copy, timeout, bin_dir),
-            }
+            then_outcome = _run(follow_up, copy, timeout, bin_dir)
+            row["then"] = {"command": list(follow_up), **then_outcome}
+            ran.append((follow_up, then_outcome))
+        row |= _verdict(ran, invocation.findings_stream)
         rows.append(row)
 
     return {
