@@ -10,7 +10,9 @@ from python_fixture_spec import (
     DEPENDENCIES,
     DEPS_CHECKS,
     EXPECTATIONS,
+    FORMS,
     FULL_PARTITION,
+    PACKAGE,
     PARTITIONS,
     SOURCE_FILES,
     THIN_EXTRA_CHECK,
@@ -19,6 +21,13 @@ from python_fixture_spec import (
     render_manifests,
     source_tree,
 )
+
+# A dotted name a claim uses to point at seeded code, and a seeded test file with
+# an optional `::function` selector. Both are resolved against the tree rather
+# than read, because a claim naming a symbol the tree no longer has is the exact
+# shape of a seed that was renamed away with nothing to notice.
+_DOTTED_NAME = re.compile(rf"{PACKAGE}(?:\.\w+)+")
+_TEST_REF = re.compile(r"(tests/test_\w+\.py)(?:::(\w+))?")
 
 
 def _python_lens_records() -> set[str]:
@@ -269,7 +278,7 @@ def test_every_expectation_names_a_known_partition_and_form():
     for expectation in EXPECTATIONS:
         assert expectation.partitions, expectation.check
         assert set(expectation.partitions) <= set(PARTITIONS), expectation.check
-        assert expectation.form in ("exact", "floor", "absence"), expectation.check
+        assert expectation.form in FORMS, expectation.check
         assert expectation.claim.strip(), expectation.check
 
 
@@ -290,13 +299,30 @@ def test_every_expectation_names_a_check_record_carrying_python_tooling():
 def test_every_python_lens_record_is_expected_on_the_full_partition():
     """The claim `FULL_PARTITION` is named for, held against the records.
 
-    `uv` carries every `python:` entry in the family. Set equality is what makes
-    that falsifiable in both directions: a new record with a Python lens and no
-    expectation fails here rather than being silently left out of the round, and
-    an expectation scoped away from the full partition by accident fails too.
+    Whichever partition `FULL_PARTITION` names carries every `python:` entry in
+    the family. Set equality is what makes that falsifiable in both directions:
+    a new record with a Python lens and no expectation fails here rather than
+    being silently left out of the round, and an expectation scoped away from
+    the full partition by accident fails too. The assertion is symmetric under
+    moving `FULL_PARTITION`, so it holds the coverage claim rather than the
+    identity of the partition - which the next test pins, because the published
+    record and PR 2's harness both name that partition directly.
     """
     on_full = {e.check for e in expectations_for(FULL_PARTITION)}
     assert on_full == _python_lens_records()
+
+
+def test_the_full_partition_is_the_one_that_can_build_every_other():
+    """`FULL_PARTITION` is pinned, not merely referenced.
+
+    Every other assertion here is written relative to it and so stays green
+    wherever it points. But uv is the one package manager in the set that both
+    resolves the tree and exports the other partitions' lock formats, so moving
+    this would leave the partition that has to answer every check unable to
+    build the fixtures the rest of the round depends on.
+    """
+    assert FULL_PARTITION == "uv"
+    assert FULL_PARTITION in PARTITIONS
 
 
 def test_the_full_partition_carries_every_check_any_partition_carries():
@@ -435,8 +461,12 @@ def test_the_docstring_expectation_names_the_seeded_file_and_admits_the_others()
     """
     without = [f.path for f in SOURCE_FILES if not f.body.startswith('"""')]
     assert [p for p in without if p.startswith("src/") and "__init__" not in p] == [
-        f"src/{python_fixture_spec.PACKAGE}/unsafe.py"
+        f"src/{PACKAGE}/unsafe.py"
     ]
+    assert set(python_fixture_spec._FILES_WITHOUT_MODULE_DOCSTRING) == set(without)
+    tree = source_tree()
+    for path in python_fixture_spec._FILES_WITHOUT_MODULE_DOCSTRING:
+        assert path in tree, path
     expectation = next(e for e in EXPECTATIONS if e.check == "docs/docstring-coverage")
     assert str(len(without)) in expectation.claim
 
@@ -452,5 +482,149 @@ def test_the_isolation_expectation_carries_both_measured_durations():
     assert python_fixture_spec.SLOW_TEST_SECONDS > (
         python_fixture_spec.ISOLATION_TIMEOUT_SECONDS
     )
-    assert str(python_fixture_spec.SLOW_TEST_SECONDS) in expectation.claim
-    assert str(python_fixture_spec.ISOLATION_TIMEOUT_SECONDS) in expectation.claim
+    assert f"{python_fixture_spec.SLOW_TEST_SECONDS}s" in expectation.claim
+    assert f"{python_fixture_spec.ISOLATION_TIMEOUT_SECONDS}s" in expectation.claim
+
+
+def test_every_identifier_a_claim_names_resolves_in_the_seeded_tree():
+    """A claim may only name code the fixture actually writes.
+
+    The module's promise is that the tree and the expectations come from one
+    definition, and for the seed vocabulary and the measured numbers it keeps
+    that promise by construction. Identifiers were the hole: renaming a seeded
+    function, or replacing the call a check is planted to catch, left every
+    claim naming it untouched and the suite green - which is the "reads exactly
+    like a tool that correctly found nothing" failure arriving from the other
+    side, since here the expectation survives and the seed is what went missing.
+    """
+    tree = source_tree()
+    for expectation in EXPECTATIONS:
+        for text in (expectation.claim, expectation.ungranted):
+            for path, selector in _TEST_REF.findall(text):
+                assert path in tree, (expectation.check, path)
+                if selector:
+                    assert f"def {selector}" in tree[path], (
+                        expectation.check,
+                        selector,
+                    )
+            for dotted in _DOTTED_NAME.findall(text):
+                parts = dotted.split(".")
+                module = "src/" + "/".join(parts) + ".py"
+                if module in tree:
+                    continue
+                module = "src/" + "/".join(parts[:-1]) + ".py"
+                assert module in tree, (expectation.check, dotted)
+                assert f"def {parts[-1]}" in tree[module], (expectation.check, dotted)
+
+
+def test_every_planted_seed_is_classified_as_a_construct_or_as_an_absence():
+    """A new seed has to be classified, not default into being unguarded.
+
+    `SEED_MARKERS` and `ABSENCE_SEEDS` must partition every seed the tree
+    plants. Held as a partition rather than as two independent subsets because
+    a seed missing from both would simply go unmarked, which is exactly the
+    silence the marker mapping exists to remove.
+    """
+    planted = {seed for f in SOURCE_FILES for seed in f.seeds}
+    classified = set(python_fixture_spec.SEED_MARKERS) | set(
+        python_fixture_spec.ABSENCE_SEEDS
+    )
+    assert planted == classified
+    assert not set(python_fixture_spec.SEED_MARKERS) & set(
+        python_fixture_spec.ABSENCE_SEEDS
+    )
+
+
+def test_every_marked_seed_still_has_its_construct_in_the_seeded_source():
+    """The construct, not just the name, has to survive.
+
+    Deleting the `eval` from `run_expression` leaves the module, the function,
+    the seed list and every claim naming it untouched. Only this reads the body
+    and notices the finding is no longer planted.
+    """
+    for seed, markers in python_fixture_spec.SEED_MARKERS.items():
+        bodies = [f.body for f in SOURCE_FILES if seed in f.seeds]
+        assert bodies, seed
+        for marker in markers:
+            assert any(marker in body for body in bodies), (seed, marker)
+
+
+def test_the_complexity_seed_uses_no_conditional_expression():
+    """Ruff does not walk a ternary, and radon does.
+
+    A seed leaning on one measures lower in ruff than in radon, and C901 fires
+    on `>` rather than `>=` - so a branch rewritten as `x if c else y` can drop
+    the function to exactly ruff's default, where it passes in silence while
+    radon still reports it over. Nothing else in the suite would notice.
+    """
+    body = python_fixture_spec._COMPLEXITY
+    assert not re.search(r"=.+ if .+ else ", body), body
+    branches = len(re.findall(r"\b(?:if|elif)\b", body))
+    assert branches >= 10, branches
+
+
+def test_the_ungranted_answer_is_stated_exactly_where_the_grant_changes_it():
+    """The second axis is derived from the records, never judged per entry.
+
+    A check answers something different without the grant when every one of its
+    Python tools carries a `needs` tier and its record's `ungranted_note` says
+    something still answers. Where the note is the `none` sentinel the ungranted
+    answer is `no-evidence (not-permitted)` and restating it here would add a
+    copy to keep in step; where some Python tool needs no grant, `claim` already
+    holds in both states. Deriving the requirement rather than eyeballing it is
+    what stops a new expectation quietly omitting the axis.
+    """
+    checks, errors = load_checks(SKILLS_DIR)
+    assert not errors, errors
+    for expectation in EXPECTATIONS:
+        record = checks[expectation.check]
+        python_tools = set(record.tooling.get("python", ()))
+        tiered = {t for names in (record.needs or {}).values() for t in names}
+        note = (record.ungranted_note or "").strip()
+        differs = (
+            bool(python_tools) and python_tools <= tiered and note not in ("", "none")
+        )
+        assert bool(expectation.ungranted) == differs, (expectation.check, differs)
+
+
+def test_the_over_decomposition_expectation_carries_the_computed_file_count():
+    """The count in that claim has to move when the tree does.
+
+    Its own prose says the package is a given number of files under `src/`, and
+    a typed-in number stops being that claim the first time a seed is added -
+    the published record would then state a size the fixture no longer has.
+    """
+    counted = len([f for f in SOURCE_FILES if f.path.startswith(f"src/{PACKAGE}/")])
+    assert counted == python_fixture_spec._SRC_FILE_COUNT
+    expectation = next(e for e in EXPECTATIONS if e.check == "arch/over-decomposition")
+    assert str(counted) in expectation.claim
+
+
+def test_the_self_import_row_count_matches_the_files_that_self_import():
+    """deptry emits one DEP003 per src file importing the package by name."""
+    counted = [
+        f.path
+        for f in SOURCE_FILES
+        if f.path.startswith(f"src/{PACKAGE}/") and f"import {PACKAGE}" in f.body
+    ]
+    assert set(counted) == set(python_fixture_spec._SRC_FILES_IMPORTING_PACKAGE)
+    expectation = next(
+        e
+        for e in EXPECTATIONS
+        if e.check == "deps/hygiene" and "pipenv" not in e.partitions
+    )
+    assert str(len(counted)) in expectation.claim
+
+
+def test_an_expectation_with_an_unknown_form_is_rejected_by_name():
+    """`form` drives how PR 2 grades the observation, so a typo cannot pass."""
+    with pytest.raises(ValueError, match="approximately"):
+        python_fixture_spec.Expectation(
+            "arch/cycles", (FULL_PARTITION,), "approximately", "claim", ()
+        )
+
+
+def test_an_expectation_scoped_to_an_unknown_partition_is_rejected_by_name():
+    """A partition typo would scope an entry to nothing and read as covered."""
+    with pytest.raises(ValueError, match="pdm"):
+        python_fixture_spec.Expectation("arch/cycles", ("pdm",), "exact", "claim", ())
