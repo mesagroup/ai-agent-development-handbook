@@ -201,7 +201,7 @@ def render() -> str:
         "",
         ", ".join(f"`{seed}`" for seed in unexpected)
         if unexpected
-        else f"None: all {len(planted)} planted seeds are named by some expectation.",
+        else f"None: all {len(planted)} seeds the source files plant are named by some expectation. The dependency set plants its own, counted separately.",
         "",
         "A seed that is expected and that no *tool* reports is a different thing and is not knowable from here - it is a finding about the skill family rather than a bug in the fixture, it is recorded as such when the fixtures are run, and the seed stays, because removing it would erase the evidence that the family has a hole there.",
     ]

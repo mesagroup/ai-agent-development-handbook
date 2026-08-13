@@ -97,6 +97,6 @@ This axis exists because a correct ungranted run graded against the granted answ
 
 A seeded finding that no expectation names would be planted and then never looked for, which at review is indistinguishable from a fixture that never planted it. So the two sets are held equal in both directions by the suite rather than by reading.
 
-None: all 17 planted seeds are named by some expectation.
+None: all 17 seeds the source files plant are named by some expectation. The dependency set plants its own, counted separately.
 
 A seed that is expected and that no *tool* reports is a different thing and is not knowable from here - it is a finding about the skill family rather than a bug in the fixture, it is recorded as such when the fixtures are run, and the seed stays, because removing it would erase the evidence that the family has a hole there.

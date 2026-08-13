@@ -32,7 +32,12 @@ This is the one value the fixture definition cannot state, because it is a prope
 uv run --frozen --with pytest-randomly pytest tests/test_order.py -p randomly -q --randomly-seed=4
 ```
 
-under **pytest 9.1.1**, **pytest-randomly 4.1.0** and **Python 3.12.10**, the plugin versions resolved unpinned by `--with` on the date above. It is the smallest seed in 0..60 that fails. The failure is the seeded assertion and nothing else - `test_reads` runs first and asserts `[] == [1]` - which is what distinguishes a measured seed from any non-zero exit a collection or environment error would also produce. The same file passes at exit 0 both with the plugin disabled (`-p no:randomly`) and with the plugin absent.
+under **pytest 9.1.1**, **pytest-randomly 4.1.0** and **Python 3.12.10**, the plugin versions resolved unpinned by `--with` on the date above. It is the smallest seed in 0..60 that fails, from a sweep of that range run one seed at a time:
+
+```
+for s in $(seq 0 60); do uv run --frozen --with pytest-randomly pytest tests/test_order.py -p randomly -q --randomly-seed=$s > /dev/null 2>&1 || echo $s; done
+```
+ The failure is the seeded assertion and nothing else - `test_reads` runs first and asserts `[] == [1]` - which is what distinguishes a measured seed from any non-zero exit a collection or environment error would also produce. The same file passes at exit 0 both with the plugin disabled (`-p no:randomly`) and with the plugin absent.
 
 **The seed is reproducible only under the recorded plugin version.** On `pytest-randomly` 3.15.0 and 3.16.0 seed 4 leaves the pair in file order and both tests pass; the smallest reversing seed on each of those is 0. So the number is not a stable property of the fixture and must not be quoted without the versions beside it. What is stable is that reversing seeds are common rather than rare: 32 of the 61 seeds in 0..60 reverse the pair under 4.1.0, so a run that finds no order dependence at one arbitrary seed has established very little.
 
@@ -67,7 +72,7 @@ under **pytest 9.1.1**, **pytest-randomly 4.1.0** and **Python 3.12.10**, the pl
 | `slow-test` | pytest-timeout 2.4.0, pytest 9.1.1 | `Failed: Timeout (>1.0s)` on `test_slow_but_passing` under `--timeout=1`; `--durations` reports **2.01s** for it and the suite passes with no timeout configured |
 | `mutation-survivor` | mutmut 3.7.0 | nothing - see below |
 
-Three seeds are answered by a reading pass rather than by a tool, and that is what their expectations ask for: `pass-through`, `single-caller` and `property-gap` are all named in check records whose Python fallback requires a read before a count becomes a finding. The read is recorded above as the observation, not as a substitute for one.
+Three seeds are answered only once a reading pass has run, and that is what their expectations ask for: `pass-through`, `single-caller` and `property-gap` are all named in check records whose Python fallback requires a read before a count becomes a finding. A tool supplies the count for some of them - `vulture` supplies `single-caller`'s - and for none of them is the count the finding. The read is recorded above as the observation, not as a substitute for one.
 
 Two details that would otherwise read as the wrong result:
 

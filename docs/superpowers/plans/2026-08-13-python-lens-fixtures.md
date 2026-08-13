@@ -1350,6 +1350,14 @@ Refs #45"
 
 ### Task 7: The build smoke, and the measured seed
 
+**Review findings folded back (landed as `2d130dd`).** Every measurement in the record was independently re-run and reproduced exactly, including the sweep. Three deviations from this task as written, all deliberate and all now the shipped behaviour:
+
+- **The seed is not written into `scripts/python_fixture_spec.py` and the expectations record is not re-rendered**, contrary to the Files list and Step 5 below. It is not stable across plugin majors - seed 4 reverses the pair under pytest-randomly 4.1.0 and passes under 3.15.0 and 3.16.0, where the smallest reversing seed is 0 - so a generated record stating it would publish a number that stops being true on a plugin bump, with nothing to say so. The `test/determinism` expectation already points at the smoke record for exactly this reason.
+- **The seed is measured in a scratch copy, not in `fixtures/python/uv`.** Step 1's snippet predates the read-only invariant the generator now enforces: running there writes `.venv` and `.pytest_cache` into a committed tree. Do not follow that snippet literally.
+- **Step 2 points tools at the seeds directly rather than through the Task 6 harness.** The harness grades transcribed record commands under grant states, which is PR 2's job, and using it here would have invited the record correction PR 1 forbids.
+
+One correction the review found in the published record rather than in the code: the README row compressed "observed by a tool, or by the reading pass the check record prescribes" into "the one seed no tool reached", which is false - three seeds are answered by a read, and a reader of the index would have come away believing 21 were tool-reported.
+
 **Files:**
 - Modify: `scripts/python_fixture_spec.py` (the recorded shuffle seed), `docs/audit/python-fixture-expectations.md` (re-rendered)
 - Create: `docs/audit/python-fixture-build-smoke.md`
