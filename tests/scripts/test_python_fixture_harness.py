@@ -854,7 +854,9 @@ def test_a_supplied_route_never_renders_as_the_records_own_command(
     assert sbom["supplied"] == [
         ["uv", "export", "--format", "cyclonedx1.5", "--frozen"]
     ]
-    assert "prescribes" in sbom["supplied_note"] or sbom["supplied_note"]
+    assert (
+        sbom["supplied_note"] == _entry("deps/inventory", "cyclonedx-py").supplied_note
+    )
     assert sbom["ran"] is True
     assert sbom["status"] == "ok"
 
@@ -1308,6 +1310,79 @@ def test_a_hung_command_is_a_failure_and_says_it_was_a_timeout(tmp_path, monkeyp
     assert row["detail"] in DETAILS
     # A missing binary is also `returncode: None` and is a different fact.
     assert rows[("security/crypto", "ruff")].get("detail", "") == ""
+
+
+def test_a_binary_that_was_never_there_reaches_the_row_as_unavailable(
+    tmp_path, monkeypatch
+):
+    """`_run` reports absence, and the row is where that has to still be true.
+
+    Absence and a timeout arrive identically - no exit status at all - and only
+    `tool_present` separates them, so the branch that reads it is the one place
+    a missing tool can quietly become a clean run. Asserting it on `classify`
+    alone leaves that branch untested, because `classify` is not what decides
+    it for a command that never exited.
+    """
+    source = tmp_path / "fixture" / "uv"
+    source.mkdir(parents=True)
+    monkeypatch.setattr(
+        "run_python_fixture_lens._run",
+        _fake_run(
+            [],
+            respond=lambda command: (
+                {
+                    "returncode": None,
+                    "stdout": "",
+                    "stderr": "FileNotFoundError: [Errno 2] No such file or directory",
+                    "tool_present": False,
+                }
+                if "vulture" in command
+                else None
+            ),
+        ),
+    )
+    observed = run_partition("uv", source, tmp_path / "work", "none", timeout=5)
+    rows = {(r["check"], r["tool"]): r for r in observed["results"]}
+    row = rows[("arch/dead-code", "vulture")]
+    assert (row["status"], row["reason"]) == ("no-evidence", "tool-unavailable")
+    assert row.get("detail", "") == ""
+
+
+def test_a_hung_tool_that_reports_on_stderr_is_still_a_timeout(tmp_path, monkeypatch):
+    """The stderr of a timeout is the harness's own message, not the tool's.
+
+    `_run` synthesizes `TimeoutExpired: ...` on that stream, so on the one entry
+    whose findings stream *is* stderr the classification reads the harness's
+    exception text as a report and grades a hung deptry `ok` - the timeout
+    defect surviving on exactly the entry the stream field was added for. The
+    two facts have to be settled in the right order.
+    """
+    source = tmp_path / "fixture" / "uv"
+    source.mkdir(parents=True)
+    monkeypatch.setattr(
+        "run_python_fixture_lens._run",
+        _fake_run(
+            [],
+            respond=lambda command: (
+                {
+                    "returncode": None,
+                    "stdout": "",
+                    "stderr": "TimeoutExpired: Command '['deptry', '.']' timed out",
+                    "tool_present": True,
+                }
+                if command[-2:] == ["deptry", "."]
+                else None
+            ),
+        ),
+    )
+    observed = run_partition(
+        "uv", source, tmp_path / "work", "target-execution", timeout=5
+    )
+    rows = {(r["check"], r["tool"]): r for r in observed["results"]}
+    row = rows[("deps/hygiene", "deptry")]
+    assert _entry("deps/hygiene", "deptry").findings_stream == "stderr"
+    assert (row["status"], row["reason"]) == ("no-evidence", "tool-failed")
+    assert row["detail"] == "timed-out"
 
 
 def test_a_launcher_that_cannot_fetch_the_tool_reports_it_as_unavailable(

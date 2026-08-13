@@ -1334,15 +1334,27 @@ def _verdict(
     for command, outcome in ran:
         returncode = outcome["returncode"]
         stderr = str(outcome["stderr"])
-        code = 1 if returncode is None else int(returncode)
-        # A hung command exits nowhere, and mapping that to 0 would read every
-        # timeout as a clean run. It is a failure carrying a name of its own,
-        # because a tool that never returned and a tool that returned nothing
-        # are one `tool-failed` to the engine and two different facts to a
-        # reader deciding whether the tool or the budget was wrong.
-        timed_out = returncode is None and bool(outcome["tool_present"])
+        # A command that never exited has no exit status, and both ways of
+        # ending up there are settled before anything reads output. Substituting
+        # a number for the missing status instead - and a wrong substitution is
+        # one character away - hands `classify` an exit code the command never
+        # returned, next to a stderr `_run` wrote itself. On the one entry whose
+        # findings stream *is* stderr, that synthesized `TimeoutExpired` text
+        # then reads as the tool's report and a hung deptry grades `ok`.
+        if returncode is None:
+            if outcome["tool_present"]:
+                # Hung. `tool-failed` is what the engine has for it, and the
+                # detail is what separates it from a tool that ran and broke:
+                # the two need different responses and the reason cannot say
+                # which of them happened.
+                status, reason, detail = "no-evidence", "tool-failed", "timed-out"
+            else:
+                # The binary was not there at all, which `_run` reports by name.
+                status, reason, detail = "no-evidence", "tool-unavailable", ""
+            break
+        code = int(returncode)
         present = bool(outcome["tool_present"]) and not launcher_missed(
-            command, returncode if returncode is None else code, stderr
+            command, code, stderr
         )
         status, reason = classify(
             code,
@@ -1351,7 +1363,7 @@ def _verdict(
             tool_present=present,
             findings_stream=findings_stream,
         )
-        detail = "timed-out" if timed_out and status != "ok" else ""
+        detail = ""
         if status != "ok":
             break
     verdict: dict[str, object] = {"status": status, "reason": reason}
