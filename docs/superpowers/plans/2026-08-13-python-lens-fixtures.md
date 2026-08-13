@@ -574,7 +574,8 @@ def test_every_seed_anywhere_in_the_definition_is_expected_by_some_check():
         s for d in DEPENDENCIES for s in d.seeds
     }
     expected = {s for e in EXPECTATIONS for s in e.seeds}
-    assert seeded - expected == set()
+    assert seeded - expected == set(), "planted and unexpected"
+    assert expected - seeded == set(), "expected and unplanted"
 
 
 def test_the_deps_checks_run_on_every_partition():
@@ -585,12 +586,26 @@ def test_the_deps_checks_run_on_every_partition():
 
 
 def test_the_thin_partitions_carry_deps_plus_coverage_only():
-    checks = {e.check for e in expectations_for("poetry")}
-    assert checks == set(DEPS_CHECKS) | {"test/coverage-reach"}
+    """Every thin partition, not one of them.
+
+    Checking `poetry` alone leaves the other three free to carry anything, and
+    the scoping corrections landed on `pipenv` rather than on `poetry`.
+    """
+    for partition in set(PARTITIONS) - {FULL_PARTITION}:
+        checks = {e.check for e in expectations_for(partition)}
+        assert checks == set(DEPS_CHECKS) | {THIN_EXTRA_CHECK}, partition
 
 
-def test_the_full_partition_carries_more_than_the_thin_ones():
-    assert len(expectations_for(FULL_PARTITION)) > len(expectations_for("pipenv"))
+def test_the_full_partition_carries_every_check_any_partition_carries():
+    """A set equality, not a size comparison.
+
+    `len(full) > len(thin)` cannot fail on the thing that would actually be
+    wrong: a check scoped to the thin partitions and omitted from the full one,
+    which is the partition meant to carry every `python:` entry in the family.
+    """
+    assert {e.check for e in expectations_for(FULL_PARTITION)} == {
+        e.check for e in EXPECTATIONS
+    }
 
 
 def test_the_vulnerability_expectation_is_a_floor_naming_its_cves():
@@ -654,10 +669,12 @@ EXPECTATIONS = (
         "deps/freshness",
         _ALL,
         "exact",
-        "three of the four declared dependencies are outdated, packaging 20.9 most "
+        "every declared dependency except Unidecode is outdated, packaging 20.9 most "
         "obviously at six majors behind 26.3. Unidecode 1.4.0 is the latest release "
         "and is the control: a route that reports it outdated is producing a false "
-        "positive, which an all-four expectation could never have caught",
+        "positive, which an all-four expectation could never have caught. Named by "
+        "the exception rather than by a count, since which dependency is the control "
+        "is stable where the size of the set is not",
         ("stale",),
     ),
     Expectation(
@@ -773,10 +790,12 @@ EXPECTATIONS = (
         "arch/over-decomposition",
         _FULL,
         "floor",
-        "the seeded package is far below any over-decomposition threshold, so the "
-        "expected result is a clean row and a hit here is a false positive. The module "
-        "count is computed from SOURCE_FILES rather than stated, since stating it "
-        "would go stale the first time a seed is added",
+        "the seeded package's module count, interpolated from SOURCE_FILES, is far "
+        "below any over-decomposition threshold, so the expected result is a clean row "
+        "and a hit here is a false positive. Interpolated rather than written out, "
+        "since a stated number goes stale the first time a seed is added - and a claim "
+        "that merely says it is computed, while stating nothing, is the same defect "
+        "wearing the fix's language",
         (),
     ),
     Expectation(
@@ -851,10 +870,13 @@ EXPECTATIONS = (
         "docs/docstring-coverage",
         _FULL,
         "exact",
-        "fixture_app.unsafe is the one seeded module with no module docstring, so it "
-        "is the file a docstring tool must name. Function-level coverage is low across "
-        "the whole seeded package rather than in that file alone, so the percentage "
-        "each tool reports is recorded at the run rather than predicted here",
+        "fixture_app.unsafe is the one non-empty module under src/ with no module "
+        "docstring, so it is the file a docstring tool must name. It is not the only "
+        "file lacking one: the three empty __init__.py files and three of the four "
+        "test files have none either, so a tool naming those as well is reporting "
+        "correctly rather than over-reporting. The count is interpolated from "
+        "SOURCE_FILES, and the percentage each tool reports is recorded at the run "
+        "rather than predicted here",
         ("undocumented",),
     ),
     Expectation(
@@ -873,7 +895,9 @@ EXPECTATIONS = (
         "exceeds a pytest-timeout of ISOLATION_TIMEOUT_SECONDS, while passing with no "
         "timeout configured. Both are module constants rather than literals, because "
         "the sleep and the timeout are one fact and lowering either alone would retire "
-        "the seed in silence",
+        "the seed in silence - and both values are interpolated into the claim, since "
+        "a reader of the published record cannot otherwise tell whether the sleep "
+        "still exceeds the timeout, which is the seed's only load-bearing fact",
         ("slow-test",),
     ),
     Expectation(
