@@ -19,9 +19,11 @@ from python_fixture_spec import (
     PACKAGE,
     PARTITIONS,
     expectations_for,
+    render_manifests,
 )
 from run_python_fixture_lens import (
     DETAILS,
+    FROZEN_FORM,
     GRANTS,
     INVOCATIONS,
     MATERIALIZE,
@@ -657,7 +659,7 @@ def test_every_partition_has_a_materialization_route():
     route - so nothing short of the whole mapping holds it.
     """
     assert MATERIALIZE == {
-        "uv": (("uv", "sync"),),
+        "uv": (("uv", "sync", "--frozen"),),
         "pip": (
             ("python", "-m", "venv", ".venv"),
             (".venv/bin/pip", "install", "-r", "requirements.txt"),
@@ -665,7 +667,7 @@ def test_every_partition_has_a_materialization_route():
         ),
         "poetry": (("poetry", "install"),),
         "pipenv": (
-            ("pipenv", "install"),
+            ("pipenv", "sync"),
             ("pipenv", "run", "pip", "install", "-e", ".", "--no-deps"),
         ),
         "pylock": (
@@ -687,9 +689,57 @@ def test_every_materialization_route_ends_by_installing_the_project_itself():
     """
     for partition, commands in MATERIALIZE.items():
         last = commands[-1]
-        assert last[-1] in ("--no-deps", "sync", "install"), (partition, last)
+        assert last[-1] in ("--no-deps", "sync", "install", "--frozen"), (
+            partition,
+            last,
+        )
         if last[-1] == "--no-deps":
             assert "-e" in last and "." in last, (partition, last)
+
+
+def test_every_materialization_route_installs_from_the_committed_lock():
+    """A route that re-resolves observes a tree the fixture never committed.
+
+    `uv sync` and `pipenv install` both re-resolve when they judge the lock
+    stale, so the frozen form is what holds the observation to the resolution
+    the fixture was built with - and the build smoke that established the
+    ground truth materialized with `uv sync --frozen`, so without it the two
+    would be measuring different trees with nothing to say so. The refresh
+    never reaches a fixture, since materialization runs in a copy; what it
+    reaches is the answer.
+
+    Neither manager fails loudly when the flag is missing. Both quietly use the
+    lock while it happens to be current, which is why this is asserted rather
+    than left to be noticed.
+    """
+    assert set(FROZEN_FORM) == set(MATERIALIZE)
+    for partition, form in FROZEN_FORM.items():
+        if not form:
+            continue
+        tokens = [token for command in MATERIALIZE[partition] for token in command]
+        assert form in tokens, (partition, form, tokens)
+
+
+def test_the_partitions_needing_no_frozen_form_carry_their_resolution_in_a_file():
+    """An empty entry is a claim, so it has to be one something can check.
+
+    `pip` and `pylock` install straight from a file that already *is* the
+    resolution, so there is no lock for an installer to refresh. Read from the
+    manifests rather than named here, so a partition that stopped shipping that
+    file could not keep an empty entry.
+    """
+    for partition, form in FROZEN_FORM.items():
+        if form:
+            continue
+        manifests = set(render_manifests(partition)) | {"pylock.toml"}
+        installed_from = [
+            command[command.index("-r") + 1]
+            for command in MATERIALIZE[partition]
+            if "-r" in command
+        ]
+        assert installed_from, partition
+        for source in installed_from:
+            assert source in manifests, (partition, source, manifests)
 
 
 def _entry(check: str, tool: str) -> Invocation:
@@ -1090,7 +1140,9 @@ def test_a_granted_run_materializes_first_and_then_runs_in_the_environment(
         "uv", source, tmp_path / "work", "target-execution", timeout=5
     )
 
-    assert [m["command"] for m in observed["materialization"]] == [["uv", "sync"]]
+    assert [m["command"] for m in observed["materialization"]] == [
+        ["uv", "sync", "--frozen"]
+    ]
     rows = {(r["check"], r["tool"]): r for r in observed["results"]}
     deptry = rows[("deps/hygiene", "deptry")]
     assert deptry["command"][:2] == ["uv", "run"]
@@ -1224,7 +1276,7 @@ def test_a_row_that_needs_nothing_still_runs_after_a_failed_materialization(
             [],
             respond=lambda command: (
                 _outcome(returncode=1, stderr="lock conflict")
-                if command == ["uv", "sync"]
+                if command == ["uv", "sync", "--frozen"]
                 else None
             ),
         ),
