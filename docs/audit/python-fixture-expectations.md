@@ -8,11 +8,11 @@ The point of writing these down in advance is that a fixture whose expected outp
 
 Every pin below was checked against OSV and PyPI on **2026-08-13**. That date is what the evidence column is worth: a pin is frozen, but the advisories against it only accumulate, so re-verifying one means querying both sources again and moving the date with it.
 
-The fixture trees themselves are generated and never committed. This record and the module it comes from are the committed half.
+The fixture trees themselves are generated and never committed to this repository. Each one is a git repository of its own with every file committed inside it, because some tools read only tracked files. This record and the module it comes from are the committed half here.
 
 ## The shared dependency set
 
-Every partition declares the same logical set in its own manifest format, so one expectation table serves every partition. The undeclared entry is the exception by design: it arrives transitively and is imported anyway, which is the seed a hygiene lens has to catch.
+Every partition declares the same logical set in its own manifest format, so the set below is stated once rather than per partition. The expectation table further down is scoped where a partition changes the answer. 1 of the 5 entries are undeclared by design: they arrive transitively and are imported anyway, which is the seed a hygiene lens has to catch.
 
 | Package | Pin | Imported | Seeds | Evidence |
 |---|---|---|---|---|
@@ -24,7 +24,7 @@ Every partition declares the same logical set in its own manifest format, so one
 
 ## What each partition runs
 
-`uv` carries every `python:` entry in the family, because it is the one package manager here that both resolves the tree and exports the other partitions' lock formats - the partition that has to answer every check is the one whose toolchain can build every fixture. The others carry the dependency records, which read each partition's own manifest and lock format and so ask a different question in each, plus one `target-execution` check that exists to prove that partition's materialization route works rather than to re-test the tool.
+`uv` carries every `python:` entry in the family, because it is the package manager the whole fixture set is built through: it resolves the tree, exports the requirements and PEP 751 partitions directly, and runs the poetry and pipenv lock steps as one-shot commands. The partition that has to answer every check is the one whose toolchain can build every fixture. The others carry the dependency records, which read each partition's own manifest and lock format and so ask a different question in each, plus `test/coverage-reach`, which exists to prove that partition's materialization route works rather than to re-test the tool.
 
 | Partition | Expectations | Checks |
 |---|---|---|
@@ -36,9 +36,9 @@ Every partition declares the same logical set in its own manifest format, so one
 
 ## Expected result per check
 
-31 entries over 26 checks. A check whose answer differs by partition is written as two entries with disjoint scopes rather than as one entry with a hedge, so a run against one partition has exactly one right answer to fail against.
+31 entries over 26 checks. A check whose answer differs by partition is written as one entry per scope, the scopes disjoint, rather than as one entry with a hedge - so a run against one partition has exactly one right answer to fail against.
 
-`exact` is a claim a correct tool cannot miss. `floor` is used where the count moves with the tool's version, so the expectation is a location and a minimum rather than a number that goes stale silently. `absence` is a check whose expected finding is that nothing is configured.
+The `Form` column takes one of `exact`, `floor`, `absence`. `exact` states an observation that is fully determined: a correct tool reports it, and output that differs is a finding about the tool whether it reports less or more. `floor` states a location and a minimum, for the entries where an exact number would go stale on its own - advisories accumulate against a frozen pin, a mutation count moves with the operator set, and a thinly exercised suite makes over-reporting the correct answer. `absence` states that there is nothing of this kind to find, so any hit is a false positive.
 
 An entry with no seed is not an oversight: it states what a correct tool reports on a fixture that plants nothing for it, which is how a family finding is told apart from a fixture gap.
 
@@ -48,7 +48,7 @@ An entry with no seed is not an oversight: it states what a correct tool reports
 | `deps/freshness` | all | exact | stale | every declared dependency except Unidecode is outdated, packaging 20.9 most obviously at six majors behind 26.3. Unidecode 1.4.0 is the latest release and is the control: a route that reports it outdated is producing a false positive, which an expectation naming all of them could never have caught. Named rather than counted, because the count moves with the dependency set while which one is the control does not |
 | `deps/licenses` | all | exact | copyleft | Unidecode 1.4.0 is reported under a GPLv2+ licence. A copyleft entry the check must surface rather than a count |
 | `deps/transitive-licenses` | all | floor | transitive-root | at least markupsafe appears as a transitive component with a licence, since it is never declared and arrives through jinja2 |
-| `deps/hygiene` | `pipenv` | exact | - | deptry finds no dependency specification at all and raises DependencySpecificationNotFoundError. A Pipfile is not a format it reads, so this partition has no hygiene lens on any grant - which is a finding about the family rather than about the fixture, and is why the check is scoped away from this partition instead of being expected to answer here |
+| `deps/hygiene` | `pipenv` | exact | - | deptry finds no dependency specification at all and raises DependencySpecificationNotFoundError. A Pipfile is not a format it reads, so this partition has no hygiene lens on any grant - which is a finding about the family rather than about the fixture, and is why this partition gets its own entry rather than being folded into the one the other partitions share |
 | `deps/hygiene` | `uv`, `pip`, `poetry`, `pylock` | exact | declared-unused, undeclared-import | run as `deptry .` with its default excludes, six is reported declared-and-unused (DEP002) and markupsafe is reported as a transitive dependency being imported (DEP003). A further 2 DEP003 rows name fixture_app's own modules, one per file under src/ that imports the package by name, because deptry treats a src-layout package's self-imports as third-party. They are expected output rather than a seed, and the run records them as the tool's behaviour on this layout instead of configuring them away, since suppressing them would hide a false positive an audited project would also meet. The scan root is stated because the answer moves with it - `deptry src` makes the package local and those rows vanish - and the record prescribes no root, which is a gap in the record |
 | `deps/inventory` | `uv` | exact | - | `uv export --format cyclonedx1.5 --frozen` emits CycloneDX 1.5 listing the 4 declared dependencies plus markupsafe and pyparsing, both transitive - the record prescribes the tool's own native export for a partition cyclonedx-py has no subcommand for, and this is that route. No component carries a licences field. That last is a family finding rather than a fixture gap: no route this record prescribes populates licences on any partition, so an SBOM is not where this family's licence evidence comes from and deps/licenses owns it alone |
 | `deps/inventory` | `pip` | exact | - | `cyclonedx-py requirements` emits exactly the 4 declared dependencies and nothing else: a requirements.txt carries no transitive resolution, so markupsafe is absent, and no component carries a licences field. Both absences are correct tool behaviour on this input rather than misses, which is why this partition is written as its own entry - an SBOM expectation naming markupsafe would grade a working tool against a claim its input cannot support |
@@ -80,7 +80,7 @@ An entry with no seed is not an oversight: it states what a correct tool reports
 
 Every entry above is run under two grant states, and the table above is the answer with the grant. Where withholding it changes the answer rather than removing it, the second answer is written out below - 8 of the 31 entries. The rest are derived from their check records and so are not restated per entry: a check whose every Python tool carries a `needs` tier and whose record's `ungranted_note` is the `none` sentinel answers `no-evidence (not-permitted)` without the grant, and a check with an untiered Python tool answers its `claim` in both states.
 
-This axis exists because a correct ungranted run graded against the granted answer reads as a tool defect. `deps/hygiene` is the sharpest case: deptry reports the undeclared import as DEP003 with the tree and as DEP001 without it, both correct, and only one of them is in the table above.
+This axis exists because a correct ungranted run graded against the granted answer reads as a tool defect. The `deps/hygiene` rows below are the sharpest case, and they state the two answers rather than having them restated here, where the copy would be free to drift.
 
 | Check | Partitions | Without the grant |
 |---|---|---|
@@ -93,6 +93,10 @@ This axis exists because a correct ungranted run graded against the granted answ
 | `test/determinism` | `uv` | the grep axis answers without the tree, and finds nothing: the seeded suite calls no time.time(), no datetime.now(), no unseeded random. and no network. Order-dependence itself goes unmeasured, which the record names as exactly the half a withheld grant costs - so the expected ungranted answer is a clean grep axis and an unmeasured order axis, not no-evidence for the check |
 | `test/isolation` | `uv` | the I/O axis answers without the tree and finds nothing: the seeded suite makes no network, filesystem or database call, and raises no timeout in configuration. The duration evidence is what the grant buys, so the record prescribes answering on the I/O axis rather than reporting the check no-evidence as a whole |
 
-## A seed nothing detects
+## A seed nothing expects
 
-A seeded finding that no tool reports is a finding about the skill family rather than a bug in the fixture. It is recorded as such and the seed stays, because removing it would erase the evidence that the family has a hole there.
+A seeded finding that no expectation names would be planted and then never looked for, which at review is indistinguishable from a fixture that never planted it. So the two sets are held equal in both directions by the suite rather than by reading.
+
+None: all 17 planted seeds are named by some expectation.
+
+A seed that is expected and that no *tool* reports is a different thing and is not knowable from here - it is a finding about the skill family rather than a bug in the fixture, it is recorded as such when the fixtures are run, and the seed stays, because removing it would erase the evidence that the family has a hole there.

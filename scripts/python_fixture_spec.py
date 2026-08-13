@@ -28,9 +28,10 @@ PARTITIONS = ("uv", "pip", "poetry", "pipenv", "pylock")
 # The partition that carries every `python:` entry. Every other partition carries
 # the `deps` records plus pytest-cov, which is tiered `target-execution` and so
 # fails if either half of that partition's materialization route is broken.
-# It is `uv` because uv is the one package manager here that both resolves the
-# tree and exports the other partitions' lock formats, so the partition that has
-# to answer every check is the one whose toolchain can build every fixture.
+# It is `uv` because uv is how the whole fixture set is built: it resolves the
+# tree, exports the requirements and PEP 751 partitions directly, and runs the
+# poetry and pipenv lock steps as one-shot commands. The partition that has to
+# answer every check is the one whose toolchain can build every fixture.
 FULL_PARTITION = "uv"
 
 PACKAGE = "fixture_app"
@@ -660,12 +661,13 @@ class Expectation:
     the thing to look for, not a number a later tool version invalidates.
 
     `partitions` is a scope rather than a convenience. A check whose answer
-    differs by partition is written as two entries with disjoint scopes, not as
-    one entry with a hedge, so that a run against one partition has exactly one
-    right answer to fail against.
+    differs by partition is written as one entry per scope, the scopes disjoint,
+    not as one entry with a hedge, so that a run against one partition has
+    exactly one right answer to fail against.
 
     `ungranted` is the second axis, and it exists because the round runs every
-    entry under two grant states. `claim` is the answer with the grant; this is
+    entry under two grant states. It is set on exactly the entries whose answer
+    the grant moves. `claim` is the answer with the grant; this is
     the answer without it, and it is set on exactly the checks where the two
     differ - which is derivable rather than a judgement call, so a test derives
     it: a check whose every Python tool carries a `needs` tier answers something
@@ -765,8 +767,8 @@ EXPECTATIONS = (
         "deptry finds no dependency specification at all and raises "
         "DependencySpecificationNotFoundError. A Pipfile is not a format it reads, so "
         "this partition has no hygiene lens on any grant - which is a finding about "
-        "the family rather than about the fixture, and is why the check is scoped "
-        "away from this partition instead of being expected to answer here",
+        "the family rather than about the fixture, and is why this partition gets its "
+        "own entry rather than being folded into the one the other partitions share",
         (),
         "the same, and for the same reason: the format is unreadable to deptry with "
         "the tree or without it, so this is the one entry here the grant cannot move",
