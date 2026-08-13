@@ -1,7 +1,9 @@
-"""Tests for scripts/python_fixture_spec.py (#45)."""
+"""Tests for scripts/python_fixture_spec.py and its renderer (#45)."""
 
+import importlib.util
 import re
 import tomllib
+from pathlib import Path
 
 import pytest
 import python_fixture_spec
@@ -16,11 +18,43 @@ from python_fixture_spec import (
     PARTITIONS,
     SOURCE_FILES,
     THIN_EXTRA_CHECK,
+    VERIFIED_ON,
     declared,
     expectations_for,
     render_manifests,
     source_tree,
 )
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+_RENDERER = _REPO_ROOT / "scripts" / "render_python_fixture_expectations.py"
+_RECORD = _REPO_ROOT / "docs" / "audit" / "python-fixture-expectations.md"
+
+
+def _load_renderer():
+    """Load the renderer by path, as `tests/scripts/` does for every script."""
+    spec = importlib.util.spec_from_file_location(
+        "render_python_fixture_expectations", _RENDERER
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _table_rows(text: str, header: str) -> list[str]:
+    """The body rows of the one table whose header line is `header`.
+
+    Located by its header rather than by counting pipes across the document, so
+    a row added to another table cannot be mistaken for one of these.
+    """
+    lines = text.splitlines()
+    start = lines.index(header) + 2  # skip the header and its separator
+    rows = []
+    for line in lines[start:]:
+        if not line.startswith("|"):
+            break
+        rows.append(line)
+    return rows
+
 
 # A dotted name a claim uses to point at seeded code, and a seeded test file with
 # an optional `::function` selector. Both are resolved against the tree rather
@@ -628,3 +662,137 @@ def test_an_expectation_scoped_to_an_unknown_partition_is_rejected_by_name():
     """A partition typo would scope an entry to nothing and read as covered."""
     with pytest.raises(ValueError, match="pdm"):
         python_fixture_spec.Expectation("arch/cycles", ("pdm",), "exact", "claim", ())
+
+
+_EXPECTATION_HEADER = "| Check | Partitions | Form | Seeds | Expected |"
+_UNGRANTED_HEADER = "| Check | Partitions | Without the grant |"
+
+
+def test_the_rendered_record_names_every_expectation():
+    text = _load_renderer().render()
+    for expectation in EXPECTATIONS:
+        assert expectation.check in text, expectation.check
+        assert expectation.claim.split(".")[0][:40] in text, expectation.check
+
+
+def test_the_expectation_table_has_one_row_per_expectation_not_per_check():
+    """The row count is the guard against a renderer keyed on the check id.
+
+    Two checks state a different answer per partition and so carry several
+    entries each; a renderer that iterated checks would drop all but one of them
+    and the published record would state an answer for a partition that is not
+    the one it runs on. Every set-valued and substring assertion here is blind
+    to that, because the surviving entry still names the check.
+    """
+    rows = _table_rows(_load_renderer().render(), _EXPECTATION_HEADER)
+    assert len(rows) == len(EXPECTATIONS)
+    assert len(EXPECTATIONS) > len({e.check for e in EXPECTATIONS}), (
+        "no check carries more than one entry, so this guards nothing"
+    )
+
+
+def test_the_rendered_record_carries_the_verified_evidence_per_dependency():
+    text = _load_renderer().render()
+    for dependency in DEPENDENCIES:
+        assert dependency.name in text, dependency.name
+        assert dependency.evidence[:30] in text, dependency.name
+
+
+def test_the_rendered_record_dates_the_evidence():
+    """The evidence is only worth its date, so the date has to reach the page."""
+    assert VERIFIED_ON in _load_renderer().render()
+
+
+def test_the_grant_section_has_one_row_per_entry_whose_answer_the_grant_moves():
+    """Scoped entries again: `deps/hygiene` carries two, one per scope.
+
+    A grant section keyed on the check id would publish one of them and read as
+    complete, which is the failure this axis exists to prevent - graded against
+    the wrong answer, a correct ungranted run is recorded as a tool defect.
+    """
+    text = _load_renderer().render()
+    carrying = [e for e in EXPECTATIONS if e.ungranted]
+    rows = _table_rows(text, _UNGRANTED_HEADER)
+    assert len(rows) == len(carrying)
+    assert f"{len(carrying)} of the {len(EXPECTATIONS)} entries" in text
+    for expectation in carrying:
+        assert expectation.ungranted.split(".")[0][:40] in text, expectation.check
+
+
+def test_the_rendered_record_states_no_count_the_module_does_not_produce():
+    """Every count on the page is interpolated, so each has to be the real one."""
+    text = _load_renderer().render()
+    for partition in PARTITIONS:
+        assert f"| `{partition}` | {len(expectations_for(partition))} |" in text, (
+            partition
+        )
+    assert f"{len(EXPECTATIONS)} entries over " in text
+
+
+def test_the_rendered_record_uses_no_em_dash():
+    """Both generated neighbours in docs/audit carry none, and this joins them."""
+    assert "—" not in _load_renderer().render()
+
+
+def test_the_rendered_record_ends_with_exactly_one_newline():
+    text = _load_renderer().render()
+    assert text.endswith("\n")
+    assert not text.endswith("\n\n")
+
+
+def test_every_table_cell_survives_being_a_table_cell():
+    """A newline ends a GFM row and a bare pipe opens a column.
+
+    `--check` is no safety net: it compares a fresh render against the committed
+    one, and both would carry the same broken table. So the claims - which are
+    hand-written prose - are held to the column count their header declares.
+    """
+    text = _load_renderer().render()
+    for header in (_EXPECTATION_HEADER, _UNGRANTED_HEADER):
+        columns = header.count("|")
+        for row in _table_rows(text, header):
+            assert row.replace("\\|", "").count("|") == columns, row
+
+
+def test_the_committed_record_matches_the_module():
+    assert _RECORD.read_text() == _load_renderer().render()
+
+
+def test_check_exits_zero_and_says_nothing_when_the_record_is_current(capsys):
+    assert _load_renderer().main(["--check"]) == 0
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err == ""
+
+
+def test_check_exits_one_with_a_diff_when_the_record_has_drifted(
+    tmp_path, monkeypatch, capsys
+):
+    """The gate has to be able to fail, which a passing gate cannot show.
+
+    A `--check` that always returned 0 would look exactly like a record that is
+    always current, and CI would wave through a spec edit that was never
+    re-rendered.
+    """
+    renderer = _load_renderer()
+    stale = tmp_path / "python-fixture-expectations.md"
+    stale.write_text(renderer.render() + "drift\n")
+    monkeypatch.setattr(renderer, "OUT_PATH", stale)
+    assert renderer.main(["--check"]) == 1
+    assert "drift" in capsys.readouterr().err
+
+
+def test_check_treats_a_missing_record_as_drift(tmp_path, monkeypatch, capsys):
+    renderer = _load_renderer()
+    monkeypatch.setattr(renderer, "OUT_PATH", tmp_path / "absent.md")
+    assert renderer.main(["--check"]) == 1
+    assert capsys.readouterr().err
+
+
+def test_rendering_without_check_writes_the_record(tmp_path, monkeypatch, capsys):
+    renderer = _load_renderer()
+    out = tmp_path / "python-fixture-expectations.md"
+    monkeypatch.setattr(renderer, "OUT_PATH", out)
+    assert renderer.main([]) == 0
+    assert out.read_text() == renderer.render()
+    assert "wrote" in capsys.readouterr().out

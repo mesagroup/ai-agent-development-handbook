@@ -9,6 +9,8 @@ uv run ruff check . && uv run ruff format --check .
 uv run python scripts/render_handbook_traceability.py --check   # integrity gate
 uv run python scripts/render_handbook_traceability.py           # regenerate the matrix Markdown
 uv run python scripts/render_handbook_artifact.py               # needs the d2 CLI
+uv run python scripts/render_python_fixture_expectations.py --check   # integrity gate
+uv run python scripts/render_python_fixture_expectations.py           # regenerate the fixture expectations
 ```
 
 Run `ruff check` AND `ruff format --check` before committing. CI runs both.
@@ -19,6 +21,7 @@ Run `ruff check` AND `ruff format --check` before committing. CI runs both.
 - `docs/audit/handbook-traceability.yaml` — the matrix. Source of truth.
 - `docs/audit/handbook-traceability.md` — generated. Never edit it; edit the YAML and re-render.
 - `docs/audit/sweep-obligations.md` — hand-maintained, unlike its neighbour: one row per `audit-core` obligation, recording how the `audit` sweep discharges it. Editing `audit-core/SKILL.md` or `audit/SKILL.md` means checking it. `tests/test_sweep_obligations.py` catches a row whose anchor no longer occurs in `audit-core` exactly once, a quotation that is no longer verbatim, and a row that has slipped out of the checked set; it cannot judge whether a disposition is still true, which is a reading pass over the whole of `audit-core`.
+- `docs/audit/python-fixture-expectations.md` — generated. Never edit it; edit `scripts/python_fixture_spec.py` and re-render. The seeded fixture trees and this record come from that one module on purpose: expectations kept in a second file are free to drift, and a seed present in the tree but missing from the expectations reads exactly like a tool that correctly found nothing.
 - `.agents/skills/` — the audit skill family: `audit`, `audit-core`, and nine `<domain>-audit` skills.
 - `.agents/skills/<domain>-audit/checks/<slug>.md` — one check record per auditable check.
 

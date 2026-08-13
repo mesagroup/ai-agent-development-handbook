@@ -31,3 +31,9 @@ jobs:
       # A half-applied change to either view fails here.
       - name: Traceability integrity
         run: uv run python scripts/render_handbook_traceability.py --check
+
+      # The fixture definition and its published expectations are one artifact.
+      # Editing the spec module without re-rendering fails here, which is what
+      # stops the record describing a fixture the generator no longer builds.
+      - name: Fixture expectations integrity
+        run: uv run python scripts/render_python_fixture_expectations.py --check
