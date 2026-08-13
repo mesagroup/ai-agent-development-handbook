@@ -681,7 +681,12 @@ EXPECTATIONS = (
         _ALL,
         "exact",
         "six is reported declared-and-unused (deptry DEP002) and markupsafe is "
-        "reported as a transitive dependency being imported (deptry DEP003)",
+        "reported as a transitive dependency being imported (deptry DEP003). Two "
+        "further DEP003 rows name fixture_app's own modules, because deptry treats a "
+        "src-layout package's self-imports as third-party; they are expected output "
+        "rather than a seed, and the run records them as the tool's behaviour on this "
+        "layout instead of configuring them away, since suppressing them would hide a "
+        "false positive an audited project would also meet",
         ("declared-unused", "undeclared-import"),
     ),
     Expectation(
@@ -1104,7 +1109,9 @@ Each fixture is a **git repository with everything committed**, for two reasons 
 
 Provision each manager from a pinned one-shot invocation rather than from whatever the machine carries, and record the version used in a `FIXTURE.md` inside each tree.
 
-**The seeded package is src-layout, so materializing a partition has to install the project itself, not only its dependencies.** Running the suite against a tree where only the dependencies were installed fails at collection with `ModuleNotFoundError: No module named 'fixture_app'`, which looks exactly like a broken fixture rather than an incomplete install. Every manifest in Task 2 declares a build backend for this reason, and each partition's materialization route has to exercise it: `uv sync` installs the project, and the `pip`, `poetry` and `pipenv` routes each need their own equivalent rather than a bare dependency install. Confirmed by running the seeded suite both ways: without the package importable it is 2 collection errors, with it 5 passed.
+**The seeded package is src-layout, so materializing a partition has to install the project itself, not only its dependencies.** Running the suite against a tree where only the dependencies were installed fails at collection with `ModuleNotFoundError: No module named 'fixture_app'`, which looks exactly like a broken fixture rather than an incomplete install. Every partition therefore renders exactly one build manifest, and each partition's materialization route has to install through it rather than stopping at the dependencies. Confirmed by running the seeded suite both ways: without the package importable it is 2 collection errors, with it 5 passed.
+
+**The build manifest is not a `pyproject.toml` everywhere, and the reason matters.** A `[project]` table carrying build metadata but no `dependencies` key is not silent about dependencies: it is an affirmative claim of zero, and deptry reads it in preference to `requirements.txt` and then reports the real dependencies as DEP001. So the `pip` and `pipenv` partitions carry a `setup.py` with no `install_requires` instead, which makes the package installable without competing with the partition's own declaration format. Task 2 verified each route end to end: `uv sync`; `poetry install`; `pip install -r requirements.txt` then `pip install -e . --no-deps`; `pipenv install` then `pipenv run pip install -e . --no-deps`, after which the `Pipfile` is byte-identical.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1245,6 +1252,8 @@ Expected: FAIL with `ModuleNotFoundError: No module named 'run_python_fixture_le
 `classify` is pure and maps an observation into the engine's vocabulary: an absent tool is `no-evidence (tool-unavailable)`, a present tool exiting non-zero is `no-evidence (tool-failed)`, a withheld grant is `no-evidence (not-permitted)`, and anything else is `ok`. It never returns a status outside that vocabulary, because the whole point of the round is that the engine's scale does not grow.
 
 The runner itself takes a partition and a grant state, runs the applicable invocations, and writes a results file into the fixture directory. It never writes into the fixture's tracked tree.
+
+**Run a `deps` tool from inside the materialized environment, not through a one-shot runner, wherever the granted state provides one.** Task 2 measured the difference on the same tree: `uvx deptry` reported markupsafe as DEP001, and deptry run from inside the materialized environment reported it as DEP003, which is what the expectation claims. The two answers differ because the runner's sandbox cannot see what the target actually resolved, so the same command reports a missing dependency where the truth is a transitive one. A harness that gets this wrong makes a correct expectation fail and would send PR 2 off to "fix" a record that was right.
 
 - [ ] **Step 4: Run the tests**
 
