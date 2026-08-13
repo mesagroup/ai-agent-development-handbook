@@ -24,7 +24,6 @@ from run_python_fixture_lens import (
     MATERIALIZE,
     REASONS,
     STATUSES,
-    TOOL_PACKAGES,
     VENV_PARTITIONS,
     Invocation,
     _fixture_env,
@@ -35,6 +34,7 @@ from run_python_fixture_lens import (
     invocations_for,
     launcher,
     main,
+    packages_for,
     provision_command,
     reconstruct,
     run_partition,
@@ -299,7 +299,58 @@ def test_no_prescribed_command_is_never_classified_as_a_tool_failure():
 def test_every_invoked_tool_resolves_to_a_package_that_can_be_fetched():
     for inv in INVOCATIONS:
         if argv_for(inv, FULL_PARTITION):
-            assert TOOL_PACKAGES.get(inv.tool, inv.tool), inv.tool
+            packages = packages_for(inv.tool)
+            assert packages and all(packages), inv.tool
+
+
+def test_a_route_that_runs_the_suite_brings_a_runner_the_fixture_does_not_declare():
+    """The fixture declares no pytest, so `coverage run -m pytest` has none.
+
+    Provisioning only the tool named in the record leaves that route dying on
+    `No module named pytest`, which the classifier would read as a tool that
+    failed - a failure this harness invented, on an entry the record had right.
+    """
+    assert packages_for("coverage.py") == ("coverage", "pytest")
+    assert packages_for("mutmut") == ("mutmut", "pytest")
+    assert packages_for("bandit") == ("bandit",)
+
+    coverage = next(
+        i
+        for i in INVOCATIONS
+        if (i.check, i.tool) == ("test/coverage-reach", "coverage.py")
+    )
+    assert launcher(coverage, "uv", granted=True) == (
+        "uv",
+        "run",
+        "--with",
+        "coverage",
+        "--with",
+        "pytest",
+    )
+    assert launcher(coverage, "uv", granted=False) == (
+        "uvx",
+        "--from",
+        "coverage",
+        "--with",
+        "pytest",
+    )
+
+
+def test_a_multi_package_route_installs_each_of_them_into_the_copy(
+    tmp_path, monkeypatch
+):
+    source = tmp_path / "fixture" / "poetry"
+    source.mkdir(parents=True)
+    monkeypatch.setattr("run_python_fixture_lens._run", _fake_run([]))
+    observed = run_partition(
+        "poetry", source, tmp_path / "work", "target-execution", timeout=5
+    )
+    rows = {(r["check"], r["tool"]): r for r in observed["results"]}
+    installed = [
+        entry["command"][-1]
+        for entry in rows[("test/coverage-reach", "coverage.py")]["provision"]
+    ]
+    assert installed == ["coverage", "pytest"]
 
 
 def test_a_deps_tool_runs_from_inside_the_materialized_environment():
