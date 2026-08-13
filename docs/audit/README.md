@@ -1,13 +1,13 @@
 # Audits
 
-The standing records of what the `*-audit` skill family covers - the handbook↔skills coverage matrix, the `audit-core`↔sweep obligations ledger, and the expected result of every seeded fixture check - alongside the dated records of what happened when the family's tooling entries were actually executed.
+The standing records of what the `*-audit` skill family covers, each tracking the current state of the tree and regenerated or checked against it, alongside the dated verification records of what happened when the family's tooling entries were actually executed against a real target. The two tables below are the difference: a standing record goes stale by failing a gate, a verification record goes stale in silence when a tool changes version.
 
 ## Standing records
 
 | Doc | Description |
 |-----|-------------|
 | [Handbook traceability matrix](handbook-traceability.md) | Every `##` section of the engineering handbook mapped onto the `*-audit` skill family: a class and a severity per clause, the checks it maps to, and the gap list ordered by severity. The severity × coverage cross-tab answers which high-risk clauses nothing currently checks. Generated from [`handbook-traceability.yaml`](handbook-traceability.yaml) by `scripts/render_handbook_traceability.py` — edit the YAML, never the Markdown |
-| [Python fixture expectations](python-fixture-expectations.md) | What every `python:` tooling entry must observe when it runs against the seeded fixture partitions, written down before the run, under both grant states. A fixture whose expected output is not recorded in advance is just a smaller real target: the value of a seeded tree is that a tool which runs cleanly and reports half the truth fails instead of passing. Generated from `scripts/python_fixture_spec.py` by `scripts/render_python_fixture_expectations.py` — edit the module, never the Markdown |
+| [Python fixture expectations](python-fixture-expectations.md) | What every `python:` tooling entry must observe when it runs against the seeded fixture partitions, written down before the run, under both grant states. The record states why that ordering is the whole point, so it is not restated here. Generated from `scripts/python_fixture_spec.py` by `scripts/render_python_fixture_expectations.py` — edit the module, never the Markdown |
 | [Sweep obligations ledger](sweep-obligations.md) | Every obligation `audit-core` states, and how the `audit` sweep discharges it: restated, adapted, delegated to the domain skill, or never reached. The sweep substitutes its own steps for the `audit-core` loop, so it inherits nothing implicitly — and a dropped obligation leaves no trace in the file that dropped it, which is what this record exists to make visible. `tests/test_sweep_obligations.py` checks what is mechanical — each anchor occurring exactly once in `audit-core/SKILL.md`, a disposition from the vocabulary the ledger itself defines, a non-empty justification, and that no row escapes the checked set — but not whether a disposition is true, which is a reading pass |
 
 ## Verification records

@@ -350,8 +350,9 @@ def test_the_full_partition_is_the_one_that_can_build_every_other():
     """`FULL_PARTITION` is pinned, not merely referenced.
 
     Every other assertion here is written relative to it and so stays green
-    wherever it points. But uv is the one package manager in the set that both
-    resolves the tree and exports the other partitions' lock formats, so moving
+    wherever it points. But uv is how the whole fixture set is built - it
+    resolves the tree, exports the requirements and PEP 751 partitions directly,
+    and runs the poetry and pipenv lock steps as one-shot commands - so moving
     this would leave the partition that has to answer every check unable to
     build the fixtures the rest of the round depends on.
     """
@@ -666,6 +667,8 @@ def test_an_expectation_scoped_to_an_unknown_partition_is_rejected_by_name():
 
 _EXPECTATION_HEADER = "| Check | Partitions | Form | Seeds | Expected |"
 _UNGRANTED_HEADER = "| Check | Partitions | Without the grant |"
+_DEPENDENCY_HEADER = "| Package | Pin | Imported | Seeds | Evidence |"
+_PARTITION_HEADER = "| Partition | Expectations | Checks |"
 
 
 def test_the_rendered_record_names_every_expectation():
@@ -744,14 +747,126 @@ def test_every_table_cell_survives_being_a_table_cell():
     """A newline ends a GFM row and a bare pipe opens a column.
 
     `--check` is no safety net: it compares a fresh render against the committed
-    one, and both would carry the same broken table. So the claims - which are
-    hand-written prose - are held to the column count their header declares.
+    one, and both would carry the same broken table. So every table is held to
+    the column count its header declares - all four, because the cell that was
+    left unescaped was a dependency `pin`, in the one table an earlier version
+    of this test did not cover, and real tool output carries pipes: the
+    `deps/inventory` poetry claim already contains one.
     """
     text = _load_renderer().render()
-    for header in (_EXPECTATION_HEADER, _UNGRANTED_HEADER):
+    for header in (
+        _EXPECTATION_HEADER,
+        _UNGRANTED_HEADER,
+        _DEPENDENCY_HEADER,
+        _PARTITION_HEADER,
+    ):
         columns = header.count("|")
-        for row in _table_rows(text, header):
+        rows = _table_rows(text, header)
+        assert rows, header
+        for row in rows:
             assert row.replace("\\|", "").count("|") == columns, row
+
+
+def _cells(row: str) -> list[str]:
+    """The cells of a rendered GFM row, outer pipes dropped.
+
+    Split on unescaped pipes only. A claim that legitimately contains one -
+    `deps/inventory` on poetry quotes cyclonedx-py's `CRITICAL | CDX` banner -
+    reaches the cell as `\\|`, and splitting on that would shred a correct row
+    into extra columns and fail the pairing test on output that is right.
+    """
+    return [c.strip() for c in re.split(r"(?<!\\)\|", row.strip().strip("|"))]
+
+
+def test_every_expectation_row_pairs_its_check_with_its_own_answer():
+    """The row count and the substring searches are both blind to a mispairing.
+
+    Pairing each row's check id with a neighbouring entry's scope and claim
+    leaves the row count right, every check id present and every claim present,
+    so a record stating one scope's answer under another scope's check passes
+    every other assertion here. That is the failure the per-expectation
+    rendering exists to prevent, and until this test the design prevented one
+    route to it while nothing checked the result.
+
+    Located by check id *and* scope together, because the two multi-entry checks
+    are precisely where a mispairing can hide.
+    """
+    renderer = _load_renderer()
+    rows = [_cells(r) for r in _table_rows(renderer.render(), _EXPECTATION_HEADER)]
+    for expectation in EXPECTATIONS:
+        wanted_scope = renderer._partitions_cell(expectation)
+        matching = [
+            r for r in rows if r[0] == f"`{expectation.check}`" and r[1] == wanted_scope
+        ]
+        assert len(matching) == 1, (expectation.check, wanted_scope)
+        _, _, form, seeds, claim = matching[0]
+        assert form == expectation.form, expectation.check
+        assert seeds == renderer._seeds_cell(expectation), expectation.check
+        assert claim == renderer._cell(expectation.claim), expectation.check
+
+
+def test_every_grant_row_pairs_its_check_with_its_own_ungranted_answer():
+    """`deps/hygiene` carries two, and they say opposite things.
+
+    One reports the undeclared import as DEP003 and the other cannot read the
+    manifest format at all, so a swap between them publishes a confident wrong
+    answer that every count and substring assertion accepts.
+    """
+    renderer = _load_renderer()
+    rows = [_cells(r) for r in _table_rows(renderer.render(), _UNGRANTED_HEADER)]
+    for expectation in (e for e in EXPECTATIONS if e.ungranted):
+        wanted_scope = renderer._partitions_cell(expectation)
+        matching = [
+            r for r in rows if r[0] == f"`{expectation.check}`" and r[1] == wanted_scope
+        ]
+        assert len(matching) == 1, (expectation.check, wanted_scope)
+        assert matching[0][2] == renderer._cell(expectation.ungranted), (
+            expectation.check
+        )
+
+
+def test_every_partition_row_states_its_own_expectation_count_and_check_set():
+    """The Checks column was free to say anything.
+
+    Replacing it wholesale with a literal left the suite green, because the only
+    assertion over this table was that the count column matched. The cell is
+    what tells a reader which partition answers which check, so it is the half
+    that carries the meaning.
+    """
+    renderer = _load_renderer()
+    rows = [_cells(r) for r in _table_rows(renderer.render(), _PARTITION_HEADER)]
+    assert len(rows) == len(PARTITIONS)
+    for partition in PARTITIONS:
+        matching = [r for r in rows if r[0] == f"`{partition}`"]
+        assert len(matching) == 1, partition
+        _, count, checks = matching[0]
+        assert count == str(len(expectations_for(partition))), partition
+        assert checks == renderer._partition_checks_cell(partition), partition
+
+
+def test_every_dependency_row_pairs_its_package_with_its_own_pin_and_evidence():
+    """The dependency table's four non-name columns were unasserted.
+
+    Truncating every evidence string, or flipping every `Imported` cell, left
+    the suite green: the only assertions were that the name appears somewhere on
+    the page and that the first 30 characters of the evidence do.
+    """
+    renderer = _load_renderer()
+    rows = [_cells(r) for r in _table_rows(renderer.render(), _DEPENDENCY_HEADER)]
+    assert len(rows) == len(DEPENDENCIES)
+    for dependency in DEPENDENCIES:
+        matching = [r for r in rows if r[0] == f"`{renderer._cell(dependency.name)}`"]
+        assert len(matching) == 1, dependency.name
+        _, pin, imported, seeds, evidence = matching[0]
+        expected_pin = (
+            f"`{renderer._cell(dependency.pin)}`"
+            if dependency.pin
+            else "*(undeclared)*"
+        )
+        assert pin == expected_pin, dependency.name
+        assert imported == ("yes" if dependency.imported else "no"), dependency.name
+        assert seeds == renderer._cell(", ".join(dependency.seeds)), dependency.name
+        assert evidence == renderer._cell(dependency.evidence), dependency.name
 
 
 def test_the_committed_record_matches_the_module():
