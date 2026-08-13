@@ -802,12 +802,16 @@ EXPECTATIONS = (
         "exact",
         "`uv export --format cyclonedx1.5 --frozen` emits CycloneDX 1.5 listing the "
         f"{len(declared())} declared dependencies plus markupsafe and pyparsing, both "
-        "transitive - the record prescribes the tool's own native export for a "
-        "partition cyclonedx-py has no subcommand for, and this is that route. No "
-        "component carries a licences field. That last is a family finding rather than "
-        "a fixture gap: no route this record prescribes populates licences on any "
-        "partition, so an SBOM is not where this family's licence evidence comes from "
-        "and deps/licenses owns it alone",
+        "transitive. The record allows for this route without naming it: for a "
+        "partition cyclonedx-py has no subcommand for, it says to use the tool's own "
+        "native SBOM export, which is a category rather than a command. So the "
+        "invocation is supplied by the audit rather than transcribed from the record, "
+        "and the harness marks it as such - a record naming a category cannot be "
+        "quoted verbatim, and that is itself worth reporting. No component carries a "
+        "licences field, which is a family finding rather than a fixture gap: no route "
+        "this record offers populates licences on any partition, so an SBOM is not "
+        "where this family's licence evidence comes from and deps/licenses owns it "
+        "alone",
         (),
     ),
     Expectation(
