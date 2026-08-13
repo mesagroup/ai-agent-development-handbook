@@ -11,6 +11,7 @@ uv run python scripts/render_handbook_traceability.py           # regenerate the
 uv run python scripts/render_handbook_artifact.py               # needs the d2 CLI
 uv run python scripts/render_python_fixture_expectations.py --check   # integrity gate
 uv run python scripts/render_python_fixture_expectations.py           # regenerate the fixture expectations
+uv run python scripts/build_python_fixtures.py --all                  # generate the five gitignored fixture trees
 ```
 
 Run `ruff check` AND `ruff format --check` before committing. CI runs both.

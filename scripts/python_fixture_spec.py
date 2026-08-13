@@ -851,15 +851,19 @@ EXPECTATIONS = (
         "deps/inventory",
         ("pylock",),
         "exact",
-        "no prescribed route reads PEP 751 at all. `uv export --frozen` refuses, "
-        "because this partition carries no uv.lock by construction; cyclonedx-py has "
-        "no pylock subcommand; and its requirements subcommand pointed at pylock.toml "
-        "does not refuse either - it reads the TOML as requirement lines and emits a "
-        "document that fails its own 1.6 schema validation, exiting non-zero having "
-        "written nothing usable. A family finding, and the sharpest one this partition "
-        "exists to produce: the record's Python fallback names no route for the lock "
-        "format PEP 751 standardises, and the nearest tool produces garbage rather "
-        "than an error a caller could distinguish from a tool that found nothing",
+        "none of this record's prescribed SBOM routes reads PEP 751. `uv export "
+        "--frozen` refuses, because this partition carries no uv.lock by construction; "
+        "cyclonedx-py has no pylock subcommand; and its requirements subcommand pointed "
+        "at pylock.toml does not refuse either - it reads the TOML as requirement lines "
+        "and emits a document that fails its own 1.6 schema validation, exiting "
+        "non-zero having written nothing usable. A family finding, and the sharpest one "
+        "this partition exists to produce: the record's Python fallback names no route "
+        "for the lock format PEP 751 standardises, and the nearest tool produces "
+        "garbage rather than an error a caller could distinguish from a tool that found "
+        "nothing. Scoped to this record's own routes on purpose - the format is "
+        "readable, `uv pip install -r pylock.toml` resolves the partition and is how it "
+        "is materialized, so the gap is in the inventory tooling rather than in the "
+        "ecosystem's support for the format",
         (),
     ),
     Expectation(
