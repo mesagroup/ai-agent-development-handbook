@@ -113,6 +113,25 @@ def test_each_partition_uses_its_own_manifest_format():
     assert "Pipfile" in render_manifests("pipenv")
 
 
+def test_the_requirements_partitions_declare_nothing_in_a_project_table():
+    """The silencing declaration, which the competing-declaration guard misses.
+
+    A `[project]` table carrying build metadata and no `dependencies` key is not
+    silent about dependencies: it is an affirmative claim of zero. deptry reads
+    it in preference to `requirements.txt` and then reports the real
+    dependencies as DEP001 while the DEP002 seed disappears entirely, so the
+    partition produces a full result from the wrong file.
+
+    The guard against two files *declaring* the set cannot see this, because the
+    offending table declares nothing - which is exactly what makes it wrong. So
+    `pip` and `pipenv` are held to rendering no `pyproject.toml` at all.
+    """
+    for partition in ("pip", "pipenv"):
+        files = render_manifests(partition)
+        assert "pyproject.toml" not in files, partition
+        assert not any("[project]" in body for body in files.values()), partition
+
+
 def test_an_unknown_partition_is_rejected_by_name():
     with pytest.raises(ValueError, match="conda"):
         render_manifests("conda")

@@ -678,7 +678,18 @@ EXPECTATIONS = (
     ),
     Expectation(
         "deps/hygiene",
-        _ALL,
+        ("pipenv",),
+        "exact",
+        "deptry finds no dependency specification at all and raises "
+        "DependencySpecificationNotFoundError. A Pipfile is not a format it reads, so "
+        "this partition has no hygiene lens on any grant - which is a finding about "
+        "the family rather than about the fixture, and is why the check is scoped "
+        "away from this partition instead of being expected to answer here",
+        (),
+    ),
+    Expectation(
+        "deps/hygiene",
+        tuple(p for p in _ALL if p != "pipenv"),
         "exact",
         "six is reported declared-and-unused (deptry DEP002) and markupsafe is "
         "reported as a transitive dependency being imported (deptry DEP003). Two "
@@ -691,10 +702,25 @@ EXPECTATIONS = (
     ),
     Expectation(
         "deps/inventory",
-        _ALL,
+        tuple(p for p in _ALL if p != "poetry"),
         "floor",
         "an SBOM listing at least the four declared dependencies plus markupsafe, "
         "with a licence field populated for Unidecode",
+        (),
+    ),
+    Expectation(
+        "deps/inventory",
+        ("poetry",),
+        "exact",
+        "cyclonedx-py's poetry subcommand fails with CRITICAL | CDX > 'name' and "
+        "writes no SBOM, because it reads name from [tool.poetry] and this partition "
+        "carries PEP 621 metadata, which is the form poetry 2 pushes projects towards "
+        "and the form that emits no deprecation warning. Measured both ways on one "
+        "tree with one tool: the legacy all-in-[tool.poetry] manifest produces a valid "
+        "CycloneDX 1.6 document, so the finding is that the subcommand has no route "
+        "for PEP 621 poetry metadata rather than no poetry route at all. Recorded "
+        "before the run precisely so PR 2 cannot mistake the narrow claim for the "
+        "broad one",
         (),
     ),
     Expectation(
@@ -1149,7 +1175,9 @@ Expected: FAIL with `ModuleNotFoundError: No module named 'build_python_fixtures
 
 - [ ] **Step 3: Implement**
 
-Write `plan_tree(partition)` as `render_manifests(partition) | source_tree()`, `lock_command(partition)` returning the pinned one-shot lock invocation per manager (`uv lock`, `uvx poetry lock`, `uvx pipenv lock`, `()` for pip whose requirements file is already the lock, and for `pylock` the `uv export --format pylock.toml --frozen` route this round is testing), and `build(partition, root)` which writes the tree, runs `git init` plus an initial commit, runs the lock command, and commits the lock. Every subprocess call checks its return code and raises with the command and the captured stderr; nothing swallows an exception.
+Write `plan_tree(partition)` as `render_manifests(partition) | source_tree()`, `lock_command(partition)` returning the pinned one-shot lock invocation per manager (`uv lock`, `uvx poetry lock`, `uvx pipenv lock`, `()` for pip whose requirements file is already the lock, and for `pylock` the `uv export --format pylock.toml --frozen` route this round is testing), and `build(partition, root)` which writes the tree, runs `git init` plus an initial commit, runs the lock command, and commits the lock.
+
+**The `pylock` partition must not keep the `uv.lock` it was built from.** `uv export --format pylock.toml` needs an existing `uv.lock`, and this partition's `pyproject.toml` is byte-identical to the `uv` partition's - so leaving both files behind makes every lock-reading tool read `pylock` as a second `uv` run, and the one format `pip-audit --locked` actually reads goes untested while the results look complete. Delete `uv.lock` after the export and before the commit, and assert in the build that the committed tree carries `pylock.toml` and no `uv.lock`. Every subprocess call checks its return code and raises with the command and the captured stderr; nothing swallows an exception.
 
 Add `fixtures/` to `.gitignore` with a comment saying the generator writes there and why the trees are not committed.
 
