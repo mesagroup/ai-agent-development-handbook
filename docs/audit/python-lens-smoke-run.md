@@ -1,6 +1,6 @@
 # Python lens smoke run
 
-Every `python:` tooling entry in `arch`, `deps`, `docs`, `security` and `test` was authored from the tools' own documentation and had never been executed against real Python targets under both grant states. This record is what happened when they were. It exists because a docs-only pass cannot catch the defect where a name resolves, a command runs, and the output is unusable or wrong at exit 0.
+Every `python:` tooling entry in `arch`, `deps`, `docs`, `security` and `test` was authored from the tools' own documentation and had never been executed against real Python targets under both grant states. This record is what happened when they were, on **2026-08-14**. It exists because a docs-only pass cannot catch the defect where a name resolves, a command runs, and the output is unusable or wrong at exit 0.
 
 The subject here is the **skill family**, not the fixture partitions: what appears below is tool behaviour, aggregate counts, and the corrections the run forced. [The build smoke record](python-fixture-build-smoke.md) is the sibling document for the fixture machinery itself - what was generated, which seed each planted construct produced when a tool was pointed at it directly, and the measured `pytest-randomly` shuffle seed. This record grades a different thing: whether each check record's own prescribed invocation, run under the grant state its `needs` tiers imply, reaches that same answer.
 
@@ -107,7 +107,7 @@ The results carry a top-level `versions` map, captured through the same launcher
 | `pip-audit`, `pip`/`uv` | no-evidence - `ensurepip` dies with `SIGABRT` (host fact, see below) | no-evidence, same host fault |
 | `pip-audit`, `poetry`/`pipenv` | no-evidence - the record names no route for a poetry-only or Pipfile-only lock with no requirements export | unchanged |
 | `safety`, all five | never invoked on any partition or grant - the record prescribes no command for it (see Still open) | unchanged |
-| `uv pip list --outdated` / `pip list --outdated` (`deps/freshness`), all five | no-evidence - the record's per-package registry route has no run represented | **met on all five**, byte-identical: `pip list --outdated` and the corrected `uv --python <venv>/bin/python pip list --outdated` both report jinja2, packaging and six stale, Unidecode correctly absent |
+| `uv pip list --outdated` / `pip list --outdated` (`deps/freshness`), all five | no-evidence - the record's per-package registry route has no run represented | **met on all five**, byte-identical: `pip list --outdated` and the corrected `uv pip list --outdated --python <path-to-venv-python>` both report jinja2, packaging and six stale, Unidecode correctly absent |
 | `pip-licenses` (`deps/licenses`), all five | no-evidence - registry route unrepresented | **met on all five** - Unidecode 1.4.0 reported under `GNU General Public License v2 or later (GPLv2+)` |
 | `pip-licenses` (`deps/transitive-licenses`), all five | no-evidence - same gap | **met on all five** - MarkupSafe 3.0.3 present as an undeclared transitive component with a licence |
 | `deptry` (`deps/hygiene`), `pip`/`poetry`/`pylock`/`uv` | no-evidence - gated out; the record's own manifest-plus-lockfile ungranted reading pass has no run represented | **met** - `DEP002 'six'`, `DEP003 'markupsafe'`, plus two `DEP003` rows naming `fixture_app`'s own src-layout modules |
@@ -138,7 +138,7 @@ On the `uv` partition, `pydeps --show-cycles src/fixture_app` returns exit 0 wit
 
 ### 5. `deps/vulnerabilities`: pylock established, poetry and pipenv named as a gap, and a route added with its soundness scoped to the file it reads
 
-`pip-audit --locked .` reads `pylock.toml` cleanly and reports 5 PYSEC advisories against jinja2 3.1.2 on both grants, satisfying the check's floor without touching a resolved tree. The record previously named no mode at all for a poetry-only or pipenv-only lock with no requirements export; `poetry export` and `pipenv requirements` each exist and were not attempted here, so this stays a gap rather than a settled negative. A route was added for the case where a requirements file does exist: `pip-audit -r <requirements> --no-deps --disable-pip` avoids provisioning a virtualenv, with both flags documented for this pairing (`--no-deps` "requires all requirements are pinned to an exact version", `--disable-pip` "can only be used with hashed requirements files or if the `--no-deps` flag has been provided"). Its soundness depends on the shape of the file it reads, not on the flags: `uv export --frozen` on the uv fixture wrote 7 entries including the transitives `markupsafe` and `pyparsing`, so a route pointed at it audits everything the lock pins; the pip partition's own `requirements.txt` declares 4 direct pins and no transitives, so the identical flags there audit a strict subset and a transitive-only advisory would be invisible rather than reported as a gap.
+`pip-audit --locked .` reads `pylock.toml` cleanly and reports 5 PYSEC advisories against jinja2 3.1.2 on both grants, satisfying the check's floor without touching a resolved tree. For a poetry-only or pipenv-only lock with no requirements export, the record names no route `pip-audit` can take at all; `poetry export` and `pipenv requirements` each exist and were not attempted here, so this stays a gap rather than a settled negative. A route was added for the case where a requirements file does exist: `pip-audit -r <requirements> --no-deps --disable-pip` avoids provisioning a virtualenv, with both flags documented for this pairing (`--no-deps` "requires all requirements are pinned to an exact version", `--disable-pip` "can only be used with hashed requirements files or if the `--no-deps` flag has been provided"). Its soundness depends on the shape of the file it reads, not on the flags: `uv export --frozen` on the uv fixture wrote 7 entries including the transitives `markupsafe` and `pyparsing`, so a route pointed at it audits everything the lock pins; the pip partition's own `requirements.txt` declares 4 direct pins and no transitives, so the identical flags there audit a strict subset and a transitive-only advisory would be invisible rather than reported as a gap.
 
 ### 6. `deps/freshness`: a false clean any real audit can hit
 
@@ -160,16 +160,16 @@ Seven of the ten `arch` checks triaged here - `complexity-gate`, `cycles`'s comp
 
 Traceable to the observed output above; see the commits on issue #45.
 
-| Record | Correction |
-|---|---|
-| `deps/inventory` | name the uv SBOM export concretely; state that `cyclonedx-py poetry` fails on PEP 621 metadata; state that no SBOM route populates a licence field |
-| `deps/hygiene` | state that `deptry` has no `Pipfile` reader at all, so the pipenv partition has no hygiene lens on either grant |
-| `deps/freshness` | name the interpreter explicitly on the uv route (`--python <path>`), and why an unqualified invocation is not trustworthy |
-| `deps/vulnerabilities` | add `pip-audit -r <requirements> --no-deps --disable-pip` as a route that skips virtualenv provisioning, scoped to the shape of the file it reads |
-| `arch/cycles` | append `--show-dot` to the prescribed `pydeps` cycle invocation, since the bare form has no textual output channel |
-| `arch/over-abstraction` | drop `ruff` from the Python tooling list, since the record's own prose never gave it instructions |
-| `test/mutation` | state that a bare `mutmut run` exit code is never itself a findings signal, and name the module-level-state failure mode observed here |
-| `arch/complexity` | state that `xenon`'s complexity finding lands on stderr, and that its non-zero exit is a designed threshold-breach signal rather than a failure |
+| Record | Fixture | Correction |
+|---|---|---|
+| `deps/inventory` | poetry, pylock, uv | name the uv SBOM export concretely; state that `cyclonedx-py poetry` fails on PEP 621 metadata; state that no SBOM route populates a licence field |
+| `deps/hygiene` | pipenv | state that `deptry` has no `Pipfile` reader at all, so the pipenv partition has no hygiene lens on either grant |
+| `deps/freshness` | uv (scratch-copy measurement, see finding 6) | name the interpreter explicitly on the uv route (`--python <path>`), and why an unqualified invocation is not trustworthy |
+| `deps/vulnerabilities` | pip, uv | add `pip-audit -r <requirements> --no-deps --disable-pip` as a route that skips virtualenv provisioning, scoped to the shape of the file it reads |
+| `arch/cycles` | uv | append `--show-dot` to the prescribed `pydeps` cycle invocation, since the bare form has no textual output channel |
+| `arch/over-abstraction` | uv | drop `ruff` from the Python tooling list, since the record's own prose never gave it instructions |
+| `test/mutation` | uv | state that a bare `mutmut run` exit code is never itself a findings signal, and name the module-level-state failure mode observed here |
+| `arch/complexity` | uv | state that `xenon`'s complexity finding lands on stderr, and that its non-zero exit is a designed threshold-breach signal rather than a failure |
 
 ## Still open
 
