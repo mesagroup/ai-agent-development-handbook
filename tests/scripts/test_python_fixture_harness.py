@@ -29,6 +29,8 @@ from run_python_fixture_lens import (
     INVOCATIONS,
     MATERIALIZE,
     NO_VERSION_ROUTE,
+    NONZERO_EXIT_KINDS,
+    NONZERO_EXIT_MEANING,
     REASONS,
     REPO_ROOT,
     STATUSES,
@@ -42,10 +44,12 @@ from run_python_fixture_lens import (
     argv_for,
     classify,
     grant_tier,
+    inner_uv_target,
     invocations_for,
     launcher,
     launcher_missed,
     main,
+    nonzero_exit_meaning,
     packages_for,
     probe_versions,
     reconstruct,
@@ -444,6 +448,70 @@ def test_a_finding_tool_exiting_nonzero_is_still_a_run_that_answered():
     )
 
 
+def test_a_tool_that_did_no_work_is_never_graded_ok_on_a_nonzero_exit():
+    """A tool marked `failure` never reads its own noise as a report.
+
+    `mutmut run` writes a spinner and status text to stdout on every run,
+    survivors or not - measured, a run that got as far as `Failed to run clean
+    test` and tested zero mutants still has non-empty stdout. Grading on
+    content the way `findings` does would call that a clean pass; the
+    `nonzero_meaning="failure"` branch refuses regardless of what is on either
+    stream, because a tool that may have done nothing must never grade `ok`.
+    """
+    spinner_text = (
+        "⠋ Generating mutants\n    done in 77ms (10 files mutated, 0 ignored, "
+        "0 unmodified)\n\nF\nFAILED tests/test_order.py::test_appends\nFailed to "
+        "run clean test\n"
+    )
+    assert classify(
+        1, spinner_text, "", tool_present=True, nonzero_meaning="failure"
+    ) == ("no-evidence", "tool-failed")
+    # Content on stderr instead changes nothing: `failure` never reads either
+    # stream as a report.
+    assert classify(
+        1,
+        "",
+        spinner_text,
+        tool_present=True,
+        findings_stream="stderr",
+        nonzero_meaning="failure",
+    ) == ("no-evidence", "tool-failed")
+    # A clean exit is still `ok` - `failure` only refuses to read a non-zero
+    # exit as a report, it does not invert the rc-0 case.
+    assert classify(
+        0, spinner_text, "", tool_present=True, nonzero_meaning="failure"
+    ) == (
+        "ok",
+        "",
+    )
+
+
+def test_an_ambiguous_tool_is_as_conservative_as_a_proven_failure():
+    """`ambiguous` and `failure` behave identically on a non-zero exit.
+
+    They are named apart because one is proven (`mutmut`, from reading its own
+    source) and the other is an honest "not known" for a reporting tool this
+    round never observed exiting non-zero - but neither ever turns content
+    into `ok` the way `findings` does, so a future promotion out of `ambiguous`
+    has to be a stated decision, not a difference this function already makes.
+    """
+    assert classify(
+        1, "some output", "", tool_present=True, nonzero_meaning="ambiguous"
+    ) == (
+        "no-evidence",
+        "tool-failed",
+    )
+    assert classify(0, "", "", tool_present=True, nonzero_meaning="ambiguous") == (
+        "ok",
+        "",
+    )
+
+
+def test_classify_rejects_an_unknown_nonzero_meaning():
+    with pytest.raises(ValueError, match="nonzero_meaning"):
+        classify(1, "x", "", tool_present=True, nonzero_meaning="vibes")
+
+
 def test_a_tool_reporting_on_stderr_is_classified_on_stderr():
     """Measured: `deptry .` on a seeded partition writes nothing to stdout.
 
@@ -463,11 +531,18 @@ def test_a_tool_reporting_on_stderr_is_classified_on_stderr():
     )
 
 
-def test_deptry_is_the_entry_that_reports_on_stderr():
-    """The exact set, so a stream silently moved onto another entry fails here."""
+def test_deptry_and_xenon_are_the_entries_that_report_on_stderr():
+    """The exact set, so a stream silently moved onto another entry fails here.
+
+    `xenon` joined this set once its own finding was measured: `uvx xenon
+    --max-absolute B src` on the seeded partition exits 1 with stdout empty and
+    the whole `ERROR:xenon:block ... has a rank of C` on stderr - left at the
+    stdout default, that finding was invisible and the row graded
+    `tool-failed` instead of the hit it actually was.
+    """
     assert {
         (i.check, i.tool) for i in INVOCATIONS if i.findings_stream == "stderr"
-    } == {("deps/hygiene", "deptry")}
+    } == {("deps/hygiene", "deptry"), ("arch/complexity", "xenon")}
     assert all(i.findings_stream in ("stdout", "stderr") for i in INVOCATIONS)
     with pytest.raises(ValueError, match="findings_stream"):
         Invocation(
@@ -477,6 +552,51 @@ def test_deptry_is_the_entry_that_reports_on_stderr():
             argv=("deptry",),
             findings_stream="both",
         )
+
+
+def _tools_that_can_run_a_command() -> set[str]:
+    """Every tool `INVOCATIONS` could actually hand `classify` an exit code.
+
+    A tool named only in an entry with no `argv`, no `argv_by_partition` and no
+    `supplied_by_partition` never runs a command at all - `grimp`, `safety`,
+    `cosmic-ray`, `hypothesis` - so it never reaches `classify` and has nothing
+    to state a non-zero-exit meaning about.
+    """
+    return {
+        i.tool
+        for i in INVOCATIONS
+        if i.argv or i.argv_by_partition or i.supplied_by_partition
+    }
+
+
+def test_nonzero_exit_meaning_covers_exactly_the_tools_that_can_run_a_command():
+    """The exact-set guard: a tool added to `INVOCATIONS` with a real command
+    and no entry here would silently default `classify` to `findings`, which is
+    precisely the silent claim this table exists to forbid.
+    """
+    assert set(NONZERO_EXIT_MEANING) == _tools_that_can_run_a_command()
+
+
+def test_every_stated_meaning_is_one_of_the_three_kinds():
+    assert set(NONZERO_EXIT_MEANING.values()) <= set(NONZERO_EXIT_KINDS)
+
+
+def test_mutmuts_nonzero_exit_is_a_stated_failure_not_a_finding():
+    """Proven rather than assumed - see `NONZERO_EXIT_MEANING`'s own comment.
+
+    `mutmut run` (the record's own bare invocation) only calls `exit()` from
+    setup/collection failures; the loop that tests generated mutants and tallies
+    survivors never exits non-zero on their account, so there is no path from
+    "mutants survived" to this command's non-zero exit - it is always a genuine
+    failure, never a report.
+    """
+    assert NONZERO_EXIT_MEANING["mutmut"] == "failure"
+
+
+def test_nonzero_exit_meaning_raises_for_a_tool_with_no_stated_meaning():
+    with pytest.raises(ValueError, match="xylophone"):
+        nonzero_exit_meaning("xylophone")
+    assert nonzero_exit_meaning("mutmut") == "failure"
 
 
 def test_classify_never_leaves_the_engines_vocabulary():
@@ -1253,6 +1373,129 @@ def test_a_granted_run_materializes_first_and_then_runs_in_the_environment(
     assert deptry["status"] == "ok"
     follow_up = rows[("test/coverage-reach", "coverage.py")]["then"]
     assert follow_up["command"][-3:] == ["coverage", "report", "--show-missing"]
+
+
+def test_inner_uv_target_only_fires_for_the_uv_tool_in_env_and_granted():
+    """Unit-level: the suffix is `()` everywhere it must not apply.
+
+    Every Python-native `in_env` tool (`pip` here as the contrast) reads the
+    interpreter `launcher` already put in front of it, so it never needs this
+    suffix at all - only `uv`, run as the command rather than as the thing
+    running it, does.
+    """
+    uv_inv = _entry("deps/freshness", "uv")
+    pip_inv = _entry("deps/freshness", "pip")
+    assert inner_uv_target(uv_inv, granted=True) == ("--python", f"{VENV_BIN}/python")
+    assert inner_uv_target(uv_inv, granted=False) == ()
+    assert inner_uv_target(pip_inv, granted=True) == ()
+    assert inner_uv_target(pip_inv, granted=False) == ()
+
+
+def test_an_inner_uv_command_is_told_which_interpreter_to_read(tmp_path, monkeypatch):
+    """Regression for Defect D, end to end through `run_partition`.
+
+    Measured: `uv run --no-project --python .venv/bin/python --with uv uv pip
+    list --outdated` - the shape every non-`uv` partition's overlay route
+    already produces for an `in_env` tool - prints nothing at exit 0 on an
+    environment with three outdated packages; the same command with a
+    trailing `--python .venv/bin/python` on the *inner* `uv` lists them. The
+    same gap was confirmed on the `uv` partition's own native route (`uv run
+    --with uv uv pip list --outdated`, no `--no-project` involved), which is
+    why both partitions are checked here rather than only the overlay one.
+    """
+    for partition in ("uv", "pip"):
+        source = tmp_path / "fixture" / partition
+        source.mkdir(parents=True)
+        recorded: list[list[str]] = []
+        monkeypatch.setattr("run_python_fixture_lens._run", _fake_run(recorded))
+        observed = run_partition(
+            partition, source, tmp_path / f"work-{partition}", "target-execution", 5
+        )
+        rows = {(r["check"], r["tool"]): r for r in observed["results"]}
+        uv_row = rows[("deps/freshness", "uv")]
+        assert uv_row["command"][-2:] == ["--python", f"{VENV_BIN}/python"], (
+            partition,
+            uv_row["command"],
+        )
+        # `pip` gets no trailing suffix: the one `--python` in its command is
+        # the prefix's own (pointing the overlay's interpreter at the copy's
+        # venv), not a second one appended after its argv.
+        pip_row = rows[("deps/freshness", "pip")]
+        assert pip_row["command"][-3:] == ["pip", "list", "--outdated"], (
+            partition,
+            pip_row["command"],
+        )
+        assert pip_row["command"].count("--python") <= 1, (
+            partition,
+            pip_row["command"],
+        )
+
+
+def test_mutmuts_own_output_never_masks_a_run_that_tested_nothing(
+    tmp_path, monkeypatch
+):
+    """Regression for Defect C's most dangerous shape: a false `ok`.
+
+    Real `mutmut run` output, captured from a prior matrix run: it generated
+    mutants, then failed its own clean-tests baseline and tested zero of them -
+    `Failed to run clean test` on stdout, exit 1. Reading any non-empty stdout
+    as a report - which is what a bare content check does - graded this `ok`;
+    a tool that did no work must never grade `ok`.
+    """
+    source = tmp_path / "fixture" / "uv"
+    source.mkdir(parents=True)
+    real_mutmut_stdout = (
+        "\n⠋ Generating mutants\n    done in 77ms (10 files mutated, 0 "
+        "ignored, 0 unmodified)\n\n⠸ Running stats\n    done\n\n⠸ "
+        "Running clean tests\nF\n=================================== FAILURES "
+        "===================================\n_________________________________ "
+        "test_appends _________________________________\nAssertionError: assert "
+        "[1, 1] == [1]\n=========================== short test summary info "
+        "============================\nFAILED tests/test_order.py::test_appends "
+        "- assert [1, 1] == [1]\n1 failed in 0.01s\nFailed to run clean test\n\n"
+    )
+
+    def respond(command):
+        if "mutmut" in command and "run" in command:
+            return _outcome(returncode=1, stdout=real_mutmut_stdout, stderr="")
+        return None
+
+    monkeypatch.setattr("run_python_fixture_lens._run", _fake_run([], respond=respond))
+    observed = run_partition(
+        "uv", source, tmp_path / "work", "target-execution", timeout=5
+    )
+    rows = {(r["check"], r["tool"]): r for r in observed["results"]}
+    mutmut_row = rows[("test/mutation", "mutmut")]
+    assert mutmut_row["status"] == "no-evidence", mutmut_row
+    assert mutmut_row["reason"] == "tool-failed", mutmut_row
+
+
+def test_xenons_stderr_finding_is_graded_ok_end_to_end(tmp_path, monkeypatch):
+    """Regression for Defect C's other half: a real hit graded as a failure.
+
+    Real `xenon` output, measured on the seeded partition (`uvx xenon
+    --max-absolute B src`): stdout empty, the finding entirely on stderr, exit
+    1. Before `findings_stream="stderr"` was set on this entry, `classify` read
+    the empty stdout and graded the row `tool-failed`.
+    """
+    source = tmp_path / "fixture" / "uv"
+    source.mkdir(parents=True)
+    xenon_stderr = (
+        'ERROR:xenon:block "src/fixture_app/complexity.py:4 classify" has a rank of C\n'
+    )
+
+    def respond(command):
+        if "xenon" in command:
+            return _outcome(returncode=1, stdout="", stderr=xenon_stderr)
+        return None
+
+    monkeypatch.setattr("run_python_fixture_lens._run", _fake_run([], respond=respond))
+    observed = run_partition(
+        "uv", source, tmp_path / "work", "target-execution", timeout=5
+    )
+    rows = {(r["check"], r["tool"]): r for r in observed["results"]}
+    xenon_row = rows[("arch/complexity", "xenon")]
+    assert xenon_row["status"] == "ok", xenon_row
 
 
 def test_a_record_with_no_command_is_recorded_as_such_rather_than_run(
