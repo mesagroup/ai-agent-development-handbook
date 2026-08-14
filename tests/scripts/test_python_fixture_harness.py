@@ -27,6 +27,7 @@ from run_python_fixture_lens import (
     GRANTS,
     INVOCATIONS,
     MATERIALIZE,
+    NO_VERSION_ROUTE,
     REASONS,
     REPO_ROOT,
     STATUSES,
@@ -34,6 +35,7 @@ from run_python_fixture_lens import (
     TOOL_PACKAGES,
     VENV_BIN,
     VENV_PARTITIONS,
+    VERSION_PROBE,
     Invocation,
     _fixture_env,
     _run,
@@ -45,6 +47,7 @@ from run_python_fixture_lens import (
     launcher_missed,
     main,
     packages_for,
+    probe_versions,
     provision_command,
     reconstruct,
     run_partition,
@@ -215,6 +218,34 @@ def test_every_python_tooling_entry_has_an_invocation():
         (c.id, tool) for c in checks.values() for tool in c.tooling.get("python", ())
     }
     assert {(i.check, i.tool) for i in INVOCATIONS} == declared
+
+
+# --- version routes -------------------------------------------------------------
+
+
+def test_every_invoked_tool_has_a_version_route_or_a_stated_absence():
+    invoked = {inv.tool for inv in INVOCATIONS}
+    assert set(VERSION_PROBE) == invoked
+
+
+def test_a_tool_with_no_version_route_says_so_by_name():
+    """`None` is a positive claim, so it travels with a reason - never silently.
+
+    The reverse direction is checked too, mirroring `ungranted_note`'s vacuity
+    rule: a name in `NO_VERSION_ROUTE` for a tool that *does* carry a probe would
+    be a stale reason nothing reads, which is the same kind of drift a leftover
+    `ungranted_note` would be.
+    """
+    for tool, argv in VERSION_PROBE.items():
+        if argv is None:
+            assert tool in NO_VERSION_ROUTE, (
+                f"{tool} has no version probe and no stated reason"
+            )
+            assert NO_VERSION_ROUTE[tool].strip()
+    no_route = {tool for tool, argv in VERSION_PROBE.items() if argv is None}
+    assert set(NO_VERSION_ROUTE) <= no_route, (
+        "NO_VERSION_ROUTE names a tool that carries a real probe"
+    )
 
 
 # --- the transcription itself --------------------------------------------------
@@ -949,7 +980,11 @@ def test_a_supplied_route_stops_at_the_step_that_failed(tmp_path, monkeypatch):
     audit = rows[("deps/vulnerabilities", "pip-audit")]
     assert len(audit["steps"]) == 1
     assert (audit["status"], audit["reason"]) == ("no-evidence", "tool-failed")
-    assert not any(command[:2] == ["uvx", "pip-audit"] for command in recorded)
+    # `[:3]` rather than `[:2]`: the version probe also runs `uvx pip-audit
+    # --version`, which is a real and separate route, so the guard has to name
+    # the supplied route's own `-r` step rather than the shared `uvx pip-audit`
+    # prefix both commands start with.
+    assert not any(command[:3] == ["uvx", "pip-audit", "-r"] for command in recorded)
 
 
 def test_a_two_step_route_keeps_its_second_command():
@@ -1615,3 +1650,106 @@ def test_not_applicable_is_in_the_scale_and_is_never_what_classify_returns():
     }
     assert "not-applicable" in STATUSES
     assert "not-applicable" not in returned
+
+
+# --- probing tool versions -------------------------------------------------------
+
+
+def test_the_results_file_carries_a_version_for_every_tool_the_partition_invokes(
+    tmp_path, monkeypatch
+):
+    """`versions` is a top-level key, keyed by exactly the partition's own tools.
+
+    Not the whole family's: a thin partition like `poetry` never invokes
+    `ruff`, and a version entry for a tool it never runs would be as
+    unaccountable as a `results` row for a check it never carries.
+    """
+    source = tmp_path / "fixture" / "uv"
+    source.mkdir(parents=True)
+    monkeypatch.setattr("run_python_fixture_lens._run", _fake_run([]))
+    observed = run_partition(
+        "uv", source, tmp_path / "work", "target-execution", timeout=5
+    )
+    assert set(observed["versions"]) == {i.tool for i in invocations_for("uv")}
+    assert observed["versions"]["ruff"] == "output"
+
+
+def test_a_probe_that_fails_is_recorded_as_its_failure_text_rather_than_dropped(
+    tmp_path, monkeypatch
+):
+    """An absent version is a fact about the run, so the key still has to exist."""
+    monkeypatch.setattr(
+        "run_python_fixture_lens._run",
+        _fake_run(
+            [],
+            respond=lambda command: (
+                _outcome(returncode=1, stdout="", stderr="boom")
+                if command == ["uvx", "ruff", "--version"]
+                else None
+            ),
+        ),
+    )
+    versions = probe_versions("uv", "target-execution", tmp_path, timeout=5)
+    assert versions["ruff"] == "boom"
+    assert "ruff" in versions
+
+
+def test_a_blocked_materialization_stops_an_in_env_probe_rather_than_running_it(
+    tmp_path, monkeypatch
+):
+    """Otherwise a probe against a tree that was never built invents a finding.
+
+    The same shape as `run_partition`'s own dependent rows: the version is
+    recorded as blocked, and no command referring to the tool is ever launched.
+    """
+    recorded = []
+    monkeypatch.setattr("run_python_fixture_lens._run", _fake_run(recorded))
+    blocked_by = ["python", "-m", "venv", ".venv"]
+    versions = probe_versions(
+        "pip", "target-execution", tmp_path, timeout=5, blocked_by=blocked_by
+    )
+    assert "environment-unmaterialized" in versions["deptry"]
+    assert "python -m venv .venv" in versions["deptry"]
+    assert not any("deptry" in command for command in recorded)
+    # A tool that answers from a read-only clone needs no environment, so its
+    # probe still runs even though the materialization failed.
+    assert versions["pip-audit"] == "output"
+
+
+def test_a_tool_with_no_version_route_reports_the_stated_reason_rather_than_running(
+    tmp_path, monkeypatch
+):
+    """`None` is read from the table, not assumed - `VERSION_PROBE` holds none
+    of its own today, so this exercises the branch by substitution rather than
+    waiting for a tool that genuinely has no route.
+    """
+    monkeypatch.setitem(VERSION_PROBE, "ruff", None)
+    monkeypatch.setitem(NO_VERSION_ROUTE, "ruff", "substituted for this test")
+    recorded = []
+    monkeypatch.setattr("run_python_fixture_lens._run", _fake_run(recorded))
+    versions = probe_versions("uv", "target-execution", tmp_path, timeout=5)
+    assert versions["ruff"] == "no version route: substituted for this test"
+    assert not any("ruff" in command for command in recorded)
+
+
+def test_a_venv_partitions_probe_finds_its_in_env_tool_on_the_copys_own_path(
+    tmp_path, monkeypatch
+):
+    """`pip` and `pylock` carry no launcher words, same as the real invocation.
+
+    Without the copy's `.venv/bin` on `PATH`, a bare `pip-licenses --version`
+    would resolve nothing there and every in-env probe on these two partitions
+    would read as a missing tool rather than the version actually installed.
+    """
+    launches = []
+    monkeypatch.setattr(
+        "run_python_fixture_lens._run", _fake_run([], launches=launches)
+    )
+    versions = probe_versions("pip", "target-execution", tmp_path, timeout=5)
+    assert versions["pip-licenses"] == "output"
+    bin_dirs = {
+        bin_dir
+        for command, bin_dir in launches
+        if command == ("pip-licenses", "--version")
+    }
+    assert bin_dirs == {tmp_path / VENV_BIN}

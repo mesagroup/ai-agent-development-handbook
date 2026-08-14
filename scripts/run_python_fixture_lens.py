@@ -191,6 +191,81 @@ FROZEN_FORM = {
     "pylock": "",
 }
 
+# What reports each tool's own version, appended after `launcher`'s prefix the
+# same way `argv` is - so a `uvx`-fetched tool answers with the version `uvx`
+# actually resolved, not a version transcribed once and left to drift. Every
+# tool `INVOCATIONS` names has an entry, `None` where it does not, and `None` is
+# only legal beside a reason in `NO_VERSION_ROUTE`: the same shape as
+# `ungranted_note`'s `none` sentinel, and for the same reason - an omitted entry
+# must never read as a silent default.
+#
+# `grimp` and `hypothesis` carry no `argv` anywhere in `INVOCATIONS`: the record
+# asks for each as a library rather than a command, so neither's own console
+# entry point (`hypothesis` needs `click`, which nothing here installs; `grimp`
+# has no console entry point at all) is what the family actually runs. Their
+# probes read the installed distribution's own metadata instead, and the
+# `--with <pkg>` is safe to bake into the probe itself only because both tools
+# are `in_env=False` everywhere they occur: `launcher` then returns bare
+# `("uvx",)` on every partition and every grant, so there is no in-environment
+# branch this hard-coded flag could collide with.
+#
+# The four pytest plugins are the same shape without the safety condition: each
+# is `in_env=True`, so under a grant the tool is already present in the
+# materialized environment (or added via the same `--with` `launcher` computes
+# for the real check) and the bare `python -c` finds it with no flag of the
+# probe's own; under no grant it resolves to a bare interpreter with nothing
+# installed and the probe fails with `PackageNotFoundError`, which is recorded
+# as failure text rather than dropped - an honest answer, since there is no
+# environment to read the plugin's version from.
+_METADATA_VERSION = "from importlib.metadata import version; print(version({0!r}))"
+
+VERSION_PROBE: dict[str, tuple[str, ...] | None] = {
+    "ruff": ("ruff", "--version"),
+    "radon": ("radon", "--version"),
+    "xenon": ("xenon", "--version"),
+    "grimp": ("--with", "grimp", "python", "-c", _METADATA_VERSION.format("grimp")),
+    "pydeps": ("pydeps", "--version"),
+    "import-linter": ("import-linter", "--version"),
+    "tach": ("tach", "--version"),
+    "vulture": ("vulture", "--version"),
+    "uv": ("uv", "--version"),
+    "pip": ("pip", "--version"),
+    "deptry": ("deptry", "--version"),
+    "cyclonedx-py": ("cyclonedx-py", "--version"),
+    "pip-licenses": ("pip-licenses", "--version"),
+    "pip-audit": ("pip-audit", "--version"),
+    "safety": ("safety", "--version"),
+    "pydocstyle": ("pydocstyle", "--version"),
+    "interrogate": ("interrogate", "--version"),
+    "bandit": ("bandit", "--version"),
+    "semgrep": ("semgrep", "--version"),
+    "pytest-cov": ("python", "-c", _METADATA_VERSION.format("pytest-cov")),
+    "coverage.py": ("coverage", "--version"),
+    "pytest-randomly": ("python", "-c", _METADATA_VERSION.format("pytest-randomly")),
+    "pytest-rerunfailures": (
+        "python",
+        "-c",
+        _METADATA_VERSION.format("pytest-rerunfailures"),
+    ),
+    "pytest-timeout": ("python", "-c", _METADATA_VERSION.format("pytest-timeout")),
+    "mutmut": ("mutmut", "--version"),
+    "cosmic-ray": ("cosmic-ray", "--version"),
+    "hypothesis": (
+        "--with",
+        "hypothesis",
+        "python",
+        "-c",
+        _METADATA_VERSION.format("hypothesis"),
+    ),
+}
+
+# Empty on purpose rather than absent: every tool `INVOCATIONS` names turned out
+# to have a working route, verified by hand against the installed package rather
+# than assumed from its `argv` - so there is nothing here to explain. The dict
+# stays because `probe_versions` reads it, and a future tool with no route at
+# all names itself here rather than silently taking `None`.
+NO_VERSION_ROUTE: dict[str, str] = {}
+
 
 @dataclass(frozen=True)
 class Invocation:
@@ -1427,6 +1502,71 @@ def _run_supplied(
     return row
 
 
+def probe_versions(
+    partition: str,
+    grant: str,
+    work_dir: Path,
+    timeout: int,
+    *,
+    blocked_by: Sequence[str] | None = None,
+) -> dict[str, str]:
+    """Report the version of every tool this partition will invoke.
+
+    Runs through the same `launcher` as the invocation, because a `uvx`-fetched
+    tool and a tool on `PATH` are different copies and may differ in version.
+    A probe that fails is recorded as its failure text rather than dropped: an
+    absent version is a fact about the run, and a missing key would read as a
+    tool that was never invoked.
+
+    Args:
+        partition: Which partition's tools to probe, scoped by the same
+            `invocations_for` the checks run against.
+        grant: Whether the probe runs as though the tree were resolved; passed
+            straight to `launcher`, exactly as the real invocation would be.
+        work_dir: The materialized copy to run each probe in - the same
+            directory the invocations already ran against, not the fixture
+            root, so a probe needing project context (`mutmut --version`) sees
+            the same tree its check would.
+        timeout: Seconds before a probe is abandoned as hung.
+        blocked_by: The materialization command that failed, if it did. An
+            `in_env` tool's probe never runs against a tree that was never
+            built - that would either hang on an absent environment or answer
+            from whatever the launcher happens to fall back to, neither of
+            which is a fact about the tool - so it is recorded as blocked
+            instead, the same way a dependent row is in `run_partition`.
+    """
+    granted = grant != "none"
+    representative: dict[str, Invocation] = {}
+    for inv in INVOCATIONS:
+        representative.setdefault(inv.tool, inv)
+
+    versions: dict[str, str] = {}
+    for tool in {inv.tool for inv in invocations_for(partition)}:
+        probe = VERSION_PROBE[tool]
+        if probe is None:
+            versions[tool] = f"no version route: {NO_VERSION_ROUTE[tool]}"
+            continue
+        inv = representative[tool]
+        if blocked_by is not None and inv.in_env:
+            versions[tool] = (
+                "environment-unmaterialized: the partition's materialization "
+                f"stopped at {' '.join(blocked_by)}, so there is no environment "
+                "this probe could run inside"
+            )
+            continue
+        prefix = launcher(inv, partition, granted=granted)
+        bin_dir = work_dir / VENV_BIN if not prefix and inv.in_env else None
+        command = (*prefix, *probe)
+        outcome = _run(command, work_dir, timeout, bin_dir)
+        stdout = str(outcome["stdout"]).strip()
+        stderr = str(outcome["stderr"]).strip()
+        if outcome["returncode"] == 0:
+            versions[tool] = stdout or stderr
+        else:
+            versions[tool] = stdout or stderr or f"exit code {outcome['returncode']}"
+    return versions
+
+
 def run_partition(
     partition: str,
     source: Path,
@@ -1554,12 +1694,15 @@ def run_partition(
         row |= _verdict(ran, invocation.findings_stream)
         rows.append(row)
 
+    versions = probe_versions(partition, grant, copy, timeout, blocked_by=blocked_by)
+
     return {
         "partition": partition,
         "grant": grant,
         "source": str(source),
         "materialization": materialization,
         "results": rows,
+        "versions": versions,
     }
 
 
