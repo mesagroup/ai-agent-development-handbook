@@ -125,6 +125,71 @@ def test_grade_rows_covers_every_expectation_the_partition_carries(grader, spec)
     assert len(rows) == len(spec.expectations_for("poetry"))
 
 
+def test_an_orphan_entry_gets_its_own_row_instead_of_vanishing(grader, spec):
+    """A results entry no expectation names must not disappear silently.
+
+    Without a row for it, a stale results file surviving a check renamed or
+    removed out of `EXPECTATIONS` would have its now-orphaned entry dropped
+    with no row, no error and no count discrepancy - `grade_rows` would still
+    return exactly `len(expectations_for(partition))` rows, reading as full
+    coverage of a run it did not fully account for.
+    """
+    run = {
+        "partition": "uv",
+        "grant": "none",
+        "results": [
+            {
+                "check": "made/up-check",
+                "tool": "ghost-tool",
+                "ran": True,
+                "status": "ok",
+                "stdout": "FOUND SOMETHING",
+                "stderr": "",
+            }
+        ],
+    }
+    rows = grader.grade_rows(run)
+    assert len(rows) == len(spec.expectations_for("uv")) + 1
+    orphan = next(r for r in rows if r.check == "made/up-check")
+    assert orphan.verdict == "orphan"
+    assert orphan.observations
+    assert orphan.observations[0].tool == "ghost-tool"
+    text = grader.render(rows)
+    assert "made/up-check" in text
+    assert "ghost-tool" in text
+
+
+def test_an_orphan_entry_does_not_raise_even_when_the_tool_is_unknown(grader):
+    """The (check, tool) pair here is not in `INVOCATIONS` either.
+
+    `observations_for` raises on an unknown pair (by design, for a genuine
+    caller error); an orphan row must not go through that lookup at all, since
+    an orphan is unknown to the harness by construction.
+    """
+    run = {
+        "partition": "uv",
+        "grant": "none",
+        "results": [
+            {"check": "made/up-check", "tool": "ghost-tool", "ran": True},
+        ],
+    }
+    grader.grade_rows(run)  # must not raise
+
+
+def test_grade_rows_groups_multiple_orphan_tools_under_one_row_per_check(grader):
+    run = {
+        "partition": "uv",
+        "grant": "none",
+        "results": [
+            {"check": "made/up-check", "tool": "ghost-tool-a", "ran": True},
+            {"check": "made/up-check", "tool": "ghost-tool-b", "ran": True},
+        ],
+    }
+    rows = [r for r in grader.grade_rows(run) if r.check == "made/up-check"]
+    assert len(rows) == 1
+    assert {o.tool for o in rows[0].observations} == {"ghost-tool-a", "ghost-tool-b"}
+
+
 def test_a_dependency_level_seed_has_no_marker_to_search_for(grader, spec):
     """`vulnerable` names a CVE floor, not a literal substring.
 
