@@ -26,6 +26,15 @@ grading a `none` run against `claim` instead reads a correct ungranted deptry
 run - which reports `markupsafe` as DEP001 rather than DEP003 - as a tool
 defect. `grade_row` selects between the two by the run's own `grant`.
 
+The third: a results entry whose check no `Expectation` names. `grade_rows`
+only ever iterates `expectations_for`, so left unchecked an orphan entry -
+`fixtures/` is gitignored and nothing regenerates it, so a stale results file
+surviving a check renamed or removed out of `EXPECTATIONS` is how one arrives -
+would vanish with no row, no error and no count discrepancy, while the
+worksheet still reads as full coverage. `grade_rows` renders one `_orphan_row`
+per check `run["results"]` names that no expectation claims, so the omission
+is visible instead of silent.
+
 Usage:
     uv run python scripts/grade_python_fixture_run.py fixtures/python/results
 """
@@ -106,6 +115,17 @@ def _findings_stream_for(entry: dict[str, object]) -> str:
     return _FINDINGS_STREAM[key]
 
 
+def _entries_for(run: Run, check: str) -> list[dict[str, object]]:
+    """The raw result entries this run recorded for one check, unannotated.
+
+    Separated from `observations_for` so an orphan row - one whose check no
+    expectation names - can list what the run actually recorded without going
+    through `_findings_stream_for`'s lookup, which has nothing to find for a
+    (check, tool) pair the harness never transcribed and would raise instead.
+    """
+    return [entry for entry in run.get("results", []) if entry.get("check") == check]
+
+
 def observations_for(run: Run, check: str) -> list[dict[str, object]]:
     """Every result entry this run recorded for one check.
 
@@ -114,12 +134,10 @@ def observations_for(run: Run, check: str) -> list[dict[str, object]]:
     reports on rather than the stdout default that reads a deptry run
     backwards.
     """
-    entries = []
-    for entry in run.get("results", []):
-        if entry.get("check") != check:
-            continue
-        entries.append({**entry, "findings_stream": _findings_stream_for(entry)})
-    return entries
+    return [
+        {**entry, "findings_stream": _findings_stream_for(entry)}
+        for entry in _entries_for(run, check)
+    ]
 
 
 def seed_signals(entry: dict[str, object], seeds: Sequence[str]) -> dict[str, int]:
@@ -182,6 +200,18 @@ def _claim_for(expectation: Expectation, run: Run) -> str:
     return expectation.claim
 
 
+def _observation_tuple(entries: Sequence[dict[str, object]]) -> tuple[Observation, ...]:
+    return tuple(
+        Observation(
+            tool=str(entry.get("tool", "")),
+            ran=bool(entry.get("ran", False)),
+            status=str(entry.get("status", "")),
+            reason=str(entry.get("reason", "")),
+        )
+        for entry in entries
+    )
+
+
 def grade_row(expectation: Expectation, run: Run) -> Row:
     """One expectation, paired with every observation this run made of it.
 
@@ -205,29 +235,72 @@ def grade_row(expectation: Expectation, run: Run) -> Row:
         form=expectation.form,
         claim=_claim_for(expectation, run),
         seeds=expectation.seeds,
-        observations=tuple(
-            Observation(
-                tool=str(entry.get("tool", "")),
-                ran=bool(entry.get("ran", False)),
-                status=str(entry.get("status", "")),
-                reason=str(entry.get("reason", "")),
-            )
-            for entry in observations
-        ),
+        observations=_observation_tuple(observations),
         signals=signals,
     )
 
 
-def grade_rows(run: Run) -> list[Row]:
-    """Every expectation this run's partition carries, graded against it.
+def _orphan_row(check: str, run: Run) -> Row:
+    """A row for result entries no expectation names.
 
-    One `Row` per expectation - `expectations_for` already scopes by partition,
-    so a caller running this once per file in a results directory gets one row
-    per expectation per partition per grant, never a set the published
-    expectations do not cover.
+    `grade_row` only ever iterates `expectations_for`, so an entry whose check
+    that function does not return would otherwise vanish with no row, no error
+    and no count discrepancy - the exact "reads clean, isn't" failure this
+    round exists to catch, and the worst possible place to commit it is the
+    grader's own inputs. `fixtures/` is gitignored and nothing regenerates it,
+    so a stale results file surviving a check renamed or removed out of
+    `EXPECTATIONS` is exactly how this happens, not a hypothetical.
+
+    Built from `_entries_for` rather than `observations_for`: there is no
+    expectation here to draw seeds from, so no signal is ever computed and no
+    `findings_stream` lookup is needed - which matters, because the orphan
+    entry's own (check, tool) pair is, by construction, not one `grade_rows`
+    already confirmed a `Row` for, and may not be one `INVOCATIONS` names
+    either.
+    """
+    entries = _entries_for(run, check)
+    return Row(
+        check=check,
+        partition=str(run.get("partition", "")),
+        grant=str(run.get("grant", "")),
+        form="orphan",
+        claim=(
+            "no expectation in python_fixture_spec.py names this check for this "
+            "partition; the entry is either a stale results file's leftover from "
+            "a check renamed or removed out of EXPECTATIONS, or a check the "
+            "harness never should have run"
+        ),
+        seeds=(),
+        observations=_observation_tuple(entries),
+        signals={},
+        verdict="orphan",
+    )
+
+
+def grade_rows(run: Run) -> list[Row]:
+    """Every expectation this run's partition carries, graded against it, plus
+    one row for every check in `run["results"]` no expectation names.
+
+    The expectation rows alone are `expectations_for`'s own scope - one `Row`
+    per expectation per partition per grant. The orphan rows are the other
+    direction of the same completeness question: without them, a results
+    entry whose check the spec no longer recognizes disappears silently while
+    every expectation row still renders, and the worksheet reads as full
+    coverage of a run it did not fully account for.
     """
     partition = str(run.get("partition", ""))
-    return [grade_row(expectation, run) for expectation in expectations_for(partition)]
+    expectations = expectations_for(partition)
+    rows = [grade_row(expectation, run) for expectation in expectations]
+    known_checks = {expectation.check for expectation in expectations}
+    orphan_checks = sorted(
+        {
+            str(entry.get("check", ""))
+            for entry in run.get("results", [])
+            if str(entry.get("check", "")) not in known_checks
+        }
+    )
+    rows.extend(_orphan_row(check, run) for check in orphan_checks)
+    return rows
 
 
 _TABLE_HEADER = (
