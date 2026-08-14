@@ -20,13 +20,31 @@ run). So `observations_for` looks the stream up from the harness's own
 `INVOCATIONS` table rather than defaulting to stdout - the default that scores
 deptry, which writes its whole report to stderr, as having found nothing.
 
-`Expectation.ungranted` is the second thing a naive grader would get wrong: it
+That lookup can fail on a (check, tool) pair `INVOCATIONS` does not carry, and
+this is the second thing a naive grader would get wrong: defaulting to stdout
+there would silently misread the row, but raising loses every other row in
+the same run over one stale entry. `fe2b0e42` (#45) is a real instance rather
+than a hypothetical - it dropped `ruff` from `arch/over-abstraction`'s tooling
+and from `INVOCATIONS` in the same commit, but `fixtures/python/results/` is
+gitignored and nothing regenerates it, so a results file written before that
+commit still carries the `arch/over-abstraction` + `ruff` row and persists
+across it. `_findings_stream_for` marks that row's stream
+`UNRESOLVED_FINDINGS_STREAM` instead of raising or defaulting: `seed_signals`
+reads the sentinel as a key the entry never set and gets back `""`, the same
+empty read a check that never ran gets, never a false signal. The unresolved
+fact still has to reach a reader, so `render` prints it beside the row rather
+than only carrying it in `Observation.findings_stream`, which nothing outside
+this module reads. This is not the orphan case below - the check is still
+named by an expectation, only the tool is unresolvable - so the row goes
+through `grade_row`'s normal path rather than `_orphan_row`'s.
+
+`Expectation.ungranted` is the third thing a naive grader would get wrong: it
 holds the answer a `none` run should read where the grant moves the answer, and
 grading a `none` run against `claim` instead reads a correct ungranted deptry
 run - which reports `markupsafe` as DEP001 rather than DEP003 - as a tool
 defect. `grade_row` selects between the two by the run's own `grant`.
 
-The third: a results entry whose check no `Expectation` names. `grade_rows`
+The fourth: a results entry whose check no `Expectation` names. `grade_rows`
 only ever iterates `expectations_for`, so left unchecked an orphan entry -
 `fixtures/` is gitignored and nothing regenerates it, so a stale results file
 surviving a check renamed or removed out of `EXPECTATIONS` is how one arrives -
@@ -70,6 +88,13 @@ _FINDINGS_STREAM: dict[tuple[str, str], str] = {
     for invocation in INVOCATIONS
 }
 
+# Not a real stream name - `seed_signals` looks this key up on the entry
+# itself (`entry.get(sentinel, "")`) and an entry never sets it, so the read
+# always comes back empty rather than falling through to stdout. Stands in
+# for a (check, tool) pair `INVOCATIONS` no longer carries, so a stale results
+# row can still be graded and rendered instead of aborting the whole run.
+UNRESOLVED_FINDINGS_STREAM = "unresolved"
+
 
 def load_run(path: Path) -> Run:
     """Parse one results JSON exactly as the harness wrote it.
@@ -97,22 +122,24 @@ def _findings_stream_for(entry: dict[str, object]) -> str:
     The entry's own `findings_stream` where a caller has already set one - the
     tests that pin `seed_signals` directly do this, and neither carries a
     `check`/`tool` pair a lookup could resolve. Otherwise, the stream the
-    harness's own `INVOCATIONS` table says this (check, tool) pair uses. Raises
-    rather than defaulting on an unknown pair: a results entry naming a
-    (check, tool) the harness never transcribed is not a fact this module can
-    answer for, and defaulting to stdout would silently misread it exactly the
-    way this whole field exists to prevent.
+    harness's own `INVOCATIONS` table says this (check, tool) pair uses.
+
+    Returns `UNRESOLVED_FINDINGS_STREAM` rather than raising on an unknown
+    pair. A results entry naming a (check, tool) the harness never
+    transcribed is not a fact this module can answer for, but it is also not
+    a caller error: a stale results file naming a tool `INVOCATIONS` used to
+    carry for this check and no longer does (`fe2b0e42`, #45, is a real
+    instance) is exactly the kind of drift `fixtures/` being gitignored
+    invites, the same way an orphan row's check does. Defaulting to stdout
+    would still silently misread it - the way this field exists to prevent -
+    so the sentinel stands in instead: `seed_signals` reads it as a missing
+    key on the entry and gets `""` back, never a false signal, and the caller
+    renders the sentinel as an explicit fact rather than losing the row.
     """
     if "findings_stream" in entry:
         return str(entry["findings_stream"])
     key = (str(entry.get("check", "")), str(entry.get("tool", "")))
-    if key not in _FINDINGS_STREAM:
-        raise ValueError(
-            f"no invocation for check={key[0]!r} tool={key[1]!r}; "
-            "run_python_fixture_lens.INVOCATIONS carries no findings_stream to "
-            "look up for this (check, tool) pair"
-        )
-    return _FINDINGS_STREAM[key]
+    return _FINDINGS_STREAM.get(key, UNRESOLVED_FINDINGS_STREAM)
 
 
 def _entries_for(run: Run, check: str) -> list[dict[str, object]]:
@@ -120,8 +147,9 @@ def _entries_for(run: Run, check: str) -> list[dict[str, object]]:
 
     Separated from `observations_for` so an orphan row - one whose check no
     expectation names - can list what the run actually recorded without going
-    through `_findings_stream_for`'s lookup, which has nothing to find for a
-    (check, tool) pair the harness never transcribed and would raise instead.
+    through `_findings_stream_for`'s lookup, which has nothing to resolve for
+    a (check, tool) pair the harness never transcribed and would only ever
+    return the unresolved sentinel for it.
     """
     return [entry for entry in run.get("results", []) if entry.get("check") == check]
 
@@ -152,12 +180,20 @@ def seed_signals(entry: dict[str, object], seeds: Sequence[str]) -> dict[str, in
 
 @dataclass(frozen=True)
 class Observation:
-    """One tool's answer to one check, as the run recorded it."""
+    """One tool's answer to one check, as the run recorded it.
+
+    `findings_stream` is `""` for an orphan entry (`_orphan_row` builds its
+    observations from `_entries_for`, which never resolves one) and otherwise
+    either a real stream name or `UNRESOLVED_FINDINGS_STREAM` - the second
+    case is a fact the render has to surface, not just carry, so a stale row
+    reads as unresolved instead of as a silent zero.
+    """
 
     tool: str
     ran: bool
     status: str
     reason: str
+    findings_stream: str = ""
 
 
 @dataclass(frozen=True)
@@ -207,6 +243,7 @@ def _observation_tuple(entries: Sequence[dict[str, object]]) -> tuple[Observatio
             ran=bool(entry.get("ran", False)),
             status=str(entry.get("status", "")),
             reason=str(entry.get("reason", "")),
+            findings_stream=str(entry.get("findings_stream", "")),
         )
         for entry in entries
     )
@@ -328,6 +365,11 @@ def _observations_cell(observations: Sequence[Observation]) -> str:
         detail = f"{observation.tool}: {observation.status or '(not run)'}"
         if observation.reason:
             detail += f" ({observation.reason})"
+        if observation.findings_stream == UNRESOLVED_FINDINGS_STREAM:
+            detail += (
+                " [findings stream unresolved: no invocation recorded for this "
+                "check+tool; no signal computed]"
+            )
         parts.append(detail)
     return "; ".join(parts)
 
