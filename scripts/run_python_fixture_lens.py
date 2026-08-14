@@ -66,7 +66,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from audit_checks import SKILLS_DIR, load_checks
-from build_python_fixtures import DEFAULT_OUTPUT_DIR
+from build_python_fixtures import DEFAULT_OUTPUT_DIR, PINNED_MANAGERS
 from python_fixture_spec import (
     ISOLATION_TIMEOUT_SECONDS,
     PACKAGE,
@@ -155,22 +155,51 @@ TOOL_PACKAGES = {
 # not reach a fixture (materialization runs in a copy), which is why this is a
 # correctness question about the observation rather than about the invariant.
 # FROZEN_FORM below names what makes each route read rather than resolve.
+#
+# None of `python`, `poetry` or `pipenv` is a bare name this host resolves:
+# only `uv` is guaranteed present, since the harness itself runs under it. So
+# `poetry` and `pipenv` go through `uvx` pinned to the exact version
+# `build_python_fixtures.PINNED_MANAGERS` names - the same manager that
+# produced each partition's lock, materializing it, which is the property a
+# drifted pin would silently lose. And the `pip` partition's venv is created
+# with `uv venv --seed` rather than a bare `python -m venv`: `--seed` is chosen
+# over the otherwise-equivalent system `python3 -m venv` because uv is already
+# required for the harness to run at all, whereas a system `python3` varies by
+# machine - a reproducibility argument, not a fidelity one. Venv creation is
+# instrument scaffolding; the commands actually being measured remain the
+# record's own (`.venv/bin/pip install -r requirements.txt`, `pip list
+# --outdated`, and so on), and those are unchanged. What `--seed` buys here is
+# a real `pip` binary at `.venv/bin/pip`, which the next two steps invoke
+# directly rather than through `uv pip install` - unlike `pylock` below, whose
+# steps never touch the binary and so never needed seeding.
 MATERIALIZE: dict[str, tuple[tuple[str, ...], ...]] = {
     "uv": (("uv", "sync", "--frozen"),),
     "pip": (
-        ("python", "-m", "venv", ".venv"),
+        ("uv", "venv", "--seed", ".venv"),
         (".venv/bin/pip", "install", "-r", "requirements.txt"),
         (".venv/bin/pip", "install", "-e", ".", "--no-deps"),
     ),
-    "poetry": (("poetry", "install"),),
+    "poetry": (("uvx", PINNED_MANAGERS["poetry"], "install"),),
     "pipenv": (
-        ("pipenv", "sync"),
-        ("pipenv", "run", "pip", "install", "-e", ".", "--no-deps"),
+        ("uvx", PINNED_MANAGERS["pipenv"], "sync"),
+        (
+            "uvx",
+            PINNED_MANAGERS["pipenv"],
+            "run",
+            "pip",
+            "install",
+            "-e",
+            ".",
+            "--no-deps",
+        ),
     ),
     "pylock": (
-        # The environment is named rather than defaulted, so that the directory
-        # the launcher puts on `PATH` is the one this command wrote instead of
-        # whichever one uv would have picked.
+        # The environment is named rather than defaulted, so that the
+        # interpreter the launcher points `--python` at is the one this
+        # command wrote instead of whichever one uv would have picked. Not
+        # seeded: nothing here calls `.venv/bin/pip` directly, every step is
+        # `uv pip install`, which needs no pip binary inside the venv it
+        # targets.
         ("uv", "venv", ".venv"),
         ("uv", "pip", "install", "-r", "pylock.toml"),
         ("uv", "pip", "install", "-e", ".", "--no-deps"),
@@ -1120,43 +1149,7 @@ def packages_for(tool: str) -> tuple[str, ...]:
     return TOOL_PACKAGES.get(tool, (tool,))
 
 
-# The partitions whose materialization route builds a `.venv` in the copy, read
-# out of `MATERIALIZE` rather than listed again: a route rewritten to install
-# somewhere else would otherwise leave this claiming a directory nobody wrote.
-VENV_PARTITIONS = tuple(
-    partition
-    for partition, commands in MATERIALIZE.items()
-    if any(any(".venv" in word for word in command) for command in commands)
-)
 VENV_BIN = ".venv/bin"
-
-
-def provision_command(partition: str, package: str) -> tuple[str, ...]:
-    """How one audit-owned package gets into a partition's materialized copy.
-
-    `audit-core` bars installing into the target and prescribes a copy the check
-    owns; this is that install, and it happens in the copy rather than in the
-    fixture. Every tool here is one the fixture does not declare, so it is never
-    evidence about the target - only the lens the target is read through.
-
-    Returns `()` for a partition whose launcher fetches the tool per run instead.
-    """
-    if partition not in PARTITIONS:
-        raise ValueError(
-            f"unknown partition {partition!r}; expected one of {PARTITIONS}"
-        )
-    match partition:
-        case "poetry":
-            return ("poetry", "run", "pip", "install", package)
-        case "pipenv":
-            return ("pipenv", "run", "pip", "install", package)
-        case partition if partition in VENV_PARTITIONS:
-            return (f"{VENV_BIN}/pip", "install", package)
-        case _:
-            # `uv run --with` provisions and runs in one step, so a separate
-            # install would put the package in the project environment the
-            # `deps` checks are reading.
-            return ()
 
 
 def launcher(
@@ -1166,18 +1159,40 @@ def launcher(
 
     An `in_env` tool runs from inside the materialized environment under a
     grant, because the one-shot runner's sandbox cannot see what the target
-    resolved: measured on one tree, `uvx deptry` reported markupsafe as DEP001
-    where deptry inside the environment reported it as DEP003, which is the
-    answer the expectation claims. Grading a correct run against the other one
-    would send a later pass off to "fix" a record that was right.
+    resolved: measured on the pylock partition, `uvx deptry` reported
+    markupsafe as DEP001 where the route below reported it as DEP003, which is
+    the answer the expectation claims. Grading a correct run against the other
+    one would send a later pass off to "fix" a record that was right.
 
     Without the grant there is no environment to run inside, so the same tool
     falls back to the one-shot runner and the run records which it used.
 
-    A `.venv` partition gets no prefix at all: its command name is not always
-    its module name - `pip-licenses` imports as `piplicenses` - so `python -m`
-    has nothing to hand, and the environment's own `bin` goes on `PATH` for the
-    subprocess instead.
+    Every partition but `uv` reaches the environment the same way: `uv run`,
+    pointed at that partition's own `.venv/bin/python` with `--python`, and the
+    needed package brought in from outside with `--with`. This is deliberate
+    and not a shortcut around naming each manager's own runner (`poetry run`,
+    `pipenv run`) - those install the package into the partition's own venv to
+    make it reachable, and that install is itself a write `audit-core` bars:
+    measured on the poetry partition, provisioning `deptry` this way pulled in
+    a newer `packaging` and printed `Uninstalling packaging-20.9`, silently
+    replacing the exact pin the fixture seeded for `deps/freshness` to find
+    outdated. `--with` fetches the tool into a layer outside that venv instead,
+    so the venv the checks read is the one materialization built and nothing
+    else ever touches it. `--no-project` is load-bearing here, not decoration:
+    a partition's copy carries a `pyproject.toml` (`pylock`'s is byte-identical
+    to `uv`'s own) and no `uv.lock`, and a bare `uv run` there does project
+    discovery from `cwd`, locks and syncs it - writing a `uv.lock` into the
+    copy that a later row in the same run would then read, and resolving the
+    tool into a fresh project environment instead of the `--python` one named.
+    Measured: without the flag, `deptry` still passed on the pylock copy, but
+    a `uv.lock` was on disk afterward where none had been before.
+
+    Reaching that venv depends on it existing at `.venv` regardless of which
+    manager built it, which is what `_fixture_env`'s
+    `POETRY_VIRTUALENVS_IN_PROJECT` / `PIPENV_VENV_IN_PROJECT` are for.
+
+    `argv` itself never changes here - what the record prescribes is untouched
+    by any of this; only the words placed in front of it are.
     """
     packages = packages_for(invocation.tool)
     extra = tuple(word for name in packages[1:] for word in ("--with", name))
@@ -1185,15 +1200,18 @@ def launcher(
         if packages == (invocation.tool,):
             return ("uvx",)
         return ("uvx", "--from", packages[0], *extra)
-    match partition:
-        case "poetry":
-            return ("poetry", "run")
-        case "pipenv":
-            return ("pipenv", "run")
-        case partition if partition in VENV_PARTITIONS:
-            return ()
-        case _:
-            return ("uv", "run", "--with", packages[0], *extra)
+    if partition == "uv":
+        return ("uv", "run", "--with", packages[0], *extra)
+    return (
+        "uv",
+        "run",
+        "--no-project",
+        "--python",
+        f"{VENV_BIN}/python",
+        "--with",
+        packages[0],
+        *extra,
+    )
 
 
 def classify(
@@ -1258,15 +1276,20 @@ def classify(
 #
 # `_run` detects an absent tool by `FileNotFoundError` on the binary it
 # launched, which only ever fires where the command *is* the tool. Everywhere a
-# launcher goes in front - `uvx`, `uv run`, `poetry run`, `pipenv run` - that
-# binary exists whatever happens next, so the launcher's own resolution failure
-# comes back as an ordinary non-zero exit and grades `tool-failed`: a tool
-# nobody could fetch, reported as a tool that ran and broke. Measured: `uvx
-# no-such-package-45xyzq` exits 1 with "not found in the package registry".
+# launcher goes in front - `uvx` or `uv run` - that binary exists whatever
+# happens next, so the launcher's own resolution failure comes back as an
+# ordinary non-zero exit and grades `tool-failed`: a tool nobody could fetch,
+# reported as a tool that ran and broke. Measured: `uvx no-such-package-45xyzq`
+# exits 1 with "not found in the package registry".
 #
 # Matching a message is fragile and this is the only signal there is, so the
 # match is narrowed twice - it is consulted only when the command's first word
-# is one of these launchers, and only when the command failed.
+# is one of these launchers, and only when the command failed. Every command
+# this file runs starts with `uv`, `uvx`, or a bare tool name `_run` already
+# reports as absent by `FileNotFoundError` - poetry and pipenv never head a
+# command themselves, since even their own materialization goes through a
+# pinned `uvx poetry@...` / `uvx pipenv@...` - so this dict holds only the two
+# names a launcher's own resolution failure can actually surface under.
 LAUNCHER_MISSES: dict[str, tuple[str, ...]] = {
     "uvx": (
         "not found in the package registry",
@@ -1276,8 +1299,6 @@ LAUNCHER_MISSES: dict[str, tuple[str, ...]] = {
         "not found in the package registry",
         "no solution found when resolving tool dependencies",
     ),
-    "poetry": ("command not found",),
-    "pipenv": ("could not be found within path",),
 }
 
 
@@ -1311,15 +1332,32 @@ def _fixture_env() -> dict[str, str]:
 
     `uv run` also puts this repository's own `.venv/bin` at the front of `PATH`,
     which is the same leak by the other door and a quieter one: that directory
-    carries a `pytest` and a `ruff`, so on a partition whose provisioning failed
-    a bare `pytest` resolves from the handbook's environment and answers about
-    the handbook's tree. It is dropped by path rather than by emptying `PATH`,
-    because the launchers themselves - `uv`, `uvx`, `poetry`, `pipenv` - are
-    installed outside it and have to stay findable.
+    carries a `pytest` and a `ruff`, so a bare `pytest` or `ruff` invoked in a
+    fixture copy resolves from the handbook's environment and answers about the
+    handbook's tree rather than the fixture's. It is dropped by path rather
+    than by emptying `PATH`, because the launchers themselves - `uv`, `uvx`,
+    `poetry`, `pipenv` - are installed outside it and have to stay findable.
+
+    `POETRY_VIRTUALENVS_IN_PROJECT` and `PIPENV_VENV_IN_PROJECT` are set here
+    rather than left unset, and that is the opposite of what
+    `build_python_fixtures._fixture_env` does with the same two names - both
+    functions are enforcing the same invariant from either side of it.
+    Materialization writes into the copy, and the copy is not the fixture
+    `build_python_fixtures` protects, so a venv landing inside it is exactly
+    what this function is for. Left unset, poetry writes its venv to its own
+    cache directory and pipenv to `~/.local/share/virtualenvs`, outside the
+    copy `reconstruct` made and colliding across runs in the caller's home
+    directory instead. Set, both land at `.venv` inside the copy - which is
+    what makes `--python .venv/bin/python` below resolve to the tree this run
+    actually materialized rather than to nothing, or to a stale one a previous
+    run left behind. A future edit that "harmonizes" the two `_fixture_env`
+    functions would silently break this.
     """
     env = dict(os.environ)
     for name in ("VIRTUAL_ENV", "UV_PROJECT_ENVIRONMENT", "PYTHONPATH"):
         env.pop(name, None)
+    env["POETRY_VIRTUALENVS_IN_PROJECT"] = "1"
+    env["PIPENV_VENV_IN_PROJECT"] = "1"
     own_bin = os.path.normpath(str(REPO_ROOT / ".venv" / "bin"))
     env["PATH"] = os.pathsep.join(
         entry
@@ -1330,9 +1368,7 @@ def _fixture_env() -> dict[str, str]:
     return env
 
 
-def _run(
-    command: Sequence[str], cwd: Path, timeout: int, bin_dir: Path | None = None
-) -> dict[str, object]:
+def _run(command: Sequence[str], cwd: Path, timeout: int) -> dict[str, object]:
     """Run one command and report what happened, distinguishing the failures.
 
     A tool that is missing and a tool that ran and failed are different facts -
@@ -1345,12 +1381,8 @@ def _run(
         command: The argv to run.
         cwd: The materialized copy to run it in.
         timeout: Seconds before the command is abandoned as hung.
-        bin_dir: A directory to put in front of `PATH`, for a partition whose
-            environment is a plain `.venv` and whose tools are found by name.
     """
     env = _fixture_env()
-    if bin_dir is not None:
-        env["PATH"] = os.pathsep.join([str(bin_dir), env.get("PATH", "")])
     try:
         completed = subprocess.run(
             list(command),
@@ -1567,9 +1599,8 @@ def probe_versions(
             )
             continue
         prefix = launcher(inv, partition, granted=granted)
-        bin_dir = work_dir / VENV_BIN if not prefix and inv.in_env else None
         command = (*prefix, *probe)
-        outcome = _run(command, work_dir, timeout, bin_dir)
+        outcome = _run(command, work_dir, timeout)
         stdout = str(outcome["stdout"]).strip()
         stderr = str(outcome["stderr"]).strip()
         if outcome["returncode"] == 0:
@@ -1671,27 +1702,15 @@ def run_partition(
         if supplied:
             rows.append(_run_supplied(invocation, supplied, copy, timeout, row))
             continue
+        # A tool the fixture does not declare is fetched by `launcher` from
+        # outside the copy - `uv run --with` (or, off `uv`, the same route
+        # pointed `--python` at the copy's own venv) - and never installed into
+        # the copy this run owns, never mind the fixture or the shared tree:
+        # `audit-core` bars all three, and a package the audit added is never
+        # evidence about the target wherever it landed.
         prefix = launcher(invocation, partition, granted=granted)
-        bin_dir = copy / VENV_BIN if not prefix and invocation.in_env else None
-        # A tool the fixture does not declare goes into the copy this run owns,
-        # never into the fixture and never into the shared tree: `audit-core`
-        # bars both, and a package the audit added is never evidence about the
-        # target whichever tree it landed in.
-        if invocation.in_env and granted:
-            installs = []
-            for package in packages_for(invocation.tool):
-                provision = provision_command(partition, package)
-                if provision:
-                    installs.append(
-                        {
-                            "command": list(provision),
-                            **_run(provision, copy, timeout, bin_dir),
-                        }
-                    )
-            if installs:
-                row["provision"] = installs
         command = (*prefix, *argv)
-        outcome = _run(command, copy, timeout, bin_dir)
+        outcome = _run(command, copy, timeout)
         row |= {"ran": True, "command": list(command), **outcome}
         # A route the record writes as two commands is one route, so both halves
         # reach the verdict. Classifying on the first alone would grade a route
@@ -1700,7 +1719,7 @@ def run_partition(
         ran: list[tuple[Sequence[str], dict[str, object]]] = [(command, outcome)]
         if invocation.then:
             follow_up = (*prefix, *invocation.then)
-            then_outcome = _run(follow_up, copy, timeout, bin_dir)
+            then_outcome = _run(follow_up, copy, timeout)
             row["then"] = {"command": list(follow_up), **then_outcome}
             ran.append((follow_up, then_outcome))
         row |= _verdict(ran, invocation.findings_stream)

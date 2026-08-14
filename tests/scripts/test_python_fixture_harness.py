@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pytest
 from audit_checks import SKILLS_DIR, load_checks
+from build_python_fixtures import PINNED_MANAGERS
 from python_fixture_spec import (
     DEPS_CHECKS,
     EXPECTATIONS,
@@ -34,7 +35,6 @@ from run_python_fixture_lens import (
     SUPPLIED_REQUIREMENTS,
     TOOL_PACKAGES,
     VENV_BIN,
-    VENV_PARTITIONS,
     VERSION_PROBE,
     Invocation,
     _fixture_env,
@@ -48,7 +48,6 @@ from run_python_fixture_lens import (
     main,
     packages_for,
     probe_versions,
-    provision_command,
     reconstruct,
     run_partition,
     tools_named_in_records,
@@ -596,9 +595,12 @@ def test_a_route_that_runs_the_suite_brings_a_runner_the_fixture_does_not_declar
     )
 
 
-def test_a_multi_package_route_installs_each_of_them_into_the_copy(
+def test_a_multi_package_route_carries_one_with_per_package_in_the_overlay(
     tmp_path, monkeypatch
 ):
+    """`coverage.py` needs `pytest` alongside it; both arrive as `--with` flags
+    on the same `uv run` rather than as separate installs into the copy.
+    """
     source = tmp_path / "fixture" / "poetry"
     source.mkdir(parents=True)
     monkeypatch.setattr("run_python_fixture_lens._run", _fake_run([]))
@@ -606,11 +608,19 @@ def test_a_multi_package_route_installs_each_of_them_into_the_copy(
         "poetry", source, tmp_path / "work", "target-execution", timeout=5
     )
     rows = {(r["check"], r["tool"]): r for r in observed["results"]}
-    installed = [
-        entry["command"][-1]
-        for entry in rows[("test/coverage-reach", "coverage.py")]["provision"]
+    command = rows[("test/coverage-reach", "coverage.py")]["command"]
+    assert command[:8] == [
+        "uv",
+        "run",
+        "--no-project",
+        "--python",
+        f"{VENV_BIN}/python",
+        "--with",
+        "coverage",
+        "--with",
     ]
-    assert installed == ["coverage", "pytest"]
+    assert command[8] == "pytest"
+    assert "provision" not in rows[("test/coverage-reach", "coverage.py")]
 
 
 def test_a_deps_tool_runs_from_inside_the_materialized_environment():
@@ -628,48 +638,62 @@ def test_a_deps_tool_runs_from_inside_the_materialized_environment():
 
 
 def test_an_in_env_tool_is_launched_through_the_partitions_own_environment():
+    """`uv` is the round's known-good reference route and keeps its own shape;
+    every other partition reaches the same environment through `--python`
+    rather than through that manager's own runner.
+    """
     inv = next(
         i for i in INVOCATIONS if (i.check, i.tool) == ("deps/hygiene", "deptry")
     )
-    assert launcher(inv, "uv", granted=True)[0] == "uv"
-    assert launcher(inv, "poetry", granted=True)[:2] == ("poetry", "run")
-    assert launcher(inv, "pipenv", granted=True)[:2] == ("pipenv", "run")
+    assert launcher(inv, "uv", granted=True) == ("uv", "run", "--with", "deptry")
+    for partition in ("pip", "poetry", "pipenv", "pylock"):
+        assert launcher(inv, partition, granted=True) == (
+            "uv",
+            "run",
+            "--no-project",
+            "--python",
+            f"{VENV_BIN}/python",
+            "--with",
+            "deptry",
+        ), partition
 
 
-def test_a_venv_partition_is_launched_by_name_rather_than_through_python_m():
-    """`pip-licenses` imports as `piplicenses`, so `python -m` has nothing to hand.
-
-    The environment's own `bin` goes on `PATH` instead, which finds every tool
-    by the command name the record wrote rather than by a module name the record
-    never mentions.
+def test_a_venv_partition_is_launched_through_the_overlay_rather_than_by_name():
+    """`pip-licenses` imports as `piplicenses`, so `python -m` has nothing to
+    hand - and installing it into the copy is the write `audit-core` bars, so
+    neither a bare command name on `PATH` nor an install is the route.
     """
     inv = next(
         i for i in INVOCATIONS if (i.check, i.tool) == ("deps/licenses", "pip-licenses")
     )
-    for partition in VENV_PARTITIONS:
-        assert launcher(inv, partition, granted=True) == ()
-    assert set(VENV_PARTITIONS) == {"pip", "pylock"}
+    for partition in ("pip", "pylock"):
+        assert launcher(inv, partition, granted=True) == (
+            "uv",
+            "run",
+            "--no-project",
+            "--python",
+            f"{VENV_BIN}/python",
+            "--with",
+            "pip-licenses",
+        )
 
 
-def test_an_audit_owned_tool_is_installed_into_the_copy_this_run_owns():
-    """`audit-core` bars installing into the target and prescribes a copy instead.
-
-    Without the install the granted run reports every in-environment tool as
-    `tool-unavailable` on four of the five partitions, which is a finding the
-    harness invented rather than one the family has.
+def test_no_audit_owned_tool_is_ever_installed_into_a_materialized_copy():
+    """`audit-core` bars installing into the target and prescribes a copy
+    outside it instead - measured on the poetry partition, installing `deptry`
+    the other way pulled in a newer `packaging` and printed
+    `Uninstalling packaging-20.9`, silently replacing the exact pin the fixture
+    seeded for `deps/freshness` to find outdated. `launcher` is the only thing
+    that decides how a tool is obtained, so a route with no separate
+    provisioning step is a property of every `in_env` invocation on every
+    partition rather than something asserted partition by partition.
     """
-    assert provision_command("poetry", "deptry") == (
-        "poetry",
-        "run",
-        "pip",
-        "install",
-        "deptry",
-    )
-    assert provision_command("pipenv", "deptry")[:2] == ("pipenv", "run")
-    assert provision_command("pip", "deptry") == (".venv/bin/pip", "install", "deptry")
-    assert provision_command("uv", "deptry") == ()
-    with pytest.raises(ValueError, match="conda"):
-        provision_command("conda", "deptry")
+    for inv in INVOCATIONS:
+        if not inv.in_env:
+            continue
+        for partition in PARTITIONS:
+            prefix = launcher(inv, partition, granted=True)
+            assert "install" not in prefix, (inv.check, inv.tool, partition)
 
 
 def test_an_ungranted_run_never_launches_through_a_tree_it_does_not_have():
@@ -689,25 +713,51 @@ def test_every_partition_has_a_materialization_route():
     leaves a route that still runs, still succeeds, and still looks like a
     route - so nothing short of the whole mapping holds it.
     """
-    assert MATERIALIZE == {
+    assert {
         "uv": (("uv", "sync", "--frozen"),),
         "pip": (
-            ("python", "-m", "venv", ".venv"),
+            ("uv", "venv", "--seed", ".venv"),
             (".venv/bin/pip", "install", "-r", "requirements.txt"),
             (".venv/bin/pip", "install", "-e", ".", "--no-deps"),
         ),
-        "poetry": (("poetry", "install"),),
+        "poetry": (("uvx", PINNED_MANAGERS["poetry"], "install"),),
         "pipenv": (
-            ("pipenv", "sync"),
-            ("pipenv", "run", "pip", "install", "-e", ".", "--no-deps"),
+            ("uvx", PINNED_MANAGERS["pipenv"], "sync"),
+            (
+                "uvx",
+                PINNED_MANAGERS["pipenv"],
+                "run",
+                "pip",
+                "install",
+                "-e",
+                ".",
+                "--no-deps",
+            ),
         ),
         "pylock": (
             ("uv", "venv", ".venv"),
             ("uv", "pip", "install", "-r", "pylock.toml"),
             ("uv", "pip", "install", "-e", ".", "--no-deps"),
         ),
-    }
+    } == MATERIALIZE
     assert set(MATERIALIZE) == set(PARTITIONS)
+
+
+def test_materialization_pins_the_same_manager_versions_the_generator_used():
+    """A pin that drifts between the two files materializes with a manager
+    different from the one that built the lock in the first place.
+
+    Compared against the rendered `MATERIALIZE` commands rather than against
+    `PINNED_MANAGERS` itself, so a call site that hardcoded a version instead
+    of reading the constant would still be caught - comparing the constant to
+    itself would not.
+    """
+    for partition in ("poetry", "pipenv"):
+        tokens = [token for command in MATERIALIZE[partition] for token in command]
+        assert PINNED_MANAGERS[partition] in tokens, partition
+        assert tokens.count(PINNED_MANAGERS[partition]) == len(
+            MATERIALIZE[partition]
+        ), partition
 
 
 def test_every_materialization_route_ends_by_installing_the_project_itself():
@@ -1076,14 +1126,31 @@ def test_the_run_environment_drops_the_handbooks_own_virtualenv(monkeypatch):
     assert env["PIPENV_IGNORE_VIRTUALENVS"] == "1"
 
 
+def test_the_run_environment_puts_every_managers_venv_in_the_copy():
+    """`launcher`'s `--python .venv/bin/python` only resolves anything because
+    of these two: left unset, poetry writes its venv to its own cache
+    directory and pipenv to `~/.local/share/virtualenvs`, neither of which is
+    `.venv` inside the copy the route points at.
+
+    The opposite of `build_python_fixtures._fixture_env`, which pops the same
+    two names - that function protects the committed fixture from ever
+    carrying a venv, this one guarantees materialization writes one into the
+    throwaway copy where the launcher can reach it. Both enforce "no venv in
+    the tree that must stay clean, a venv in the tree that may not."
+    """
+    env = _fixture_env()
+    assert env["POETRY_VIRTUALENVS_IN_PROJECT"] == "1"
+    assert env["PIPENV_VENV_IN_PROJECT"] == "1"
+
+
 def test_the_handbooks_own_bin_directory_is_off_the_subprocess_path(monkeypatch):
     """It carries a `pytest` and a `ruff`, and `uv run` puts it first.
 
-    Left there, a partition whose provisioning failed still resolves a bare
-    `pytest` or `ruff` - from this repository's environment, against a copy of
-    somebody else's tree - and answers about the wrong project while looking
-    like a clean run. The launchers are installed elsewhere, so dropping this
-    one directory leaves them findable.
+    Left there, a bare `pytest` or `ruff` invoked in a fixture copy still
+    resolves from this repository's environment, against a copy of somebody
+    else's tree, and answers about the wrong project while looking like a
+    clean run. The launchers are installed elsewhere, so dropping this one
+    directory leaves them findable.
     """
     own_bin = str(REPO_ROOT / ".venv" / "bin")
     monkeypatch.setenv(
@@ -1127,14 +1194,15 @@ def _fake_run(recorded, respond=None, launches=None):
         recorded: Gets each command, as a list.
         respond: Called with the command; return an outcome to override the
             clean default, or `None` to take it.
-        launches: Gets `(command, bin_dir)` for each call, for the tests about
-            where a partition finds its tools.
+        launches: Gets each command as a tuple, for the tests about which
+            words a partition's route puts in front of the record's own
+            command.
     """
 
-    def run(command, cwd, timeout, bin_dir=None):
+    def run(command, cwd, timeout):
         recorded.append(list(command))
         if launches is not None:
-            launches.append((tuple(command), bin_dir))
+            launches.append(tuple(command))
         if respond is not None:
             override = respond(list(command))
             if override is not None:
@@ -1224,7 +1292,7 @@ def test_an_unknown_grant_is_rejected_by_name(tmp_path, monkeypatch):
 def test_a_failed_materialization_stops_the_rest_of_the_route(tmp_path, monkeypatch):
     """The remaining steps are written against a tree the first one did not build.
 
-    `pip install -r requirements.txt` into a virtualenv `python -m venv` failed
+    `pip install -r requirements.txt` into a virtualenv `uv venv --seed` failed
     to create does not install anything; it fails differently, and the second
     failure is the one that gets recorded.
     """
@@ -1236,8 +1304,8 @@ def test_a_failed_materialization_stops_the_rest_of_the_route(tmp_path, monkeypa
         _fake_run(
             recorded,
             respond=lambda command: (
-                _outcome(returncode=1, stdout="", stderr="no python")
-                if command[:2] == ["python", "-m"]
+                _outcome(returncode=1, stdout="", stderr="no venv")
+                if command[:2] == ["uv", "venv"]
                 else None
             ),
         ),
@@ -1246,7 +1314,7 @@ def test_a_failed_materialization_stops_the_rest_of_the_route(tmp_path, monkeypa
         "pip", source, tmp_path / "work", "target-execution", timeout=5
     )
     assert [m["command"] for m in observed["materialization"]] == [
-        ["python", "-m", "venv", ".venv"]
+        ["uv", "venv", "--seed", ".venv"]
     ]
     assert not any(command[:1] == [".venv/bin/pip"] for command in recorded)
 
@@ -1270,8 +1338,8 @@ def test_a_row_needing_the_tree_says_the_materialization_failed_rather_than_runn
         _fake_run(
             recorded,
             respond=lambda command: (
-                _outcome(returncode=1, stderr="no python")
-                if command[:2] == ["python", "-m"]
+                _outcome(returncode=1, stderr="no venv")
+                if command[:2] == ["uv", "venv"]
                 else None
             ),
         ),
@@ -1289,8 +1357,8 @@ def test_a_row_needing_the_tree_says_the_materialization_failed_rather_than_runn
         assert row["ran"] is False, row["check"]
         assert (row["status"], row["reason"]) == ("no-evidence", "tool-unavailable")
         assert row["detail"] == "environment-unmaterialized"
-        assert row["blocked_by"] == ["python", "-m", "venv", ".venv"]
-        assert "python -m venv .venv" in row["why"]
+        assert row["blocked_by"] == ["uv", "venv", "--seed", ".venv"]
+        assert "uv venv --seed .venv" in row["why"]
     assert not any("deptry" in command for command in recorded)
 
 
@@ -1478,16 +1546,16 @@ def test_a_launcher_that_cannot_fetch_the_tool_reports_it_as_unavailable(
     """Measured: `uvx no-such-package-45xyzq` exits 1 saying the registry has none.
 
     `_run` sees `FileNotFoundError` only where the command *is* the tool, and
-    `uvx`, `poetry run` and `pipenv run` always exist - so on three of the five
-    partitions a tool nobody could fetch came back as a tool that ran and
-    failed, and `tool-unavailable` was unreachable.
+    `uvx`/`uv` always exist - so a tool nobody could fetch came back as a tool
+    that ran and failed, and `tool-unavailable` was unreachable.
     """
     assert launcher_missed(
         ("uvx", "nope"), 1, "error: `nope` was not found in the package registry"
     )
-    assert launcher_missed(("poetry", "run", "nope"), 1, "Command not found: nope")
     assert launcher_missed(
-        ("pipenv", "run", "nope"), 1, "the command could not be found within PATH"
+        ("uv", "run", "--with", "nope", "nope"),
+        1,
+        "error: `nope` was not found in the package registry",
     )
     assert not launcher_missed(("uvx", "bandit"), 1, "B602 found")
     assert not launcher_missed(("uvx", "nope"), 0, "not found in the package registry")
@@ -1552,36 +1620,44 @@ def test_a_completed_row_reports_the_record_and_the_command_as_two_things(
     assert "placeholder" in bandit["note"]
 
 
-def test_the_venv_partitions_find_their_tools_on_the_copys_own_path(
+def test_every_partition_but_uv_reaches_its_tools_through_the_overlay_route(
     tmp_path, monkeypatch
 ):
-    """`pip` and `pylock` are the two partitions with no launcher words at all.
+    """Every partition but `uv` runs an in-env tool by pointing `uv run` at its
+    own `.venv/bin/python`, never by installing the tool into that venv.
 
-    They run a bare command name and rely on the copy's `.venv/bin` being put
-    in front of `PATH`, which is wiring nothing exercises if `run_partition` is
-    only ever driven with `uv` and `poetry` - the two partitions that never
-    take that branch.
+    `--no-project` matters as much as `--python` here: `pip` and `pylock`
+    partitions differ in whether their copy carries a `pyproject.toml` at all,
+    and a bare `uv run` would do project discovery from `cwd` on the ones that
+    do, which is exactly the corruption this route exists to avoid.
     """
-    for partition in ("pip", "pylock"):
+    for partition in ("pip", "poetry", "pipenv", "pylock"):
         source = tmp_path / "fixture" / partition
         source.mkdir(parents=True)
-        launches = []
-        monkeypatch.setattr(
-            "run_python_fixture_lens._run", _fake_run([], launches=launches)
-        )
+        recorded = []
+        monkeypatch.setattr("run_python_fixture_lens._run", _fake_run(recorded))
         work = tmp_path / f"work-{partition}"
         observed = run_partition(partition, source, work, "target-execution", timeout=5)
         rows = {(r["check"], r["tool"]): r for r in observed["results"]}
         deptry = rows[("deps/hygiene", "deptry")]
-        assert deptry["command"] == ["deptry", "."], partition
+        assert deptry["command"] == [
+            "uv",
+            "run",
+            "--no-project",
+            "--python",
+            f"{VENV_BIN}/python",
+            "--with",
+            "deptry",
+            "deptry",
+            ".",
+        ], partition
         assert deptry["status"] == "ok", partition
-        bin_dirs = {
-            bin_dir for command, bin_dir in launches if command == ("deptry", ".")
-        }
-        assert bin_dirs == {work / partition / VENV_BIN}, partition
-        assert (".venv/bin/pip", "install", "deptry") in [c for c, _ in launches], (
-            partition
-        )
+        # The record's own argv is untouched by any of this - only the words
+        # placed in front of it differ from the bare `deptry` the record
+        # prescribes (`.` is this file's own completion, not the record's).
+        assert deptry["record_argv"] == ["deptry"], partition
+        for row in observed["results"]:
+            assert "provision" not in row, (partition, row["check"], row["tool"])
 
 
 def test_the_results_file_lands_beside_the_partitions_never_inside_one(
@@ -1732,14 +1808,15 @@ def test_a_tool_with_no_version_route_reports_the_stated_reason_rather_than_runn
     assert not any("ruff" in command for command in recorded)
 
 
-def test_a_venv_partitions_probe_finds_its_in_env_tool_on_the_copys_own_path(
+def test_a_non_uv_partitions_probe_reaches_its_in_env_tool_through_the_overlay(
     tmp_path, monkeypatch
 ):
-    """`pip` and `pylock` carry no launcher words, same as the real invocation.
+    """`pip` and `pylock` carry the same launcher words as the real invocation.
 
-    Without the copy's `.venv/bin` on `PATH`, a bare `pip-licenses --version`
-    would resolve nothing there and every in-env probe on these two partitions
-    would read as a missing tool rather than the version actually installed.
+    Without `--python .venv/bin/python` in front, a bare `pip-licenses
+    --version` would resolve nothing in the copy and every in-env probe on
+    these partitions would read as a missing tool rather than the version
+    actually installed.
     """
     launches = []
     monkeypatch.setattr(
@@ -1747,12 +1824,17 @@ def test_a_venv_partitions_probe_finds_its_in_env_tool_on_the_copys_own_path(
     )
     versions = probe_versions("pip", "target-execution", tmp_path, timeout=5)
     assert versions["pip-licenses"] == "output"
-    bin_dirs = {
-        bin_dir
-        for command, bin_dir in launches
-        if command == ("pip-licenses", "--version")
-    }
-    assert bin_dirs == {tmp_path / VENV_BIN}
+    assert (
+        "uv",
+        "run",
+        "--no-project",
+        "--python",
+        f"{VENV_BIN}/python",
+        "--with",
+        "pip-licenses",
+        "pip-licenses",
+        "--version",
+    ) in launches
 
 
 def test_every_pytest_plugin_carries_in_env_so_its_probe_resolves_into_an_environment():
