@@ -28,13 +28,18 @@ second copy of a fact the records already state is a copy free to drift:
   is what the exact-set guard in the tests compares the table against.
 
 `classify` maps one observation into the engine's vocabulary and never leaves
-it. **A non-zero exit is not a tool failure by itself**: bandit, ruff, deptry,
-pip-audit and a shuffled pytest all exit non-zero precisely when they find what
-this fixture planted, so the failure signal is a non-zero exit with nothing on
-the stream that tool reports its findings on. Which stream that is varies -
-deptry writes its whole report to stderr and leaves stdout empty - so it is a
-per-entry fact in `findings_stream` rather than an assumption that every tool
-reports on stdout.
+it. **A non-zero exit is not a tool failure by itself - for a tool proven
+capable of a designed one**: bandit, ruff, deptry, pip-audit and a shuffled
+pytest all exit non-zero precisely when they find what this fixture planted,
+so for these the failure signal is a non-zero exit with nothing on the stream
+that tool reports its findings on. Which stream that is varies - deptry writes
+its whole report to stderr and leaves stdout empty - so it is a per-entry fact
+in `findings_stream` rather than an assumption that every tool reports on
+stdout. What each tool's non-zero exit *means* is itself a per-tool fact,
+`NONZERO_EXIT_MEANING`, rather than a rule every tool shares: `mutmut` writes
+status text to stdout on every run, failure or not, so content on a stream is
+not evidence there for the reason it is for a linter - proven from `mutmut`'s
+own source, not assumed, and named beside the table.
 
 Nothing here writes into a fixture tree. Every run happens in a copy made in a
 scratch directory that does not resolve under the fixture root, because a tool
@@ -542,6 +547,14 @@ INVOCATIONS: tuple[Invocation, ...] = (
             "the record names the tool and no arguments; xenon needs both a threshold "
             "and a path, and the expectation is written against `--max-absolute B`"
         ),
+        # Measured: `uvx xenon --max-absolute B src` on the seeded partition exits 1
+        # with stdout empty and the whole finding on stderr -
+        # `ERROR:xenon:block "src/fixture_app/complexity.py:4 classify" has a rank of
+        # C`. Left at the stdout default, that finding was invisible to `classify`,
+        # which read an empty stdout and graded the row `tool-failed` - a real hit
+        # converted into no-evidence, the same shape `deptry` would be in without its
+        # own `findings_stream="stderr"` below.
+        findings_stream="stderr",
         record_quote=(
             "`ruff check --select C901` or `radon cc` / `xenon`. Capture the metric "
             "per function."
@@ -1214,6 +1227,115 @@ def launcher(
     )
 
 
+def inner_uv_target(invocation: Invocation, *, granted: bool) -> tuple[str, ...]:
+    """The words that go *after* the command, and only for a `uv` being run.
+
+    Every other `in_env` tool resolves its target from the interpreter
+    `launcher` already put in front of it - `pip`, `deptry`, `pip-licenses` and
+    the rest are Python-native, so the process `--python` execs into is the one
+    whose environment they read. `uv` is not: it is a standalone binary that,
+    invoked as the *command* rather than as the thing running the command,
+    does its own environment resolution from scratch and does not inherit the
+    outer `uv run`'s target - measured: `uv run --no-project --python
+    .venv/bin/python --with uv uv pip list --outdated` prints nothing (rc 0,
+    empty stdout) on a partition whose environment has three outdated
+    packages, and the same command with a trailing `--python .venv/bin/python`
+    on the *inner* `uv` lists all three. Confirmed the same gap exists on the
+    `uv` partition's own native route (`uv run --with uv uv pip list
+    --outdated`, no `--no-project` involved) - this is about the inner `uv`
+    specifically, not about `--no-project`.
+
+    This is harness plumbing rather than a claim from any record, the same way
+    `TOOL_PACKAGES` is: `argv_for` and `launcher` are untouched, and the words
+    this returns are appended once, after the record's own command, only when
+    `invocation.tool` is `uv` itself and the run is both `in_env` and granted -
+    everywhere else it is `()`, so no other tool's command gains a trailing
+    flag it never asked for.
+
+    What `uv pip list --outdated` does with a target it *can* see - silently
+    reporting an empty environment at exit 0 rather than erroring - is a fact
+    about that tool, not something this function papers over; it is recorded
+    as a finding rather than worked around here.
+    """
+    if invocation.tool != "uv" or not (invocation.in_env and granted):
+        return ()
+    return ("--python", f"{VENV_BIN}/python")
+
+
+# What a non-zero exit from this tool means, so `classify` never has to guess
+# it from the shape of one observation. The three values:
+#
+# * `findings` - the tool's whole design is to signal a violation through its
+#   exit code, and the report it prints is what tells a genuine hit from a
+#   tool that broke before producing one. `classify` still requires content on
+#   the tool's own `findings_stream` before it grades a non-zero exit `ok`;
+#   this value only says the tool is *capable* of a designed non-zero exit in
+#   the first place, which the ones below are not.
+# * `failure` - a non-zero exit from this exact invocation is proven to never
+#   mean a finding, so content on either stream is never read as one. `mutmut`
+#   is the one entry here, and it is proven rather than assumed: `mutmut run`
+#   (bare, the record's own invocation, no `mutant_names`) only calls `exit(1)`
+#   from setup/collection failures - a stats-collection error, no test
+#   associated with any mutant, or (measured on this fixture) a failing
+#   baseline reported as `Failed to run clean test` - and the loop that tests
+#   the generated mutants and prints survivor counts never calls `sys.exit` or
+#   `exit()` on their account; a completed run simply returns. So there is no
+#   path from "mutants survived" to a non-zero exit for this command, and the
+#   spinner/status text `mutmut` always writes to stdout regardless of outcome
+#   is not evidence of anything - reading it as a report, the way `findings`
+#   does, is exactly the bug this table exists to stop.
+# * `ambiguous` - a reporting/listing tool with no gating flag in the recorded
+#   invocation, so nothing here establishes what its non-zero exit would mean;
+#   the honest answer is that it is not known, and the conservative reading
+#   (never `ok` on a non-zero exit) is what `classify` gives it, same as
+#   `failure`. Distinct from `failure` in name because nothing has been proven
+#   about these the way it has for `mutmut` - a future observation might
+#   promote one to `findings` with a stated reason, never silently.
+#
+# Every tool a partition could ever hand `classify` a non-zero exit for is
+# named here; the exact-set guard in the tests is what holds that, so a tool
+# added to `INVOCATIONS` without an entry fails loudly rather than defaulting.
+NONZERO_EXIT_KINDS = ("findings", "failure", "ambiguous")
+
+NONZERO_EXIT_MEANING: dict[str, str] = {
+    "ruff": "findings",
+    "xenon": "findings",
+    "vulture": "findings",
+    "bandit": "findings",
+    "semgrep": "findings",
+    "pydocstyle": "findings",
+    "interrogate": "findings",
+    "deptry": "findings",
+    "pip-audit": "findings",
+    "pytest-cov": "findings",
+    "pytest-randomly": "findings",
+    "pytest-timeout": "findings",
+    "mutmut": "failure",
+    "radon": "ambiguous",
+    "pydeps": "ambiguous",
+    "uv": "ambiguous",
+    "pip": "ambiguous",
+    "cyclonedx-py": "ambiguous",
+    "pip-licenses": "ambiguous",
+    "coverage.py": "ambiguous",
+}
+
+
+def nonzero_exit_meaning(tool: str) -> str:
+    """What a non-zero exit from `tool` means, read out of the stated table.
+
+    Raises rather than defaulting, for the same reason `grant_tier` raises on
+    an unknown (check, tool) pair: an omitted entry must never read as a
+    silent claim, and silence is exactly how xenon and mutmut were misgraded.
+    """
+    if tool not in NONZERO_EXIT_MEANING:
+        raise ValueError(
+            f"{tool!r} has no stated non-zero-exit meaning in NONZERO_EXIT_MEANING; "
+            "an omitted entry would read as a silent default rather than a decision"
+        )
+    return NONZERO_EXIT_MEANING[tool]
+
+
 def classify(
     returncode: int,
     stdout: str,
@@ -1222,6 +1344,7 @@ def classify(
     *,
     permitted: bool = True,
     findings_stream: str = "stdout",
+    nonzero_meaning: str = "findings",
 ) -> tuple[str, str]:
     """Map one observation into the engine's vocabulary.
 
@@ -1229,16 +1352,28 @@ def classify(
     round is that the family is tested against the engine's scale rather than
     that the scale grows to fit what came back.
 
-    **A non-zero exit is not a failure by itself.** bandit, ruff, deptry,
-    pip-audit and a shuffled pytest all exit non-zero exactly when they find
-    what this fixture planted, so reading the exit code alone would grade every
-    correct run as a tool defect. What distinguishes a failure is a non-zero
+    **A non-zero exit is not a failure by itself - but only for a tool whose
+    designed exit code says so.** bandit, ruff, deptry, pip-audit and a
+    shuffled pytest all exit non-zero exactly when they find what this fixture
+    planted, so reading the exit code alone would grade every correct run as a
+    tool defect. What distinguishes a failure, for one of these, is a non-zero
     exit with nothing on the stream that tool reports on - a tool that ran and
     produced no report. Which stream that is comes from the entry, because it
     varies: measured, `deptry .` on a seeded partition exits 1 with an empty
     stdout and its whole report on stderr, so reading stdout for it would grade
     a run that found every planted seed as a tool failure and a run that found
     nothing as clean.
+
+    **That content-based rule only holds for a tool proven capable of a
+    designed non-zero exit**, which `nonzero_meaning` states rather than
+    assumes. `mutmut` breaks the rule outright: it writes a spinner and status
+    text to stdout on every run, failure or not, so "is there content on the
+    stream" cannot tell a completed mutation run from one that died in setup -
+    measured, a run that got as far as `Failed to run clean test` and tested
+    zero mutants still has non-empty stdout. A tool marked `failure` or
+    `ambiguous` is never graded `ok` on a non-zero exit regardless of what is
+    on either stream, because a tool that may have done nothing must never
+    read as a tool that answered.
 
     **This is triage rather than grading, and the limit is real in both
     directions.** Nothing here can tell a report from an error message on the
@@ -1258,17 +1393,31 @@ def classify(
         tool_present: Whether the tool could be obtained at all.
         permitted: Whether the run holds the grant this tool needs.
         findings_stream: Which of the two streams this tool reports on.
+        nonzero_meaning: What a non-zero exit from this tool means - one of
+            `NONZERO_EXIT_KINDS`. Only `findings` ever turns a non-zero exit
+            into `ok`, and only then with content on `findings_stream`.
 
     Returns:
         The status and its reason; the reason is empty for `ok`.
     """
+    if nonzero_meaning not in NONZERO_EXIT_KINDS:
+        raise ValueError(
+            f"nonzero_meaning is {nonzero_meaning!r}; expected one of "
+            f"{NONZERO_EXIT_KINDS}"
+        )
     if not permitted:
         return ("no-evidence", "not-permitted")
     if not tool_present:
         return ("no-evidence", "tool-unavailable")
-    findings = stderr if findings_stream == "stderr" else stdout
-    if returncode == 0 or findings.strip():
+    if returncode == 0:
         return ("ok", "")
+    if nonzero_meaning == "findings":
+        findings = stderr if findings_stream == "stderr" else stdout
+        if findings.strip():
+            return ("ok", "")
+    # `failure` and `ambiguous` both fall through to here on any non-zero
+    # exit, and so does `findings` with nothing on its own stream: none of the
+    # three is evidence the tool answered.
     return ("no-evidence", "tool-failed")
 
 
@@ -1454,6 +1603,7 @@ def reconstruct(partition: str, source: Path, work_root: Path) -> Path:
 def _verdict(
     ran: Sequence[tuple[Sequence[str], dict[str, object]]],
     findings_stream: str,
+    nonzero_meaning: str,
 ) -> dict[str, object]:
     """The status of a route, read from every command it ran.
 
@@ -1467,6 +1617,9 @@ def _verdict(
         ran: Each step's argv paired with what `_run` returned for it, in the
             order they ran.
         findings_stream: Which stream this tool reports its findings on.
+        nonzero_meaning: What a non-zero exit from this tool means, read once
+            by the caller from `NONZERO_EXIT_MEANING` and passed straight
+            through to `classify` for every step.
 
     Returns:
         The `status` and `reason` keys, plus `detail` where one of `DETAILS`
@@ -1504,6 +1657,7 @@ def _verdict(
             stderr,
             tool_present=present,
             findings_stream=findings_stream,
+            nonzero_meaning=nonzero_meaning,
         )
         detail = ""
         if status != "ok":
@@ -1542,7 +1696,9 @@ def _run_supplied(
         "steps": [{"command": list(c), **o} for c, o in ran],
         **ran[-1][1],
     }
-    row |= _verdict(ran, invocation.findings_stream)
+    row |= _verdict(
+        ran, invocation.findings_stream, nonzero_exit_meaning(invocation.tool)
+    )
     return row
 
 
@@ -1709,7 +1865,13 @@ def run_partition(
         # `audit-core` bars all three, and a package the audit added is never
         # evidence about the target wherever it landed.
         prefix = launcher(invocation, partition, granted=granted)
-        command = (*prefix, *argv)
+        # `inner_uv_target` is `()` for every tool but `uv` itself: an inner
+        # `uv`, unlike the Python-native tools this route also carries, does
+        # not inherit the interpreter `--python` already named in `prefix` and
+        # has to be told again, after its own argv - see its docstring for the
+        # measured gap this closes.
+        suffix = inner_uv_target(invocation, granted=granted)
+        command = (*prefix, *argv, *suffix)
         outcome = _run(command, copy, timeout)
         row |= {"ran": True, "command": list(command), **outcome}
         # A route the record writes as two commands is one route, so both halves
@@ -1718,11 +1880,13 @@ def run_partition(
         # coverage table behind it - the shape `then` exists to prevent.
         ran: list[tuple[Sequence[str], dict[str, object]]] = [(command, outcome)]
         if invocation.then:
-            follow_up = (*prefix, *invocation.then)
+            follow_up = (*prefix, *invocation.then, *suffix)
             then_outcome = _run(follow_up, copy, timeout)
             row["then"] = {"command": list(follow_up), **then_outcome}
             ran.append((follow_up, then_outcome))
-        row |= _verdict(ran, invocation.findings_stream)
+        row |= _verdict(
+            ran, invocation.findings_stream, nonzero_exit_meaning(invocation.tool)
+        )
         rows.append(row)
 
     versions = probe_versions(partition, grant, copy, timeout, blocked_by=blocked_by)
