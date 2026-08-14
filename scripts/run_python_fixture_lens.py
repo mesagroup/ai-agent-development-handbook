@@ -692,19 +692,6 @@ INVOCATIONS: tuple[Invocation, ...] = (
         note="grimp refs are counted from the built graph rather than from a command",
     ),
     Invocation(
-        check="arch/over-abstraction",
-        tool="ruff",
-        record_quote=(
-            "the signal is *fan-in to an abstraction*, computed from the same edge/AST "
-            "set built for layering."
-        ),
-        note=(
-            "this record lists ruff in `tooling.python` and its fallback never names "
-            "it, so there is no prescribed invocation to transcribe - which is a "
-            "finding about the record rather than about the tool"
-        ),
-    ),
-    Invocation(
         check="arch/over-decomposition",
         tool="grimp",
         record_quote=(
