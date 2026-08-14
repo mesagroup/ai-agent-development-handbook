@@ -72,14 +72,20 @@ def test_findings_stream_is_looked_up_when_the_entry_carries_none(grader):
     assert grader.seed_signals(entries[0], ("markupsafe",)) == {"markupsafe": 1}
 
 
-def test_observations_for_raises_when_the_pair_is_not_in_the_invocation_table(grader):
+def test_observations_for_marks_the_stream_unresolved_when_the_pair_is_not_in_the_invocation_table(
+    grader,
+):
+    """A stale row naming a tool `INVOCATIONS` no longer carries for this
+    check must not abort grading - see `arch/over-abstraction` + `ruff`
+    (`fe2b0e42`, #45), a real instance of exactly this drift.
+    """
     run = {
         "partition": "uv",
         "grant": "none",
         "results": [{"check": "deps/hygiene", "tool": "no-such-tool", "ran": False}],
     }
-    with pytest.raises(ValueError, match="no-such-tool"):
-        grader.observations_for(run, "deps/hygiene")
+    entries = grader.observations_for(run, "deps/hygiene")
+    assert entries[0]["findings_stream"] == grader.UNRESOLVED_FINDINGS_STREAM
 
 
 def test_observations_for_only_returns_entries_for_the_named_check(grader):
@@ -162,9 +168,10 @@ def test_an_orphan_entry_gets_its_own_row_instead_of_vanishing(grader, spec):
 def test_an_orphan_entry_does_not_raise_even_when_the_tool_is_unknown(grader):
     """The (check, tool) pair here is not in `INVOCATIONS` either.
 
-    `observations_for` raises on an unknown pair (by design, for a genuine
-    caller error); an orphan row must not go through that lookup at all, since
-    an orphan is unknown to the harness by construction.
+    An orphan row must not go through `_findings_stream_for`'s lookup at all -
+    there is no expectation to draw seeds from, so no signal is ever computed
+    and no stream needs resolving - since an orphan is unknown to the harness
+    by construction.
     """
     run = {
         "partition": "uv",
@@ -188,6 +195,60 @@ def test_grade_rows_groups_multiple_orphan_tools_under_one_row_per_check(grader)
     rows = [r for r in grader.grade_rows(run) if r.check == "made/up-check"]
     assert len(rows) == 1
     assert {o.tool for o in rows[0].observations} == {"ghost-tool-a", "ghost-tool-b"}
+
+
+def test_a_known_check_with_a_tool_no_longer_in_invocations_does_not_abort_grading(
+    grader, spec
+):
+    """`arch/over-abstraction` + `ruff` is a real instance, not a hypothetical.
+
+    `fe2b0e42` (#45) dropped `ruff` from `arch/over-abstraction`'s tooling and
+    from `INVOCATIONS` in the same commit, but `fixtures/python/results/` is
+    gitignored and nothing regenerates it, so a results file written before
+    that commit still carries this exact (check, tool) row. The check itself
+    is still named by an expectation - this is not the orphan case - so the
+    row must reach `grade_row`'s normal path and come out visible in the
+    rendered worksheet rather than raising and losing every other row in the
+    same run.
+    """
+    expectation = next(
+        e for e in spec.EXPECTATIONS if e.check == "arch/over-abstraction"
+    )
+    run = {
+        "partition": "uv",
+        "grant": "target-execution",
+        "results": [
+            {
+                "check": "arch/over-abstraction",
+                "tool": "ruff",
+                "ran": False,
+                "status": "no-evidence",
+                "reason": "the record prescribes no command for this tool",
+                "stdout": "",
+                "stderr": "",
+            },
+            {
+                "check": "deps/hygiene",
+                "tool": "deptry",
+                "ran": True,
+                "status": "ok",
+                "stdout": "",
+                "stderr": "",
+            },
+        ],
+    }
+    rows = grader.grade_rows(run)  # must not raise
+    target = next(r for r in rows if r.check == "arch/over-abstraction")
+    assert target.form == expectation.form
+    assert target.verdict == "unjudged"
+    stale = next(o for o in target.observations if o.tool == "ruff")
+    assert stale.findings_stream == grader.UNRESOLVED_FINDINGS_STREAM
+    text = grader.render(rows)
+    assert "ruff" in text
+    assert "findings stream unresolved" in text
+    # the rest of the run still grades - a stale row for one check must not
+    # take another check's row down with it.
+    assert any(r.check == "deps/hygiene" for r in rows)
 
 
 def test_a_dependency_level_seed_has_no_marker_to_search_for(grader, spec):
