@@ -1,4 +1,13 @@
-"""Tests for scripts/grade_python_fixture_run.py (#45)."""
+"""Tests for scripts/grade_python_fixture_run.py (#45).
+
+None of these read the gitignored `fixtures/python/results/` tree:
+`build_python_fixtures.py` writes it, nothing here regenerates it, and a fresh
+clone or a CI run never has it - the same reason `test_python_fixture_build.py`
+and `test_python_fixture_harness.py` build their own inputs rather than reading
+a materialized one. Every run here is a dict literal or a small JSON file this
+test file writes itself, shaped like a real one (confirmed once by hand against
+`fixtures/python/results/pip-none.json`, which is why it predates `versions`).
+"""
 
 import json
 import re
@@ -7,9 +16,6 @@ from pathlib import Path
 import grade_python_fixture_run as grader_module
 import pytest
 import python_fixture_spec
-
-_REPO_ROOT = Path(__file__).resolve().parents[2]
-_PIP_NONE_RESULTS = _REPO_ROOT / "fixtures" / "python" / "results" / "pip-none.json"
 
 
 @pytest.fixture
@@ -285,9 +291,35 @@ def test_render_reports_no_observation_when_the_check_never_ran(grader, spec):
     assert "(no observation)" in text
 
 
-def test_load_run_parses_a_real_written_run(grader):
-    """`pip-none.json` predates `versions`; `load_run` must not require it."""
-    run = grader.load_run(_PIP_NONE_RESULTS)
+def test_load_run_does_not_require_versions(grader, tmp_path):
+    """A run predating the `versions` key is still a run worth grading.
+
+    `fixtures/python/results/pip-none.json` is a real written run that carries
+    no `versions` key; this file writes its own copy of that shape rather than
+    reading the gitignored original, which a fresh clone never has.
+    """
+    path = tmp_path / "pip-none.json"
+    path.write_text(
+        json.dumps(
+            {
+                "grant": "none",
+                "materialization": [],
+                "partition": "pip",
+                "results": [
+                    {
+                        "check": "deps/hygiene",
+                        "tool": "deptry",
+                        "ran": False,
+                        "status": "no-evidence",
+                        "reason": "not-permitted",
+                        "record_argv": ["deptry"],
+                    }
+                ],
+                "source": "fixtures/python/pip",
+            }
+        )
+    )
+    run = grader.load_run(path)
     assert run["partition"] == "pip"
     assert run["grant"] == "none"
     assert "versions" not in run
@@ -309,8 +341,31 @@ def test_load_run_rejects_a_json_array(grader, tmp_path):
         grader.load_run(path)
 
 
+def _write_run(path: Path, *, partition: str, grant: str) -> None:
+    path.write_text(
+        json.dumps(
+            {
+                "grant": grant,
+                "materialization": [],
+                "partition": partition,
+                "results": [
+                    {
+                        "check": "deps/hygiene",
+                        "tool": "deptry",
+                        "ran": False,
+                        "status": "no-evidence",
+                        "reason": "not-permitted",
+                        "record_argv": ["deptry"],
+                    }
+                ],
+                "source": f"fixtures/python/{partition}",
+            }
+        )
+    )
+
+
 def test_main_writes_a_worksheet_for_every_run_in_the_directory(grader, tmp_path):
-    (tmp_path / "pip-none.json").write_text(_PIP_NONE_RESULTS.read_text())
+    _write_run(tmp_path / "pip-none.json", partition="pip", grant="none")
     exit_code = grader.main([str(tmp_path)])
     assert exit_code == 0
     out = tmp_path / "worksheet.md"
@@ -321,7 +376,7 @@ def test_main_writes_a_worksheet_for_every_run_in_the_directory(grader, tmp_path
 
 
 def test_main_writes_to_the_requested_output_path(grader, tmp_path):
-    (tmp_path / "pip-none.json").write_text(_PIP_NONE_RESULTS.read_text())
+    _write_run(tmp_path / "pip-none.json", partition="pip", grant="none")
     out_path = tmp_path / "custom.md"
     exit_code = grader.main([str(tmp_path), "--out", str(out_path)])
     assert exit_code == 0
