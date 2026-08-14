@@ -295,6 +295,8 @@ Five kinds, and the distinction decides who gets edited:
 - **The host is at fault** - it fails here for a reason unrelated to the record. Recorded as a host fact and explicitly not a correction.
 - **The instrument is wrong** - the harness, not the record, is what failed: a materialization route naming a binary the generator never assumed exists, a launcher resolving a tool from a directory nothing installed it into, a classifier reading a tool's designed exit code as a failure. The harness gets fixed and every affected run is re-run. **Nothing observed through a broken instrument is evidence**, so no correction may cite it, and a partition whose materialization failed measured nothing at all rather than measuring absence.
 
+- **The check is not command-shaped** - its route is a script, a library call or a prose grep-and-read pass, and it has no CLI form for a command-running harness to invoke. Nothing is broken: not the record, not the tool, not the harness. It is a fact about the check, and the round reports it as a limit on what execution can verify rather than as a defect in anything. Without this kind, every such row files as `instrument-wrong` and the verification record publishes phantom harness defects.
+
 **A step is sound only if `tool_present` is true AND `returncode` is zero.** A `FileNotFoundError` records `returncode: null`, so a filter written as `returncode not in (0, None)` counts a materialization that never ran as clean - which is the same false-clean shape this round exists to catch, turned on the harness's own output.
 
 - [ ] **Step 4: Write the triage table into the scratchpad and check it against the expectations record**
