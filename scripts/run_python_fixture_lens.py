@@ -260,10 +260,12 @@ VERSION_PROBE: dict[str, tuple[str, ...] | None] = {
 }
 
 # Empty on purpose rather than absent: every tool `INVOCATIONS` names turned out
-# to have a working route, verified by hand against the installed package rather
-# than assumed from its `argv` - so there is nothing here to explain. The dict
-# stays because `probe_versions` reads it, and a future tool with no route at
-# all names itself here rather than silently taking `None`.
+# to have a working route, verified by hand against the installed package and
+# against the actual command `launcher` resolves for it (not just that some
+# `--version` or `importlib.metadata` form exists in isolation) - so there is
+# nothing here to explain. The dict stays because `probe_versions` reads it, and
+# a future tool with no route at all names itself here rather than silently
+# taking `None`.
 NO_VERSION_ROUTE: dict[str, str] = {}
 
 
@@ -969,6 +971,16 @@ INVOCATIONS: tuple[Invocation, ...] = (
     Invocation(
         check="test/determinism",
         tool="pytest-rerunfailures",
+        # `in_env=True` because this is a pytest plugin like `pytest-randomly` and
+        # `pytest-timeout`, resolved into the materialized environment rather than
+        # fetched standalone - true of the tool whether or not this entry ever
+        # runs a command. It has no effect on the check itself: `argv` is empty,
+        # so the row loop never reaches `launcher`. It does matter to
+        # `probe_versions`, which calls `launcher` for every tool regardless of
+        # `argv` - without it, the version probe would resolve a bare `uvx`
+        # interpreter with the plugin never installed, on every partition and
+        # grant.
+        in_env=True,
         record_quote=(
             "and, for suspected flakies, repeat runs; flag order-dependence and "
             "non-determinism."

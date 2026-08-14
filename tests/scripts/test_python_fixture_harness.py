@@ -1753,3 +1753,57 @@ def test_a_venv_partitions_probe_finds_its_in_env_tool_on_the_copys_own_path(
         if command == ("pip-licenses", "--version")
     }
     assert bin_dirs == {tmp_path / VENV_BIN}
+
+
+def test_every_pytest_plugin_carries_in_env_so_its_probe_resolves_into_an_environment():
+    """A bare `python -c` probe only reports a real version if `launcher`
+    resolves it into an environment already carrying the package - which an
+    `in_env=True` tool gets and one that is not does not.
+
+    `pytest-rerunfailures` briefly failed this: its `Invocation` carries no
+    `argv` (a reading pass), and nothing in the real check path ever reads
+    `in_env` for an entry with no command to run, so it was left at the
+    dataclass default of `False`. `probe_versions` calls `launcher`
+    unconditionally, so that default made `launcher` return a bare `("uvx",)`
+    for every partition and grant - a throwaway interpreter with the plugin
+    never installed, reporting `PackageNotFoundError` forever rather than a
+    version.
+    """
+    plugins = {
+        "pytest-cov",
+        "pytest-randomly",
+        "pytest-rerunfailures",
+        "pytest-timeout",
+    }
+    for inv in INVOCATIONS:
+        if inv.tool in plugins:
+            assert inv.in_env, inv.tool
+    rerun = _entry("test/determinism", "pytest-rerunfailures")
+    # The property that actually broke: the granted launcher must resolve into
+    # an environment, not fall back to a bare one-shot fetch.
+    assert launcher(rerun, "uv", granted=True) != ("uvx",)
+    assert launcher(rerun, "uv", granted=True) == (
+        "uv",
+        "run",
+        "--with",
+        "pytest-rerunfailures",
+    )
+
+
+def test_a_granted_uv_partition_resolves_the_rerunfailures_probe_into_an_environment(
+    tmp_path, monkeypatch
+):
+    """End to end through `probe_versions`, not just the `launcher` unit above.
+
+    Before the fix this dispatched `("uvx", "python", "-c", ...)`: a bare
+    interpreter with `pytest-rerunfailures` never installed, on every partition
+    and every grant - the opposite of `grimp` and `hypothesis`, whose hardcoded
+    `--with <pkg>` is only safe because they are `in_env=False` everywhere.
+    """
+    recorded = []
+    monkeypatch.setattr("run_python_fixture_lens._run", _fake_run(recorded))
+    probe_versions("uv", "target-execution", tmp_path, timeout=5)
+    expected = ("uv", "run", "--with", "pytest-rerunfailures") + VERSION_PROBE[
+        "pytest-rerunfailures"
+    ]
+    assert expected in {tuple(c) for c in recorded}
