@@ -70,7 +70,7 @@ The results carry a top-level `versions` map, captured through the same launcher
 |---|---|---|
 | `ruff`, `radon`, `xenon` (`arch/complexity`) | **ok** - `ruff` computes `C901 classify is too complex (12 > 10)`, `radon` rates it C at 13, `xenon` exits 1 on `--max-absolute B` with its finding on stderr | ok, unchanged - untiered |
 | `ruff`/`radon`/`xenon` (`arch/complexity-gate`) | no command form - the primary route is reading the project's own configured threshold, and this fixture configures none | unchanged |
-| `import-linter`, `pydeps`, `grimp` (`arch/cycles`) | no-evidence - no `.importlinter` contract in the clone; `grimp` is a library, not a command | `pydeps --show-cycles` alone exits 0 with empty stdout and stderr over a tree with a real two-module cycle; only `--show-dot` prints the cycle as text |
+| `import-linter`, `pydeps`, `grimp` (`arch/cycles`) | no-evidence - no `.importlinter` contract in the clone; `grimp` is a library, not a command | `pydeps --show-cycles` alone exits 0 with empty stdout and stderr over a tree with a real two-module cycle; `--show-dot` printing the cycle as text is a scratch-copy measurement, not an artifact of this matrix |
 | `import-linter`, `tach`, `grimp` (`arch/layering`) | no command form for all three: the contract format, `tach`'s own configuration and `grimp`'s status as a library leave nothing to invoke | unchanged |
 | `grimp`, `pydeps` (`arch/coupling`) | no command form - computed from the same edge set / offered only as a picture | unchanged |
 | `grimp` (`arch/over-decomposition`) | no command form - computed from the edge set | unchanged |
@@ -85,7 +85,7 @@ The results carry a top-level `versions` map, captured through the same launcher
 | Entry | No grant | `target-execution` |
 |---|---|---|
 | `pytest-cov`, `coverage.py` (`test/coverage-reach`) | both `no-evidence (not-permitted)`; the record's own ungranted reading pass - nothing is excluded, since the fixture configures no `[tool.coverage.run]`/`exclude_lines` - has no run represented in the results | **ok on all five partitions**, byte-identical: `TOTAL 69 57 26 2 15%` (`pytest-cov`), `TOTAL 31 3 90%` (`coverage.py`), `clamp`'s two guard branches among the uncovered lines on every one |
-| `pytest-randomly` (`test/determinism`) | `no-evidence (not-permitted)`; the grep-for-nondeterminism reading pass the record prescribes has no run represented, though the constructs it would look for are in fact absent | **met** - an auto-picked seed (2522150928) reproduced the seeded order-dependent failure, `test_reads` asserting `[] == [1]` |
+| `pytest-randomly` (`test/determinism`) | `no-evidence (not-permitted)`; the grep-for-nondeterminism reading pass the record prescribes has no run represented, though the constructs it would look for are in fact absent | **met** - the seed `pytest-randomly` auto-picked for this run (`--randomly-seed=4101000374`, not a chosen or reproducible value) reproduced the seeded order-dependent failure, `test_reads` asserting `[] == [1]` |
 | `pytest-timeout` (`test/isolation`) | `no-evidence (not-permitted)`; same reading-pass gap | **met** - `--timeout=1` failed `test_slow_but_passing` with `Failed: Timeout (>1.0s) from pytest-timeout.` |
 | `mutmut`, `cosmic-ray` (`test/mutation`, opt-in) | `no-evidence (not-permitted)` - the record's own `ungranted_note` is the explicit `none` sentinel, so a fully no-evidence check here is exactly correct | **missed** - see below |
 | `hypothesis` (`test/property-based-gap`, opt-in) | no command form - the check's evidence is a manual read the harness never performs | unchanged |
@@ -112,11 +112,11 @@ The results carry a top-level `versions` map, captured through the same launcher
 | `pip-licenses` (`deps/transitive-licenses`), all five | no-evidence - same gap | **met on all five** - MarkupSafe 3.0.3 present as an undeclared transitive component with a licence |
 | `deptry` (`deps/hygiene`), `pip`/`poetry`/`pylock`/`uv` | no-evidence - gated out; the record's own manifest-plus-lockfile ungranted reading pass has no run represented | **met** - `DEP002 'six'`, `DEP003 'markupsafe'`, plus two `DEP003` rows naming `fixture_app`'s own src-layout modules |
 | `deptry`, `pipenv` | no-evidence, and for the same reason as target-execution | no-evidence - `deptry.exceptions.DependencySpecificationNotFoundError`: it has no reader for `Pipfile`/`Pipfile.lock` at all |
-| `cyclonedx-py requirements` (`deps/inventory`), `pip` | met - 4 declared dependencies, no licences field | met, byte-identical |
-| `cyclonedx-py pipenv`, `pipenv` | met - 4 declared plus `markupsafe` and `pyparsing`, no licences field | met, byte-identical |
+| `cyclonedx-py requirements` (`deps/inventory`), `pip` | met - 4 declared dependencies, no licences field | met, unchanged (differs only in `serialNumber` and `metadata.timestamp`, which a CycloneDX document regenerates on every run) |
+| `cyclonedx-py pipenv`, `pipenv` | met - 4 declared plus `markupsafe` and `pyparsing`, no licences field | met, unchanged (differs only in `serialNumber` and `metadata.timestamp`, which a CycloneDX document regenerates on every run) |
 | `cyclonedx-py poetry`, `poetry` | met, in the sense the failure is the expected one - `CRITICAL \| CDX > 'name'`, exit 1, no SBOM, against PEP 621 `[project]` metadata | met, identical failure |
 | `cyclonedx-py requirements` on `pylock.toml`, `pylock` | met, in the same sense - no route this record offers reads PEP 751; pointed at `pylock.toml` the requirements subcommand emits a document that fails its own 1.6 schema validation | met, identical failure |
-| `uv export --format=cyclonedx1.5 --frozen` (supplied route), `uv` | met - a well-formed CycloneDX 1.5 document, 6 components (4 declared plus `markupsafe` and `pyparsing`), validated clean against `cyclonedx-python-lib`'s own `JsonStrictValidator` | met, byte-identical |
+| `uv export --format=cyclonedx1.5 --frozen` (supplied route), `uv` | met - a well-formed CycloneDX 1.5 document, 6 components (4 declared plus `markupsafe` and `pyparsing`), no `licenses` field; validation against `cyclonedx-python-lib`'s own `JsonStrictValidator` is a scratch-copy measurement, not an artifact of this matrix | met, unchanged (differs only in `serialNumber` and `metadata.timestamp`, which a CycloneDX document regenerates on every run) |
 
 ## What the run found
 
@@ -130,11 +130,11 @@ The granted `mutmut run` generated 10 mutants in 77ms, then moved to its clean-t
 
 ### 3. `pydeps --show-cycles` has no textual output channel at all
 
-On the `uv` partition, `pydeps --show-cycles src/fixture_app` returns exit 0 with empty stdout and empty stderr over a tree carrying a real two-module cycle (`fixture_app.domain.model` and `fixture_app.infra.store`). The tool draws its answer onto an SVG side-file rather than printing it, so "ran, exit 0, nothing on either stream" is this invocation's behaviour whether or not a cycle exists - indistinguishable to any caller that reads only the streams. `pydeps --show-cycles --show-dot` prints the underlying dot source as text, showing both directed edges of the cycle explicitly. `arch/cycles`'s record now appends `--show-dot` to the prescribed invocation for exactly this reason.
+On the `uv` partition, `pydeps --show-cycles src/fixture_app` returns exit 0 with empty stdout and empty stderr over a tree carrying a real two-module cycle (`fixture_app.domain.model` and `fixture_app.infra.store`), and this half is in the matrix results. The tool draws its answer onto an SVG side-file rather than printing it, so "ran, exit 0, nothing on either stream" is this invocation's behaviour whether or not a cycle exists - indistinguishable to any caller that reads only the streams. `pydeps --show-cycles --show-dot` prints the underlying dot source as text, showing both directed edges of the cycle explicitly - measured in a scratch copy, not as an artifact of the ten-run matrix, whose harness never invoked this flag. `arch/cycles`'s record now appends `--show-dot` to the prescribed invocation for exactly this reason.
 
 ### 4. `deps/inventory` has a working uv route, a poetry gap, and no licence field anywhere
 
-`uv export --format=cyclonedx1.5 --frozen` is the record's existing "or the tool's native SBOM export" clause, now named concretely: it produces a CycloneDX 1.5 document that `cyclonedx-python-lib`'s own `JsonStrictValidator` accepts with no errors. `cyclonedx-py poetry` fails on both grants with `CRITICAL | CDX > 'name'`, exit 1, no SBOM written, because it reads the project name from `[tool.poetry]` only, and this partition's PEP 621 `[project]` metadata is the layout poetry 2 pushes projects toward without raising a deprecation warning - the ordinary case, not an edge case. `cyclonedx-py requirements` pointed at `pylock.toml` neither refuses nor reads PEP 751: it reads the TOML as requirement lines and emits a document that fails its own 1.6 schema validation, exiting non-zero having written nothing usable. No successful route on any partition - `requirements`, `pipenv`, or the uv export - populates a `licenses` field on any component; `deps/licenses` is this family's only source of licence evidence.
+`uv export --format=cyclonedx1.5 --frozen` is the record's existing "or the tool's native SBOM export" clause, now named concretely: it produces a well-formed CycloneDX 1.5 document, 6 components (4 declared plus `markupsafe` and `pyparsing`), no `licenses` field. That `cyclonedx-python-lib`'s own `JsonStrictValidator` accepts it with no errors is a scratch-copy measurement, not an artifact of the ten-run matrix. `cyclonedx-py poetry` fails on both grants with `CRITICAL | CDX > 'name'`, exit 1, no SBOM written, because it reads the project name from `[tool.poetry]` only, and this partition's PEP 621 `[project]` metadata is the layout poetry 2 pushes projects toward without raising a deprecation warning - the ordinary case, not an edge case. `cyclonedx-py requirements` pointed at `pylock.toml` neither refuses nor reads PEP 751: it reads the TOML as requirement lines and emits a document that fails its own 1.6 schema validation, exiting non-zero having written nothing usable. No successful route on any partition - `requirements`, `pipenv`, or the uv export - populates a `licenses` field on any component; `deps/licenses` is this family's only source of licence evidence.
 
 ### 5. `deps/vulnerabilities`: pylock established, poetry and pipenv named as a gap, and a route added with its soundness scoped to the file it reads
 
@@ -158,7 +158,7 @@ Seven of the ten `arch` checks triaged here - `complexity-gate`, `cycles`'s comp
 
 ## Records corrected
 
-Traceable to the observed output above; see the commits on issue #45.
+Traceable to the observed output above.
 
 | Record | Fixture | Correction |
 |---|---|---|
