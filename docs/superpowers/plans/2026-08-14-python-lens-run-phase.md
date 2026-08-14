@@ -287,12 +287,15 @@ One of: `met`, `missed`, `partial`, or `no-evidence` with its reason.
 
 - [ ] **Step 3: Classify every mismatch by what is actually wrong**
 
-Four kinds, and the distinction decides who gets edited:
+Five kinds, and the distinction decides who gets edited:
 
 - **The record is wrong** - it prescribes a command that does not work, or claims an exclusion that does not hold. The record gets corrected.
 - **The tool is defective** - it runs, exits zero and reports less than the truth. The record gets a stated limit; the tool is not fixed here.
 - **The expectation is wrong** - the fixture does not contain what the module claimed. `scripts/python_fixture_spec.py` gets corrected and re-rendered, and this is a defect in PR 1 that PR 2 fixes.
 - **The host is at fault** - it fails here for a reason unrelated to the record. Recorded as a host fact and explicitly not a correction.
+- **The instrument is wrong** - the harness, not the record, is what failed: a materialization route naming a binary the generator never assumed exists, a launcher resolving a tool from a directory nothing installed it into, a classifier reading a tool's designed exit code as a failure. The harness gets fixed and every affected run is re-run. **Nothing observed through a broken instrument is evidence**, so no correction may cite it, and a partition whose materialization failed measured nothing at all rather than measuring absence.
+
+**A step is sound only if `tool_present` is true AND `returncode` is zero.** A `FileNotFoundError` records `returncode: null`, so a filter written as `returncode not in (0, None)` counts a materialization that never ran as clean - which is the same false-clean shape this round exists to catch, turned on the harness's own output.
 
 - [ ] **Step 4: Write the triage table into the scratchpad and check it against the expectations record**
 
