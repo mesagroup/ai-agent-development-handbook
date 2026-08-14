@@ -114,7 +114,6 @@ def test_a_tool_answering_several_checks_is_invoked_once_per_check():
     assert {i.check for i in INVOCATIONS if i.tool == "ruff"} == {
         "arch/complexity",
         "arch/complexity-gate",
-        "arch/over-abstraction",
         "docs/docstring-coverage",
         "security/crypto",
         "security/dangerous-calls",

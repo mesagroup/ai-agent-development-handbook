@@ -6,7 +6,7 @@ handbook:
   - implementation-disciplines/coding-hygiene-rules-that-surface-at-review-b
   - codebase-structure/why-the-rule-matters-a
 tooling:
-  python: [grimp, ruff]
+  python: [grimp]
   typescript: [knip, ts-morph]
 needs:
   target-execution: [knip]
