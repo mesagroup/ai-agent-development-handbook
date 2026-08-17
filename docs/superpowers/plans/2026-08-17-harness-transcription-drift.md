@@ -411,7 +411,7 @@ Leave the `pylock` partition's `("pip-audit", "--locked", ".")` unchanged, and l
 - [ ] **Step 6: Run the existing guards**
 
 Run: `caffeinate uv run pytest tests/scripts/test_python_fixture_harness.py -q`
-Expected: PASS. In particular `test_every_invocation_quotes_its_record_verbatim`, `test_a_quote_is_a_sentence_rather_than_a_fragment`, `test_a_transcribed_command_occurs_in_the_sentence_that_prescribes_it` and `test_folding_a_completion_into_the_argv_breaks_the_anchor` must all still pass. If the last one fails, the completion count it pins has moved; recompute it with the command in Task 6 Step 5 rather than editing the number to whatever makes it green.
+Expected: PASS. In particular `test_every_invocation_quotes_its_record_verbatim`, `test_a_quote_is_a_sentence_rather_than_a_fragment`, `test_a_transcribed_command_occurs_in_the_sentence_that_prescribes_it` and `test_folding_a_completion_into_the_argv_breaks_the_anchor` must all still pass. If the last one fails, the completion count it pins has moved; recompute it with the command in Task 6 Step 6 rather than editing the number to whatever makes it green.
 
 - [ ] **Step 7: Run the full gate and commit**
 
