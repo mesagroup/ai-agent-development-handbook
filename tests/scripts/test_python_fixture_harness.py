@@ -24,6 +24,7 @@ from python_fixture_spec import (
 )
 from run_python_fixture_lens import (
     DETAILS,
+    DISPOSITIONS,  # noqa: F401 - used by later tasks
     FROZEN_FORM,
     GRANTS,
     INVOCATIONS,
@@ -1078,6 +1079,39 @@ def test_a_supplied_route_refuses_to_travel_without_its_reason():
             in_env=True,
             supplied_by_partition=(("uv", (("deptry", "."),)),),
             supplied_note="why",
+        )
+
+
+def test_a_form_carrying_an_unknown_disposition_is_rejected():
+    with pytest.raises(ValueError, match="not one of"):
+        Invocation(
+            check="arch/cycles",
+            tool="pydeps",
+            record_quote="x" * 40,
+            forms=(("pydeps --show-cycles", "maybe"),),
+        )
+
+
+def test_an_empty_form_is_rejected():
+    with pytest.raises(ValueError, match="empty command form"):
+        Invocation(
+            check="arch/cycles",
+            tool="pydeps",
+            record_quote="x" * 40,
+            forms=(("   ", "runs"),),
+        )
+
+
+def test_the_same_form_declared_twice_is_rejected():
+    with pytest.raises(ValueError, match="twice"):
+        Invocation(
+            check="arch/cycles",
+            tool="pydeps",
+            record_quote="x" * 40,
+            forms=(
+                ("pydeps --show-cycles", "runs"),
+                ("pydeps --show-cycles", "superseded"),
+            ),
         )
 
 
