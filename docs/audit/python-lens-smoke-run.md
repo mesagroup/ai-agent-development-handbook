@@ -1,6 +1,6 @@
 # Python lens smoke run
 
-Every `python:` tooling entry in `arch`, `deps`, `docs`, `security` and `test` was authored from the tools' own documentation and had never been executed against real Python targets under both grant states. This record is what happened when they were, on **2026-08-14**. It exists because a docs-only pass cannot catch the defect where a name resolves, a command runs, and the output is unusable or wrong at exit 0.
+Every `python:` tooling entry in `arch`, `deps`, `docs`, `security` and `test` was authored from the tools' own documentation and had never been executed at all under both grant states. This record is what happened when they were run against five seeded Python partitions, on **2026-08-14**. It exists because a docs-only pass cannot catch the defect where a name resolves, a command runs, and the output is unusable or wrong at exit 0.
 
 The subject here is the **skill family**, not the fixture partitions: what appears below is tool behaviour, aggregate counts, and the corrections the run forced. [The build smoke record](python-fixture-build-smoke.md) is the sibling document for the fixture machinery itself - what was generated, which seed each planted construct produced when a tool was pointed at it directly, and the measured `pytest-randomly` shuffle seed. This record grades a different thing: whether each check record's own prescribed invocation, run under the grant state its `needs` tiers imply, reaches that same answer.
 
