@@ -200,7 +200,7 @@ def test_a_placeholder_token_is_dropped_before_matching_an_argv():
 
 
 def test_the_prescribing_paragraph_is_the_line_holding_the_quote():
-    quote = "Append `--show-dot` to that `pydeps` invocation - `pydeps --show-cycles` alone has no textual output channel at all."
+    quote = "Run `pydeps --show-cycles --show-dot`: `--show-cycles` alone has no textual output channel at all."
     paragraph = _prescribing_paragraph("arch/cycles", quote)
     assert quote in paragraph
     assert paragraph.count("\n") == 0
@@ -1074,7 +1074,7 @@ def test_a_partition_the_record_prescribes_no_route_for_runs_nothing():
     inv = _entry("deps/vulnerabilities", "pip-audit")
     assert inv.argv_by_partition == (
         ("uv", ()),
-        ("pip", ("pip-audit", "-r", "requirements.txt")),
+        ("pip", ("pip-audit", "-r", "requirements.txt", "--no-deps", "--disable-pip")),
         ("poetry", ()),
         ("pipenv", ()),
         ("pylock", ("pip-audit", "--locked", ".")),
