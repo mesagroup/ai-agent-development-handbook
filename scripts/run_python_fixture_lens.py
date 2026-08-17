@@ -634,12 +634,12 @@ INVOCATIONS: tuple[Invocation, ...] = (
     Invocation(
         check="arch/cycles",
         tool="pydeps",
-        argv=("pydeps", "--show-cycles"),
+        argv=("pydeps", "--show-cycles", "--show-dot"),
         completion=(f"src/{PACKAGE}",),
         note="pydeps takes the package to graph and the record names none",
         record_quote=(
-            "`import-linter`'s cycle contract, `pydeps --show-cycles`, or `grimp`'s "
-            "cycle detection on the built graph."
+            "**Run `pydeps --show-cycles --show-dot`: `--show-cycles` alone has "
+            "no textual output channel at all.**"
         ),
     ),
     Invocation(
@@ -841,7 +841,10 @@ INVOCATIONS: tuple[Invocation, ...] = (
         tool="pip-audit",
         argv_by_partition=(
             ("uv", ()),
-            ("pip", ("pip-audit", "-r", "requirements.txt")),
+            (
+                "pip",
+                ("pip-audit", "-r", "requirements.txt", "--no-deps", "--disable-pip"),
+            ),
             ("poetry", ()),
             ("pipenv", ()),
             ("pylock", ("pip-audit", "--locked", ".")),
