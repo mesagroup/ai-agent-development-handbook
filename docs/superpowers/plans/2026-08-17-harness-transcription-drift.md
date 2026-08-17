@@ -364,7 +364,7 @@ print('flag spans:', sorted({s for s in spans if s.startswith('-')}))
 "
 ```
 
-Expected: forms are `pydeps --show-cycles` and `pydeps --show-cycles --show-dot`; the only flag span is `--show-cycles`, which occurs in both forms. If `--show-dot` still appears as a bare flag span, the reword did not take.
+Expected: forms are `pydeps --show-cycles` and `pydeps --show-cycles --show-dot`, and the flag spans are `--show-cycles` and `--show-dot`. Both flags still appear bare, because a later explanatory sentence on the same line writes "`--show-dot` prints the underlying dot source as text instead" and this task does not touch it. What matters is not that the bare spans disappear but that every one of them now occurs inside a declared form, which is what the flag property in Task 6 asserts. If a flag span appears that no form contains, the reword did not take.
 
 - [ ] **Step 3: Commit the record edit on its own**
 
