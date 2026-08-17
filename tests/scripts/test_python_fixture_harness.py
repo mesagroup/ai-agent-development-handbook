@@ -45,7 +45,6 @@ from run_python_fixture_lens import (
     argv_for,
     classify,
     grant_tier,
-    inner_uv_target,
     invocations_for,
     launcher,
     launcher_missed,
@@ -456,7 +455,7 @@ def test_folding_a_completion_into_the_argv_breaks_the_anchor():
     its completion does not.
     """
     completed = [i for i in INVOCATIONS if i.completion]
-    assert len(completed) == 12, len(completed)
+    assert len(completed) == 13, len(completed)
     for inv in completed:
         quote = _tokens(inv.record_quote)
         argv = inv.argv or next(a for _, a in inv.argv_by_partition if a)
@@ -1518,20 +1517,21 @@ def test_a_granted_run_materializes_first_and_then_runs_in_the_environment(
     assert follow_up["command"][-3:] == ["coverage", "report", "--show-missing"]
 
 
-def test_inner_uv_target_only_fires_for_the_uv_tool_in_env_and_granted():
-    """Unit-level: the suffix is `()` everywhere it must not apply.
+def test_the_interpreter_the_freshness_record_names_is_transcribed():
+    """Unit-level: `--python` is the record's word, its value is the harness's.
 
-    Every Python-native `in_env` tool (`pip` here as the contrast) reads the
-    interpreter `launcher` already put in front of it, so it never needs this
-    suffix at all - only `uv`, run as the command rather than as the thing
-    running it, does.
+    The flag reached the run as a suffix the harness appended before the record
+    prescribed it, and a suffix is invisible to every guard that reads `argv`.
+    Transcribed, the flag travels with the command and only the path - the
+    record's `<path-to-venv-python>` - is left to the completion. `pip` is the
+    contrast: the record says it needs no such flag, so its entry carries none.
     """
     uv_inv = _entry("deps/freshness", "uv")
     pip_inv = _entry("deps/freshness", "pip")
-    assert inner_uv_target(uv_inv, granted=True) == ("--python", f"{VENV_BIN}/python")
-    assert inner_uv_target(uv_inv, granted=False) == ()
-    assert inner_uv_target(pip_inv, granted=True) == ()
-    assert inner_uv_target(pip_inv, granted=False) == ()
+    assert uv_inv.argv == ("uv", "pip", "list", "--outdated", "--python")
+    assert uv_inv.completion == (f"{VENV_BIN}/python",)
+    assert pip_inv.argv == ("pip", "list", "--outdated")
+    assert pip_inv.completion == ()
 
 
 def test_an_inner_uv_command_is_told_which_interpreter_to_read(tmp_path, monkeypatch):
@@ -1545,6 +1545,9 @@ def test_an_inner_uv_command_is_told_which_interpreter_to_read(tmp_path, monkeyp
     same gap was confirmed on the `uv` partition's own native route (`uv run
     --with uv uv pip list --outdated`, no `--no-project` involved), which is
     why both partitions are checked here rather than only the overlay one.
+    The record names the interpreter for that reason, so what this asserts is
+    that the transcribed command and its completion still reach the run in that
+    shape, whichever partition's route puts the words in front of them.
     """
     for partition in ("uv", "pip"):
         source = tmp_path / "fixture" / partition
@@ -1560,9 +1563,9 @@ def test_an_inner_uv_command_is_told_which_interpreter_to_read(tmp_path, monkeyp
             partition,
             uv_row["command"],
         )
-        # `pip` gets no trailing suffix: the one `--python` in its command is
-        # the prefix's own (pointing the overlay's interpreter at the copy's
-        # venv), not a second one appended after its argv.
+        # `pip` carries no `--python` of its own: the one that can appear in its
+        # command is the prefix's (pointing the overlay's interpreter at the
+        # copy's venv), never a second one after its argv.
         pip_row = rows[("deps/freshness", "pip")]
         assert pip_row["command"][-3:] == ["pip", "list", "--outdated"], (
             partition,
