@@ -689,7 +689,37 @@ print('with completion:', len([i for i in m.INVOCATIONS if i.completion]))
 
 If this differs from the number pinned in `test_folding_a_completion_into_the_argv_breaks_the_anchor`, update the pin to the computed value and say in the commit message which entry moved and why.
 
-- [ ] **Step 7: Run the full gate and commit**
+- [ ] **Step 7: Write the accounted-for property**
+
+`_command_forms` recognises a form only where the tool's own name leads the span, so a record prescribing `uvx pydeps --show-cycles` yields no form at all, `forms=()` satisfies the declaration property, and the guard is blind to the prescription. Loosening the match is the wrong repair: a span naming the tool anywhere would attribute `uv pip list --outdated` to the **`pip`** invocation on `deps/freshness`, whose paragraph carries a `uv` invocation and a `pip` one sharing one quote, so the `pip` entry would have to declare a form it does not run. Make the blindness loud instead.
+
+```python
+def test_a_form_naming_the_tool_off_the_front_is_led_by_some_invocation():
+    """A prescription the leading-name rule cannot see must not vanish.
+
+    `deps/freshness` writes `uv pip list --outdated` in the paragraph its `pip`
+    entry also quotes, and that span is the `uv` entry's form rather than the
+    `pip` entry's. What must never happen is a span naming a tool that no
+    invocation on that paragraph leads: `uvx pydeps --show-cycles` would be a
+    prescription with no declaration and no failure.
+    """
+    for inv in INVOCATIONS:
+        paragraph = _prescribing_paragraph(inv.check, inv.record_quote)
+        led = {
+            form.split()[0]
+            for other in INVOCATIONS
+            if other.check == inv.check
+            for form in _command_forms(paragraph, other.tool)
+        }
+        for span in _spans(paragraph):
+            words = span.split()
+            if len(words) > 1 and inv.tool in words[1:]:
+                assert words[0] in led, (inv.check, inv.tool, span)
+```
+
+Run it. If it fails on a record other than through the `deps/freshness` case described above, that record is hiding a prescription behind a runner prefix and the finding goes in the report rather than being silenced by widening the test.
+
+- [ ] **Step 8: Run the full gate and commit**
 
 ```bash
 caffeinate bash -c 'uv run pytest tests/ -q && uv run ruff check . && uv run ruff format --check .'
