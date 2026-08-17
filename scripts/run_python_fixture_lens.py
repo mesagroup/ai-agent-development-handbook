@@ -93,6 +93,12 @@ RESULTS_DIRNAME = "results"
 # a step writing `requirements.txt` would overwrite the pip partition's own.
 SUPPLIED_REQUIREMENTS = "audit-export-requirements.txt"
 
+# Where every materialization route below puts the partition's own environment,
+# and so what `<path-to-venv-python>` resolves to in the one command a record
+# writes that placeholder into. Named here rather than beside `launcher`,
+# because the transcription reads it too.
+VENV_BIN = ".venv/bin"
+
 # The engine's scale, from `audit-core`. Neither tuple grows: a fourth status
 # would collapse a distinction the engine draws on purpose, and `audit-core`
 # introduces the reasons as "the three ways a check can fail to run", so a
@@ -325,7 +331,11 @@ class Invocation:
             partition - `cyclonedx-py`'s subcommand "matching the partition's
             own dependency file", `pip-audit`'s mode - the command for each,
             still verbatim, as `(partition, argv)` pairs. A partition paired
-            with `()` is one the record prescribes no route for at all. Pairs
+            with `()` is one this entry's tool has no route for: usually because
+            the record prescribes none at all, and on `deps/inventory`'s `uv`
+            row because the route the record does prescribe there is another
+            tool's command, carried in `supplied_by_partition` with a note
+            saying so. Pairs
             rather than a mapping so that the whole entry is hashable, which is
             what freezing it is otherwise promising.
         supplied_by_partition: A route **this round contributed** for a
@@ -741,12 +751,29 @@ INVOCATIONS: tuple[Invocation, ...] = (
     Invocation(
         check="deps/freshness",
         tool="uv",
-        argv=("uv", "pip", "list", "--outdated"),
+        argv=("uv", "pip", "list", "--outdated", "--python"),
+        completion=(f"{VENV_BIN}/python",),
         in_env=True,
+        # The flag is the record's, not this table's: measured, `uv pip list
+        # --outdated` with the interpreter unnamed prints nothing at exit 0 on a
+        # partition whose environment has three outdated packages, because an
+        # inner `uv` - the command rather than the thing running it - does its
+        # own environment resolution and does not inherit the `--python` the
+        # overlay already named. The record names the interpreter explicitly for
+        # that reason, so the only thing left to supply here is the path.
+        note=(
+            "`<path-to-venv-python>` is a placeholder the record leaves to the caller; "
+            "it resolves to the interpreter the partition's own materialization built "
+            "inside the copy this run owns"
+        ),
         record_quote=(
-            "`uv pip list --outdated` / `pip list --outdated`, both of which read the "
-            "installed environment rather than the lockfile, so they need the tree "
-            "resolved."
+            "Name the interpreter explicitly on the `uv` route, as `uv pip list "
+            "--outdated --python <path-to-venv-python>`: without `--python <path>`, "
+            "`uv pip list --outdated` can return empty output at exit 0 against a tree "
+            "with stale packages in it, rather than erroring or falling back to a "
+            "discovered venv, so a clean run of the unqualified command is not evidence "
+            "that nothing is outdated - it can equally be evidence the command never "
+            "found the environment."
         ),
     ),
     Invocation(
@@ -801,12 +828,19 @@ INVOCATIONS: tuple[Invocation, ...] = (
             "rows carry no prescribed command"
         ),
         supplied_note=(
-            "the record's first named hole. Neither of these is transcribed: the `uv` "
-            "step is the tool's own native SBOM export, which the record's text allows "
-            "in the abstract without naming a command, and the `pylock` step points "
-            "the requirements subcommand at a PEP 751 file, which the record names no "
-            "route for at all. Both are candidates the round tests rather than "
-            "corrections it has already made, so neither reaches record_argv"
+            "the record's first named hole, and the two steps stand differently in "
+            "it. The `uv` step is the native SBOM export, and the record names that "
+            "command - `uv export --format=cyclonedx1.5 --frozen` - for a uv-locked "
+            "partition; it is carried here rather than as this entry's prescribed "
+            "route because it is not a `cyclonedx-py` command, and a prescribed route "
+            "takes this entry's launcher prefix, which would fetch `cyclonedx-bom` for "
+            "a command that never calls it and report that package's version for a row "
+            "that ran `uv`. The `pylock` step points the requirements subcommand at a "
+            "PEP 751 file, which the record names no route for at all, so that one is a "
+            "candidate this round tests rather than a correction it has made. Neither "
+            "reaches record_argv, which stays the record's own command for "
+            "`cyclonedx-py`, and the record prescribes none of those on either "
+            "partition"
         ),
         record_quote=(
             "`cyclonedx-py`'s `requirements`, `poetry` or `pipenv` subcommand, "
@@ -869,9 +903,12 @@ INVOCATIONS: tuple[Invocation, ...] = (
         supplied_note=(
             "the record's second named hole: it names no mode for a uv tree, so a "
             "uv-locked partition has no vulnerability lens on a read-only clone. The "
-            "candidate is the export the record does not name, written to a file "
-            "because pip-audit's `-r` takes a path rather than a pipe, and then the "
-            "`-r` mode the record does name. Supplied for uv alone: the same export is "
+            "candidate is an export written to a file - pip-audit's `-r` takes a path "
+            "rather than a pipe - and then the `-r` mode the record does name. The "
+            "record mentions `uv export --frozen` only to say what a fully resolved "
+            "requirements file contains, and prescribes no export-then-audit route for "
+            "a uv tree, so the route as a whole is this round's. Supplied for uv "
+            "alone: the same export is "
             "what a poetry or pipenv partition has no lockfile for - `uv export "
             "--frozen` reads a uv.lock and those partitions carry none by "
             "construction - so there is no equivalent route to supply them"
@@ -1189,9 +1226,6 @@ def packages_for(tool: str) -> tuple[str, ...]:
     return TOOL_PACKAGES.get(tool, (tool,))
 
 
-VENV_BIN = ".venv/bin"
-
-
 def launcher(
     invocation: Invocation, partition: str, *, granted: bool
 ) -> tuple[str, ...]:
@@ -1252,41 +1286,6 @@ def launcher(
         packages[0],
         *extra,
     )
-
-
-def inner_uv_target(invocation: Invocation, *, granted: bool) -> tuple[str, ...]:
-    """The words that go *after* the command, and only for a `uv` being run.
-
-    Every other `in_env` tool resolves its target from the interpreter
-    `launcher` already put in front of it - `pip`, `deptry`, `pip-licenses` and
-    the rest are Python-native, so the process `--python` execs into is the one
-    whose environment they read. `uv` is not: it is a standalone binary that,
-    invoked as the *command* rather than as the thing running the command,
-    does its own environment resolution from scratch and does not inherit the
-    outer `uv run`'s target - measured: `uv run --no-project --python
-    .venv/bin/python --with uv uv pip list --outdated` prints nothing (rc 0,
-    empty stdout) on a partition whose environment has three outdated
-    packages, and the same command with a trailing `--python .venv/bin/python`
-    on the *inner* `uv` lists all three. Confirmed the same gap exists on the
-    `uv` partition's own native route (`uv run --with uv uv pip list
-    --outdated`, no `--no-project` involved) - this is about the inner `uv`
-    specifically, not about `--no-project`.
-
-    This is harness plumbing rather than a claim from any record, the same way
-    `TOOL_PACKAGES` is: `argv_for` and `launcher` are untouched, and the words
-    this returns are appended once, after the record's own command, only when
-    `invocation.tool` is `uv` itself and the run is both `in_env` and granted -
-    everywhere else it is `()`, so no other tool's command gains a trailing
-    flag it never asked for.
-
-    What `uv pip list --outdated` does with a target it *can* see - silently
-    reporting an empty environment at exit 0 rather than erroring - is a fact
-    about that tool, not something this function papers over; it is recorded
-    as a finding rather than worked around here.
-    """
-    if invocation.tool != "uv" or not (invocation.in_env and granted):
-        return ()
-    return ("--python", f"{VENV_BIN}/python")
 
 
 # What a non-zero exit from this tool means, so `classify` never has to guess
@@ -1892,13 +1891,7 @@ def run_partition(
         # `audit-core` bars all three, and a package the audit added is never
         # evidence about the target wherever it landed.
         prefix = launcher(invocation, partition, granted=granted)
-        # `inner_uv_target` is `()` for every tool but `uv` itself: an inner
-        # `uv`, unlike the Python-native tools this route also carries, does
-        # not inherit the interpreter `--python` already named in `prefix` and
-        # has to be told again, after its own argv - see its docstring for the
-        # measured gap this closes.
-        suffix = inner_uv_target(invocation, granted=granted)
-        command = (*prefix, *argv, *suffix)
+        command = (*prefix, *argv)
         outcome = _run(command, copy, timeout)
         row |= {"ran": True, "command": list(command), **outcome}
         # A route the record writes as two commands is one route, so both halves
@@ -1907,7 +1900,7 @@ def run_partition(
         # coverage table behind it - the shape `then` exists to prevent.
         ran: list[tuple[Sequence[str], dict[str, object]]] = [(command, outcome)]
         if invocation.then:
-            follow_up = (*prefix, *invocation.then, *suffix)
+            follow_up = (*prefix, *invocation.then)
             then_outcome = _run(follow_up, copy, timeout)
             row["then"] = {"command": list(follow_up), **then_outcome}
             ran.append((follow_up, then_outcome))
