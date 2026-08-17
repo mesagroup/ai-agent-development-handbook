@@ -302,6 +302,13 @@ VERSION_PROBE: dict[str, tuple[str, ...] | None] = {
 # taking `None`.
 NO_VERSION_ROUTE: dict[str, str] = {}
 
+# What a declared command form is for. `runs` is the only value the harness acts
+# on; the other three are the ways a record's paragraph names a command it does
+# not want run here. Naming them is the point: without a disposition, a form the
+# harness does not run is indistinguishable from a form nobody noticed, which is
+# how `--show-dot` sat unprescribed in `arch/cycles` through three green guards.
+DISPOSITIONS: tuple[str, ...] = ("runs", "alternative", "superseded", "forbidden")
+
 
 @dataclass(frozen=True)
 class Invocation:
@@ -373,6 +380,13 @@ class Invocation:
             entry runs both; and `deps/transitive-licenses` quotes a delegation
             rather than a command, because the record's prescription there *is*
             the delegation to `deps/licenses`.
+        forms: Every command form this record's prescribing paragraph names for
+            this tool, as `(form, disposition)` pairs, taken by reading it. The
+            declaration is what the record-to-harness guards compare: the three
+            older guards all run the other way, holding the transcription
+            against the record, so a record that *grows* a prescription leaves
+            them green while the harness quietly stops running what it says it
+            runs.
     """
 
     check: str
@@ -387,6 +401,7 @@ class Invocation:
     note: str = ""
     in_env: bool = False
     findings_stream: str = "stdout"
+    forms: tuple[tuple[str, str], ...] = ()
 
     def __post_init__(self) -> None:
         if self.completion and not self.note:
@@ -413,6 +428,7 @@ class Invocation:
                 "and classifying on a third thing would grade every run of it"
             )
         self._check_supplied()
+        self._check_forms()
 
     def _check_supplied(self) -> None:
         """The three ways a supplied route would stop being distinguishable."""
@@ -441,6 +457,27 @@ class Invocation:
                 "and so takes no launcher prefix, which is what an in_env entry needs "
                 "to reach the materialized environment"
             )
+
+    def _check_forms(self) -> None:
+        """The three ways a declared form would stop meaning anything."""
+        seen: set[str] = set()
+        for form, disposition in self.forms:
+            if not form.strip():
+                raise ValueError(
+                    f"{self.check}/{self.tool}: declares an empty command form, "
+                    "which no extraction can ever match"
+                )
+            if disposition not in DISPOSITIONS:
+                raise ValueError(
+                    f"{self.check}/{self.tool}: {form!r} carries disposition "
+                    f"{disposition!r}, which is not one of {DISPOSITIONS}"
+                )
+            if form in seen:
+                raise ValueError(
+                    f"{self.check}/{self.tool}: declares {form!r} twice, so which "
+                    "disposition applies would depend on reading this file"
+                )
+            seen.add(form)
 
     def prescribed(self, partition: str) -> tuple[str, ...]:
         """The record's own command for this partition, before any completion."""
