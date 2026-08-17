@@ -96,6 +96,116 @@ def _is_subsequence(needle: list[str], haystack: list[str]) -> bool:
     return all(any(token == word for word in remaining) for token in needle)
 
 
+def _spans(paragraph: str) -> list[str]:
+    """Every backtick span in the paragraph, in order, duplicates collapsed."""
+    return list(dict.fromkeys(re.findall(r"`([^`]+)`", paragraph)))
+
+
+def _command_forms(paragraph: str, tool: str) -> set[str]:
+    """The command forms the paragraph prescribes for one tool.
+
+    A span whose first token is the tool's own name and which carries at least
+    one argument. A span that is only the bare name is a mention: a record names
+    a bare command in order to warn against it, and treating that as a
+    prescription would demand a declaration for the command it forbids.
+    """
+    return {
+        span
+        for span in _spans(paragraph)
+        if len(span.split()) > 1 and span.split()[0] == tool
+    }
+
+
+def _flag_spans(paragraph: str) -> set[str]:
+    """Every span the paragraph writes as a bare flag.
+
+    Pooled across the paragraph rather than attributed to a tool, because a
+    record prescribing a flag does not repeat the command it belongs to:
+    `arch/cycles` writes "Append `--show-dot` to that `pydeps` invocation", and
+    a rule keyed on the tool's name would miss the very drift this guards.
+    """
+    return {span for span in _spans(paragraph) if span.startswith("-")}
+
+
+def _concrete(tokens: list[str]) -> list[str]:
+    """A form's tokens with the record's placeholders removed.
+
+    A record writes `<requirements>` where the caller supplies a path, so the
+    placeholder can never occur in an argv. Dropping it is what lets the
+    coverage property watch the entry whose placeholder forced the anchor guard
+    to be switched off for it.
+    """
+    return [t for t in tokens if not (t.startswith("<") and t.endswith(">"))]
+
+
+def _prescribing_paragraph(check: str, quote: str) -> str:
+    """The source line the record's prescribing sentence sits in.
+
+    Markdown here is never hard-wrapped, so one paragraph is one line and the
+    quote's line is the whole prescribing paragraph. Anchoring on the quote
+    rather than on the `**Python**` review-lens line is what covers the records
+    carrying a python: entry and no such line at all.
+    """
+    lines = [
+        line for line in _record_path(check).read_text().splitlines() if quote in line
+    ]
+    if len(lines) != 1:
+        raise AssertionError(
+            f"{check}: its quote occurs in {len(lines)} source lines, so which "
+            "paragraph prescribes it is not decidable"
+        )
+    return lines[0]
+
+
+# --- the extractor helpers (Task 2) -------------------------------------------
+
+
+def test_a_span_that_is_only_the_tool_name_is_a_mention_not_a_form():
+    """A record names a bare command in order to forbid it.
+
+    `deps/vulnerabilities` writes "Run `pip-audit` with no arguments and it
+    audits whatever environment it was launched from ... so don't". Reading that
+    as a prescription would demand a declaration for the one command the record
+    tells the reader not to run.
+    """
+    paragraph = (
+        "Run `pip-audit` with no arguments, so don't. Use `pip-audit --locked .`."
+    )
+    assert _command_forms(paragraph, "pip-audit") == {"pip-audit --locked ."}
+
+
+def test_a_form_is_recognised_only_for_the_tool_that_leads_it():
+    paragraph = "`uv export --frozen` writes the set that `pip-audit -r <file>` reads."
+    assert _command_forms(paragraph, "pip-audit") == {"pip-audit -r <file>"}
+    assert _command_forms(paragraph, "uv") == {"uv export --frozen"}
+
+
+def test_flag_spans_are_pooled_across_the_paragraph():
+    """A record prescribes a flag without repeating the command it belongs to."""
+    paragraph = "Append `--show-dot` to that `pydeps` invocation; `pydeps --show-cycles` alone prints nothing."
+    assert _flag_spans(paragraph) == {"--show-dot"}
+
+
+def test_a_placeholder_token_is_dropped_before_matching_an_argv():
+    """A record writes what the caller supplies; an argv writes what it supplied.
+
+    This is what lets the coverage property watch `deps/vulnerabilities`, whose
+    placeholder had to switch off the anchor guard entirely.
+    """
+    assert _concrete(_tokens("pip-audit -r <requirements> --no-deps")) == [
+        "pip-audit",
+        "-r",
+        "--no-deps",
+    ]
+
+
+def test_the_prescribing_paragraph_is_the_line_holding_the_quote():
+    quote = "Append `--show-dot` to that `pydeps` invocation - `pydeps --show-cycles` alone has no textual output channel at all."
+    paragraph = _prescribing_paragraph("arch/cycles", quote)
+    assert quote in paragraph
+    assert paragraph.count("\n") == 0
+
+
 def test_every_python_tool_in_the_family_is_invoked():
     assert {i.tool for i in INVOCATIONS} == tools_named_in_records()
 
