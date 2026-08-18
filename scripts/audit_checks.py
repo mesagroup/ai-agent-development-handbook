@@ -95,12 +95,20 @@ never supplies the untiered escape, and it never counts toward a language
 having a claim to silence in the first place - because it names what the
 check inspects rather than what runs it: `arch/complexity-gate` names
 `ruff`, `radon` and `xenon` this way, and counting one as an answer would
-silence exactly the records this rule exists to protect.
-`_routes_answering_ungranted` computes, per language, the routes actually
-in scope for this: the answering-kind routes carrying no tier. A language
-absent from its result has offered no answering-kind route at all, so it
-has made no claim this rule can silence, exactly as a language absent from
-`tooling` makes none under the legacy schema.
+silence exactly the records this rule exists to protect. A
+`disposition: forbidden` route is excluded from the escape side of the
+same rule for a different reason: it is a route the record warns against
+running, not one it offers, so an untiered forbidden route must never be
+read as what still answers - `arch/coupling`'s bare `dlx depcruise`
+invocation (an npm dependency-confusion placeholder that exits 0 having
+touched nothing) is exactly the untiered-but-forbidden shape this
+exclusion exists for. `alternative` and `superseded` routes are not
+excluded; the record does offer those, it simply does not run them by
+default. `_routes_answering_ungranted` computes, per language, the routes
+actually in scope for this: the answering-kind, non-forbidden routes
+carrying no tier. A language absent from its result has offered no such
+route at all, so it has made no claim this rule can silence, exactly as a
+language absent from `tooling` makes none under the legacy schema.
 
 Usage:
     from audit_checks import SKILLS_DIR, load_checks
@@ -549,27 +557,45 @@ def _routes_answering_ungranted(
     """Group a record's answering-kind routes by language, keeping only the
     ones that still answer with no grant held.
 
-    A `kind: subject` route is dropped before grouping, in both directions:
-    it neither offers a language an untiered escape nor gives that language
-    a claim to silence in the first place, because it is the record's own
-    admission that running it inspects the check's subject rather than
-    answering the check - `arch/complexity-gate`'s `ruff`, `radon` and
-    `xenon` are exactly this, and counting one as an answer would silence
-    the very records this rule exists to protect.
+    Two exclusions apply before grouping, for two different reasons - a
+    route dropped for one is not dropped for the other:
+
+    - A `kind: subject` route neither offers a language an untiered escape
+      nor gives that language a claim to silence in the first place,
+      because it is the record's own admission that running it inspects
+      the check's subject rather than answering the check -
+      `arch/complexity-gate`'s `ruff`, `radon` and `xenon` are exactly
+      this, and counting one as an answer would silence the very records
+      this rule exists to protect.
+    - A `disposition: forbidden` route is excluded for the opposite
+      reason: it is a route the record warns against running at all, not
+      one it offers. `arch/coupling` carries a tiered `dependency-cruiser`
+      route for TypeScript and a bare `dlx depcruise` invocation that
+      resolves to an npm dependency-confusion placeholder exiting 0 having
+      touched nothing - a `disposition: forbidden` route that happens to
+      need no grant. Counting that untiered forbidden route as the
+      language's escape would let the record pass without ever saying
+      what actually answers once the grant is withheld, which is the
+      exact silence this rule exists to prevent, produced by the rule
+      itself. `_project_tooling`/`_project_needs` already exclude a
+      forbidden route from what the record offers; this mirrors that.
+      An `alternative` or `superseded` route is not excluded - the record
+      does offer those, it just does not run them by default.
 
     Args:
         routes: The record's parsed routes.
 
     Returns:
         Language to the tuple of its untiered answering routes, for every
-        language offering at least one answering-kind route (`command`,
-        `library`, `procedure`). A language offering none at all - no
-        routes, or only a `subject` route - is absent from the mapping: it
-        has made no claim about grants for this rule to silence.
+        language offering at least one answering-kind, non-forbidden
+        route (`command`, `library`, `procedure`). A language offering
+        none at all - no routes, only a `subject` route, or only
+        `forbidden` routes - is absent from the mapping: it has made no
+        claim about grants for this rule to silence.
     """
     by_lang: dict[str, list[Route]] = {}
     for route in routes:
-        if route.kind in ANSWERING_ROUTE_KINDS:
+        if route.kind in ANSWERING_ROUTE_KINDS and route.disposition != "forbidden":
             by_lang.setdefault(route.lang, []).append(route)
     return {
         lang: tuple(route for route in lang_routes if route.needs is None)
