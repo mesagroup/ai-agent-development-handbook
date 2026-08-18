@@ -11,7 +11,10 @@ written for a human reader, and a marker's count proves only that the byte
 sequence occurred somewhere in a tool's output - never that the finding it
 names is the one the tool actually reported. A grader that guessed would
 manufacture exactly the false-clean result this whole round exists to catch, so
-every `Row` here carries `verdict = "unjudged"` and nothing computes past it.
+no `Row` here ever carries a judged verdict: `verdict` reads `"unjudged"`
+wherever an expectation was graded, and otherwise names the structural reason
+there was nothing to grade (`orphan`, `unmatched-filter`) - never a pass and
+never a fail.
 
 A results entry never carries its own `findings_stream`: `run_python_fixture_lens.py`
 uses the field internally to classify a row and never writes it into the row
