@@ -6,6 +6,7 @@ invocation that had to be edited to run is the finding the round exists to
 produce, and it only shows up as one if the transcription is held to the record.
 """
 
+import json
 import os
 import re
 from pathlib import Path
@@ -945,6 +946,29 @@ def test_an_unknown_check_or_tool_is_rejected_by_name():
         grant_tier("deps/hygiene", "madge")
     with pytest.raises(ValueError, match="conda"):
         invocations_for("conda")
+
+
+def test_a_filtered_run_names_only_the_check_it_was_given():
+    assert [i.check for i in invocations_for("uv", only_check="arch/cycles")] == [
+        "arch/cycles"
+    ] * len([i for i in INVOCATIONS if i.check == "arch/cycles"])
+
+
+def test_an_unknown_check_filter_is_refused():
+    with pytest.raises(ValueError, match="no invocation"):
+        invocations_for("uv", only_check="arch/nonexistent")
+
+
+def test_a_check_the_partition_does_not_carry_is_refused_by_the_filter():
+    """`arch/cycles` exists, and the poetry partition does not run it.
+
+    The refusal is about the pair rather than about the check: a filter naming a
+    check the partition's expectations exclude would otherwise return nothing
+    and write an artifact of zero rows, which reads as a check that ran and
+    found no tools rather than as a run that was never in scope.
+    """
+    with pytest.raises(ValueError, match="no invocation"):
+        invocations_for("poetry", only_check="arch/cycles")
 
 
 # --- classification ------------------------------------------------------------
@@ -2571,6 +2595,47 @@ def test_the_results_file_lands_beside_the_partitions_never_inside_one(
     written = fixture_root / "results" / "uv-none.json"
     assert written.exists()
     assert not any((fixture_root / "uv").glob("*.json"))
+    assert "written to" in capsys.readouterr().out
+
+
+def test_a_filtered_run_never_writes_the_filename_a_full_run_writes(
+    tmp_path, monkeypatch, capsys
+):
+    """The slug in the name is what keeps a one-check run out of the grader.
+
+    The grading pass reads `<partition>-<grant>.json` as the whole matrix for
+    that cell. A partial run landing on that name leaves a file of one row where
+    the published record claims every check, and nothing about it looks wrong -
+    so the filter earns its own filename rather than a flag somebody has to
+    remember to pair with `--work-dir`.
+    """
+    fixture_root = tmp_path / "fixtures"
+    (fixture_root / "uv").mkdir(parents=True)
+    monkeypatch.setattr("run_python_fixture_lens._run", _fake_run([]))
+
+    exit_code = main(
+        [
+            "uv",
+            "--grant",
+            "none",
+            "--check",
+            "arch/cycles",
+            "--fixture-root",
+            str(fixture_root),
+            "--work-dir",
+            str(tmp_path / "work"),
+        ]
+    )
+
+    assert exit_code == 0
+    written = fixture_root / "results" / "uv-none-arch-cycles.json"
+    assert written.exists()
+    assert not (fixture_root / "results" / "uv-none.json").exists()
+    observed = json.loads(written.read_text())
+    assert {row["check"] for row in observed["results"]} == {"arch/cycles"}
+    assert set(observed["versions"]) == {
+        inv.tool for inv in INVOCATIONS if inv.check == "arch/cycles"
+    }
     assert "written to" in capsys.readouterr().out
 
 
