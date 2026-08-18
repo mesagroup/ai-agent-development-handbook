@@ -2724,7 +2724,9 @@ def test_an_ungranted_run_materializes_nothing_and_reports_not_permitted(
 def test_a_granted_run_materializes_first_and_then_runs_in_the_environment(
     tmp_path, monkeypatch
 ):
-    """What counts as the follow-up is read from the entry rather than written out
+    """A granted run materializes the environment, then runs the route inside it.
+
+    What counts as the follow-up is read from the entry rather than written out
     here. The claim is that the second command reaches execution unmangled, and
     a tuple repeated in the assertion adds a second claim nobody asked for -
     that the record's second command is still the one it was on the day this was
