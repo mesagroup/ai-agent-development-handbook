@@ -1546,6 +1546,107 @@ def test_the_real_checks_tree_loads_clean():
     ]
 
 
+LEGACY_TOOLING_RECORDS = frozenset(
+    {
+        "arch/complexity",
+        "arch/complexity-gate",
+        "arch/coupling",
+        "arch/cycles",
+        "arch/dead-code",
+        "arch/hidden-coupling",
+        "arch/layering",
+        "arch/martin-metrics",
+        "arch/over-abstraction",
+        "arch/over-decomposition",
+        "arch/size",
+        "ci/action-supply-chain",
+        "ci/branch-protection",
+        "ci/deploy-safety",
+        "ci/efficiency",
+        "ci/gate-enforcement",
+        "ci/permissions-secrets",
+        "ci/self-hosted-runners",
+        "ci/trigger-safety",
+        "ci/workflow-correctness",
+        "data-protection/boundary-minimization",
+        "data-protection/data-flow-map",
+        "data-protection/deletion-path",
+        "data-protection/processor-register",
+        "data-protection/provider-surface",
+        "data-protection/residency-pinning",
+        "data-protection/retention-limits",
+        "data-protection/stored-artifact-pii",
+        "deps/freshness",
+        "deps/hygiene",
+        "deps/inventory",
+        "deps/licenses",
+        "deps/transitive-licenses",
+        "deps/vulnerabilities",
+        "docs/coverage",
+        "docs/cross-referencing",
+        "docs/docstring-coverage",
+        "docs/docstring-staleness",
+        "docs/docstring-standard",
+        "docs/organization",
+        "eval/adversarial",
+        "eval/contamination",
+        "eval/cost-latency",
+        "eval/coverage",
+        "eval/judge-calibration",
+        "eval/methodology",
+        "eval/prompt-quality",
+        "eval/regression-tracking",
+        "eval/reproducibility",
+        "eval/smoke-test-gate",
+        "eval/verdict-scale",
+        "prompt/cognitive-load",
+        "prompt/cross-prompt-consistency",
+        "prompt/examples-delimiters",
+        "prompt/grounding",
+        "prompt/instruction-precision",
+        "prompt/internal-consistency",
+        "prompt/output-contract",
+        "prompt/positive-framing",
+        "prompt/role-objective",
+        "prompt/sop-naming",
+        "prompt/sop-rfc2119",
+        "prompt/sop-structure",
+        "security/crypto",
+        "security/dangerous-calls",
+        "security/injection",
+        "security/secret-history",
+        "security/secrets-in-code",
+        "security/sensitive-data",
+        "security/unsafe-io",
+        "test/assertion-strength",
+        "test/coverage-reach",
+        "test/determinism",
+        "test/isolation",
+        "test/mutation",
+        "test/new-code-coverage",
+        "test/property-based-gap",
+    }
+)
+
+
+def test_the_records_still_on_the_old_schema_are_the_ones_named():
+    """A record migrated without updating this set fails, and so does the reverse.
+
+    The migration runs domain by domain, so both schemas load for as long as it
+    takes. That is a decision rather than a tolerance: an unmigrated record has
+    to be named somewhere, or the loader accepting it reads exactly like the
+    loader having nothing left to accept.
+    """
+    checks, errors = ac.load_checks(ac.SKILLS_DIR)
+    assert not errors, errors
+    legacy = {cid for cid, check in checks.items() if not check.routes}
+    assert legacy == LEGACY_TOOLING_RECORDS
+    assert legacy, (
+        "no record is on the old schema, so this set is dead - delete it and "
+        "the dual-schema branch of the loader with it"
+    )
+
+
 def test_every_tool_less_check_states_a_reading_procedure():
     """lidia-tech/lidia-agents#567 item 5: a record may omit `tooling:` when its detection is
     reading rather than running something - but it must then say so under
