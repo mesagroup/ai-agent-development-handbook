@@ -12,7 +12,7 @@ entries carrying a completion is a finding list before any tool has spoken.
 A route the record does not prescribe at all is a third thing, and it is held
 apart from both: `supplied_by_partition` carries a command **this round
 contributed** rather than transcribed, and it never renders as `record_argv` in
-the results. They are SBOM and vulnerability routes for a dependency file the
+the results. They are SBOM and vulnerability routes for dependency files the
 record names no subcommand or mode for, so each is a candidate answer to a named
 hole rather than a correction to the record - and keeping it out of `record_argv`
 is what stops a later pass reading "the harness ran this" as "the record said
