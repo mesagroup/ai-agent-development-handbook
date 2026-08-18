@@ -2702,6 +2702,48 @@ def test_a_filtered_run_never_writes_the_filename_a_full_run_writes(
     assert "written to" in capsys.readouterr().out
 
 
+def test_an_unknown_check_is_rejected_before_anything_is_copied_or_synced(
+    tmp_path, monkeypatch, capsys
+):
+    """The one argument whose typo used to cost a tree copy and a network sync.
+
+    `partition` and `--grant` are argparse `choices` and `--fixture-root` is
+    checked against the filesystem, so `--check` was the only argument reaching
+    `run_partition` unvalidated - and the rejection there arrives after the copy
+    and after `uv sync --frozen`, as a bare traceback rather than a usage message.
+    Asserted by making the run fail if it starts at all: `_run` raises, so a
+    `SystemExit` carrying argparse's code 2 is evidence the parser rejected the
+    argument rather than that the run did.
+    """
+
+    def _never(*args, **kwargs):
+        raise AssertionError("the run started on an unknown check id")
+
+    fixture_root = tmp_path / "fixtures"
+    (fixture_root / "uv").mkdir(parents=True)
+    monkeypatch.setattr("run_python_fixture_lens._run", _never)
+
+    with pytest.raises(SystemExit) as caught:
+        main(
+            [
+                "uv",
+                "--grant",
+                "none",
+                "--check",
+                "arch/cylces",
+                "--fixture-root",
+                str(fixture_root),
+                "--work-dir",
+                str(tmp_path / "work"),
+            ]
+        )
+
+    assert caught.value.code == 2
+    assert "arch/cylces" in capsys.readouterr().err
+    assert not (fixture_root / "results").exists()
+    assert not (tmp_path / "work").exists()
+
+
 def test_the_two_grant_states_are_the_two_the_round_runs():
     assert GRANTS == ("none", "target-execution")
 

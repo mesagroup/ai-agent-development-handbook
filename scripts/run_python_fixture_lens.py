@@ -2184,6 +2184,18 @@ def main(argv: list[str] | None = None) -> int:
         parser.error(
             f"{source} is not there; build it first with build_python_fixtures"
         )
+    # Beside that one rather than left to `run_partition`, which reaches the same
+    # rejection only after copying the whole tree and running a network
+    # `uv sync --frozen`. `partition` and `--grant` are validated by argparse
+    # `choices`, so this is the one argument a typo in costs minutes and then
+    # prints a traceback instead of a usage message. The raise stays in
+    # `invocations_for`: it is that function's contract, and this only routes it
+    # to the caller in the form the other arguments are rejected in.
+    if args.check is not None:
+        try:
+            invocations_for(args.partition, only_check=args.check)
+        except ValueError as err:
+            parser.error(str(err))
 
     work_root = args.work_dir or Path(tempfile.mkdtemp(prefix="python-fixture-lens-"))
     work_root.mkdir(parents=True, exist_ok=True)
