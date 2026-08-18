@@ -519,7 +519,7 @@ class Invocation:
         self._check_forms()
 
     def _check_supplied(self) -> None:
-        """The three ways a supplied route would stop being distinguishable."""
+        """The four ways a supplied route would stop being distinguishable."""
         if self.supplied_by_partition and not self.supplied_note:
             raise ValueError(
                 f"{self.check}/{self.tool}: a supplied route needs a note saying what "
