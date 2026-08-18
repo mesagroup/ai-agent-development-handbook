@@ -308,11 +308,27 @@ VERSION_PROBE: dict[str, tuple[str, ...] | None] = {
 # taking `None`.
 NO_VERSION_ROUTE: dict[str, str] = {}
 
-# What a declared command form is for. `runs` is the only value the harness acts
-# on; the other three are the ways a record's paragraph names a command it does
-# not want run here. Naming them is the point: without a disposition, a form the
-# harness does not run is indistinguishable from a form nobody noticed, which is
-# how `--show-dot` sat unprescribed in `arch/cycles` through three green guards.
+# What a declared command form is for. A disposition says what the *record* names
+# a form for, and `runs` is the only value the harness acts on. Each of the other
+# three says a different thing about a form the transcription did not take:
+#
+# * `superseded` - the record names the form and then narrows the same command,
+#   the way the `--no-deps --disable-pip` pair narrows `pip-audit -r
+#   <requirements>`, and the narrower form is the one it goes on to prescribe.
+# * `alternative` - a second route the record keeps valid without making it the
+#   default here: `cyclonedx-py environment`, more accurate where a tree is
+#   available and useless on a read-only clone; `pip-licenses --format json`, the
+#   same list presented machine-readably; `mutmut results`, the other of two ways
+#   the record offers to read the tally. Nothing narrows these and nothing warns
+#   against them - the record simply prescribes something else first. Read as
+#   "a route for a partition shape the fixtures lack" it fits none of them, and
+#   it would make the value a claim about the fixture set rather than about the
+#   record, which is the one thing a disposition never is.
+# * `forbidden` - a form the record names in order to warn against.
+#
+# Naming them is the point: without a disposition, a form the harness does not
+# run is indistinguishable from a form nobody noticed, which is how `--show-dot`
+# sat unprescribed in `arch/cycles` through three green guards.
 DISPOSITIONS: tuple[str, ...] = ("runs", "alternative", "superseded", "forbidden")
 
 
@@ -406,6 +422,21 @@ class Invocation:
             against the record, so a record that *grows* a prescription leaves
             them green while the harness quietly stops running what it says it
             runs.
+
+            A disposition is a claim about the record and not about this table:
+            it says what the record names the form for, never whether anything
+            here runs it. The two diverge in one direction with no mechanical
+            net. A form declared `runs` that no argv carries fails the coverage
+            property; a form the harness *does* run while declaring it
+            `superseded` or `alternative` passes every test in the suite, because
+            that property reads only the `runs` half and no property reads the
+            other. `deps/vulnerabilities` is the live instance rather than the
+            hypothetical one: its `pip-audit -r <requirements>` is `superseded`,
+            truthfully - the record narrows it with the `--no-deps --disable-pip`
+            pair - and the uv partition's supplied route runs exactly that form
+            without the pair. A supplied route is authored here rather than
+            transcribed, so by construction it answers to no declaration, which
+            is why the two can disagree without either being wrong.
     """
 
     check: str
@@ -1003,6 +1034,11 @@ INVOCATIONS: tuple[Invocation, ...] = (
         ),
         forms=(
             ("pip-audit --locked .", "runs"),
+            # `superseded` is what the record says: it names this form and then
+            # narrows it with the `--no-deps --disable-pip` pair below. The uv
+            # supplied route above runs the un-narrowed form verbatim all the
+            # same, and nothing tests that a disposition does not understate what
+            # runs - see `forms` in `Invocation`'s docstring.
             ("pip-audit -r <requirements>", "superseded"),
             ("pip-audit -r <requirements> --no-deps --disable-pip", "runs"),
         ),
