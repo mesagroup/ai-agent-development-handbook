@@ -108,11 +108,11 @@ def _command_forms(paragraph: str, lead: str) -> set[str]:
     bare command in order to warn against it, and treating that as a
     prescription would demand a declaration for the command it forbids.
 
-    The lead word is a tool's name for most entries and a runner's for the four
-    whose record prescribes a command led by something else, which is what
-    `_lead_words` supplies. Held to one word either way: a rule matching the name
-    anywhere in the span would attribute a neighbour's command to the wrong
-    entry.
+    The lead word is a tool's name for most entries, and a runner's wherever the
+    record prescribes a command led by something other than the tool being
+    checked - which is what `_lead_words` supplies, one call per word. Held to one
+    word either way: a rule matching the name anywhere in the span would
+    attribute a neighbour's command to the wrong entry.
     """
     return {
         span
@@ -646,10 +646,12 @@ def test_every_flag_the_record_names_occurs_in_a_declared_form():
     flag a neighbour's command carries fails - not because the record drifted,
     but because the flag was never that tool's to declare.
 
-    `_concrete` applies to the flag for the same reason it applies to a form:
-    `--python <path>` is one span whose second token the record writes as a
-    placeholder and every declared form writes out in full, so matched as
-    written it fails on a pair nothing is wrong with.
+    `_concrete` applies to the flag for the same reason it applies to a form, and
+    not because the form carries a concrete value where the flag carries a
+    placeholder: `deps/freshness` writes the span as `--python <path>` and the
+    declared form as `--python <path-to-venv-python>`, two placeholders for the
+    same hole, so neither side can ever match the other as written. Dropping the
+    placeholder from both is what leaves the flag itself to match.
     """
     for inv in INVOCATIONS:
         paragraph = _prescribing_paragraph(inv.check, inv.record_quote)
