@@ -172,12 +172,15 @@ def test_an_empty_only_check_is_a_full_run_rather_than_a_filter(grader, spec):
     assert len(grader.grade_rows(run)) == len(spec.expectations_for("poetry"))
 
 
-def test_a_filter_naming_a_check_the_partition_lacks_is_refused(grader):
-    """Nothing the harness writes produces this, and grading it silently would.
+def test_a_filter_naming_a_check_the_partition_lacks_gets_a_visible_row(grader):
+    """Nothing the harness writes produces this, and a row is what it gets.
 
     `invocations_for` refuses the pair, so a results file claiming it has been
     hand-edited or has outlived the expectations. Rendering zero rows for it
-    would report a run that covered nothing as a run with nothing to cover.
+    would report a run that covered nothing as a run with nothing to cover, and
+    raising over it would take every other run in the directory down with it,
+    because `main` iterates the results glob with no handler. One row of its own
+    says in the worksheet what the file named.
     """
     run = {
         "partition": "poetry",
@@ -185,8 +188,38 @@ def test_a_filter_naming_a_check_the_partition_lacks_is_refused(grader):
         "only_check": "arch/cycles",
         "results": [],
     }
-    with pytest.raises(ValueError, match="no expectation"):
-        grader.grade_rows(run)
+    rows = grader.grade_rows(run)
+    assert [r.check for r in rows] == ["arch/cycles"]
+    assert rows[0].form == "unmatched-filter"
+    assert rows[0].verdict == "unmatched-filter"
+    assert rows[0].signals == {}
+    text = grader.render(rows)
+    assert "arch/cycles" in text
+    assert "unmatched-filter" in text
+    assert "no expectation" in text
+
+
+def test_an_unmatched_filter_carries_the_entries_without_calling_them_orphans(grader):
+    """The entries left beside a filter nothing matches may name a real check.
+
+    `arch/cycles` is a `uv` expectation, so letting these entries fall through
+    to the orphan loop would print `_orphan_row`'s claim - that no expectation
+    names the check - over an entry whose check the partition does carry. The
+    unmatched-filter row carries them instead, and is the run's only row.
+    """
+    run = {
+        "partition": "uv",
+        "grant": "target-execution",
+        "only_check": "arch/no-such-check",
+        "results": [
+            {"check": "arch/cycles", "tool": "pydeps", "ran": True, "status": "ok"},
+        ],
+    }
+    rows = grader.grade_rows(run)
+    assert len(rows) == 1
+    assert rows[0].check == "arch/no-such-check"
+    assert [o.tool for o in rows[0].observations] == ["pydeps"]
+    assert rows[0].verdict == "unmatched-filter"
 
 
 def test_an_orphan_entry_gets_its_own_row_instead_of_vanishing(grader, spec):
@@ -557,6 +590,38 @@ def test_main_writes_a_worksheet_for_every_run_in_the_directory(grader, tmp_path
     text = out.read_text()
     assert text.startswith("| Check |")
     assert "deps/hygiene" in text
+
+
+def test_main_grades_the_healthy_runs_beside_a_stale_one_check_file(
+    grader, spec, tmp_path
+):
+    """The blast radius is the whole directory, so `main` is what must be tested.
+
+    `main` iterates the results glob with no handler, so a `grade_rows` that
+    raised over one outlived one-check file produced no rows and no worksheet at
+    all - every healthy run in the same directory lost to a file naming a check
+    nothing covers. This goes through `main` rather than `grade_rows` for that
+    reason: the unit-level tests all pass while the directory-level failure is
+    the one that matters.
+    """
+    _write_run(tmp_path / "pip-none.json", partition="pip", grant="none")
+    (tmp_path / "poetry-none-arch-cycles.json").write_text(
+        json.dumps(
+            {
+                "grant": "none",
+                "partition": "poetry",
+                "only_check": "arch/cycles",
+                "results": [],
+            }
+        )
+    )
+    exit_code = grader.main([str(tmp_path)])
+    assert exit_code == 0
+    text = (tmp_path / "worksheet.md").read_text()
+    assert text.count("| pip |") == len(spec.expectations_for("pip"))
+    assert "deps/hygiene" in text
+    assert "arch/cycles" in text
+    assert "unmatched-filter" in text
 
 
 def test_main_writes_to_the_requested_output_path(grader, tmp_path):
