@@ -405,6 +405,60 @@ def _demoted_tokens(inv: Invocation) -> list[str]:
     return [token for token in inv.completion if token in quote]
 
 
+def _prescribed_commands(inv: Invocation) -> list[tuple[str, tuple[str, ...]]]:
+    """Every distinct command this entry says its record prescribes.
+
+    Labelled by the first partition naming it, and distinct rather than one row
+    per partition: `prescribed` answers a shared `argv` for all five, so a
+    per-partition list would report one command as five routes in every failure
+    message an entry with a shared argv produces.
+
+    A supplied route is not here. It is authored in this table rather than
+    transcribed from a record, so it answers to no declaration the record makes,
+    which is what lets `deps/vulnerabilities` declare `pip-audit -r
+    <requirements>` `superseded` truthfully while the uv partition's supplied
+    route runs exactly that form.
+    """
+    out: dict[tuple[str, ...], str] = {}
+    for partition in PARTITIONS:
+        argv = inv.prescribed(partition)
+        if argv and argv not in out:
+            out[argv] = partition
+    return [(partition, argv) for argv, partition in out.items()]
+
+
+def _runs_as_written(command: tuple[str, ...], form: str) -> bool:
+    """Whether the command is this form exactly and carries nothing else.
+
+    Equality rather than containment, because a record supersedes a form by
+    extending it as often as by replacing it: `pydeps --show-cycles` is
+    superseded by the same command carrying `--show-dot`, and every `superseded`
+    form in the family is a subsequence of the command that narrows it. Asking
+    whether a command *contains* such a form answers yes for a correct entry.
+
+    A placeholder standing as its own word matches whatever the caller supplied
+    there, and counts as one token while it does. `_concrete` cannot serve here
+    even though it serves everywhere else in this file: it *drops* such a token
+    rather than truncating it, so `pip-audit -r <requirements>` would reduce to
+    two words, never equal the three-word command that fills it, and report the
+    form as one nothing runs - a comparison that cannot fire, reading exactly
+    like an entry with nothing to find. A placeholder glued to a flag still goes
+    through `_concrete`, where truncating leaves the flag as a prefix `_matches`
+    can satisfy.
+    """
+    wanted = _tokens(form)
+    tokens = _tokens(" ".join(command))
+    if len(wanted) != len(tokens):
+        return False
+    for want, token in zip(wanted, tokens, strict=True):
+        if want.startswith("<") and want.endswith(">"):
+            continue
+        reduced = _concrete([want])
+        if not reduced or not _matches(reduced[0], token):
+            return False
+    return True
+
+
 # --- the extractor helpers ----------------------------------------------------
 
 
@@ -630,6 +684,75 @@ def test_a_placeholder_the_record_leaves_open_is_a_legitimate_completion():
     assert _demoted_tokens(inv) == []
     marked = _concrete(_tokens(inv.record_quote))
     assert any(_matches(w, "--cov=fixture_app") for w in marked)
+
+
+def test_a_shared_argv_is_one_command_rather_than_one_per_partition():
+    """The label names the first partition carrying it, and the command is distinct.
+
+    An entry with a shared `argv` prescribes one command, and `prescribed`
+    answers with it for every partition. Listed once per partition instead, a
+    failure message would name five identical commands and a reader would look
+    for five routes.
+    """
+    shared = Invocation(
+        check="deps/hygiene",
+        tool="deptry",
+        argv=("deptry",),
+        completion=(".",),
+        note="deptry takes the path to scan and the record names none",
+        record_quote="Run `deptry` over the package to list unused declarations.",
+    )
+    assert _prescribed_commands(shared) == [("uv", ("deptry",))]
+    split = Invocation(
+        check="deps/inventory",
+        tool="cyclonedx-py",
+        argv_by_partition=(
+            ("uv", ("cyclonedx-py", "environment")),
+            ("pip", ("cyclonedx-py", "requirements")),
+        ),
+        record_quote="Run the subcommand matching the partition's own dependency file.",
+    )
+    assert _prescribed_commands(split) == [
+        ("uv", ("cyclonedx-py", "environment")),
+        ("pip", ("cyclonedx-py", "requirements")),
+    ]
+
+
+def test_a_command_carrying_a_form_is_not_the_same_as_running_it():
+    """Containment cannot be the test, so equality is.
+
+    A record commonly supersedes a form by *extending* it, and every
+    `superseded` form in the family is a subsequence of the longer command that
+    narrows it. A containment rule would fire on all of them. Equality asks the
+    question that matters instead: whether the harness runs the form the record
+    warns against and nothing more.
+    """
+    narrowed = ("pydeps", "--show-cycles", "--show-dot")
+    assert not _runs_as_written(narrowed, "pydeps --show-cycles")
+    assert _runs_as_written(("pydeps", "--show-cycles"), "pydeps --show-cycles")
+    assert _runs_as_written(narrowed, "pydeps --show-cycles --show-dot")
+
+
+def test_a_form_the_record_writes_with_a_placeholder_compares_as_written():
+    """`pip-audit -r <requirements>` against the file the caller supplied.
+
+    A placeholder standing as its own word is one token and matches whatever
+    filled it. Reducing the form with `_concrete` first is what breaks this
+    comparison rather than helping it: that drops such a token instead of
+    truncating it, leaving a two-word form that can never equal the three-word
+    command, so the form reports as one nothing runs - a comparison that cannot
+    fire reads exactly like an entry with nothing to find. A placeholder glued to
+    a flag is the case `_concrete` does serve, and both paths are held here.
+    """
+    assert _runs_as_written(
+        ("pip-audit", "-r", "requirements.txt"), "pip-audit -r <requirements>"
+    )
+    assert not _runs_as_written(
+        ("pip-audit", "-r", "requirements.txt", "--no-deps"),
+        "pip-audit -r <requirements>",
+    )
+    assert _runs_as_written(("pytest", "--cov=fixture_app"), "pytest --cov=<pkg>")
+    assert not _runs_as_written(("pytest", "--cov"), "pytest --cov=<pkg>")
 
 
 def test_every_python_tool_in_the_family_is_invoked():
@@ -1129,6 +1252,79 @@ def test_every_form_the_harness_runs_appears_in_an_argv():
                 and all(any(_matches(w, token) for token in tokens) for w in supplied)
                 for tokens in carried
             ), (inv.check, inv.tool, form)
+
+
+def test_no_prescribed_command_is_exactly_a_form_the_record_warns_against():
+    """The disposition's other half, which had no property at all.
+
+    The coverage property above reads the `runs` half, so a form declared
+    `alternative` or `superseded` is held against nothing - which makes the
+    disposition a per-form off-switch. Flipped, a second edit can drop the
+    narrowing token from the argv, and the harness ships running exactly the
+    form the record warns against.
+
+    Two limits, both real. Equality, so a non-`runs` form run as a strict prefix
+    plus some unrelated token still passes: containment cannot be the test
+    because a record supersedes a form by extending it, and every `superseded`
+    form in the family is a subsequence of the command that narrows it. And this
+    reads the declaration rather than the record - which form a record warns
+    against is not mechanically extractable, so a disposition simply wrong about
+    its record stays a reading pass.
+    """
+    for inv in INVOCATIONS:
+        commands = _prescribed_commands(inv)
+        if inv.then:
+            commands = [*commands, ("then", inv.then)]
+        for form, disposition in inv.forms:
+            if disposition == "runs":
+                continue
+            for label, command in commands:
+                assert not _runs_as_written(command, form), (
+                    f"{inv.check}/{inv.tool}: the {label} command runs {form!r} "
+                    f"as written while the record declares it {disposition}"
+                )
+
+
+def test_an_entry_declaring_forms_declares_one_it_runs():
+    """What makes the flip fail at its first edit rather than its second.
+
+    An entry whose declared forms include none marked `runs` has switched the
+    coverage property off for itself entirely, and the property above catches
+    the consequence only where the shortened argv happens to equal another form
+    the record already declares. Where an entry's `runs` forms number one,
+    flipping it leaves the argv equal to no declared form at all, and the second
+    edit is unguarded - measured on `test/isolation`, whose single form is
+    `pytest --durations=25`.
+
+    The two entries named here declare a single `alternative` form truthfully:
+    the record's only named form is one the harness deliberately does not run,
+    and what it runs instead is the plain command the quote prescribes, which
+    the anchor guard holds. Asserted rather than allowed, so an entry that grows
+    a `runs` form fails here rather than keeping an exception it no longer
+    needs.
+    """
+    silenced = {
+        # The record names `pip-licenses --format json` as the alternative; the
+        # harness runs the plain command the quote prescribes.
+        ("deps/licenses", "pip-licenses"),
+        # The record names `pytest --randomly-seed=<n>` for reproducing one
+        # ordering; the harness runs the suite as the record prescribes it.
+        ("test/determinism", "pytest-randomly"),
+    }
+    seen = set()
+    for inv in INVOCATIONS:
+        if not inv.forms:
+            continue
+        runs = [form for form, disposition in inv.forms if disposition == "runs"]
+        if (inv.check, inv.tool) in silenced:
+            assert not runs, (inv.check, inv.tool, runs)
+            seen.add((inv.check, inv.tool))
+        else:
+            assert runs, (
+                f"{inv.check}/{inv.tool}: declares {len(inv.forms)} forms and none "
+                "it runs, so the coverage property holds nothing on it"
+            )
+    assert seen == silenced, "an exception nothing exercises is a stale exception"
 
 
 def test_every_disposition_in_the_vocabulary_is_used():
