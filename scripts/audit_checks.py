@@ -33,7 +33,7 @@ Frontmatter fields:
 | `needs` | no | Tier to tool names, for tools needing more than a read-only clone |
 | `ungranted_note` | iff every tool in a language needs a grant | What the check still answers when that grant is withheld |
 | `routes` | no | A list of `Route`s: what this check can run, replacing `tooling`/`needs`/`ungranted_note` for a migrated record |
-| `answers_ungranted` | no | Accepted alongside `routes`; not yet validated |
+| `answers_ungranted` | iff every answering-kind route in a language needs a grant | The routes-schema counterpart of `ungranted_note`: the sentinel `none`, written where no route in that language answers without a grant |
 | `optin` | no | Default `false`; an opt-in sub-audit that produces findings |
 
 `handbook` is a list because a check is commonly grounded in several
@@ -83,8 +83,24 @@ declared, and repeating it under `needs` too would reopen the drift
 `_project_tooling` and `_project_needs`), so the call sites in
 `run_python_fixture_lens.py`, `test_python_fixture_harness.py` and
 `test_python_fixture_spec.py` that predate `routes` still read the same
-shape without change. `answers_ungranted` is accepted alongside `routes` as
-of this change; the rule governing when it is required is not yet enforced.
+shape without change.
+
+`answers_ungranted` is `ungranted_note`'s counterpart under `routes`: where
+every answering-kind route (`command`, `library`, `procedure`) a language
+offers needs a grant, the record must also carry an untiered route in that
+language, or the sentinel `none`, for the same reason `ungranted_note` is
+required rather than left to an absent key reading as a claim. A
+`kind: subject` route is excluded from this rule in both directions - it
+never supplies the untiered escape, and it never counts toward a language
+having a claim to silence in the first place - because it names what the
+check inspects rather than what runs it: `arch/complexity-gate` names
+`ruff`, `radon` and `xenon` this way, and counting one as an answer would
+silence exactly the records this rule exists to protect.
+`_routes_answering_ungranted` computes, per language, the routes actually
+in scope for this: the answering-kind routes carrying no tier. A language
+absent from its result has offered no answering-kind route at all, so it
+has made no claim this rule can silence, exactly as a language absent from
+`tooling` makes none under the legacy schema.
 
 Usage:
     from audit_checks import SKILLS_DIR, load_checks
@@ -126,6 +142,12 @@ UNGRANTED_NONE = "none"
 # CI config) belongs to no language, which `tooling`'s bare language keys
 # had no way to say.
 ROUTE_KINDS = ("command", "library", "procedure", "subject")
+# The `ROUTE_KINDS` that can answer the check at all. `subject` is the one
+# absence: it names what the check inspects rather than what runs it -
+# `arch/complexity-gate` names `ruff`, `radon` and `xenon` as "the gate's
+# subject rather than its instrument", running one answers `arch/complexity`,
+# not the gate - so it must never satisfy the ungranted rule below.
+ANSWERING_ROUTE_KINDS = ("command", "library", "procedure")
 DISPOSITIONS = ("runs", "alternative", "superseded", "forbidden")
 ROUTE_LANGS = ("python", "typescript", "any", "none")
 FINDINGS_STREAMS = ("stdout", "stderr")
@@ -209,6 +231,7 @@ class Check:
     needs: dict[str, tuple[str, ...]]
     ungranted_note: str | None
     routes: tuple[Route, ...]
+    answers_ungranted: str | None
     optin: bool
     path: Path
 
@@ -520,6 +543,60 @@ def _project_needs(routes: tuple[Route, ...]) -> dict[str, tuple[str, ...]]:
     return {tier: tuple(tools) for tier, tools in per_tier.items()}
 
 
+def _routes_answering_ungranted(
+    routes: tuple[Route, ...],
+) -> dict[str, tuple[Route, ...]]:
+    """Group a record's answering-kind routes by language, keeping only the
+    ones that still answer with no grant held.
+
+    A `kind: subject` route is dropped before grouping, in both directions:
+    it neither offers a language an untiered escape nor gives that language
+    a claim to silence in the first place, because it is the record's own
+    admission that running it inspects the check's subject rather than
+    answering the check - `arch/complexity-gate`'s `ruff`, `radon` and
+    `xenon` are exactly this, and counting one as an answer would silence
+    the very records this rule exists to protect.
+
+    Args:
+        routes: The record's parsed routes.
+
+    Returns:
+        Language to the tuple of its untiered answering routes, for every
+        language offering at least one answering-kind route (`command`,
+        `library`, `procedure`). A language offering none at all - no
+        routes, or only a `subject` route - is absent from the mapping: it
+        has made no claim about grants for this rule to silence.
+    """
+    by_lang: dict[str, list[Route]] = {}
+    for route in routes:
+        if route.kind in ANSWERING_ROUTE_KINDS:
+            by_lang.setdefault(route.lang, []).append(route)
+    return {
+        lang: tuple(route for route in lang_routes if route.needs is None)
+        for lang, lang_routes in by_lang.items()
+    }
+
+
+def _silenced_languages(routes: tuple[Route, ...]) -> tuple[str, ...]:
+    """Languages a withheld grant silences under the `routes` schema.
+
+    Mirrors `_fully_tiered_languages` for routes: a language is silenced
+    when it offers at least one answering-kind route and every one of them
+    needs a grant, i.e. `_routes_answering_ungranted` maps it to an empty
+    tuple. A language absent from that mapping altogether - no answering
+    route at all - is not one of them, for the same reason `all()` over an
+    empty list must not be read as a claim.
+
+    Args:
+        routes: The record's parsed routes.
+
+    Returns:
+        The languages, sorted, so a message naming them is stable.
+    """
+    answering = _routes_answering_ungranted(routes)
+    return tuple(lang for lang, untiered in sorted(answering.items()) if not untiered)
+
+
 def _load_one(
     path: Path, skills_dir: Path
 ) -> tuple[Check | None, list[str], str | None]:
@@ -717,6 +794,78 @@ def _load_one(
             "to be silenced"
         )
 
+    # `answers_ungranted` is the routes-schema counterpart of `ungranted_note`
+    # above; the two blocks stay separate because a record on the legacy
+    # schema keeps using `ungranted_note` unchanged until it migrates.
+    raw_answers = meta.get("answers_ungranted")
+    has_answers_key = "answers_ungranted" in meta
+    if has_answers_key and raw_routes is None:
+        errors.append(
+            f"{where}: answers_ungranted names an answering route this record "
+            "does not declare - it only means something alongside a routes "
+            "list, add one, or drop answers_ungranted"
+        )
+
+    answers_ungranted: str | None = None
+    silenced_langs = _silenced_languages(routes) if raw_routes is not None else ()
+    if raw_routes is not None:
+        if silenced_langs and not has_answers_key:
+            errors.append(
+                f"{where}: every route that answers for {', '.join(silenced_langs)} "
+                "needs a grant, so a withheld grant silences the check - add an "
+                "untiered route that still answers, or answers_ungranted: "
+                f"{UNGRANTED_NONE!r} if nothing does"
+            )
+
+        if has_answers_key:
+            if raw_answers is None:
+                errors.append(
+                    f"{where}: answers_ungranted is empty - YAML reads `null`, `~` "
+                    "and a bare key as nothing, which is indistinguishable from "
+                    f"omitting the key. Write {UNGRANTED_NONE!r} if nothing "
+                    "answers without a grant, or add an untiered route that does"
+                )
+            elif not isinstance(raw_answers, str):
+                errors.append(
+                    f"{where}: answers_ungranted must be the sentinel "
+                    f"{UNGRANTED_NONE!r}, got {raw_answers!r}"
+                )
+            elif not raw_answers.strip():
+                errors.append(
+                    f"{where}: answers_ungranted is blank - write "
+                    f"{UNGRANTED_NONE!r} if nothing answers without a grant, or "
+                    "add an untiered route that does"
+                )
+            elif raw_answers.strip() != UNGRANTED_NONE:
+                if raw_answers.strip().lower() == UNGRANTED_NONE:
+                    errors.append(
+                        f"{where}: write the answers_ungranted sentinel as "
+                        f"{UNGRANTED_NONE!r}, not {raw_answers!r} - YAML leaves "
+                        "the capitalised spellings as ordinary strings, so this "
+                        "would be read as a claim that something answers"
+                    )
+                else:
+                    errors.append(
+                        f"{where}: answers_ungranted accepts only the sentinel "
+                        f"{UNGRANTED_NONE!r} - a record with something to say "
+                        "about what still answers says it with an untiered "
+                        "route, not prose here"
+                    )
+            else:
+                answers_ungranted = UNGRANTED_NONE
+
+            if not silenced_langs:
+                errors.append(
+                    f"{where}: answers_ungranted describes a withheld grant "
+                    "leaving this record with nothing to run, which cannot "
+                    "happen here - no language it offers an answering route "
+                    "for is fully tiered, because every one of them either "
+                    "offers no answering route or keeps one that runs from a "
+                    "read-only clone. Remove answers_ungranted, or make every "
+                    "route that answers for that language need a grant if this "
+                    "record is meant to be silenced"
+                )
+
     optin = meta.get("optin", False)
     if not isinstance(optin, bool):
         errors.append(f"{where}: optin must be a boolean, got {optin!r}")
@@ -750,6 +899,7 @@ def _load_one(
             needs=final_needs,
             ungranted_note=ungranted,
             routes=routes,
+            answers_ungranted=answers_ungranted,
             optin=optin,
             path=path,
         ),

@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 import pytest
+import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 _SCRIPT = REPO_ROOT / "scripts" / "audit_checks.py"
@@ -823,6 +824,7 @@ routes:
     argv: [npx, semgrep, scan]
     disposition: forbidden
     needs: resolved-tree
+answers_ungranted: none
 ---
 
 # Thing
@@ -875,6 +877,280 @@ Fixture body.
     assert checks["demo/thing"].tooling == {
         "python": ("import-linter", "tach", "pydeps")
     }
+
+
+# --- answers_ungranted: the ungranted rule, rebuilt on routes -------------
+
+_UNSET = object()
+
+
+def _frontmatter_from_route_dicts(routes, answers_ungranted=_UNSET):
+    """Render a fixture record whose `routes:` list is built from route
+    dicts as plain data, for the tests below that assemble several routes
+    at once instead of one literal route body at a time (`_routes_frontmatter`
+    above serves the latter).
+
+    `answers_ungranted`, when given, is written as a raw frontmatter line
+    rather than round-tripped through `yaml.safe_dump`: PyYAML quotes a
+    Python string like `"null"` or `""` so it re-parses as an ordinary
+    string, not as YAML's own null - which would silently divert the
+    miscased-sentinel tests below away from the branch they exist to
+    exercise. `_UNSET` is what tells "no answers_ungranted key at all" apart
+    from "the key with an empty value", which those tests need to keep
+    separate too.
+    """
+    routes_yaml = yaml.safe_dump({"routes": routes}, sort_keys=False)
+    text = (
+        "---\n"
+        "id: demo/thing\n"
+        "domain: demo\n"
+        "locality: local\n"
+        "handbook: []\n"
+        "handbook_note: Fixture record for the ungranted rule.\n"
+        f"{routes_yaml}"
+    )
+    if answers_ungranted is not _UNSET:
+        text += f"answers_ungranted: {answers_ungranted}\n"
+    return text + "---\n\n# Thing\n\nFixture body.\n"
+
+
+def _routes_record(tmp_path, routes, answers_ungranted=_UNSET):
+    """Write a record whose `routes:` list is built from route dicts,
+    assert the load produced no errors, and return the loaded Check.
+    """
+    text = _frontmatter_from_route_dicts(routes, answers_ungranted)
+    _write(tmp_path, "demo-audit/checks/thing.md", text)
+    checks, errors = ac.load_checks(tmp_path)
+    assert errors == [], errors
+    return checks["demo/thing"]
+
+
+def _errors_for_routes(tmp_path, routes, answers_ungranted=_UNSET):
+    """Write a record whose `routes:` list is built from route dicts, and
+    return the error list instead of the Check.
+    """
+    text = _frontmatter_from_route_dicts(routes, answers_ungranted)
+    _write(tmp_path, "demo-audit/checks/thing.md", text)
+    _, errors = ac.load_checks(tmp_path)
+    return errors
+
+
+def test_a_language_whose_every_route_is_tiered_must_say_what_answers(tmp_path):
+    errors = _errors_for_routes(
+        tmp_path,
+        [
+            {
+                "lang": "python",
+                "kind": "command",
+                "tool": "t",
+                "argv": ["t"],
+                "needs": "resolved-tree",
+            }
+        ],
+    )
+    assert any("answers_ungranted" in e and "python" in e for e in errors), errors
+
+
+def test_an_untiered_route_in_the_same_language_answers_it(tmp_path):
+    check = _routes_record(
+        tmp_path,
+        [
+            {
+                "lang": "python",
+                "kind": "command",
+                "tool": "t",
+                "argv": ["t"],
+                "needs": "resolved-tree",
+            },
+            {"lang": "python", "kind": "procedure", "note": "read the config"},
+        ],
+    )
+    assert check.answers_ungranted is None
+
+
+def test_a_subject_route_does_not_answer_the_check(tmp_path):
+    errors = _errors_for_routes(
+        tmp_path,
+        [
+            {
+                "lang": "python",
+                "kind": "command",
+                "tool": "t",
+                "argv": ["t"],
+                "needs": "target-execution",
+            },
+            {"lang": "python", "kind": "subject", "tool": "ruff"},
+        ],
+    )
+    assert any("answers_ungranted" in e for e in errors), errors
+
+
+def test_the_sentinel_satisfies_the_rule(tmp_path):
+    check = _routes_record(
+        tmp_path,
+        [
+            {
+                "lang": "python",
+                "kind": "command",
+                "tool": "t",
+                "argv": ["t"],
+                "needs": "resolved-tree",
+            }
+        ],
+        answers_ungranted="none",
+    )
+    assert check.answers_ungranted == "none"
+
+
+def test_the_sentinel_is_vacuous_where_an_untiered_route_exists(tmp_path):
+    errors = _errors_for_routes(
+        tmp_path,
+        [{"lang": "python", "kind": "command", "tool": "t", "argv": ["t"]}],
+        answers_ungranted="none",
+    )
+    assert any("answers_ungranted" in e for e in errors), errors
+
+
+@pytest.mark.parametrize("spelling", ["None", "NONE", "null", ""])
+def test_a_miscased_route_sentinel_is_rejected_by_name(tmp_path, spelling):
+    errors = _errors_for_routes(
+        tmp_path,
+        [
+            {
+                "lang": "python",
+                "kind": "command",
+                "tool": "t",
+                "argv": ["t"],
+                "needs": "resolved-tree",
+            }
+        ],
+        answers_ungranted=spelling,
+    )
+    assert any("answers_ungranted" in e for e in errors), errors
+
+
+def test_a_language_with_no_routes_is_not_silenced(tmp_path):
+    check = _routes_record(
+        tmp_path, [{"lang": "python", "kind": "procedure", "note": "read it"}]
+    )
+    assert check.answers_ungranted is None
+
+
+def test_answers_ungranted_without_routes_is_rejected(tmp_path):
+    """`answers_ungranted` only means something alongside a `routes:` list -
+    it is the routes-schema counterpart of `ungranted_note`, not a second
+    way to spell the legacy field on a record that has not migrated.
+    """
+    check = _record(
+        tooling={"python": ["pip-licenses"]},
+        needs={"resolved-tree": ["pip-licenses"]},
+        extra="answers_ungranted: none\n",
+    )
+    _, errors = _load_one(tmp_path, check)
+    assert any("answers_ungranted" in e and "routes" in e for e in errors), errors
+
+
+def test_a_non_string_sentinel_is_rejected(tmp_path):
+    errors = _errors_for_routes(
+        tmp_path,
+        [
+            {
+                "lang": "python",
+                "kind": "command",
+                "tool": "t",
+                "argv": ["t"],
+                "needs": "resolved-tree",
+            }
+        ],
+        answers_ungranted="[a, b]",
+    )
+    assert any(
+        "answers_ungranted" in e and "must be the sentinel" in e for e in errors
+    ), errors
+
+
+def test_a_blank_sentinel_is_rejected(tmp_path):
+    errors = _errors_for_routes(
+        tmp_path,
+        [
+            {
+                "lang": "python",
+                "kind": "command",
+                "tool": "t",
+                "argv": ["t"],
+                "needs": "resolved-tree",
+            }
+        ],
+        answers_ungranted='"   "',
+    )
+    assert any("answers_ungranted" in e and "blank" in e for e in errors), errors
+
+
+def test_prose_is_rejected_the_dissolution_says_it_with_a_route(tmp_path):
+    """`answers_ungranted` is not a free-form note the way `ungranted_note`
+    is - a migrated record that has something to say about what still
+    answers says it with an untiered route, which is the entire point of
+    the dissolution. Prose here is rejected even though it is not the
+    miscased sentinel.
+    """
+    errors = _errors_for_routes(
+        tmp_path,
+        [
+            {
+                "lang": "python",
+                "kind": "command",
+                "tool": "t",
+                "argv": ["t"],
+                "needs": "resolved-tree",
+            }
+        ],
+        answers_ungranted="reading the ast answers this",
+    )
+    assert any(
+        "answers_ungranted" in e and "accepts only the sentinel" in e for e in errors
+    ), errors
+
+
+def test_routes_answering_ungranted_excludes_subject_routes():
+    """Direct unit test of `_routes_answering_ungranted`: a `kind: subject`
+    route must never appear in the untiered set this function hands to the
+    silencing rule, in either direction - it does not supply the escape,
+    and its language still counts as having only tiered answering routes.
+    """
+    routes, errors = ac._load_routes(
+        [
+            {
+                "lang": "python",
+                "kind": "command",
+                "tool": "t",
+                "argv": ["t"],
+                "needs": "resolved-tree",
+            },
+            {"lang": "python", "kind": "subject", "tool": "ruff"},
+        ],
+        "demo-audit/checks/thing.md",
+    )
+    assert errors == []
+    assert ac._routes_answering_ungranted(routes) == {"python": ()}
+
+
+def test_routes_answering_ungranted_keeps_an_untiered_procedure():
+    routes, errors = ac._load_routes(
+        [{"lang": "python", "kind": "procedure", "note": "read it"}],
+        "demo-audit/checks/thing.md",
+    )
+    assert errors == []
+    answering = ac._routes_answering_ungranted(routes)
+    assert [route.kind for route in answering["python"]] == ["procedure"]
+
+
+def test_routes_answering_ungranted_omits_a_subject_only_language():
+    routes, errors = ac._load_routes(
+        [{"lang": "python", "kind": "subject", "tool": "ruff"}],
+        "demo-audit/checks/thing.md",
+    )
+    assert errors == []
+    assert ac._routes_answering_ungranted(routes) == {}
 
 
 def test_missing_frontmatter_is_reported_not_raised(tmp_path):
