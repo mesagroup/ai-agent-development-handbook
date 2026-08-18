@@ -783,6 +783,7 @@ routes:
     tool: madge
     argv: [madge]
     needs: resolved-tree
+answers_ungranted: none
 ---
 
 # Thing
@@ -1151,6 +1152,126 @@ def test_routes_answering_ungranted_omits_a_subject_only_language():
     )
     assert errors == []
     assert ac._routes_answering_ungranted(routes) == {}
+
+
+def test_routes_answering_ungranted_excludes_forbidden_routes():
+    """Direct unit test: an untiered `disposition: forbidden` route must
+    not appear in the untiered set this function hands to the silencing
+    rule. This is the `arch/coupling` shape - a tiered `dependency-cruiser`
+    route plus a bare `dlx depcruise` invocation that resolves to an npm
+    dependency-confusion placeholder exiting 0 having touched nothing, so
+    it needs no grant only because it does not run the real tool.
+    """
+    routes, errors = ac._load_routes(
+        [
+            {
+                "lang": "typescript",
+                "kind": "command",
+                "tool": "dependency-cruiser",
+                "argv": ["depcruise"],
+                "needs": "resolved-tree",
+            },
+            {
+                "lang": "typescript",
+                "kind": "command",
+                "tool": "depcruise",
+                "argv": ["dlx", "depcruise"],
+                "disposition": "forbidden",
+            },
+        ],
+        "demo-audit/checks/thing.md",
+    )
+    assert errors == []
+    assert ac._routes_answering_ungranted(routes) == {"typescript": ()}
+
+
+def test_routes_answering_ungranted_keeps_an_untiered_alternative_route():
+    """Direct unit test: unlike `forbidden`, an `alternative` route is a
+    route the record does offer - just not the one it runs by default - so
+    it must still appear in the untiered set.
+    """
+    routes, errors = ac._load_routes(
+        [
+            {
+                "lang": "python",
+                "kind": "command",
+                "tool": "import-linter",
+                "argv": ["lint-imports"],
+                "needs": "resolved-tree",
+            },
+            {
+                "lang": "python",
+                "kind": "command",
+                "tool": "tach",
+                "argv": ["tach", "check"],
+                "disposition": "alternative",
+            },
+        ],
+        "demo-audit/checks/thing.md",
+    )
+    assert errors == []
+    answering = ac._routes_answering_ungranted(routes)
+    assert [route.tool for route in answering["python"]] == ["tach"]
+
+
+def test_an_untiered_forbidden_route_does_not_satisfy_the_escape(tmp_path):
+    """Record-level test for the `arch/coupling` shape named above: a
+    forbidden route needing no grant must not let the record skip
+    `answers_ungranted` - the language is genuinely silenced, because the
+    record's only real instrument for it needs a grant and the untiered
+    route is one it warns against running. If this regresses, a forbidden
+    placeholder invocation would silently satisfy the ungranted rule for a
+    real migrated record.
+    """
+    errors = _errors_for_routes(
+        tmp_path,
+        [
+            {
+                "lang": "typescript",
+                "kind": "command",
+                "tool": "dependency-cruiser",
+                "argv": ["depcruise"],
+                "needs": "resolved-tree",
+            },
+            {
+                "lang": "typescript",
+                "kind": "command",
+                "tool": "depcruise",
+                "argv": ["dlx", "depcruise"],
+                "disposition": "forbidden",
+            },
+        ],
+    )
+    assert any("answers_ungranted" in e and "typescript" in e for e in errors), errors
+
+
+def test_an_untiered_alternative_route_still_answers_the_check(tmp_path):
+    """Record-level complement: an `alternative` route is offered, not
+    forbidden, so an untiered one satisfies the escape and the record
+    needs no sentinel. If this regresses, a record naming a real
+    not-run-by-default alternative would be wrongly forced to add
+    `answers_ungranted: none`.
+    """
+    check = _routes_record(
+        tmp_path,
+        [
+            {
+                "lang": "python",
+                "kind": "command",
+                "tool": "import-linter",
+                "argv": ["lint-imports"],
+                "needs": "resolved-tree",
+            },
+            {
+                "lang": "python",
+                "kind": "command",
+                "tool": "tach",
+                "argv": ["tach", "check"],
+                "disposition": "alternative",
+            },
+        ],
+    )
+    assert check.answers_ungranted is None
 
 
 def test_missing_frontmatter_is_reported_not_raised(tmp_path):
