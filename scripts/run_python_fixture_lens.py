@@ -310,7 +310,7 @@ NO_VERSION_ROUTE: dict[str, str] = {}
 
 # What a declared command form is for. A disposition says what the *record* names
 # a form for, and `runs` is the only value the harness acts on. Each of the other
-# three says a different thing about a form the transcription did not take:
+# two says a different thing about a form the transcription did not take:
 #
 # * `superseded` - the record names the form and then narrows the same command,
 #   the way the `--no-deps --disable-pip` pair narrows `pip-audit -r
@@ -324,12 +324,18 @@ NO_VERSION_ROUTE: dict[str, str] = {}
 #   "a route for a partition shape the fixtures lack" it fits none of them, and
 #   it would make the value a claim about the fixture set rather than about the
 #   record, which is the one thing a disposition never is.
-# * `forbidden` - a form the record names in order to warn against.
+#
+# There is no value for a form a record names in order to warn against, and there
+# structurally cannot be one: extraction reads a form as a span carrying at least
+# one argument, and the only such warning any record here writes is against a bare
+# `pip-audit`, which that rule classes as a mention. A value with no user is
+# ceremony that reads as coverage, so this tuple holds exactly the values some
+# declared form carries, and a test in the suite fails when it stops doing so.
 #
 # Naming them is the point: without a disposition, a form the harness does not
 # run is indistinguishable from a form nobody noticed, which is how `--show-dot`
 # sat unprescribed in `arch/cycles` through three green guards.
-DISPOSITIONS: tuple[str, ...] = ("runs", "alternative", "superseded", "forbidden")
+DISPOSITIONS: tuple[str, ...] = ("runs", "alternative", "superseded")
 
 
 @dataclass(frozen=True)
@@ -416,12 +422,19 @@ class Invocation:
             whose record prescribes by delegating to another check's fallback
             section, which makes the delegation the prescription.
         forms: Every command form this record's prescribing paragraph names for
-            this tool, as `(form, disposition)` pairs, taken by reading it. The
+            this route, as `(form, disposition)` pairs, taken by reading it. The
             declaration is what the record-to-harness guards compare: the three
             older guards all run the other way, holding the transcription
             against the record, so a record that *grows* a prescription leaves
             them green while the harness quietly stops running what it says it
             runs.
+
+            A form is not always led by this entry's tool, so the declaration is
+            keyed on the route rather than on the name: the record prescribes
+            `pytest --randomly-seed=<n>` for `pytest-randomly` and `uv export
+            --format=cyclonedx1.5 --frozen` where `cyclonedx-py` has no uv
+            subcommand, and a declaration keyed on the tool's name would hold
+            nothing for either while the record went on prescribing it.
 
             A disposition is a claim about the record and not about this table:
             it says what the record names the form for, never whether anything
@@ -946,6 +959,7 @@ INVOCATIONS: tuple[Invocation, ...] = (
         forms=(
             ("cyclonedx-py environment", "alternative"),
             ("cyclonedx-py poetry", "runs"),
+            ("uv export --format=cyclonedx1.5 --frozen", "runs"),
         ),
     ),
     Invocation(
@@ -1165,7 +1179,7 @@ INVOCATIONS: tuple[Invocation, ...] = (
             "`pytest --cov=<pkg> --cov-branch --cov-report=term-missing` (or `coverage "
             "run -m pytest` + `coverage report --show-missing`)."
         ),
-        forms=(),
+        forms=(("pytest --cov=<pkg> --cov-branch --cov-report=term-missing", "runs"),),
     ),
     Invocation(
         check="test/coverage-reach",
@@ -1181,7 +1195,10 @@ INVOCATIONS: tuple[Invocation, ...] = (
             "the record prescribes two commands in sequence for this route, so the "
             "second is held in `then` rather than dropped"
         ),
-        forms=(),
+        forms=(
+            ("coverage report --show-missing", "runs"),
+            ("coverage run -m pytest", "runs"),
+        ),
     ),
     Invocation(
         check="test/determinism",
@@ -1193,7 +1210,7 @@ INVOCATIONS: tuple[Invocation, ...] = (
             "the command is `pytest` itself; re-run a failing order with `pytest "
             "--randomly-seed=<n>`."
         ),
-        forms=(),
+        forms=(("pytest --randomly-seed=<n>", "alternative"),),
     ),
     Invocation(
         check="test/determinism",
@@ -1231,7 +1248,7 @@ INVOCATIONS: tuple[Invocation, ...] = (
             "is written against"
         ),
         record_quote="`pytest --durations=25` for the slowest tests; check unit tests for real I/O.",
-        forms=(),
+        forms=(("pytest --durations=25", "runs"),),
     ),
     Invocation(
         check="test/mutation",

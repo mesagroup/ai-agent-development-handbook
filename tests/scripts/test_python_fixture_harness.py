@@ -24,7 +24,7 @@ from python_fixture_spec import (
 )
 from run_python_fixture_lens import (
     DETAILS,
-    DISPOSITIONS,  # noqa: F401 - used by later tasks
+    DISPOSITIONS,
     FROZEN_FORM,
     GRANTS,
     INVOCATIONS,
@@ -100,19 +100,43 @@ def _spans(paragraph: str) -> list[str]:
     return list(dict.fromkeys(re.findall(r"`([^`]+)`", paragraph)))
 
 
-def _command_forms(paragraph: str, tool: str) -> set[str]:
-    """The command forms the paragraph prescribes for one tool.
+def _command_forms(paragraph: str, lead: str) -> set[str]:
+    """The command forms the paragraph prescribes under one lead word.
 
-    A span whose first token is the tool's own name and which carries at least
-    one argument. A span that is only the bare name is a mention: a record names
-    a bare command in order to warn against it, and treating that as a
+    A span whose first token is that word and which carries at least one
+    argument. A span that is only the bare word is a mention: a record names a
+    bare command in order to warn against it, and treating that as a
     prescription would demand a declaration for the command it forbids.
+
+    The lead word is a tool's name for most entries and a runner's for the four
+    whose record prescribes a command led by something else, which is what
+    `_lead_words` supplies. Held to one word either way: a rule matching the name
+    anywhere in the span would attribute a neighbour's command to the wrong
+    entry.
     """
     return {
         span
         for span in _spans(paragraph)
-        if len(span.split()) > 1 and span.split()[0] == tool
+        if len(span.split()) > 1 and span.split()[0] == lead
     }
+
+
+def _lead_words(inv: Invocation) -> set[str]:
+    """The words a form for this entry may lead with.
+
+    The tool's name is the obvious one and it is not enough: a record names the
+    command it wants run, and that command's first word is often a runner rather
+    than the tool being checked - `pytest --randomly-seed=<n>` for
+    `pytest-randomly`, `coverage run -m pytest` for `coverage.py`. Keyed on the
+    tool's name alone, the extractor returns nothing for those and an empty
+    declaration then passes as though the record prescribed nothing at all.
+    Keyed on the argv's own first token, it stays anchored to one word, so it
+    still cannot pull a neighbour's command in: `deps/freshness` prescribes both
+    `uv pip list --outdated` and `pip list --outdated`, and the `pip` entry's
+    argv leads with `pip`.
+    """
+    argvs = [a for a in [inv.argv, *(a for _, a in inv.argv_by_partition)] if a]
+    return {a[0] for a in argvs} | {inv.tool}
 
 
 def _flag_spans(paragraph: str) -> set[str]:
@@ -133,8 +157,16 @@ def _concrete(tokens: list[str]) -> list[str]:
     placeholder can never occur in an argv. Dropping it is what lets the
     coverage property watch the entry whose placeholder forced the anchor guard
     to be switched off for it.
+
+    A whole token is dropped wherever the placeholder appears in it, not only
+    where it is the entire token: a record writes `--cov=<pkg>` with the value
+    glued to the flag, and the argv carries `--cov=` plus the package the
+    fixture actually seeds, so the token as written matches nothing either way.
+    Matched on the substring, the rest of the command still anchors the form;
+    matched only on the whole token, a form the harness genuinely runs reads as
+    one no argv carries.
     """
-    return [t for t in tokens if not (t.startswith("<") and t.endswith(">"))]
+    return [t for t in tokens if not re.search(r"<[^>]+>", t)]
 
 
 def _prescribing_paragraph(check: str, quote: str) -> str:
@@ -154,6 +186,43 @@ def _prescribing_paragraph(check: str, quote: str) -> str:
             "paragraph prescribes it is not decidable"
         )
     return lines[0]
+
+
+def _fallback_paragraphs(check: str) -> list[tuple[str, str]]:
+    """Every paragraph of the record's `## Tooling fallback`, with its lens label.
+
+    The label is what makes a paragraph this lens's business: records prefix each
+    review lens with `**<Label>** - `, so a span under another language's label is
+    that lens's prescription and not a correction this one lost. The label is the
+    empty string where the paragraph carries none, which is the case the
+    containment property must still watch - `arch/complexity-gate` prescribes
+    inside an unlabelled bolded directive.
+
+    A record with no such section raises rather than returning nothing: the
+    containment property would then watch no paragraph on it and report the same
+    silence as a record whose every paragraph is clean.
+    """
+    lines = _record_path(check).read_text().splitlines()
+    start = next(
+        (n for n, line in enumerate(lines) if line.startswith("## Tooling fallback")),
+        None,
+    )
+    if start is None:
+        raise AssertionError(
+            f"{check}: has no `## Tooling fallback` section, so a prescription "
+            "growing outside the quoted paragraph has nowhere this can see it"
+        )
+    end = next(
+        (n for n in range(start + 1, len(lines)) if lines[n].startswith("## ")),
+        len(lines),
+    )
+    out = []
+    for line in lines[start + 1 : end]:
+        if not line.strip():
+            continue
+        label = re.match(r"\*\*([^*]+)\*\* - ", line.strip())
+        out.append((label.group(1) if label else "", line))
+    return out
 
 
 # --- the extractor helpers (Task 2) -------------------------------------------
@@ -196,6 +265,52 @@ def test_a_placeholder_token_is_dropped_before_matching_an_argv():
         "-r",
         "--no-deps",
     ]
+
+
+def test_a_placeholder_glued_to_a_flag_is_dropped_with_the_flag():
+    """`--cov=<pkg>` is the same phenomenon and the whole-token rule misses it.
+
+    A record writes the value the caller supplies inside the flag, so no argv can
+    carry that token as written. Left in, `test/coverage-reach`'s prescribed form
+    reads as one the harness does not run, which is a coverage failure invented
+    by the tokenizer rather than found in the table.
+    """
+    assert _concrete(_tokens("pytest --cov=<pkg> --cov-branch")) == [
+        "pytest",
+        "--cov-branch",
+    ]
+
+
+def test_a_form_led_by_a_runner_is_found_through_the_argvs_own_first_word():
+    """The extraction the tool-name rule cannot reach.
+
+    Four entries prescribed a command led by something other than the tool being
+    checked and so declared no form at all, which is indistinguishable from a
+    record that prescribes nothing.
+    """
+    inv = _entry("test/determinism", "pytest-randomly")
+    assert _lead_words(inv) == {"pytest", "pytest-randomly"}
+    paragraph = _prescribing_paragraph(inv.check, inv.record_quote)
+    assert _command_forms(paragraph, "pytest-randomly") == set()
+    assert _command_forms(paragraph, "pytest") == {"pytest --randomly-seed=<n>"}
+
+
+def test_a_lead_word_stays_one_word_so_a_neighbours_command_is_not_pulled_in():
+    """The reason this is not simply "the tool's name occurs anywhere in the span".
+
+    `deps/freshness` writes `uv pip list --outdated` and `pip list --outdated` in
+    one sentence. An anywhere-in-the-span rule would attribute the first to the
+    `pip` entry, which would then have to declare a form it never runs; keyed on
+    the argv's own first token, that entry leads with `pip` and sees only its
+    own.
+    """
+    inv = _entry("deps/freshness", "pip")
+    assert _lead_words(inv) == {"pip"}
+    paragraph = _prescribing_paragraph(inv.check, inv.record_quote)
+    extracted = set()
+    for lead in _lead_words(inv):
+        extracted |= _command_forms(paragraph, lead)
+    assert all(not form.startswith("uv ") for form in extracted), extracted
 
 
 def test_the_prescribing_paragraph_is_the_line_holding_the_quote():
@@ -508,10 +623,167 @@ def test_every_command_form_the_record_names_is_declared():
     """
     for inv in INVOCATIONS:
         paragraph = _prescribing_paragraph(inv.check, inv.record_quote)
-        assert _command_forms(paragraph, inv.tool) == {f for f, _ in inv.forms}, (
-            inv.check,
-            inv.tool,
+        extracted = set()
+        for lead in _lead_words(inv):
+            extracted |= _command_forms(paragraph, lead)
+        assert extracted == {f for f, _ in inv.forms}, (inv.check, inv.tool)
+
+
+def test_every_flag_the_record_names_occurs_in_a_declared_form():
+    """A flag in no declared form is a prescription nothing transcribed.
+
+    What the declaration property cannot see: a record that names a flag without
+    repeating the command it belongs to leaves the extracted set unchanged, so
+    that property stays green. This is the shape `arch/cycles` drifted in - the
+    record grew "Append `--show-dot` to that `pydeps` invocation" in a later
+    sentence of the same paragraph, and the flag belongs to a command the
+    sentence does not repeat.
+
+    Pooled across every invocation sharing the record, because one paragraph
+    prescribes for several tools: `deps/freshness` writes `uv pip list
+    --outdated --python <path>` and `pip list --outdated` in one sentence, and
+    `--python` belongs to the first. Held against one tool's own forms, every
+    flag a neighbour's command carries fails - not because the record drifted,
+    but because the flag was never that tool's to declare.
+
+    `_concrete` applies to the flag for the same reason it applies to a form:
+    `--python <path>` is one span whose second token the record writes as a
+    placeholder and every declared form writes out in full, so matched as
+    written it fails on a pair nothing is wrong with.
+    """
+    for inv in INVOCATIONS:
+        paragraph = _prescribing_paragraph(inv.check, inv.record_quote)
+        pooled = _tokens(
+            " ".join(
+                form
+                for other in INVOCATIONS
+                if other.check == inv.check
+                for form, _ in other.forms
+            )
         )
+        for flag in _flag_spans(paragraph):
+            assert all(t in pooled for t in _concrete(_tokens(flag))), (
+                inv.check,
+                inv.tool,
+                flag,
+            )
+
+
+def test_every_form_the_harness_runs_appears_in_an_argv():
+    """The other half: a form declared `runs` that no command carries.
+
+    The declaration property compares sets of spans, so it passes on a form
+    declared `runs` beside an argv that has stopped matching it, and the flag
+    property never reads a disposition at all. This one holds the two together,
+    which is what catches `deps/vulnerabilities`: its placeholder put it in the
+    anchor guard's `unanchored` set, so the guard that would have noticed a flag
+    pair being added to the prescribed form was switched off for exactly that
+    entry. Dropping the placeholder token instead of excusing the entry is what
+    lets this one watch it.
+
+    `then` counts as an argv: `coverage run -m pytest` and `coverage report
+    --show-missing` are one route the record splits in two, and reading `argv`
+    alone would report the half that prints the report as a form nothing runs.
+    """
+    for inv in INVOCATIONS:
+        argvs = [a for a in [inv.argv, *(a for _, a in inv.argv_by_partition)] if a]
+        if inv.then:
+            argvs.append(inv.then)
+        for form, disposition in inv.forms:
+            if disposition != "runs":
+                continue
+            wanted = _concrete(_tokens(form))
+            assert any(
+                _is_subsequence(wanted, _tokens(" ".join(argv))) for argv in argvs
+            ), (inv.check, inv.tool, form)
+
+
+def test_every_disposition_in_the_vocabulary_is_used():
+    """A value nothing uses is ceremony that reads as coverage.
+
+    No other property here reads the vocabulary as a whole: each reads the
+    disposition on a form it already has. So a value could sit in `DISPOSITIONS`
+    with no user - `forbidden` did, and structurally could not get one, because
+    the only command a record names in order to warn against is a bare
+    `pip-audit` and the extraction reads a bare name as a mention. Written as an
+    equality rather than a subset in either direction, because the two failures
+    are different findings: an unused value is ceremony, and a used value
+    missing from the tuple is already rejected by `Invocation`.
+    """
+    assert {d for inv in INVOCATIONS for _, d in inv.forms} == set(DISPOSITIONS)
+
+
+def test_a_prescription_stays_in_the_paragraph_the_guard_watches():
+    """Otherwise the blind spot moves up one level.
+
+    Every property that reads a record is scoped to the paragraph holding
+    `record_quote`. A correction that appends a whole new paragraph instead of a
+    sentence lands outside all of them, which is this same defect one level up -
+    and it is the shape `arch/complexity-gate` was found in, whose whole fallback
+    section is an unlabelled bolded directive rather than a labelled lens
+    paragraph.
+
+    Scoped by review-lens label rather than by naming the records that trip it.
+    `semgrep` is one tool named in both the Python and the TypeScript paragraph
+    of the `security` records, and `semgrep scan --config p/javascript` is a
+    sibling lens's prescription rather than drift; a set of excepted records
+    would list those records today and grow with every tool two language
+    paragraphs share. The label is the ecosystem-neutral instrument, and only a
+    label naming another language lens is skipped - a paragraph labelled for a
+    condition rather than a language, of which these sections carry several,
+    holds Python prescriptions too, so a blanket skip of every label that is not
+    `Python` would unwatch exactly where a Python correction would land.
+    """
+    # Pinned rather than derived: a stray span under a lens this list does not
+    # name fails, and somebody reads the paragraph before extending it.
+    sibling_lenses = {"TypeScript"}
+    skipped = set()
+    for inv in INVOCATIONS:
+        for label, paragraph in _fallback_paragraphs(inv.check):
+            if inv.record_quote in paragraph:
+                continue
+            stray: set[str] = set()
+            for lead in _lead_words(inv):
+                stray |= _command_forms(paragraph, lead)
+            if not stray:
+                continue
+            if label in sibling_lenses:
+                skipped.add(label)
+                continue
+            raise AssertionError(
+                f"{inv.check}/{inv.tool}: {sorted(stray)} sits in a "
+                f"{label or 'unlabelled'} paragraph of `## Tooling fallback` that "
+                "no property watches, because the quoted one is elsewhere"
+            )
+    assert skipped == sibling_lenses, (
+        f"a lens nothing is skipped for is a stale exception: {sorted(skipped)}"
+    )
+
+
+def test_a_form_naming_the_tool_off_the_front_is_led_by_some_invocation():
+    """A prescription the leading-name rule cannot see must not vanish.
+
+    The declaration property compares what the lead words extract, so a span no
+    lead word leads is absent from both sides of that equality and it passes.
+    `deps/freshness` writes `uv pip list --outdated` in the paragraph its `pip`
+    entry also quotes, and that span is the `uv` entry's form rather than the
+    `pip` entry's. What must never happen is a span naming a tool that no
+    invocation on that record leads: `uvx pydeps --show-cycles` would be a
+    prescription with no declaration and no failure.
+    """
+    for inv in INVOCATIONS:
+        paragraph = _prescribing_paragraph(inv.check, inv.record_quote)
+        led = {
+            form.split()[0]
+            for other in INVOCATIONS
+            if other.check == inv.check
+            for lead in _lead_words(other)
+            for form in _command_forms(paragraph, lead)
+        }
+        for span in _spans(paragraph):
+            words = span.split()
+            if len(words) > 1 and inv.tool in words[1:]:
+                assert words[0] in led, (inv.check, inv.tool, span)
 
 
 # --- scoping and grant states --------------------------------------------------
