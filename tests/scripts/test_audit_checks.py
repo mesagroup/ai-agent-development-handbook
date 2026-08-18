@@ -1558,7 +1558,6 @@ LEGACY_TOOLING_RECORDS = frozenset(
     {
         "arch/complexity",
         "arch/complexity-gate",
-        "arch/coupling",
         "arch/dead-code",
         "arch/hidden-coupling",
         "arch/layering",
