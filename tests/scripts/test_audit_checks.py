@@ -337,17 +337,73 @@ def test_an_unsilenced_record_needs_no_note(tmp_path):
     assert errors == [], errors
 
 
+def _languages_rescued_by_an_untiered_route(check: ac.Check) -> list[str]:
+    """The languages a migrated record would be silenced in but for an
+    untiered answering route.
+
+    A language qualifies when it offers at least one answering route that
+    needs a grant *and* at least one that does not: delete the untiered ones
+    and `_silenced_languages` would name it, so the record would owe
+    `answers_ungranted`. The untiered side is taken from the loader's own
+    `_routes_answering_ungranted` rather than recomputed, so the two
+    exclusions that grouping applies - a `kind: subject` route is not an
+    answer, a `disposition: forbidden` route is not an offer - cannot drift
+    away from the rule this is counted against.
+
+    Args:
+        check: A loaded record. One carrying no routes yields no languages,
+            which is right rather than incidental: a record on the legacy
+            schema makes this same claim in `ungranted_note` instead, and the
+            guard below counts it there.
+
+    Returns:
+        The qualifying languages, sorted.
+    """
+    untiered = ac._routes_answering_ungranted(check.routes)
+    tiered: dict[str, list[ac.Route]] = {}
+    for route in check.routes:
+        if (
+            route.kind in ac.ANSWERING_ROUTE_KINDS
+            and route.disposition != "forbidden"
+            and route.needs is not None
+        ):
+            tiered.setdefault(route.lang, []).append(route)
+    return sorted(
+        lang for lang, routes in untiered.items() if routes and lang in tiered
+    )
+
+
 def test_the_notes_are_not_all_sentinels():
-    """The requirement can be satisfied without thought by writing `none`
-    everywhere. Nothing can tell a correct `none` from a lazy one, so hold
-    the number of records that say something real at a floor: the sweep
-    behind #26 produced ten. Be honest about what a floor on a count
-    catches and what it does not: it fails only once the count drops below
-    the floor, so it says nothing if the count already sits above it - a
-    change that trades one record's prose for another's passes silently,
-    because the guard counts records rather than naming them, and so does a
-    drop back down to just above the floor once a later change has raised
-    it. Issue #5 did not add notes, contrary to what this docstring first
+    """The requirement can be satisfied without thought by writing the
+    sentinel everywhere. Nothing can tell a correct `none` from a lazy one,
+    so hold the number of records that say something real at a floor: the
+    sweep behind #26 produced ten.
+
+    What "something real" is has two spellings, and the floor counts their
+    sum, because they are one property wearing two schemas. On the legacy
+    schema a record says it in prose, in an `ungranted_note` that is not the
+    sentinel. On the routes schema there is no prose field to say it in: a
+    record says it structurally, by carrying a language whose answering
+    routes would all need a grant except for an untiered one that still
+    answers. `arch/complexity` is the same claim either way - silenced in
+    TypeScript, rescued by an ESLint invocation under an audit-owned config
+    that needs no install - and it must stay counted across its own
+    migration rather than dropping out of the population because the schema
+    it declares changed. A record that writes `answers_ungranted: none`
+    instead is the routes-era sentinel and does not count, exactly as
+    `ungranted_note: none` does not. The two populations cannot overlap: the
+    loader rejects a record carrying both schemas.
+
+    Be honest about what a floor on a count catches and what it does not: it
+    fails only once the count drops below the floor, so it says nothing if
+    the count already sits above it - a change that trades one record's
+    claim for another's passes silently, because the guard counts records
+    rather than naming them, and so does a drop back down to just above the
+    floor once a later change has raised it. It also cannot see whether an
+    untiered route genuinely answers, which is the judgment `answers_ungranted`
+    exists to force and no count can make.
+
+    Issue #5 did not add notes, contrary to what this docstring first
     predicted: it gave records already silenced in one language a second
     fully tiered language, which changes what a note must say and not
     whether the record carries one, so the count did not move. Resist
@@ -356,9 +412,10 @@ def test_the_notes_are_not_all_sentinels():
     to be rewritten are not the same set as the records that gained a
     second fully tiered language. The claim the floor rests on needs no
     count of records at all. A later change
-    that does add notes raises the count and therefore the slack above
+    that does add claims raises the count and therefore the slack above
     this floor rather than the floor itself; raise the floor by hand if
-    that slack should be closed. Never lower it to make a deletion pass.
+    that slack should be closed. Never lower it to make a deletion pass,
+    and never narrow what it counts to make a migration pass.
     """
     checks, errors = ac.load_checks(ac.SKILLS_DIR)
     assert errors == []
@@ -367,9 +424,11 @@ def test_the_notes_are_not_all_sentinels():
         for c in checks.values()
         if c.ungranted_note is not None and c.ungranted_note != ac.UNGRANTED_NONE
     ]
-    assert len(prose) >= 10, (
-        f"only {len(prose)} records answer anything: {sorted(prose)}"
-    )
+    routed = [
+        c.id for c in checks.values() if _languages_rescued_by_an_untiered_route(c)
+    ]
+    claims = sorted(prose + routed)
+    assert len(claims) >= 10, f"only {len(claims)} records answer anything: {claims}"
 
 
 def test_a_language_with_no_tools_is_not_fully_tiered(tmp_path):
@@ -1280,6 +1339,71 @@ def test_an_untiered_alternative_route_still_answers_the_check(tmp_path):
         ],
     )
     assert check.answers_ungranted is None
+
+
+def test_a_rescued_language_needs_a_tiered_route_to_be_rescued_from(tmp_path):
+    """The floor's routes-era population is the counterpart of a real prose
+    `ungranted_note`, so it must count a record that *would* be silenced and
+    is not - never one that was never at risk. The record here is the first:
+    `knip` needs the tree, `ts-prune` does not, so deleting the untiered
+    route would silence TypeScript.
+    """
+    check = _routes_record(
+        tmp_path,
+        [
+            {
+                "lang": "typescript",
+                "kind": "procedure",
+                "tool": "knip",
+                "needs": "target-execution",
+            },
+            {"lang": "typescript", "kind": "procedure", "tool": "ts-prune"},
+        ],
+    )
+    assert _languages_rescued_by_an_untiered_route(check) == ["typescript"]
+
+
+def test_a_language_needing_no_grant_at_all_is_not_a_rescued_one(tmp_path):
+    """The other side of the same line, and the one that keeps the floor
+    from inflating: a language whose every route already answers from a
+    read-only clone made no claim about grants, so it is not the
+    counterpart of anything and must not be counted as one.
+    """
+    check = _routes_record(
+        tmp_path,
+        [
+            {
+                "lang": "python",
+                "kind": "command",
+                "tool": "vulture",
+                "argv": ["vulture"],
+            },
+            {"lang": "python", "kind": "library", "tool": "grimp"},
+        ],
+    )
+    assert _languages_rescued_by_an_untiered_route(check) == []
+
+
+def test_a_subject_route_is_not_the_tier_a_language_is_rescued_from(tmp_path):
+    """`kind: subject` is excluded from both sides of the ungranted rule, so
+    a tiered subject route cannot be what an untiered route rescues a
+    language from - the language was never silenced, because a subject route
+    is not an answer. Pinned here because `arch/complexity-gate` is exactly
+    this shape and the floor must not read it as a claim it does not make.
+    """
+    check = _routes_record(
+        tmp_path,
+        [
+            {
+                "lang": "typescript",
+                "kind": "subject",
+                "tool": "eslint",
+                "needs": "target-execution",
+            },
+            {"lang": "typescript", "kind": "procedure", "tool": "ts-prune"},
+        ],
+    )
+    assert _languages_rescued_by_an_untiered_route(check) == []
 
 
 def test_missing_frontmatter_is_reported_not_raised(tmp_path):
