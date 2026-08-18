@@ -105,7 +105,7 @@ When dispatching any agent from a git worktree, pass the worktree's absolute roo
 
 New code ships with unit tests, and adding code must not lower coverage. Scripts are not exempt: load them with `importlib.util.spec_from_file_location` and exercise their pure helpers, with `scripts/` on `sys.path` via `tests/scripts/conftest.py`.
 
-Mutation checks against `scripts/run_python_fixture_lens.py` run with `PYTHONDONTWRITEBYTECODE=1`. Every mutation that table invites is a token moved from one field to another, so the source keeps its length, and a mutate-run-revert inside one second leaves both mtime and size unchanged - which is what `.pyc` invalidation compares, so the next run can honour the mutant's cached bytecode. It shows up as a failure on a byte-identical clean tree, or, in the direction that matters, as a green run over a mutation that should have failed.
+Mutation checks against `scripts/run_python_fixture_lens.py` run with `PYTHONDONTWRITEBYTECODE=1`. `.pyc` invalidation compares the source's mtime and size, and some of the mutations this table invites move a token between fields without changing either, so a mutate-run-revert inside one second can leave the next run honouring the mutant's cached bytecode. It shows up as a failure on a byte-identical clean tree, or, in the direction that matters, as a green run over a mutation that should have failed. A mutation that does change the file's length is not exposed to it, which is why the instruction is the flag rather than a judgement about each mutation.
 
 ## Errors
 
