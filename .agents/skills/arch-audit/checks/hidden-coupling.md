@@ -8,23 +8,74 @@ handbook_note: >-
   decay signals, none of them coupling that never reaches the import graph at
   all, which is what this check exists for. The matrix records the addition in
   the note on codebase-structure/watch-for-structural-decay-beyond-layering.
-tooling:
-  python: [grimp]
-  typescript: [eslint, knip]
-needs:
-  target-execution: [eslint, knip]
-ungranted_note: >-
-  The tells this check looks for are patterns in source, and the TypeScript half lists
-  the same ones the Python half greps for: mutable module-level exports, string-keyed
-  container lookups, side-effectful top-level code, and dynamic `import()`. Reading
-  TypeScript source for them needs nothing installed. What a withheld grant costs is
-  `knip`'s usage analysis: its issue types stop at whether an export is referenced
-  anywhere at all (unused exports) and whether the same binding is exported more than
-  once (duplicate exports) - not at who writes to it once imported, since an ESM import
-  binding is read-only and knip has no "written from another module" signal to report.
-  What it adds here is confirming that a flagged mutable export actually crosses a
-  module boundary (is used elsewhere) rather than sitting unused - so the single-module
-  tells survive and that cross-module usage confirmation does not.
+routes:
+  - lang: python
+    kind: library
+    tool: grimp
+    alone_insufficient: >-
+      The import graph won't show this. Coupling that never travels through an
+      `import` is what this check exists for, so a clean graph from the tool
+      that builds it is not evidence about this check at all - an unreported
+      hidden edge is a false negative, which is worse than a false positive.
+      The graph is the blind spot, not the lens.
+  - lang: python
+    kind: procedure
+    note: >-
+      Grep the AST for the tells and read each hit. Flag module-level mutable
+      globals and `global` statements written from more than one module;
+      singleton patterns (a module-level instance others import and mutate);
+      service-locator / registry lookups by string key (`get(...)`,
+      `resolve(...)`, `registry["..."]`) that stand in for an explicit
+      dependency; import-time side effects (top-level code with I/O, network,
+      registration, or monkeypatching - anything beyond definitions and cheap
+      constants); and dynamic imports (`importlib`, in-function `import`) and
+      runtime monkeypatching. Record the `file:line` of the shared state /
+      lookup / side effect, and name the two modules it couples. These are
+      patterns in source, so the pass needs nothing installed.
+    alone_insufficient: >-
+      A finding needs a read confirming the modules genuinely depend on each
+      other through the hit - a module-level constant or a logger is not hidden
+      coupling. The pattern is the trigger, the coupling is the finding.
+  - lang: typescript
+    kind: procedure
+    tool: eslint
+    needs: target-execution
+    note: >-
+      The same tells from ESLint's AST rather than the import graph. The record
+      names the tool and prescribes no command line for it, so there is no argv
+      to declare and a `kind: command` route would have to invent one. The tier
+      is the target's own tree: ESLint's flat config imports its plugins from
+      the target's own `node_modules` and aborts with `ERR_MODULE_NOT_FOUND`
+      without them.
+  - lang: typescript
+    kind: procedure
+    tool: knip
+    needs: target-execution
+    note: >-
+      What knip adds is whether a flagged mutable export is referenced from
+      another module at all, which is what makes it cross-module coupling
+      rather than an unused binding. Its issue types stop at usage and
+      duplication and never report who writes to a binding, since an ESM import
+      binding is read-only. The record names the tool and prescribes no command
+      line for it. The tier is the target's own tree, and knip degrades quietly
+      rather than refusing: on an uninstalled tree it reports genuine source and
+      imported packages as unused, so a clean knip run over an unresolved tree
+      is not evidence of anything.
+  - lang: typescript
+    kind: procedure
+    note: >-
+      The tells are patterns in source and the TypeScript half lists the same
+      ones the Python half greps for: mutable module-level exports and exported
+      singletons more than one module writes, string-keyed container /
+      service-locator lookups, side-effectful top-level code and side-effect-only
+      imports, and dynamic `import()` or runtime patching. Reading TypeScript
+      source for them needs nothing installed, so the single-module tells survive
+      a withheld grant; what the grant costs is the cross-module usage
+      confirmation above. Record the `file:line` of the shared state / lookup /
+      side effect, and name the two modules it couples.
+    alone_insufficient: >-
+      The same read requirement as the Python pass - the pattern is the trigger,
+      the coupling is the finding.
 ---
 
 # Hidden coupling / implicit dependencies
