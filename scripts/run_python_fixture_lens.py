@@ -12,11 +12,11 @@ entries carrying a completion is a finding list before any tool has spoken.
 A route the record does not prescribe at all is a third thing, and it is held
 apart from both: `supplied_by_partition` carries a command **this round
 contributed** rather than transcribed, and it never renders as `record_argv` in
-the results. Two of them are SBOM routes the record has no subcommand for and
-one is the vulnerability route the record's own text writes off, so each is a
-candidate answer to a named hole rather than a correction to the record - and
-keeping it out of `record_argv` is what stops a later pass reading "the harness
-ran this" as "the record said this".
+the results. They are SBOM and vulnerability routes for a dependency file the
+record names no subcommand or mode for, so each is a candidate answer to a named
+hole rather than a correction to the record - and keeping it out of `record_argv`
+is what stops a later pass reading "the harness ran this" as "the record said
+this".
 
 Three fields are derived from the records rather than transcribed, because a
 second copy of a fact the records already state is a copy free to drift:
@@ -331,13 +331,11 @@ class Invocation:
             partition - `cyclonedx-py`'s subcommand "matching the partition's
             own dependency file", `pip-audit`'s mode - the command for each,
             still verbatim, as `(partition, argv)` pairs. A partition paired
-            with `()` is one this entry's tool has no route for: usually because
-            the record prescribes none at all, and on `deps/inventory`'s `uv`
-            row because the route the record does prescribe there is another
-            tool's command, carried in `supplied_by_partition` with a note
-            saying so. Pairs
-            rather than a mapping so that the whole entry is hashable, which is
-            what freezing it is otherwise promising.
+            with `()` is one this entry has no prescribed command for; where the
+            round contributed a route for it anyway, that route is in
+            `supplied_by_partition` rather than here. Pairs rather than a mapping
+            so that the whole entry is hashable, which is what freezing it is
+            otherwise promising.
         supplied_by_partition: A route **this round contributed** for a
             partition the record prescribes none for, as `(partition, steps)`
             pairs where `steps` is the sequence of commands that route runs. It
@@ -354,6 +352,17 @@ class Invocation:
             none. Required whenever `supplied_by_partition` is non-empty, for
             the reason `note` is required beside a completion: an unexplained
             supplied route reads as a command the record prescribed.
+        own_runner: The partitions whose prescribed argv is complete as written,
+            so `launcher` puts nothing in front of it. A record may prescribe a
+            command whose first word is a runner, or a tool other than the one
+            this entry is keyed on, while `launcher` obtains the tool by the
+            check's tool name rather than by the command - so without this field
+            such a route has only two shapes available, and both misreport it:
+            fronted by a fetch for a package the command never calls, whose
+            version the row then reports as the one that answered, or demoted to
+            a supplied route, which says the record prescribed nothing where it
+            prescribed this. A partition named here must carry a prescribed argv
+            and must not also carry a supplied route.
         completion: What had to be added to `argv` for the command to run.
             Recorded separately rather than folded in, because this is the
             round's output: a record whose command needs completing is a record
@@ -384,12 +393,12 @@ class Invocation:
 
             Where the record prescribes no command the quote is instead the
             sentence that says what it prescribes instead, and `note` says so.
-            Two entries are worth naming because they read as oversights: the
-            `deps/vulnerabilities` quote is two adjacent sentences, because the
-            record prescribes `--locked` in one and `-r` in the next and this
-            entry runs both; and `deps/transitive-licenses` quotes a delegation
-            rather than a command, because the record's prescription there *is*
-            the delegation to `deps/licenses`.
+            Two shapes read as oversights and are not. A quote spanning two
+            adjacent sentences is one whose entry runs a command the record
+            splits across both, so quoting either alone would leave half the
+            prescription unwatched. And a quote naming no command at all is one
+            whose record prescribes by delegating to another check's fallback
+            section, which makes the delegation the prescription.
         forms: Every command form this record's prescribing paragraph names for
             this tool, as `(form, disposition)` pairs, taken by reading it. The
             declaration is what the record-to-harness guards compare: the three
@@ -406,6 +415,7 @@ class Invocation:
     argv_by_partition: tuple[tuple[str, tuple[str, ...]], ...] = ()
     supplied_by_partition: tuple[tuple[str, tuple[tuple[str, ...], ...]], ...] = ()
     supplied_note: str = ""
+    own_runner: tuple[str, ...] = ()
     completion: tuple[str, ...] = ()
     then: tuple[str, ...] = ()
     note: str = ""
@@ -438,6 +448,7 @@ class Invocation:
                 "and classifying on a third thing would grade every run of it"
             )
         self._check_supplied()
+        self._check_own_runner()
         self._check_forms()
 
     def _check_supplied(self) -> None:
@@ -466,6 +477,35 @@ class Invocation:
                 f"{self.check}/{self.tool}: a supplied route writes each step in full "
                 "and so takes no launcher prefix, which is what an in_env entry needs "
                 "to reach the materialized environment"
+            )
+
+    def _check_own_runner(self) -> None:
+        """The two ways naming a partition here would say nothing.
+
+        A partition with no prescribed argv is a claim about a route that does
+        not exist, so the suppression applies to nothing and the field reads as
+        covering a route somebody has since removed. And an `in_env` entry needs
+        the launcher's prefix to reach the materialized environment, so
+        suppressing it there is not a command that runs as written - it is one
+        that never arrives.
+
+        The third shape, a partition carrying a supplied route as well, is
+        already unreachable here rather than unguarded: passing the first check
+        takes a prescribed argv, and `_check_supplied` rejects a partition
+        carrying a prescribed route and a supplied one from the other side.
+        """
+        for partition in self.own_runner:
+            if not self.prescribed(partition):
+                raise ValueError(
+                    f"{self.check}/{self.tool}: {partition} is named in own_runner "
+                    "and has no prescribed command, so the suppressed prefix applies "
+                    "to nothing"
+                )
+        if self.own_runner and self.in_env:
+            raise ValueError(
+                f"{self.check}/{self.tool}: an own_runner partition takes no launcher "
+                "prefix, which is what an in_env entry needs to reach the materialized "
+                "environment"
             )
 
     def _check_forms(self) -> None:
@@ -811,41 +851,38 @@ INVOCATIONS: tuple[Invocation, ...] = (
         check="deps/inventory",
         tool="cyclonedx-py",
         argv_by_partition=(
-            ("uv", ()),
+            ("uv", ("uv", "export", "--format=cyclonedx1.5", "--frozen")),
             ("pip", ("cyclonedx-py", "requirements")),
             ("poetry", ("cyclonedx-py", "poetry")),
             ("pipenv", ("cyclonedx-py", "pipenv")),
             ("pylock", ()),
         ),
+        own_runner=("uv",),
         supplied_by_partition=(
-            ("uv", (("uv", "export", "--format", "cyclonedx1.5", "--frozen"),)),
             ("pylock", (("uvx", "cyclonedx-py", "requirements", "pylock.toml"),)),
         ),
         note=(
             "the record prescribes the subcommand 'matching the partition's own "
             "dependency file', so the command is per partition rather than shared - "
-            "and it names none for a uv tree or a PEP 751 one, which is why those two "
-            "rows carry no prescribed command"
+            "and on a uv-locked tree what it names is the native export instead, a "
+            "command of another tool entirely, which is why that row names its own "
+            "runner. It names no route for a PEP 751 file, which is why that row "
+            "carries no prescribed command"
         ),
         supplied_note=(
-            "the record's first named hole, and the two steps stand differently in "
-            "it. The `uv` step is the native SBOM export, and the record names that "
-            "command - `uv export --format=cyclonedx1.5 --frozen` - for a uv-locked "
-            "partition; it is carried here rather than as this entry's prescribed "
-            "route because it is not a `cyclonedx-py` command, and a prescribed route "
-            "takes this entry's launcher prefix, which would fetch `cyclonedx-bom` for "
-            "a command that never calls it and report that package's version for a row "
-            "that ran `uv`. The `pylock` step points the requirements subcommand at a "
-            "PEP 751 file, which the record names no route for at all, so that one is a "
-            "candidate this round tests rather than a correction it has made. Neither "
-            "reaches record_argv, which stays the record's own command for "
-            "`cyclonedx-py`, and the record prescribes none of those on either "
-            "partition"
+            "the record's first named hole: it names no route at all for a PEP 751 "
+            "file, and this step points the requirements subcommand at one, so it is "
+            "a candidate this round tests rather than a correction it has made. It "
+            "never reaches record_argv, which stays the record's own command per "
+            "partition, and the record prescribes none on this one"
         ),
         record_quote=(
             "`cyclonedx-py`'s `requirements`, `poetry` or `pipenv` subcommand, "
             "matching the partition's own dependency file, or the tool's native SBOM "
-            "export."
+            "export. `cyclonedx-py` has no uv subcommand, so on a uv-locked partition "
+            "the native export is `uv export --format=cyclonedx1.5 --frozen`: it "
+            "produces a well-formed CycloneDX 1.5 document (6 components, "
+            "`specVersion` 1.5, no `licenses` field)."
         ),
     ),
     Invocation(
@@ -854,9 +891,10 @@ INVOCATIONS: tuple[Invocation, ...] = (
         argv=("pip-licenses",),
         in_env=True,
         record_quote=(
-            "`pip-licenses` (with `--format` for SPDX-ish output), or read each "
-            "installed dist's `*.dist-info/METADATA` (`License` + `Classifier: "
-            "License ::`)."
+            "`pip-licenses`'s `--format` chooses only how the list it prints is "
+            "presented - `pip-licenses --format json` for the same list "
+            "machine-readably - and no style it offers emits SPDX identifiers, so "
+            "mapping the names it reports onto SPDX ids stays the reader's own step."
         ),
     ),
     Invocation(
@@ -1069,9 +1107,9 @@ INVOCATIONS: tuple[Invocation, ...] = (
         argv=("pytest",),
         in_env=True,
         record_quote=(
-            "run the suite in randomized order (`pytest-randomly` randomizes "
-            "automatically once installed; use `--randomly-seed=<n>` to reproduce a "
-            "failing order)"
+            "`pytest-randomly` randomizes the order as soon as it is installed, so "
+            "the command is `pytest` itself; re-run a failing order with `pytest "
+            "--randomly-seed=<n>`."
         ),
     ),
     Invocation(
@@ -1227,9 +1265,20 @@ def packages_for(tool: str) -> tuple[str, ...]:
 
 
 def launcher(
-    invocation: Invocation, partition: str, *, granted: bool
+    invocation: Invocation,
+    partition: str,
+    *,
+    granted: bool,
+    honour_own_runner: bool = True,
 ) -> tuple[str, ...]:
     """The words that go in front of the command, and how the tool is obtained.
+
+    Nothing goes in front of a command the record already writes whole, which is
+    what `own_runner` names - see that field for why such a route exists at all.
+    `honour_own_runner=False` is for a caller running something other than the
+    record's command: the version probe runs the tool's own `--version`, which
+    still has to be obtained the usual way, and probing it bare would record a
+    missing tool where the tool's version belongs.
 
     An `in_env` tool runs from inside the materialized environment under a
     grant, because the one-shot runner's sandbox cannot see what the target
@@ -1268,6 +1317,8 @@ def launcher(
     `argv` itself never changes here - what the record prescribes is untouched
     by any of this; only the words placed in front of it are.
     """
+    if honour_own_runner and partition in invocation.own_runner:
+        return ()
     packages = packages_for(invocation.tool)
     extra = tuple(word for name in packages[1:] for word in ("--with", name))
     if not (invocation.in_env and granted):
@@ -1703,10 +1754,11 @@ def _run_supplied(
 ) -> dict[str, object]:
     """Run a route this round contributed, and record it as contributed.
 
-    Each step runs exactly as written, with no launcher prefix: a supplied route
-    names its own runner, because there is no record naming a tool for the
-    launcher to go and fetch, and these routes mix the target's own package
-    manager with a fetched one inside a single route.
+    Each step runs exactly as written, with no launcher prefix - for a different
+    reason than `own_runner`'s, where the record's own command already leads with
+    a runner. Here there is no record naming a tool for the launcher to go and
+    fetch at all, and these routes mix the target's own package manager with a
+    fetched one inside a single route.
 
     A step that does not answer stops the route, so a failed export is never
     followed by an audit of the file it did not write.
@@ -1740,6 +1792,9 @@ def probe_versions(
 
     Runs through the same `launcher` as the invocation, because a `uvx`-fetched
     tool and a tool on `PATH` are different copies and may differ in version.
+    Not through the same `own_runner` suppression, though: the probe is the
+    tool's own `--version` rather than the record's command, so it needs the
+    tool fetched even where the record's command fetches nothing.
     A probe that fails is recorded as its failure text rather than dropped: an
     absent version is a fact about the run, and a missing key would read as a
     tool that was never invoked.
@@ -1780,7 +1835,7 @@ def probe_versions(
                 "this probe could run inside"
             )
             continue
-        prefix = launcher(inv, partition, granted=granted)
+        prefix = launcher(inv, partition, granted=granted, honour_own_runner=False)
         command = (*prefix, *probe)
         outcome = _run(command, work_dir, timeout)
         stdout = str(outcome["stdout"]).strip()
