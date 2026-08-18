@@ -39,7 +39,7 @@ Tests that depend on ordering, wall-clock time, randomness, network, or shared m
 
 ## Tooling fallback
 
-**Python** - run the suite in randomized order (`pytest-randomly` randomizes automatically once installed; use `--randomly-seed=<n>` to reproduce a failing order) and, for suspected flakies, repeat runs; flag order-dependence and non-determinism.
+**Python** - run the suite in randomized order (`pytest-randomly` randomizes automatically once installed; use `--randomly-seed=<n>` to reproduce a failing order) and, for suspected flakies, repeat runs; flag order-dependence and non-determinism. `pytest-randomly` randomizes the order as soon as it is installed, so the command is `pytest` itself; re-run a failing order with `pytest --randomly-seed=<n>`.
 
 **TypeScript** - use the partition's own runner. `vitest run --sequence.shuffle --sequence.seed=<n>` randomizes order reproducibly - `run`, not bare `vitest`, which enters watch mode on an interactive terminal and only falls back to a single run in CI or a non-interactive one - and `retry` or `repeats` re-runs tests to expose flakiness. `jest --randomize --seed <n>` shuffles order within a file, and is supported only on the default `jest-circus` runner, so a project on a custom runner has no randomize flag at all and the grep below carries this check on its own.
 
