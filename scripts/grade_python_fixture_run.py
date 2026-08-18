@@ -182,8 +182,9 @@ def seed_signals(entry: dict[str, object], seeds: Sequence[str]) -> dict[str, in
 class Observation:
     """One tool's answer to one check, as the run recorded it.
 
-    `findings_stream` is `""` for an orphan entry (`_orphan_row` builds its
-    observations from `_entries_for`, which never resolves one) and otherwise
+    `findings_stream` is `""` for a row built from the run's raw entries -
+    `_orphan_row` and `_unmatched_filter_row` both read those directly rather
+    than through `observations_for`, which is what resolves one - and otherwise
     either a real stream name or `UNRESOLVED_FINDINGS_STREAM` - the second
     case is a fact the render has to surface, not just carry, so a stale row
     reads as unresolved instead of as a silent zero.
@@ -314,6 +315,47 @@ def _orphan_row(check: str, run: Run) -> Row:
     )
 
 
+def _unmatched_filter_row(only_check: str, run: Run) -> Row:
+    """A row for a run whose `only_check` no expectation on its partition carries.
+
+    Raising here loses every other run in the directory: `main` iterates the
+    results glob with no handler, so one such file aborts grading of the whole
+    matrix sitting beside it. That file is a stale input rather than a caller
+    error - `fixtures/python/results/` is gitignored and nothing regenerates it,
+    so a one-check run written before a spec change outlives the expectation
+    that justified it, the same drift that left the `arch/over-abstraction` +
+    `ruff` row behind (`fe2b0e42`, #45). Dropping the file quietly is the other
+    half of the same mistake, so the fact reaches the worksheet as its own row,
+    following the visible-rather-than-silent precedent `_orphan_row` and
+    `UNRESOLVED_FINDINGS_STREAM` already set.
+
+    Carries every entry the file recorded as its observations, whatever check
+    each names, and is the run's only row. The filter claimed a scope the spec
+    does not recognize, so no entry here can be attributed to an expectation,
+    and letting the entries fall through to the orphan loop instead would print
+    `_orphan_row`'s claim - that no expectation names the check - over an entry
+    whose check the partition does carry, which is exactly what a file with a
+    hand-edited filter holds.
+    """
+    return Row(
+        check=only_check,
+        partition=str(run.get("partition", "")),
+        grant=str(run.get("grant", "")),
+        form="unmatched-filter",
+        claim=(
+            f"the run names only_check {only_check!r} and no expectation in "
+            "python_fixture_spec.py carries that check on this partition; the file "
+            "is either hand-edited or has outlived the expectations, and the "
+            "observations listed are every entry it recorded, whatever check each "
+            "names"
+        ),
+        seeds=(),
+        observations=_observation_tuple(run.get("results", [])),
+        signals={},
+        verdict="unmatched-filter",
+    )
+
+
 def grade_rows(run: Run) -> list[Row]:
     """Every expectation this run's partition carries, graded against it, plus
     one row for every check in `run["results"]` no expectation names.
@@ -332,10 +374,12 @@ def grade_rows(run: Run) -> list[Row]:
     reading `(no observation)` beside the matrix row that did observe it - a
     reported absence where the truth is that the run never claimed the scope. An
     empty value is the full run the harness writes it as, not a filter matching
-    nothing, and a value naming a check the partition does not carry raises
-    rather than grading to zero rows: nothing the harness writes produces that
-    pair, so it is a hand-edited or outlived file, and reporting it as a run with
-    nothing to cover is the silence this module exists to break.
+    nothing, and a value naming a check the partition does not carry gets one
+    `_unmatched_filter_row` rather than grading to zero rows or raising: nothing
+    the harness writes produces that pair, so it is a hand-edited or outlived
+    file, reporting it as a run with nothing to cover is the silence this module
+    exists to break, and raising over it loses every other run in the directory
+    because `main` iterates the results glob with no handler.
     """
     partition = str(run.get("partition", ""))
     expectations = expectations_for(partition)
@@ -343,10 +387,7 @@ def grade_rows(run: Run) -> list[Row]:
     if only_check:
         expectations = tuple(e for e in expectations if e.check == only_check)
         if not expectations:
-            raise ValueError(
-                f"run names only_check {only_check!r} and no expectation carries "
-                f"that check on the {partition} partition"
-            )
+            return [_unmatched_filter_row(only_check, run)]
     rows = [grade_row(expectation, run) for expectation in expectations]
     known_checks = {expectation.check for expectation in expectations}
     orphan_checks = sorted(
