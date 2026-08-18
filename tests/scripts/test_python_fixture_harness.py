@@ -810,12 +810,19 @@ def test_every_disposition_in_the_vocabulary_is_used():
 
     No other property here reads the vocabulary as a whole: each reads the
     disposition on a form it already has. So a value could sit in `DISPOSITIONS`
-    with no user - `forbidden` did, and structurally could not get one, because
-    the only command a record names in order to warn against is a bare
-    `pip-audit` and the extraction reads a bare name as a mention. Written as an
-    equality rather than a subset in either direction, because the two failures
-    are different findings: an unused value is ceremony, and a used value
-    missing from the tuple is already rejected by `Invocation`.
+    with no user, and `forbidden` did. What keeps it unused is disposition
+    precedence rather than anything structural: records do warn against
+    multi-token forms and the extractor reads those spans as forms - `arch/cycles`
+    warns against `pydeps --show-cycles`, declared `superseded` because the record
+    narrows the same command, and `deps/inventory` says it has no route through
+    `cyclonedx-py poetry`, declared `runs` because the harness runs that form on
+    the partition whose manifest it does read. A form the harness runs is `runs`
+    and a form the record narrows is `superseded`, so every warning in the family
+    today is already answered by one of those. A record writing "never run `foo
+    --bar`", a form neither run nor narrowed, would give `forbidden` a user
+    immediately. Written as an equality rather than a subset in either direction,
+    because the two failures are different findings: an unused value is ceremony,
+    and a used value missing from the tuple is already rejected by `Invocation`.
     """
     assert {d for inv in INVOCATIONS for _, d in inv.forms} == set(DISPOSITIONS)
 
