@@ -479,6 +479,83 @@ If the pass found nothing beyond Task 3's two entries, make no commit and say so
 
 ---
 
+### Task 4b: Records that name a flag but never a command, and a route that names its own runner
+
+**Runs between Task 4 and Task 5.** Task 4 measured that the flag property fails on three pairs that no mechanical rule can fix, because two records name a tool and its flags without ever writing a whole command. That is the same unanchorable shape the round already removed from `arch/cycles`, in a third form. This task removes it at the source and settles the runner question Task 4 escalated.
+
+**Files:**
+- Modify: `.agents/skills/deps-audit/checks/licenses.md`
+- Modify: `.agents/skills/test-audit/checks/determinism.md`
+- Modify: `.agents/skills/deps-audit/checks/inventory.md` only if the promotion in Step 3 needs the record to say something it does not already say
+- Modify: `scripts/run_python_fixture_lens.py`
+- Test: `tests/scripts/test_python_fixture_harness.py`
+
+**Interfaces:**
+- Consumes: nothing from Task 4 beyond its repaired table.
+- Produces: `Invocation.own_runner: tuple[str, ...]`, naming the partitions whose prescribed argv is complete as written and must take no launcher prefix; and `deps/inventory`'s `uv` row moved from `supplied_by_partition` into `argv_by_partition`.
+
+Each record edit is a prompt change and takes its own commit stating WHY. The harness change is a separate commit.
+
+- [ ] **Step 1: Give `deps/licenses` a whole command, and stop it claiming SPDX**
+
+The record writes "`pip-licenses` (with `--format` for SPDX-ish output)". Two defects in one clause. The tool name appears bare, so no command form is extractable and the flag has nothing to sit inside. And the SPDX claim is false: `pip-licenses`'s own `--format` selects presentation only, and no style it offers emits SPDX. Verify that yourself against `pip-licenses --help` before you write the replacement, and quote what you saw in your report.
+
+Rewrite the clause so it names a whole command including the format flag as the tool actually spells it, and so it says what `--format` really does. Do not claim an SPDX route exists. If a real SPDX generator is needed for this check, that is a separate finding for your report, not something to invent here.
+
+- [ ] **Step 2: Give `test/determinism` a command that carries its seed flag**
+
+The record prescribes running the suite in randomized order, names `pytest-randomly` as the plugin, and writes `--randomly-seed=<n>` for reproducing a failing order - but never names the runner, which is why this entry is one of the three standing exceptions in the anchor guard. Name the whole command so the seed flag sits inside it.
+
+This changes what the anchor-guard exception set must contain. `tests/scripts/test_python_fixture_harness.py` asserts that set is exactly exercised - "an exception nothing exercises is a stale exception" - so if this entry stops needing its exception, remove it from the set rather than leaving it. Do the same check for `pytest-rerunfailures`, which shares the paragraph.
+
+- [ ] **Step 3: Let a prescribed route name its own runner**
+
+`deps/inventory`'s uv route is currently a supplied route rather than a transcription, for a mechanical reason Task 4's review verified: `TOOL_PACKAGES["cyclonedx-py"]` is `("cyclonedx-bom",)`, so `launcher` would put `uvx --from cyclonedx-bom` in front of the record's `uv export --format=cyclonedx1.5 --frozen`, fetching a package the command never calls. The record does name that command, so calling it "supplied" understates what the record prescribes.
+
+Add a field to `Invocation`:
+
+```python
+    own_runner: tuple[str, ...] = ()
+```
+
+naming the partitions whose prescribed argv is complete as written. Where a partition is named there, `launcher` contributes no prefix and the argv runs as transcribed. Validate in `__post_init__`, beside the existing `_check_supplied`: a partition in `own_runner` must have a prescribed argv for that partition, and must not also carry a supplied route - otherwise the field would silently apply to nothing, or to two routes at once.
+
+Document on the field WHY it exists: a record may prescribe a command whose first word is a runner or a different tool entirely, and the launcher's fetch is keyed on the check's tool name rather than on the command, so without this the harness either fetches a package the command never calls or the route has to be demoted to prose.
+
+Then move `deps/inventory`'s `uv` row out of `supplied_by_partition` into `argv_by_partition`, name `uv` in `own_runner`, and delete the part of `supplied_note` that said the record named no such command. Keep whatever the note says that is still true.
+
+- [ ] **Step 4: Prove the promoted route runs the same command**
+
+The point of the promotion is provenance, not behaviour. Show that the command executed for `deps/inventory` on the `uv` partition is the same before and after, by printing what the harness builds:
+
+```bash
+caffeinate uv run python -c "
+import importlib.util, sys
+sys.path.insert(0, 'scripts')
+spec = importlib.util.spec_from_file_location('lens', 'scripts/run_python_fixture_lens.py')
+m = importlib.util.module_from_spec(spec); sys.modules['lens'] = m; spec.loader.exec_module(m)
+for i in m.INVOCATIONS:
+    if i.check == 'deps/inventory':
+        print(i.tool, '|argv=', i.argv or i.argv_by_partition, '|own_runner=', i.own_runner, '|supplied=', i.supplied_by_partition)
+"
+```
+
+If the executed command changes, say so in the report rather than adjusting it to match: a promotion that alters what runs is a new measurement, not a re-labelling, and the published record would then be describing a command nothing observed.
+
+- [ ] **Step 5: Add unit tests**
+
+Cover the new validation both ways - a partition named in `own_runner` with no prescribed argv, and one carrying both a prescribed and a supplied route - and cover that `launcher` contributes no prefix for a partition named in `own_runner` while still prefixing one that is not.
+
+- [ ] **Step 6: Run the full gate and commit**
+
+Three or four commits: one per record edited, each stating WHY, then the harness change with its tests.
+
+```bash
+caffeinate bash -c 'uv run pytest tests/ -q && uv run ruff check . && uv run ruff format --check . && uv run python scripts/render_python_fixture_expectations.py --check'
+```
+
+---
+
 ### Task 5: Populate `forms` and turn on the declaration property
 
 **Files:**
@@ -577,6 +654,8 @@ Refs #51" -- scripts/run_python_fixture_lens.py tests/scripts/test_python_fixtur
 
 - [ ] **Step 1: Write the flag property**
 
+Two things this property must get right, both measured over all 50 invocations rather than reasoned about. **The flags pool across the paragraph, not the tool.** One paragraph can prescribe for several tools - `deps/freshness` carries a `uv` invocation and a `pip` one sharing a single quote - so a flag belonging to the neighbour's command is still accounted for. Checking each tool against only its own forms fails on 12 (entry, flag) pairs; pooling across the paragraph's invocations cuts that to 5. **And a placeholder token can never appear in a form's tokens the way the record writes it**, so `_concrete` applies to the flag as well: that cuts 5 to 3.
+
 ```python
 def test_every_flag_the_record_names_occurs_in_a_declared_form():
     """A flag in no declared form is a prescription nothing transcribed.
@@ -584,17 +663,32 @@ def test_every_flag_the_record_names_occurs_in_a_declared_form():
     This is the shape `arch/cycles` drifted in: the record grew "Append
     `--show-dot` to that `pydeps` invocation" in a later sentence of the same
     paragraph, and the flag belongs to a command the sentence does not repeat.
+
+    Pooled across every invocation sharing the paragraph, because one paragraph
+    prescribes for several tools: `deps/freshness` writes `uv pip list
+    --outdated --python <path>` and `pip list --outdated` in one sentence, and
+    `--python` belongs to the first. Held against one tool's own forms it fails
+    on a dozen pairs that are not drift at all.
     """
     for inv in INVOCATIONS:
         paragraph = _prescribing_paragraph(inv.check, inv.record_quote)
-        declared = _tokens(" ".join(f for f, _ in inv.forms))
+        pooled = _tokens(
+            " ".join(
+                form
+                for other in INVOCATIONS
+                if other.check == inv.check
+                for form, _ in other.forms
+            )
+        )
         for flag in _flag_spans(paragraph):
-            assert all(t in declared for t in _tokens(flag)), (
+            assert all(t in pooled for t in _concrete(_tokens(flag))), (
                 inv.check,
                 inv.tool,
                 flag,
             )
 ```
+
+The remaining 3 are not mechanical and Task 4b removes them at the source: they are records naming a tool and its flags without ever writing a whole command. If this property still fails after Task 4b, the failing pair is a record with that same shape and the repair is the record, not the test.
 
 - [ ] **Step 2: Write the coverage property**
 
@@ -741,9 +835,15 @@ Refs #51" -- tests/scripts/test_python_fixture_harness.py scripts/run_python_fix
 - Consumes: the transcriptions from Tasks 3 and 4.
 - Produces: no code changes, only prose that matches what the records now claim.
 
-- [ ] **Step 1: Fix the docstring**
+- [ ] **Step 1: Superseded - do not do it**
 
-`inner_uv_target`'s docstring describes `--python` as "harness plumbing rather than a claim from any record". `deps/freshness` has since made it a record claim, prescribing `uv pip list --outdated --python <path-to-venv-python>`. Rewrite that sentence to say the record now prescribes it and that the harness resolves the path, keeping the rest of the docstring - which explains why `uv` needs the flag when other `in_env` tools do not - unchanged.
+This step planned to reword `inner_uv_target`'s docstring. Task 4 found that the function was the drift: `deps/freshness` had prescribed `--python <path-to-venv-python>` since the records were reworded, and the harness was appending the flag at runtime through that helper, where no argv-reading guard could see it. Transcribing the flag properly left the helper with nothing to do and it was deleted. There is no docstring left to fix. Confirm `grep -c inner_uv_target scripts/run_python_fixture_lens.py` prints 0 and move to Step 2.
+
+- [ ] **Step 1b: Clear the three prose defects Task 4's review left**
+
+In `scripts/python_fixture_spec.py`, the new sentence about the uv SBOM route writes `uv export --format cyclonedx1.5 --frozen` with a space where `.agents/skills/deps-audit/checks/inventory.md` writes `--format=cyclonedx1.5`. uv accepts both and no gate compares them, which is exactly why it matters: that sentence's whole job is to state what the record names, in a round that exists because prose drifted from records. Match the record's token, then re-render with `uv run python scripts/render_python_fixture_expectations.py`.
+
+In `scripts/run_python_fixture_lens.py`, the `supplied_by_partition` docstring has a dangling one-word line from an earlier insert; reflow that paragraph. The same docstring names `deps/inventory`'s `uv` row as its example, which the project's stale-prose rule warns against - the fact already lives in that row's own `supplied_note`, where it stays true, so drop the sibling reference and state the structural reason instead.
 
 - [ ] **Step 2: State the provenance in `deps/vulnerabilities`**
 
