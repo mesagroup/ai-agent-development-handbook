@@ -406,6 +406,11 @@ class Invocation:
             `coverage run -m pytest` followed by `coverage report --show-missing`
             is one route, not two, and dropping the half that prints the report
             would leave the route looking like a tool that produced nothing.
+            The order is the record's and is held against it rather than against
+            a literal in the suite: the two commands concatenated trace through
+            the quote in the order the record writes them, so swapping them
+            fails as a reversed route rather than as a tuple somebody needs to
+            update.
         note: Why the completion was needed, or what the transcription found
             missing. Required whenever `completion` is non-empty.
         in_env: Whether the tool has to run from inside the materialized
