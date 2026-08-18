@@ -283,6 +283,79 @@ def _fallback_paragraphs(check: str) -> list[tuple[str, str]]:
     return out
 
 
+SIBLING_LENS_LANGUAGES = ("TypeScript", "JavaScript")
+
+
+def _is_sibling_lens(label: str) -> bool:
+    """Whether the label makes its paragraph another language lens's business.
+
+    Matched on the language the label names rather than on the label as a whole,
+    because the family writes the TypeScript lens under three labels - plain
+    `TypeScript`, `JavaScript/TypeScript`, and `TypeScript rules and greps for
+    this check` - and a set of whole labels covers whichever spellings were in
+    the tree the day somebody wrote it. Both directions of that miss are real: a
+    span under an unlisted spelling is a sibling lens's prescription reported as
+    this lens's drift, and the same unlisted spelling read the other way unwatches
+    a Python prescription written under it.
+
+    The pin moves to the language, so it still forces a read where it should: a
+    paragraph labelled for a language this tuple does not name fails the
+    containment property rather than being skipped, which is what the whole-label
+    set bought and this keeps.
+
+    A label naming a condition rather than a language is never a sibling lens.
+    `With none of them installed` holds the Python fallback for exactly the case
+    where no tool is present, and skipping it would unwatch the paragraph a
+    correction is most likely to land in.
+    """
+    return any(language in label for language in SIBLING_LENS_LANGUAGES)
+
+
+def _watched_paragraphs(check: str, quote: str) -> list[str]:
+    """Every paragraph of `## Tooling fallback` a Python prescription can land in.
+
+    The flag property reads this rather than the quoted line alone. A correction
+    that appends a whole *paragraph* carrying only a flag - "Append
+    `--max-bacon=2` to that `pydeps` invocation" - is the append shape
+    `arch/cycles` drifted by, and the containment property below cannot see it:
+    that one extracts command forms from a stray paragraph, and a bare flag is
+    not a form. Reading one line for flags and every paragraph for forms left the
+    two levels covering different shapes and reading as though they covered both.
+
+    The quoted paragraph is watched unconditionally rather than filtered with the
+    rest. A record whose prescription sits under a sibling lens's label is a
+    documented limit of this file, and it must not become a paragraph this
+    property silently stops reading as well.
+    """
+    quoted = _prescribing_paragraph(check, quote)
+    return [quoted] + [
+        paragraph
+        for label, paragraph in _fallback_paragraphs(check)
+        if paragraph != quoted and not _is_sibling_lens(label)
+    ]
+
+
+def _unaccounted_flags(paragraphs: list[str], pooled: list[str]) -> set[str]:
+    """The flag spans no declared form on the record accounts for.
+
+    Separated from the property so that pooling across paragraphs can be tested
+    on paragraphs rather than only on the tree, where the shape it exists to
+    catch is by construction absent.
+    """
+    out = set()
+    for paragraph in paragraphs:
+        for flag in _flag_spans(paragraph):
+            wanted = _concrete(_tokens(flag))
+            # A span that reduced to nothing would satisfy the `all` below
+            # vacuously, which is how a newly prescribed flag would pass in
+            # silence. `_concrete` truncates rather than drops for that reason,
+            # so this is unreachable while it does - and loud if it stops.
+            assert wanted, flag
+            if not all(any(_matches(w, t) for t in pooled) for w in wanted):
+                out.add(flag)
+    return out
+
+
 # --- the extractor helpers ----------------------------------------------------
 
 
@@ -394,6 +467,58 @@ def test_the_prescribing_paragraph_is_the_line_holding_the_quote():
     paragraph = _prescribing_paragraph("arch/cycles", quote)
     assert quote in paragraph
     assert paragraph.count("\n") == 0
+
+
+def test_a_sibling_lens_is_recognised_in_every_spelling_the_family_writes():
+    """Three labels, one lens.
+
+    A whole-label set covers the spellings in the tree the day it is written, and
+    the two it missed here point opposite ways: a TypeScript prescription reported
+    as Python drift, and a Python prescription under an unlisted label watched by
+    nothing. A label naming a language this file does not know still fails the
+    containment property, so a new lens forces a read rather than being skipped.
+    """
+    for spelling in (
+        "TypeScript",
+        "JavaScript/TypeScript",
+        "TypeScript rules and greps for this check",
+    ):
+        assert _is_sibling_lens(spelling), spelling
+    for held in ("Python", "With none of them installed", "Rust", ""):
+        assert not _is_sibling_lens(held), held
+
+
+def test_a_flag_only_a_second_paragraph_carries_is_unaccounted():
+    """The append shape, moved one paragraph down.
+
+    Reading the quoted line alone left this passing: the flag is in no declared
+    form, and the containment property that does read the whole section extracts
+    command forms, which a bare flag is not.
+    """
+    quoted = "Run `pydeps --show-cycles --show-dot`: the bare form prints nothing."
+    appended = "**Python, on a namespace layout** - Append `--max-bacon=2` to that `pydeps` invocation."
+    pooled = _tokens("pydeps --show-cycles --show-dot")
+    assert _unaccounted_flags([quoted], pooled) == set()
+    assert _unaccounted_flags([quoted, appended], pooled) == {"--max-bacon=2"}
+
+
+def test_the_watched_paragraphs_are_the_python_side_of_the_section():
+    """Every paragraph a Python correction can land in, and no sibling lens's.
+
+    `arch/cycles` carries all three cases: the paragraph its quote sits in, a
+    `With none of them installed` paragraph that is Python's fallback and must be
+    watched, and a `TypeScript` paragraph that is another lens's prescription.
+    """
+    quote = "Run `pydeps --show-cycles --show-dot`: `--show-cycles` alone has no textual output channel at all."
+    watched = _watched_paragraphs("arch/cycles", quote)
+    labels = {
+        label
+        for label, paragraph in _fallback_paragraphs("arch/cycles")
+        if paragraph in watched
+    }
+    assert "With none of them installed" in labels
+    assert "TypeScript" not in labels
+    assert _prescribing_paragraph("arch/cycles", quote) in watched
 
 
 def test_every_python_tool_in_the_family_is_invoked():
@@ -732,6 +857,13 @@ def test_every_flag_the_record_names_occurs_in_a_declared_form():
     sentence of the same paragraph, and the flag belongs to a command the
     sentence does not repeat.
 
+    Read over every paragraph `_watched_paragraphs` returns rather than the quoted
+    line alone, because the same append lands in a new paragraph just as easily as
+    in a new sentence, and the containment property below catches a stray form
+    while a bare flag is not one. Widening it costs no record edit: pooled over
+    the family as it stands, every flag span in every watched paragraph occurs in
+    some declared form on its record.
+
     Pooled across every invocation sharing the record, because one paragraph
     prescribes for several tools: `deps/freshness` writes `uv pip list
     --outdated --python <path>` and `pip list --outdated` in one sentence, and
@@ -747,7 +879,6 @@ def test_every_flag_the_record_names_occurs_in_a_declared_form():
     placeholder from both is what leaves the flag itself to match.
     """
     for inv in INVOCATIONS:
-        paragraph = _prescribing_paragraph(inv.check, inv.record_quote)
         pooled = _tokens(
             " ".join(
                 form
@@ -756,17 +887,12 @@ def test_every_flag_the_record_names_occurs_in_a_declared_form():
                 for form, _ in other.forms
             )
         )
-        for flag in _flag_spans(paragraph):
-            wanted = _concrete(_tokens(flag))
-            # A span that reduced to nothing would satisfy the `all` below
-            # vacuously, which is how a newly prescribed flag would pass in
-            # silence. `_concrete` truncates rather than drops for that reason,
-            # so this is unreachable while it does - and loud if it stops.
-            assert wanted, (inv.check, flag)
-            assert all(any(_matches(w, t) for t in pooled) for w in wanted), (
-                inv.check,
-                flag,
-            )
+        paragraphs = _watched_paragraphs(inv.check, inv.record_quote)
+        stray = _unaccounted_flags(paragraphs, pooled)
+        assert not stray, (
+            f"{inv.check}/{inv.tool}: {sorted(stray)} is prescribed in "
+            "`## Tooling fallback` and occurs in no declared form"
+        )
 
 
 def test_every_form_the_harness_runs_appears_in_an_argv():
@@ -854,12 +980,18 @@ def test_every_disposition_in_the_vocabulary_is_used():
 def test_a_prescription_stays_in_the_paragraph_the_guard_watches():
     """Otherwise the blind spot moves up one level.
 
-    Every property that reads a record is scoped to the paragraph holding
-    `record_quote`. A correction that appends a whole new paragraph instead of a
-    sentence lands outside all of them, which is this same defect one level up -
-    and it is the shape `arch/complexity-gate` was found in, whose whole fallback
-    section is an unlabelled bolded directive rather than a labelled lens
-    paragraph.
+    A correction that appends a whole new paragraph instead of a sentence lands
+    outside the paragraph holding `record_quote`, which is this same defect one
+    level up - and it is the shape `arch/complexity-gate` was found in, whose
+    whole fallback section is an unlabelled bolded directive rather than a
+    labelled lens paragraph.
+
+    This property carries one half of that: a stray *command form*. A stray bare
+    *flag* is not a form and never reaches here, so the flag property covers it,
+    reading the same paragraph set through `_watched_paragraphs`. Splitting it
+    that way is what the two levels were missing - forms were watched across the
+    section while flags were watched on one line, so the append shape this whole
+    file exists to catch escaped by moving one paragraph down.
 
     Scoped by review-lens label rather than by naming the records that trip it.
     `semgrep` is one tool named in both the Python and the TypeScript paragraph
@@ -870,20 +1002,24 @@ def test_a_prescription_stays_in_the_paragraph_the_guard_watches():
     label naming another language lens is skipped - a paragraph labelled for a
     condition rather than a language, of which these sections carry several,
     holds Python prescriptions too, so a blanket skip of every label that is not
-    `Python` would unwatch exactly where a Python correction would land.
+    `Python` would unwatch exactly where a Python correction would land. Which
+    labels those are is `_is_sibling_lens`'s judgement, keyed on the language
+    named rather than on the whole label, because the family writes three
+    spellings of the one lens.
 
     The consequence of that exception, stated because a reader who sees the
     skipped set would otherwise read it as a narrow one: a Python prescription
-    written inside a `**TypeScript**`-labelled paragraph is watched by nothing at
-    all. This property skips it as a sibling lens's business, and every other
-    property here reads only the paragraph holding `record_quote`, which that one
-    is not. The label decides which lens a paragraph belongs to, so a paragraph
-    labelled for the wrong lens takes its contents out of reach with it.
+    written inside a sibling lens's paragraph is watched by nothing at all. Both
+    properties that read the section skip such a paragraph - this one for a stray
+    form, the flag property through `_watched_paragraphs` for a stray flag - and
+    the remaining properties read the line holding `record_quote`, which that
+    paragraph is not. The label decides which lens a paragraph belongs to, so a
+    paragraph labelled for the wrong lens takes its contents out of reach with it.
 
     A second limit, and it is not hypothetical. Every property in this file is
-    scoped either to the source line holding `record_quote` or - here - to the
-    paragraphs of `## Tooling fallback`, so a prescription written in any other
-    section of a record is invisible to all of them. `arch/complexity-gate`
+    scoped either to the source line holding `record_quote` or to the paragraphs
+    of `## Tooling fallback`, so a prescription written in any other section of a
+    record is invisible to all of them. `arch/complexity-gate`
     carries `ruff --select C901` in its `## Fix` section and `deps/freshness`
     carries `uv lock` in its, each led by a tool the harness invokes, neither
     declared in `forms`, and the suite is green over both. A command in `## Fix`
@@ -898,9 +1034,6 @@ def test_a_prescription_stays_in_the_paragraph_the_guard_watches():
     record's `needs` names against its `tooling` list, and nothing anywhere holds
     its prose against either.
     """
-    # Pinned rather than derived: a stray span under a lens this list does not
-    # name fails, and somebody reads the paragraph before extending it.
-    sibling_lenses = {"TypeScript"}
     skipped = set()
     for inv in INVOCATIONS:
         for label, paragraph in _fallback_paragraphs(inv.check):
@@ -911,7 +1044,7 @@ def test_a_prescription_stays_in_the_paragraph_the_guard_watches():
                 stray |= _command_forms(paragraph, lead)
             if not stray:
                 continue
-            if label in sibling_lenses:
+            if _is_sibling_lens(label):
                 skipped.add(label)
                 continue
             raise AssertionError(
@@ -919,8 +1052,9 @@ def test_a_prescription_stays_in_the_paragraph_the_guard_watches():
                 f"{label or 'unlabelled'} paragraph of `## Tooling fallback` that "
                 "no property watches, because the quoted one is elsewhere"
             )
-    assert skipped == sibling_lenses, (
-        f"a lens nothing is skipped for is a stale exception: {sorted(skipped)}"
+    assert skipped, (
+        "no paragraph was skipped for a sibling lens, so the exception "
+        "`_is_sibling_lens` grants is dead code rather than a live allowance"
     )
 
 
