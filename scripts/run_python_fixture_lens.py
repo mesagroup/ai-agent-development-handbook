@@ -319,7 +319,9 @@ NO_VERSION_ROUTE: dict[str, str] = {}
 #   default here: `cyclonedx-py environment`, more accurate where a tree is
 #   available and useless on a read-only clone; `pip-licenses --format json`, the
 #   same list presented machine-readably; `mutmut results`, the other of two ways
-#   the record offers to read the tally. Nothing narrows these and nothing warns
+#   the record offers to read the tally; `pytest --randomly-seed=<n>`, the seeded
+#   re-run the record keeps for reproducing a failing order, where the command it
+#   prescribes first is `pytest` bare. Nothing narrows these and nothing warns
 #   against them - the record simply prescribes something else first. Read as
 #   "a route for a partition shape the fixtures lack" it fits none of them, and
 #   it would make the value a claim about the fixture set rather than about the
