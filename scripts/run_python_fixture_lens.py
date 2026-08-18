@@ -1351,18 +1351,39 @@ def grant_tier(check: str, tool: str) -> str:
     return ""
 
 
-def invocations_for(partition: str) -> tuple[Invocation, ...]:
+def invocations_for(
+    partition: str, *, only_check: str | None = None
+) -> tuple[Invocation, ...]:
     """Every invocation one partition runs.
 
     Scoped by the expectations rather than by a second list, so the harness
     cannot run a set the published record does not grade.
+
+    Args:
+        partition: Which partition's scope to read.
+        only_check: Narrow the scope to one check id, for re-running a single
+            cell without re-running the matrix around it. A filter matching
+            nothing raises rather than returning an empty tuple: the pair is
+            what fails, either because no invocation names the check or because
+            this partition's expectations exclude it, and an empty run would
+            write an artifact of zero rows that reads as a check whose tools
+            were all absent.
     """
     if partition not in PARTITIONS:
         raise ValueError(
             f"unknown partition {partition!r}; expected one of {PARTITIONS}"
         )
     carried = {e.check for e in expectations_for(partition)}
-    return tuple(i for i in INVOCATIONS if i.check in carried)
+    scoped = tuple(i for i in INVOCATIONS if i.check in carried)
+    if only_check is None:
+        return scoped
+    filtered = tuple(i for i in scoped if i.check == only_check)
+    if not filtered:
+        raise ValueError(
+            f"no invocation for {only_check!r} on the {partition} partition; "
+            f"it carries {sorted({i.check for i in scoped})}"
+        )
+    return filtered
 
 
 def packages_for(tool: str) -> tuple[str, ...]:
@@ -1897,6 +1918,7 @@ def probe_versions(
     timeout: int,
     *,
     blocked_by: Sequence[str] | None = None,
+    only_check: str | None = None,
 ) -> dict[str, str]:
     """Report the version of every tool this partition will invoke.
 
@@ -1925,6 +1947,11 @@ def probe_versions(
             from whatever the launcher happens to fall back to, neither of
             which is a fact about the tool - so it is recorded as blocked
             instead, the same way a dependent row is in `run_partition`.
+        only_check: The same narrowing `run_partition` ran under, so the map
+            holds a version for each tool this run invoked and none for a tool
+            it did not. A version beside no row would read as a probed tool
+            whose check produced nothing, and probing the partition's whole tool
+            set costs a full run's fetches for a one-cell answer.
     """
     granted = grant != "none"
     representative: dict[str, Invocation] = {}
@@ -1932,7 +1959,7 @@ def probe_versions(
         representative.setdefault(inv.tool, inv)
 
     versions: dict[str, str] = {}
-    for tool in {inv.tool for inv in invocations_for(partition)}:
+    for tool in {inv.tool for inv in invocations_for(partition, only_check=only_check)}:
         probe = VERSION_PROBE[tool]
         if probe is None:
             versions[tool] = f"no version route: {NO_VERSION_ROUTE[tool]}"
@@ -1963,6 +1990,8 @@ def run_partition(
     work_root: Path,
     grant: str,
     timeout: int,
+    *,
+    only_check: str | None = None,
 ) -> dict[str, object]:
     """Run one partition's invocations under one grant state.
 
@@ -1970,6 +1999,13 @@ def run_partition(
     stdout and stderr are kept so that a later pass can re-classify without
     re-running, and so that a completion the transcription had to make is
     visible beside what it produced.
+
+    `only_check` narrows the run to one check id and reaches the version probe
+    as well as the rows, so the observation covers exactly the cell that ran.
+    The observation records it under `only_check`, because a file holding one
+    check's rows is indistinguishable from a matrix whose other checks all
+    produced nothing unless it says which it is. The caller owns the filename;
+    `main` gives a filtered run one carrying the check's slug.
     """
     if grant not in GRANTS:
         raise ValueError(f"unknown grant {grant!r}; expected one of {GRANTS}")
@@ -1992,7 +2028,7 @@ def run_partition(
                 break
 
     rows = []
-    for invocation in invocations_for(partition):
+    for invocation in invocations_for(partition, only_check=only_check):
         tier = grant_tier(invocation.check, invocation.tool)
         permitted = granted or not tier
         argv = argv_for(invocation, partition)
@@ -2074,12 +2110,15 @@ def run_partition(
         )
         rows.append(row)
 
-    versions = probe_versions(partition, grant, copy, timeout, blocked_by=blocked_by)
+    versions = probe_versions(
+        partition, grant, copy, timeout, blocked_by=blocked_by, only_check=only_check
+    )
 
     return {
         "partition": partition,
         "grant": grant,
         "source": str(source),
+        "only_check": only_check or "",
         "materialization": materialization,
         "results": rows,
         "versions": versions,
@@ -2116,6 +2155,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--timeout", type=int, default=900, help="seconds per command (default: 900)"
     )
+    parser.add_argument(
+        "--check",
+        default=None,
+        help="run only this check id; the output file gains its slug, so a "
+        "partial run cannot overwrite a full matrix artifact",
+    )
     args = parser.parse_args(argv)
 
     source = args.fixture_root / args.partition
@@ -2127,12 +2172,24 @@ def main(argv: list[str] | None = None) -> int:
     work_root = args.work_dir or Path(tempfile.mkdtemp(prefix="python-fixture-lens-"))
     work_root.mkdir(parents=True, exist_ok=True)
     observed = run_partition(
-        args.partition, source, work_root, args.grant, args.timeout
+        args.partition,
+        source,
+        work_root,
+        args.grant,
+        args.timeout,
+        only_check=args.check,
     )
 
     results_dir = args.fixture_root / RESULTS_DIRNAME
     results_dir.mkdir(parents=True, exist_ok=True)
-    out_path = results_dir / f"{args.partition}-{args.grant}.json"
+    # The slug keeps a one-check run off the filename the grading pass reads as
+    # the whole cell: a file of one row under that name reports a matrix nobody
+    # ran, and it looks exactly like a matrix in which everything else was
+    # silent.
+    stem = f"{args.partition}-{args.grant}"
+    if args.check:
+        stem = f"{stem}-{args.check.replace('/', '-')}"
+    out_path = results_dir / f"{stem}.json"
     out_path.write_text(json.dumps(observed, indent=2, sort_keys=True) + "\n")
     ran = sum(1 for r in observed["results"] if r.get("ran"))
     print(f"{args.partition} ({args.grant}): {ran} commands run, written to {out_path}")
