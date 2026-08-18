@@ -496,6 +496,24 @@ def test_the_placeholder_a_record_writes_never_reaches_a_command():
                     assert not re.fullmatch(r"<.+>", word), (inv.check, word)
 
 
+# --- the record-to-harness direction -------------------------------------------
+
+
+def test_every_command_form_the_record_names_is_declared():
+    """The record-to-harness direction the three older guards do not run.
+
+    Those guards hold the transcription against the record, so a record that
+    *grows* a prescription leaves all three green. This one fails instead,
+    naming the span nothing declares.
+    """
+    for inv in INVOCATIONS:
+        paragraph = _prescribing_paragraph(inv.check, inv.record_quote)
+        assert _command_forms(paragraph, inv.tool) == {f for f, _ in inv.forms}, (
+            inv.check,
+            inv.tool,
+        )
+
+
 # --- scoping and grant states --------------------------------------------------
 
 
