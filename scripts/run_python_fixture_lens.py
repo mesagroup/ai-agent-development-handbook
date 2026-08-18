@@ -891,10 +891,8 @@ INVOCATIONS: tuple[Invocation, ...] = (
         argv=("pip-licenses",),
         in_env=True,
         record_quote=(
-            "`pip-licenses`'s `--format` chooses only how the list it prints is "
-            "presented - `pip-licenses --format json` for the same list "
-            "machine-readably - and no style it offers emits SPDX identifiers, so "
-            "mapping the names it reports onto SPDX ids stays the reader's own step."
+            "`pip-licenses`, or read each installed dist's `*.dist-info/METADATA` "
+            "(`License` + `Classifier: License ::`)."
         ),
     ),
     Invocation(
