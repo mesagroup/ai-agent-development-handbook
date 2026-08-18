@@ -1351,11 +1351,13 @@ def test_every_form_the_harness_runs_appears_in_an_argv():
     over every form declared `runs`, that is the only token in the table any
     command satisfies by completion alone, so it is the only one this exempts.
 
-    Nothing else in the suite holds a form's order for it. The guard that traces
-    a transcribed command through the record's sentence reads every partition's
-    route, but it never reads `then`, and it asserts the *absence* of an anchor
-    for the entries it excepts, so a form reachable only through `then` or
-    declared on an excepted entry gets its order from here or from nowhere.
+    The guard that traces a transcribed command through the record's sentence
+    reads every partition's route, but it never reads `then`, and it asserts the
+    *absence* of an anchor for the entries it excepts. A form declared on an
+    entry it excepts gets its order from here or from nowhere. A form reachable
+    only through `then` is held twice over: here, and by the property tracing a
+    two-command route through the quote, which a scrambled `then` fails wherever
+    that command's tokens are the form's.
     """
     for inv in INVOCATIONS:
         commands = [c for c in (argv_for(inv, p) for p in PARTITIONS) if c]
