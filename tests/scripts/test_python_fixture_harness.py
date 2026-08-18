@@ -1213,6 +1213,10 @@ def test_a_two_command_route_runs_them_in_the_records_order():
     for inv in INVOCATIONS:
         if not inv.then:
             continue
+        assert _prescribed_commands(inv), (
+            f"{inv.check}/{inv.tool}: prescribes a second command and no first "
+            "one, so it has no order to hold rather than an order this holds"
+        )
         assert _follows_in_the_record(inv), (
             f"{inv.check}/{inv.tool}: the record writes {inv.then} before the "
             "command this entry runs first, so the route is reversed against it"
@@ -1427,15 +1431,17 @@ def test_no_prescribed_command_is_exactly_a_form_the_record_warns_against():
 
 
 def test_an_entry_declaring_forms_declares_one_it_runs():
-    """What makes the flip fail at its first edit rather than its second.
+    """What still holds once the flip's other guard has gone silent.
 
     An entry whose declared forms include none marked `runs` has switched the
-    coverage property off for itself entirely, and the property above catches
-    the consequence only where the shortened argv happens to equal another form
-    the record already declares. Where an entry's `runs` forms number one,
-    flipping it leaves the argv equal to no declared form at all, and the second
-    edit is unguarded - measured on `test/isolation`, whose single form is
-    `pytest --durations=25`.
+    coverage property off for itself entirely. The property above catches that
+    only while some command still equals a form the record declares, and whether
+    it does depends on the entry. On `test/isolation`, whose single form is
+    `pytest --durations=25` and whose argv is that form token for token,
+    flipping the disposition fails both properties at once. Drop
+    `--durations=25` as well and the argv equals no declared form, the equality
+    property goes silent on the length, and this one is the only thing left
+    failing - it never reads an argv, so nothing done to one quiets it.
 
     The two entries named here declare a single `alternative` form truthfully:
     the record's only named form is one the harness deliberately does not run,
@@ -2718,6 +2724,13 @@ def test_an_ungranted_run_materializes_nothing_and_reports_not_permitted(
 def test_a_granted_run_materializes_first_and_then_runs_in_the_environment(
     tmp_path, monkeypatch
 ):
+    """What counts as the follow-up is read from the entry rather than written out
+    here. The claim is that the second command reaches execution unmangled, and
+    a tuple repeated in the assertion adds a second claim nobody asked for -
+    that the record's second command is still the one it was on the day this was
+    written - which fails as a stale literal rather than as a route that did not
+    run.
+    """
     source = tmp_path / "fixture" / "uv"
     source.mkdir(parents=True)
     (source / "pyproject.toml").write_text("[project]\n")
@@ -2737,7 +2750,8 @@ def test_a_granted_run_materializes_first_and_then_runs_in_the_environment(
     assert deptry["command"][-2:] == ["deptry", "."]
     assert deptry["status"] == "ok"
     follow_up = rows[("test/coverage-reach", "coverage.py")]["then"]
-    assert follow_up["command"][-3:] == ["coverage", "report", "--show-missing"]
+    expected = list(_entry("test/coverage-reach", "coverage.py").then)
+    assert follow_up["command"][-len(expected) :] == expected
 
 
 def test_the_interpreter_the_freshness_record_names_is_transcribed():
@@ -3030,6 +3044,7 @@ def test_a_route_whose_reporting_half_fails_is_not_a_clean_run(tmp_path, monkeyp
     source = tmp_path / "fixture" / "uv"
     source.mkdir(parents=True)
     reporting = list(_entry("test/coverage-reach", "coverage.py").then)
+    assert reporting, "an empty tail would match the whole of every command"
     monkeypatch.setattr(
         "run_python_fixture_lens._run",
         _fake_run(
