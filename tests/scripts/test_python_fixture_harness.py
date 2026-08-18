@@ -459,6 +459,22 @@ def _runs_as_written(command: tuple[str, ...], form: str) -> bool:
     return True
 
 
+def _follows_in_the_record(inv: Invocation) -> bool:
+    """Whether every prescribed command precedes its `then` in the quote.
+
+    A two-command route has an order, and the record writes it: `coverage run -m
+    pytest` before `coverage report --show-missing`. Nothing held that order
+    against the record - the anchor guard traces one command at a time and never
+    reads `then` - so the swap failed only tests pinning the tuples as literals,
+    which reads as a literal to update rather than as a route reversed.
+    """
+    quote = _tokens(inv.record_quote)
+    return all(
+        _is_subsequence(_tokens(" ".join((*argv, *inv.then))), quote)
+        for _, argv in _prescribed_commands(inv)
+    )
+
+
 # --- the extractor helpers ----------------------------------------------------
 
 
@@ -753,6 +769,38 @@ def test_a_form_the_record_writes_with_a_placeholder_compares_as_written():
     )
     assert _runs_as_written(("pytest", "--cov=fixture_app"), "pytest --cov=<pkg>")
     assert not _runs_as_written(("pytest", "--cov"), "pytest --cov=<pkg>")
+
+
+def test_swapping_the_two_commands_breaks_the_records_order():
+    """The order the record writes, held against the record.
+
+    `coverage run -m pytest` then `coverage report --show-missing` is one route,
+    and swapped it prints the report before the suite that produces it. The
+    swap's only guard was a literal tuple pinned in a test, whose failure
+    message reads as a stale literal to update. Built on a synthetic entry
+    because the tree carries the order correctly, so it cannot tell a rule that
+    holds the order from one that does not.
+    """
+    quote = (
+        "`pytest --cov=<pkg> --cov-branch --cov-report=term-missing` (or `coverage "
+        "run -m pytest` + `coverage report --show-missing`)."
+    )
+    forward = Invocation(
+        check="test/coverage-reach",
+        tool="coverage.py",
+        argv=("coverage", "run", "-m", "pytest"),
+        then=("coverage", "report", "--show-missing"),
+        record_quote=quote,
+    )
+    swapped = Invocation(
+        check="test/coverage-reach",
+        tool="coverage.py",
+        argv=("coverage", "report", "--show-missing"),
+        then=("coverage", "run", "-m", "pytest"),
+        record_quote=quote,
+    )
+    assert _follows_in_the_record(forward)
+    assert not _follows_in_the_record(swapped)
 
 
 def test_every_python_tool_in_the_family_is_invoked():
@@ -1092,6 +1140,24 @@ def test_a_token_the_record_prescribes_never_hides_in_the_completion():
                 "prescription the record makes as one it omitted"
             )
     assert seen == demoted, "an exception nothing exercises is a stale exception"
+
+
+def test_a_two_command_route_runs_them_in_the_records_order():
+    """Held against the record rather than against a pinned tuple.
+
+    Every entry carrying a `then`, which is the one route the family prescribes
+    in two commands. A count is not asserted here: the property is that each
+    such entry's order traces through its own quote, and an entry growing a
+    `then` should be held by it rather than fail an arithmetic claim about how
+    many there are.
+    """
+    for inv in INVOCATIONS:
+        if not inv.then:
+            continue
+        assert _follows_in_the_record(inv), (
+            f"{inv.check}/{inv.tool}: the record writes {inv.then} before the "
+            "command this entry runs first, so the route is reversed against it"
+        )
 
 
 def test_an_invocation_names_a_check_that_exists_and_a_partition_that_does():
@@ -2388,15 +2454,6 @@ def test_a_supplied_route_stops_at_the_step_that_failed(tmp_path, monkeypatch):
     # the supplied route's own `-r` step rather than the shared `uvx pip-audit`
     # prefix both commands start with.
     assert not any(command[:3] == ["uvx", "pip-audit", "-r"] for command in recorded)
-
-
-def test_a_two_step_route_keeps_its_second_command():
-    inv = next(
-        i
-        for i in INVOCATIONS
-        if (i.check, i.tool) == ("test/coverage-reach", "coverage.py")
-    )
-    assert inv.then == ("coverage", "report", "--show-missing")
 
 
 def test_an_entry_cannot_hold_both_a_shared_and_a_per_partition_command():
