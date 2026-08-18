@@ -83,6 +83,26 @@ def _tokens(text: str) -> list[str]:
     return out
 
 
+def _matches(wanted: str, token: str) -> bool:
+    """Whether one command token satisfies one token the record wrote.
+
+    Equality, except for a token `_concrete` reduced to the part before a
+    placeholder and left a trailing `<` on as the mark: `--cov=<` is satisfied by
+    any token beginning `--cov=` that carries something after it, which is what
+    the caller supplied. The mark is what keeps this from being a blanket prefix
+    test - `-r` would otherwise be satisfied by `-rf`, and an exact token must
+    stay exact.
+
+    A record's own tokens never end in `<`, because the placeholder it writes
+    closes with `>`, so the older guards passing raw tokens through
+    `_is_subsequence` still compare by equality.
+    """
+    if wanted.endswith("<"):
+        prefix = wanted[:-1]
+        return token.startswith(prefix) and len(token) > len(prefix)
+    return token == wanted
+
+
 def _is_subsequence(needle: list[str], haystack: list[str]) -> bool:
     """Whether every token of `needle` occurs in `haystack`, in order.
 
@@ -90,9 +110,12 @@ def _is_subsequence(needle: list[str], haystack: list[str]) -> bool:
     caller supplies a value: `pytest --cov=<pkg> --cov-branch` prescribes the
     command whose transcription drops `--cov=<pkg>` from the middle, and a
     contiguity test would fail on a correct entry.
+
+    Token equality is `_matches` rather than `==`, so a needle `_concrete` has
+    reduced to a prefix still finds the value the caller supplied for it.
     """
     remaining = iter(haystack)
-    return all(any(token == word for word in remaining) for token in needle)
+    return all(any(_matches(token, word) for word in remaining) for token in needle)
 
 
 def _spans(paragraph: str) -> list[str]:
@@ -151,22 +174,32 @@ def _flag_spans(paragraph: str) -> set[str]:
 
 
 def _concrete(tokens: list[str]) -> list[str]:
-    """A form's tokens with the record's placeholders removed.
+    """A record's tokens reduced to the part a command can carry.
 
     A record writes `<requirements>` where the caller supplies a path, so the
-    placeholder can never occur in an argv. Dropping it is what lets the
-    coverage property watch the entry whose placeholder forced the anchor guard
-    to be switched off for it.
+    placeholder can never occur in a command and the token goes. Dropping it is
+    what lets the coverage property watch the entry whose placeholder forced the
+    anchor guard to be switched off for it.
 
-    A whole token is dropped wherever the placeholder appears in it, not only
-    where it is the entire token: a record writes `--cov=<pkg>` with the value
-    glued to the flag, and the argv carries `--cov=` plus the package the
-    fixture actually seeds, so the token as written matches nothing either way.
-    Matched on the substring, the rest of the command still anchors the form;
-    matched only on the whole token, a form the harness genuinely runs reads as
-    one no argv carries.
+    Where the placeholder is glued to a flag the token is *truncated* rather than
+    dropped, keeping the `<` as the mark `_matches` reads: `--cov=<pkg>` becomes
+    `--cov=<`, which the seeded `--cov=fixture_pkg` satisfies. Dropping the whole
+    token instead reopens the drift this file exists to catch - a paragraph that
+    grows `--cov-config=<file>` would reduce to nothing at all, `all([])` is
+    vacuously true, and a newly prescribed flag nothing transcribes would pass
+    the flag property in silence. It also degrades the coverage property to a
+    check on the lead word alone, since `pytest --randomly-seed=<n>` would reduce
+    to `pytest` and be satisfied by an argv running the suite bare.
     """
-    return [t for t in tokens if not re.search(r"<[^>]+>", t)]
+    out = []
+    for token in tokens:
+        if "<" not in token:
+            out.append(token)
+            continue
+        head = token.split("<", 1)[0]
+        if head:
+            out.append(head + "<")
+    return out
 
 
 def _prescribing_paragraph(check: str, quote: str) -> str:
@@ -267,18 +300,36 @@ def test_a_placeholder_token_is_dropped_before_matching_an_argv():
     ]
 
 
-def test_a_placeholder_glued_to_a_flag_is_dropped_with_the_flag():
-    """`--cov=<pkg>` is the same phenomenon and the whole-token rule misses it.
+def test_a_placeholder_glued_to_a_flag_keeps_the_flag_as_a_prefix():
+    """`--cov=<pkg>` is the same phenomenon, and dropping it goes too far.
 
-    A record writes the value the caller supplies inside the flag, so no argv can
-    carry that token as written. Left in, `test/coverage-reach`'s prescribed form
-    reads as one the harness does not run, which is a coverage failure invented
-    by the tokenizer rather than found in the table.
+    A record writes the value the caller supplies inside the flag, so no command
+    can carry that token as written. Left whole, `test/coverage-reach`'s
+    prescribed form reads as one the harness does not run. Dropped whole, the
+    flag stops being held at all, which is worse: it is the drift shape these
+    properties exist to catch.
     """
     assert _concrete(_tokens("pytest --cov=<pkg> --cov-branch")) == [
         "pytest",
+        "--cov=<",
         "--cov-branch",
     ]
+    assert _concrete(_tokens("pip-audit -r <requirements>")) == ["pip-audit", "-r"]
+
+
+def test_a_truncated_flag_is_satisfied_by_a_value_and_by_nothing_else():
+    """The mark is what makes truncation safe to match on.
+
+    Satisfied by the value the caller supplied, and by neither a longer flag that
+    merely starts the same way nor the bare flag with no value - the first is how
+    a newly prescribed `--cov-config=<file>` would hide behind `--cov=<pkg>`, and
+    the second is a flag whose value never arrived.
+    """
+    assert _matches("--cov=<", "--cov=fixture_pkg")
+    assert not _matches("--cov=<", "--cov=")
+    assert not _matches("--cov-config=<", "--cov=fixture_pkg")
+    assert not _matches("-r", "-rf")
+    assert _matches("-r", "-r")
 
 
 def test_a_form_led_by_a_runner_is_found_through_the_argvs_own_first_word():
@@ -602,13 +653,18 @@ def test_the_placeholder_a_record_writes_never_reaches_a_command():
     A placeholder left in `argv` would be passed to the tool as a literal path
     and fail as though the tool were broken, which is the one failure mode this
     table cannot afford to invent.
+
+    Matched anywhere in the word rather than against the whole of it, because a
+    record glues the placeholder to a flag as often as it writes it alone:
+    `--cov=<pkg>` handed to pytest names a package called `<pkg>` and fails the
+    same way, and a whole-word test never sees it.
     """
     for inv in INVOCATIONS:
         for partition in PARTITIONS:
             commands = [argv_for(inv, partition), *inv.supplied(partition)]
             for command in commands:
                 for word in command:
-                    assert not re.fullmatch(r"<.+>", word), (inv.check, word)
+                    assert not re.search(r"<[^>]+>", word), (inv.check, word)
 
 
 # --- the record-to-harness direction -------------------------------------------
@@ -664,9 +720,14 @@ def test_every_flag_the_record_names_occurs_in_a_declared_form():
             )
         )
         for flag in _flag_spans(paragraph):
-            assert all(t in pooled for t in _concrete(_tokens(flag))), (
+            wanted = _concrete(_tokens(flag))
+            # A span that reduced to nothing would satisfy the `all` below
+            # vacuously, which is how a newly prescribed flag would pass in
+            # silence. `_concrete` truncates rather than drops for that reason,
+            # so this is unreachable while it does - and loud if it stops.
+            assert wanted, (inv.check, flag)
+            assert all(any(_matches(w, t) for t in pooled) for w in wanted), (
                 inv.check,
-                inv.tool,
                 flag,
             )
 
@@ -683,20 +744,35 @@ def test_every_form_the_harness_runs_appears_in_an_argv():
     entry. Dropping the placeholder token instead of excusing the entry is what
     lets this one watch it.
 
-    `then` counts as an argv: `coverage run -m pytest` and `coverage report
-    --show-missing` are one route the record splits in two, and reading `argv`
-    alone would report the half that prints the report as a form nothing runs.
+    `then` counts as a command of its own: `coverage run -m pytest` and `coverage
+    report --show-missing` are one route the record splits in two, and reading
+    the argv alone would report the half that prints the report as a form nothing
+    runs. Each command comes from `argv_for`, so it carries the entry's
+    completion as well - the form `pytest --cov=<pkg> ...` is satisfied by the
+    `--cov=` the completion supplies, and reading the prescribed argv alone would
+    have to drop that token instead, which is what makes a flag with a glued
+    placeholder invisible. Reading two fields of the table is not the folding the
+    provenance guard forbids: that one forbids a completion hiding inside the
+    `argv` field, where nothing could tell it from what the record prescribed.
+
+    Presence rather than order, unlike the anchor guard. A completion is appended
+    at the end of the command while the record writes the token it supplies inside
+    the form, so no ordered test can pass on a form whose placeholder sits in the
+    middle. Order is held anyway, in the other direction, by the guard that traces
+    the transcribed argv through the record's own sentence.
     """
     for inv in INVOCATIONS:
-        argvs = [a for a in [inv.argv, *(a for _, a in inv.argv_by_partition)] if a]
+        commands = [c for c in (argv_for(inv, p) for p in PARTITIONS) if c]
         if inv.then:
-            argvs.append(inv.then)
+            commands.append(inv.then)
+        carried = [_tokens(" ".join(command)) for command in commands]
         for form, disposition in inv.forms:
             if disposition != "runs":
                 continue
             wanted = _concrete(_tokens(form))
             assert any(
-                _is_subsequence(wanted, _tokens(" ".join(argv))) for argv in argvs
+                all(any(_matches(w, token) for token in tokens) for w in wanted)
+                for tokens in carried
             ), (inv.check, inv.tool, form)
 
 
@@ -735,6 +811,13 @@ def test_a_prescription_stays_in_the_paragraph_the_guard_watches():
     condition rather than a language, of which these sections carry several,
     holds Python prescriptions too, so a blanket skip of every label that is not
     `Python` would unwatch exactly where a Python correction would land.
+
+    One residual gap this cannot close, gated by a convention instead: a record
+    that prescribes a wholly new tool in prose without listing it under
+    `tooling:` has no invocation, so no lead word of any entry leads its span and
+    every property here passes over it. What catches that is the record
+    convention itself - a prescribed tool absent from `tooling` fails the
+    validator for a reason of its own.
     """
     # Pinned rather than derived: a stray span under a lens this list does not
     # name fails, and somebody reads the paragraph before extending it.
