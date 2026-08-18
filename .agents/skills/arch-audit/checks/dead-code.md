@@ -4,11 +4,54 @@ domain: arch
 locality: local
 handbook:
   - codebase-structure/watch-for-structural-decay-beyond-layering
-tooling:
-  python: [vulture]
-  typescript: [knip, ts-prune]
-needs:
-  target-execution: [knip]
+routes:
+  - lang: python
+    kind: command
+    tool: vulture
+    argv: [vulture]
+    note: >-
+      The record names the tool and no arguments; the paths to scan are an
+      operand it names none for. Note the confidence score it reports - it has
+      false positives on framework hooks, dynamic dispatch and re-exports, so
+      verify each hit against a real reference before deleting.
+  - lang: typescript
+    kind: procedure
+    tool: knip
+    needs: target-execution
+    note: >-
+      Unused files, exports and dependencies. The record names the tool and
+      prescribes no command line for it, so there is no argv to declare and a
+      `kind: command` route would have to invent one. The tier is the target's
+      own tree: knip loads and runs the target's own tool configuration to see
+      what is actually exported, so an uninstalled tree does not just limit it
+      - it reports genuinely-used source files and imported packages alike as
+      unused, a wrong answer at exit 0 that looks exactly like a clean hit
+      list.
+  - lang: typescript
+    kind: procedure
+    tool: ts-prune
+    note: >-
+      The older-setup option, and the safer fallback where the tree is not
+      resolved: it needs no install. The record names the tool and prescribes
+      no command line for it, so there is no argv to declare. It is not a
+      syntax-level pass - it finds references through the TypeScript language
+      service, so on an unresolved tree an import it cannot resolve stops
+      counting as a reference and the export it pointed at is listed as
+      unused. That is over-reporting rather than the silent under-reporting
+      above - the hit list grows with resolution failures instead of a wrong
+      answer looking clean - which is the safer direction for a check whose
+      fix is deletion, and only on the condition that every hit is verified
+      against a real reference before anything is deleted rather than read as
+      a result.
+  - lang: any
+    kind: procedure
+    note: >-
+      With none of them installed, enumerate each module's public symbols and
+      grep the tree for references to each; a symbol referenced nowhere
+      outside the module that defines it is the candidate. The verify-before-
+      deleting caveat matters more here, not less: a hand-rolled sweep sees
+      neither dynamic dispatch nor entry points declared in packaging
+      metadata, so check both before believing any hit.
 ---
 
 # Dead code
