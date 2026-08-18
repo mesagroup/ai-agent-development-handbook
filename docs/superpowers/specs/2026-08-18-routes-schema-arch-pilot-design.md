@@ -45,7 +45,7 @@ routes:
 
 - `argv` is required where `kind: command` and rejected on every other kind. A library, a procedure and a subject have no command by definition, so an `argv` on one is a miscategorised route rather than a harmless extra.
 - `disposition` defaults to `runs` and may be non-default only where `kind: command`. There is nothing for a library to supersede.
-- `package` defaults to `tool` and is written only where they differ, so `import-linter` providing `lint-imports` is stated once, in the place that resolves it. This is #28.
+- `package` defaults to `tool` and is written only where they differ, so the name that resolves a binary is stated once, in the place that resolves it. This is #28. The tree's own instance is `dependency-cruiser` providing `depcruise`, which `arch/cycles` and `arch/coupling` both state outright: "`depcruise` is the command this tool documents but not the name of the package that provides it", and npm carries a dependency-confusion placeholder under the command's name.
 - `needs` is per route rather than per tool, which is #31: a tool with two invocation modes is two routes, one tiered and one not.
 - `argv_by_manager` enumerates rather than derives. The three runner spellings in `arch/coupling` differ structurally - npm takes `--package X --package Y --`, yarn takes `-p X -p Y`, and pnpm requires its flags before `dlx`, since `pnpm dlx --package=` fails outright - so a spelling reconstructed from a command name is a spelling that has not been run.
 - `alone_insufficient` is #58's stop rule. It carries the evidence, not just the flag, because the reason is what makes an agent act on it.
@@ -82,10 +82,18 @@ Schema and validator commits stay separate from record commits. A record is a pr
 
 - The eleven arch records carry `routes:` and no `tooling:`, `needs:` or `ungranted_note:`.
 - Every claim the three `ungranted_note`s made is expressible as routes, or the residue is recorded on #59 as something the schema could not express.
-- `arch/complexity-gate`'s three subject routes, `arch/cycles`'s `lint-imports` binary and superseded `--show-cycles` form, `arch/coupling`'s three runner spellings and forbidden bare `dlx depcruise`, and `arch/layering`'s two conditional commands each round-trip through the schema without prose.
+- `arch/complexity-gate`'s three subject routes, `arch/cycles`'s superseded `--show-cycles` form, `arch/coupling`'s three runner spellings and forbidden bare `dlx depcruise`, and `arch/layering`'s two conditional commands each round-trip through the schema without prose.
 - The oracle test passes over arch's Python routes.
 - The validator rejects, with a test each: an `argv` on a non-command kind, a non-default disposition on a non-command kind, a fully tiered language with neither an untiered route nor the sentinel, and a record migrated out of the legacy set while still carrying `tooling:`.
 - The suite passes and both integrity gates exit 0.
+
+## What the pilot corrected in this spec
+
+Recorded here rather than silently rewritten, because a spec that quietly repairs itself teaches nothing about how it was wrong.
+
+Two claims above named `import-linter` as providing a binary called `lint-imports`, and made that binary an acceptance criterion. No check record writes `lint-imports` anywhere; the string occurs only in this spec and its plan. `arch/cycles` names `import-linter` and prescribes no command line for it at all, so its `package` equals its `tool` and there is nothing for the field to carry. The genuine package-is-not-binary case in the tree is `dependency-cruiser` providing `depcruise`, and the criterion now names it.
+
+The route this leaves is `kind: procedure` naming the tool: the record hands the agent an instruction rather than a command, and inventing an `argv` to satisfy `kind: command` would manufacture exactly the prescription this schema exists to hold records to.
 
 ## Out of scope
 
