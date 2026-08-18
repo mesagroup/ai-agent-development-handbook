@@ -394,6 +394,26 @@ def test_the_notes_are_not_all_sentinels():
     `ungranted_note: none` does not. The two populations cannot overlap: the
     loader rejects a record carrying both schemas.
 
+    The sum is 12 against this floor of 10, and it arrived there by moving
+    once, downward, for a reason worth keeping: `arch/complexity-gate` was in
+    the original ten and is in neither population now. It lost no claim. Both
+    sentences of its note became structure - the reading of the linter
+    configuration and the CI workflow files became an untiered route, and
+    "the classified tools are the gate's subject rather than its instrument"
+    became `kind: subject` on all five of them. It leaves the population
+    because it was never really silenced: the legacy schema had no way to say
+    a tool is the check's subject rather than its instrument, so tiering
+    ESLint under `typescript` made that language read as fully tiered, the
+    loader demanded a note, and the record spent that note explaining why its
+    own frontmatter was misleading. The note was an artifact of a missing
+    field, not a claim, and `kind: subject` retires it. The other seven
+    records still carrying prose notes were read for the same shape and none
+    has it - every one is a within-language rescue, a tiered scanner beside a
+    reading pass in the same language that still answers - so this is an
+    exception of exactly one record rather than the leading edge of a
+    pattern. Should a second record ever leave the population this way, that
+    is the pattern arriving and the floor is the wrong instrument for it.
+
     Be honest about what a floor on a count catches and what it does not: it
     fails only once the count drops below the floor, so it says nothing if
     the count already sits above it - a change that trades one record's
@@ -415,7 +435,12 @@ def test_the_notes_are_not_all_sentinels():
     that does add claims raises the count and therefore the slack above
     this floor rather than the floor itself; raise the floor by hand if
     that slack should be closed. Never lower it to make a deletion pass,
-    and never narrow what it counts to make a migration pass.
+    never narrow what it counts to make a migration pass, and never widen
+    what it counts to recover a number: counting a tiered `kind: subject`
+    route as something a language can be rescued from would restore the 13
+    above by contradicting both the independence of `needs` and `kind` and
+    the test below that pins that edge, and a number restored by
+    contradicting a guard is worse than a number that moved for a reason.
     """
     checks, errors = ac.load_checks(ac.SKILLS_DIR)
     assert errors == []
@@ -1680,7 +1705,6 @@ def test_the_real_checks_tree_loads_clean():
 
 LEGACY_TOOLING_RECORDS = frozenset(
     {
-        "arch/complexity-gate",
         "arch/layering",
         "arch/martin-metrics",
         "arch/over-abstraction",
