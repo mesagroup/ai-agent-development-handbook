@@ -32,6 +32,8 @@ Frontmatter fields:
 | `tooling` | no | Language to preferred tools; `any` for language-agnostic |
 | `needs` | no | Tier to tool names, for tools needing more than a read-only clone |
 | `ungranted_note` | iff every tool in a language needs a grant | What the check still answers when that grant is withheld |
+| `routes` | no | A list of `Route`s: what this check can run, replacing `tooling`/`needs`/`ungranted_note` for a migrated record |
+| `answers_ungranted` | no | Accepted alongside `routes`; not yet validated |
 | `optin` | no | Default `false`; an opt-in sub-audit that produces findings |
 
 `handbook` is a list because a check is commonly grounded in several
@@ -70,6 +72,20 @@ It is required on exactly the records this rule would silence, so an absent
 key is never a silent claim - which is the hazard `needs` still carries and
 this field does not.
 
+A record may declare `routes` instead of `tooling`/`needs`/`ungranted_note`:
+one list of `Route`s, each one way of answering the check in one language,
+in place of a free-form tool list plus the two side mappings that classify
+it. The two schemas are mutually exclusive - a record naming both is
+rejected, because a route's tier is the only place a tool's requirement is
+declared, and repeating it under `needs` too would reopen the drift
+`needs`'s own repetition-check exists to close. A migrated record's
+`tooling` and `needs` are then derived from its routes by projection (see
+`_project_tooling` and `_project_needs`), so the call sites in
+`run_python_fixture_lens.py`, `test_python_fixture_harness.py` and
+`test_python_fixture_spec.py` that predate `routes` still read the same
+shape without change. `answers_ungranted` is accepted alongside `routes` as
+of this change; the rule governing when it is required is not yet enforced.
+
 Usage:
     from audit_checks import SKILLS_DIR, load_checks
 
@@ -105,6 +121,31 @@ NEEDS_TIERS = ("resolved-tree", "target-execution")
 # `null` and an empty value into nothing at all, which reads as an omitted
 # key. The loader rejects each of those by name rather than guessing.
 UNGRANTED_NONE = "none"
+# A route's four vocabularies. `ROUTE_LANGS` includes `none` alongside the
+# languages: a procedure route that names no tool (reading source, reading
+# CI config) belongs to no language, which `tooling`'s bare language keys
+# had no way to say.
+ROUTE_KINDS = ("command", "library", "procedure", "subject")
+DISPOSITIONS = ("runs", "alternative", "superseded", "forbidden")
+ROUTE_LANGS = ("python", "typescript", "any", "none")
+FINDINGS_STREAMS = ("stdout", "stderr")
+ROUTE_FIELDS = frozenset(
+    {
+        "lang",
+        "kind",
+        "tool",
+        "package",
+        "argv",
+        "argv_by_manager",
+        "disposition",
+        "needs",
+        "in_env",
+        "findings_stream",
+        "applies_when",
+        "alone_insufficient",
+        "note",
+    }
+)
 FIELDS = frozenset(
     {
         "id",
@@ -115,12 +156,41 @@ FIELDS = frozenset(
         "tooling",
         "needs",
         "ungranted_note",
+        "routes",
+        "answers_ungranted",
         "optin",
     }
 )
 
 _FRONTMATTER_RE = re.compile(r"\A---\n(.*?)\n---(?:\n(.*))?\Z", re.DOTALL)
 _TITLE_RE = re.compile(r"^# (.+?)\s*$", re.MULTILINE)
+
+
+@dataclass(frozen=True)
+class Route:
+    """One way of answering one check in one language.
+
+    Three axes the record's prose used to write as a single sentence. `kind`
+    says what the thing is, `disposition` says whether the harness takes this
+    route, and `applies_when` says what the target must carry for the route to
+    be available at all. Reading the eleven arch records is what separated
+    them: fourteen of its nineteen invocations prescribe no command, for four
+    different reasons that one list of tool names cannot tell apart.
+    """
+
+    lang: str
+    kind: str
+    tool: str | None
+    package: str | None
+    argv: tuple[str, ...]
+    argv_by_manager: dict[str, tuple[str, ...]]
+    disposition: str
+    needs: str | None
+    in_env: bool
+    findings_stream: str
+    applies_when: str | None
+    alone_insufficient: str | None
+    note: str | None
 
 
 @dataclass(frozen=True)
@@ -136,6 +206,7 @@ class Check:
     tooling: dict[str, tuple[str, ...]]
     needs: dict[str, tuple[str, ...]]
     ungranted_note: str | None
+    routes: tuple[Route, ...]
     optin: bool
     path: Path
 
@@ -220,6 +291,230 @@ def _fully_tiered_languages(
     )
 
 
+def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
+    """Parse and validate a record's `routes` list.
+
+    Collects every problem rather than stopping at the first, matching
+    `_load_one`'s contract: a caller that raised on the first bad route in a
+    twelve-route record would hide the other eleven. Validates, in order:
+    the value is a list of mappings; every key is one `ROUTE_FIELDS` knows;
+    `lang`, `kind`, `disposition`, `findings_stream` and `needs` each name a
+    known value; `tool` is present unless `kind` is `procedure`; `package`
+    defaults to `tool`; `argv` and `argv_by_manager` are present only where
+    `kind` is `command`, and `argv` is required and non-empty there; a
+    `disposition` other than `runs` appears only where `kind` is `command`.
+
+    Args:
+        raw: The frontmatter's `routes` value, or `None` if the record does
+            not declare one.
+        where: The record's path, for error messages.
+
+    Returns:
+        The routes, in file order, and one message per problem. Each message
+        names the record, the route's index, and the field, so a failure on
+        a many-route record says which route and which field are wrong.
+    """
+    errors: list[str] = []
+    if raw is None:
+        return (), errors
+    if not isinstance(raw, list) or not all(isinstance(entry, dict) for entry in raw):
+        errors.append(f"{where}: routes must be a list of mappings")
+        return (), errors
+
+    routes: list[Route] = []
+    for i, entry in enumerate(raw):
+        loc = f"{where}: routes[{i}]"
+        for key in sorted(set(entry) - ROUTE_FIELDS):
+            errors.append(f"{loc}: unknown route key {key!r}")
+
+        lang = entry.get("lang", "any")
+        if lang not in ROUTE_LANGS:
+            errors.append(f"{loc}: lang must be one of {ROUTE_LANGS}, got {lang!r}")
+            lang = "any"
+
+        kind = entry.get("kind")
+        if kind not in ROUTE_KINDS:
+            errors.append(f"{loc}: kind must be one of {ROUTE_KINDS}, got {kind!r}")
+
+        disposition = entry.get("disposition", "runs")
+        if disposition not in DISPOSITIONS:
+            errors.append(
+                f"{loc}: disposition must be one of {DISPOSITIONS}, got {disposition!r}"
+            )
+            disposition = "runs"
+        elif disposition != "runs" and kind != "command":
+            errors.append(
+                f"{loc}: disposition {disposition!r} needs kind: command - a "
+                f"{kind!r} route has nothing for the harness to run instead of"
+            )
+
+        findings_stream = entry.get("findings_stream", "stdout")
+        if findings_stream not in FINDINGS_STREAMS:
+            errors.append(
+                f"{loc}: findings_stream must be one of {FINDINGS_STREAMS}, got "
+                f"{findings_stream!r}"
+            )
+            findings_stream = "stdout"
+
+        needs = entry.get("needs")
+        if needs is not None and needs not in NEEDS_TIERS:
+            errors.append(f"{loc}: needs must be one of {NEEDS_TIERS}, got {needs!r}")
+            needs = None
+
+        tool = entry.get("tool")
+        if tool is not None and not isinstance(tool, str):
+            errors.append(f"{loc}: tool must be a string, got {tool!r}")
+            tool = None
+        elif tool is None and kind != "procedure":
+            errors.append(
+                f"{loc}: tool is required - only a kind: procedure route may "
+                "name no tool"
+            )
+
+        package = entry.get("package", tool)
+        if package is not None and not isinstance(package, str):
+            errors.append(f"{loc}: package must be a string, got {package!r}")
+            package = tool
+
+        raw_argv = entry.get("argv")
+        if kind == "command":
+            argv = _str_list(raw_argv) or ()
+            if not argv:
+                errors.append(f"{loc}: a command route must carry a non-empty argv")
+        else:
+            if raw_argv is not None:
+                errors.append(
+                    f"{loc}: argv is only valid on a command route, not {kind!r}"
+                )
+            argv = ()
+
+        raw_argv_by_manager = entry.get("argv_by_manager")
+        argv_by_manager: dict[str, tuple[str, ...]] = {}
+        if raw_argv_by_manager is not None:
+            if kind != "command":
+                errors.append(
+                    f"{loc}: argv_by_manager is only valid on a command route, "
+                    f"not {kind!r}"
+                )
+            elif not isinstance(raw_argv_by_manager, dict):
+                errors.append(
+                    f"{loc}: argv_by_manager must be a mapping of manager to argv"
+                )
+            else:
+                for manager, manager_argv in raw_argv_by_manager.items():
+                    names = _str_list(manager_argv)
+                    if not isinstance(manager, str) or names is None:
+                        errors.append(
+                            f"{loc}: argv_by_manager[{manager!r}] must be a list "
+                            "of argv strings"
+                        )
+                        continue
+                    argv_by_manager[manager] = names
+
+        in_env = entry.get("in_env", False)
+        if not isinstance(in_env, bool):
+            errors.append(f"{loc}: in_env must be a boolean, got {in_env!r}")
+            in_env = bool(in_env)
+
+        applies_when = entry.get("applies_when")
+        if applies_when is not None and not isinstance(applies_when, str):
+            errors.append(f"{loc}: applies_when must be a string, got {applies_when!r}")
+            applies_when = None
+
+        alone_insufficient = entry.get("alone_insufficient")
+        if alone_insufficient is not None and not isinstance(alone_insufficient, str):
+            errors.append(
+                f"{loc}: alone_insufficient must be a string, got "
+                f"{alone_insufficient!r}"
+            )
+            alone_insufficient = None
+
+        note = entry.get("note")
+        if note is not None and not isinstance(note, str):
+            errors.append(f"{loc}: note must be a string, got {note!r}")
+            note = None
+
+        routes.append(
+            Route(
+                lang=lang,
+                kind=kind if kind in ROUTE_KINDS else "procedure",
+                tool=tool,
+                package=package,
+                argv=argv,
+                argv_by_manager=argv_by_manager,
+                disposition=disposition,
+                needs=needs,
+                in_env=in_env,
+                findings_stream=findings_stream,
+                applies_when=applies_when,
+                alone_insufficient=alone_insufficient,
+                note=note,
+            )
+        )
+
+    return tuple(routes), errors
+
+
+def _project_tooling(routes: tuple[Route, ...]) -> dict[str, tuple[str, ...]]:
+    """Derive a legacy `tooling` mapping from a migrated record's routes.
+
+    This is a view, not a second source - a route is the only place a tool is
+    declared. It exists so the call sites in `run_python_fixture_lens.py` and
+    its tests that still read `Check.tooling` see the same shape they always
+    have, without a migrated record repeating each tool a second time.
+
+    Args:
+        routes: The record's parsed routes.
+
+    Returns:
+        Language to the tools offered in that language, in route order,
+        duplicates collapsed. A `lang: any` route's tool is folded into
+        every language the record otherwise names - the languages of its
+        `python`/`typescript` routes - matching what `tooling: {any: [...]}`
+        meant before routes existed. A route naming no tool contributes
+        nothing.
+    """
+    named_langs = sorted({r.lang for r in routes if r.lang not in ("any", "none")})
+    per_lang: dict[str, list[str]] = {lang: [] for lang in named_langs}
+    for route in routes:
+        if route.tool is None:
+            continue
+        if route.lang == "any":
+            targets = named_langs
+        elif route.lang == "none":
+            targets = []
+        else:
+            targets = [route.lang]
+        for lang in targets:
+            if route.tool not in per_lang[lang]:
+                per_lang[lang].append(route.tool)
+    return {lang: tuple(tools) for lang, tools in per_lang.items()}
+
+
+def _project_needs(routes: tuple[Route, ...]) -> dict[str, tuple[str, ...]]:
+    """Derive a legacy `needs` mapping from a migrated record's routes.
+
+    The same view as `_project_tooling`: a route's tier is the only place it
+    is declared, and this only reshapes it for the pre-migration readers of
+    `Check.needs`.
+
+    Args:
+        routes: The record's parsed routes.
+
+    Returns:
+        Tier to the tools of the routes carrying it, in route order,
+        duplicates collapsed.
+    """
+    per_tier: dict[str, list[str]] = {}
+    for route in routes:
+        if route.needs is None or route.tool is None:
+            continue
+        tools = per_tier.setdefault(route.needs, [])
+        if route.tool not in tools:
+            tools.append(route.tool)
+    return {tier: tuple(tools) for tier, tools in per_tier.items()}
+
+
 def _load_one(
     path: Path, skills_dir: Path
 ) -> tuple[Check | None, list[str], str | None]:
@@ -295,6 +590,20 @@ def _load_one(
             f"{where}: handbook_note explains an empty handbook; this record cites "
             f"{len(handbook)} anchor(s), so the note belongs in the body"
         )
+
+    raw_routes = meta.get("routes")
+    routes, route_errors = _load_routes(raw_routes, where)
+    errors.extend(route_errors)
+
+    legacy_route_keys = [
+        key for key in ("tooling", "needs", "ungranted_note") if key in meta
+    ]
+    if raw_routes is not None and legacy_route_keys:
+        for key in legacy_route_keys:
+            errors.append(
+                f"{where}: carries both routes and {key} - a record declares "
+                "what it runs once, not in two schemas; drop one"
+            )
 
     tooling: dict[str, tuple[str, ...]] = {}
     raw_tooling = meta.get("tooling")
@@ -419,6 +728,11 @@ def _load_one(
 
     if errors:
         return None, errors, declared
+    # `tooling`/`needs` are read by sites outside this module that predate
+    # `routes`; project them from the routes rather than changing every
+    # reader, so a route stays the one place a tool is declared.
+    final_tooling = _project_tooling(routes) if raw_routes is not None else tooling
+    final_needs = _project_needs(routes) if raw_routes is not None else needs
     return (
         Check(
             id=cid,
@@ -427,9 +741,10 @@ def _load_one(
             title=title,
             handbook=handbook,
             handbook_note=note,
-            tooling=tooling,
-            needs=needs,
+            tooling=final_tooling,
+            needs=final_needs,
             ungranted_note=ungranted,
+            routes=routes,
             optin=optin,
             path=path,
         ),

@@ -389,6 +389,328 @@ def test_a_language_with_no_tools_is_not_fully_tiered(tmp_path):
     ) == ("python",)
 
 
+def _routes_frontmatter(route_body: str, extra: str = "") -> str:
+    """Render a fixture record whose `routes:` carries one route built from
+    `route_body`. `route_body`'s own lines are already indented to sit under
+    a `- ` list item (the shape every route-body literal below uses), so
+    this only prefixes the first line with the marker. `extra` is inserted
+    as sibling frontmatter, at column 0, after `routes:` and before the
+    closing `---`.
+    """
+    return f"""---
+id: demo/thing
+domain: demo
+locality: local
+handbook: []
+handbook_note: Fixture record for route tests.
+routes:
+  - {route_body}
+{extra}---
+
+# Thing
+
+Fixture body.
+"""
+
+
+def _one_route_record(tmp_path, route_body):
+    """Write a record whose frontmatter carries one route built from
+    `route_body`, assert the load produced no errors, and return the loaded
+    Check.
+    """
+    _write(tmp_path, "demo-audit/checks/thing.md", _routes_frontmatter(route_body))
+    checks, errors = ac.load_checks(tmp_path)
+    assert errors == [], errors
+    return checks["demo/thing"]
+
+
+def _errors_for_route(tmp_path, route_body):
+    """Write a record whose frontmatter carries one route built from
+    `route_body`, and return the error list instead of the Check.
+    """
+    _write(tmp_path, "demo-audit/checks/thing.md", _routes_frontmatter(route_body))
+    _, errors = ac.load_checks(tmp_path)
+    return errors
+
+
+def _errors_for_both_schemas(tmp_path):
+    """Write a record carrying both `routes:` and `tooling:`, and return the
+    error list.
+    """
+    text = _routes_frontmatter(
+        "kind: command\n    tool: t\n    argv: [t]",
+        extra="tooling:\n  python: [t]\n",
+    )
+    _write(tmp_path, "demo-audit/checks/thing.md", text)
+    _, errors = ac.load_checks(tmp_path)
+    return errors
+
+
+def test_a_route_carries_its_kind_and_command(tmp_path):
+    check = _one_route_record(
+        tmp_path, "kind: command\n    tool: pydeps\n    argv: [pydeps, --show-cycles]"
+    )
+    route = check.routes[0]
+    assert (route.kind, route.tool, route.argv) == (
+        "command",
+        "pydeps",
+        ("pydeps", "--show-cycles"),
+    )
+    assert route.disposition == "runs"
+    assert route.needs is None
+    assert route.findings_stream == "stdout"
+
+
+def test_a_package_defaults_to_the_tool_name(tmp_path):
+    check = _one_route_record(
+        tmp_path, "kind: command\n    tool: pydeps\n    argv: [pydeps]"
+    )
+    assert check.routes[0].package == "pydeps"
+
+
+def test_a_package_is_written_only_where_it_differs(tmp_path):
+    check = _one_route_record(
+        tmp_path,
+        "kind: command\n    tool: import-linter\n    package: import-linter\n    argv: [lint-imports]",
+    )
+    assert (check.routes[0].package, check.routes[0].argv) == (
+        "import-linter",
+        ("lint-imports",),
+    )
+
+
+@pytest.mark.parametrize("kind", ["library", "procedure", "subject"])
+def test_an_argv_on_a_non_command_kind_is_rejected(tmp_path, kind):
+    errors = _errors_for_route(
+        tmp_path, f"kind: {kind}\n    tool: grimp\n    argv: [grimp]"
+    )
+    assert any("argv" in e and kind in e for e in errors), errors
+
+
+def test_a_command_route_must_carry_an_argv(tmp_path):
+    errors = _errors_for_route(tmp_path, "kind: command\n    tool: pydeps")
+    assert any("argv" in e for e in errors), errors
+
+
+@pytest.mark.parametrize("disposition", ["alternative", "superseded", "forbidden"])
+def test_a_non_running_disposition_needs_a_command(tmp_path, disposition):
+    errors = _errors_for_route(
+        tmp_path, f"kind: library\n    tool: grimp\n    disposition: {disposition}"
+    )
+    assert any("disposition" in e for e in errors), errors
+
+
+def test_a_procedure_route_may_name_no_tool(tmp_path):
+    check = _one_route_record(tmp_path, "kind: procedure\n    note: walk the edge set")
+    assert check.routes[0].tool is None
+
+
+@pytest.mark.parametrize("kind", ["command", "library", "subject"])
+def test_every_other_kind_must_name_its_tool(tmp_path, kind):
+    body = f"kind: {kind}" + ("\n    argv: [x]" if kind == "command" else "")
+    errors = _errors_for_route(tmp_path, body)
+    assert any("tool" in e for e in errors), errors
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("kind", "gadget"),
+        ("lang", "cobol"),
+        ("disposition", "maybe"),
+        ("findings_stream", "syslog"),
+        ("needs", "a-network"),
+    ],
+)
+def test_a_route_field_must_name_a_known_value(tmp_path, field, value):
+    errors = _errors_for_route(
+        tmp_path, f"kind: command\n    tool: t\n    argv: [t]\n    {field}: {value}"
+    )
+    assert any(field in e for e in errors), errors
+
+
+def test_an_unknown_route_key_is_rejected(tmp_path):
+    errors = _errors_for_route(
+        tmp_path, "kind: command\n    tool: t\n    argv: [t]\n    runner: npx"
+    )
+    assert any("runner" in e for e in errors), errors
+
+
+def test_a_record_may_not_carry_both_schemas(tmp_path):
+    errors = _errors_for_both_schemas(tmp_path)
+    assert any("routes" in e and "tooling" in e for e in errors), errors
+
+
+def test_argv_by_manager_maps_a_manager_to_a_command(tmp_path):
+    check = _one_route_record(
+        tmp_path,
+        "kind: command\n    tool: dependency-cruiser\n    argv: [depcruise]\n"
+        "    argv_by_manager:\n      pnpm: [pnpm, dlx, depcruise]",
+    )
+    assert check.routes[0].argv_by_manager == {"pnpm": ("pnpm", "dlx", "depcruise")}
+
+
+def test_argv_by_manager_needs_a_command_kind(tmp_path):
+    errors = _errors_for_route(
+        tmp_path,
+        "kind: library\n    tool: grimp\n    argv_by_manager:\n      pnpm: [x]",
+    )
+    assert any("argv_by_manager" in e for e in errors), errors
+
+
+def test_a_route_defaults_to_the_any_language(tmp_path):
+    """No test above names `lang:` on a route, and every one of them must
+    still load clean - so the default has to be a value nothing in
+    `ROUTE_LANGS` treats as an error. `any` is that value, and it is also
+    the one the projection in `_project_tooling` gives special handling.
+    """
+    check = _one_route_record(tmp_path, "kind: command\n    tool: t\n    argv: [t]")
+    assert check.routes[0].lang == "any"
+
+
+def test_a_record_with_no_routes_key_carries_none(tmp_path):
+    _write(tmp_path, "arch-audit/checks/layering.md", GOOD)
+    checks, errors = ac.load_checks(tmp_path)
+    assert errors == []
+    assert checks["arch/layering"].routes == ()
+
+
+def test_routes_must_be_a_list_of_mappings(tmp_path):
+    text = _routes_frontmatter("kind: command\n    tool: t\n    argv: [t]").replace(
+        "routes:\n  - kind: command\n    tool: t\n    argv: [t]\n",
+        "routes: [not, a, mapping]\n",
+    )
+    _write(tmp_path, "demo-audit/checks/thing.md", text)
+    _, errors = ac.load_checks(tmp_path)
+    assert any("routes must be a list of mappings" in e for e in errors)
+
+
+def test_a_route_error_names_its_index(tmp_path):
+    """A record with several routes, one of them broken, must say which."""
+    text = """---
+id: demo/thing
+domain: demo
+locality: local
+handbook: []
+handbook_note: Fixture record for route tests.
+routes:
+  - kind: command
+    tool: pydeps
+    argv: [pydeps]
+  - kind: command
+    tool: grimp
+---
+
+# Thing
+
+Fixture body.
+"""
+    _write(tmp_path, "demo-audit/checks/thing.md", text)
+    _, errors = ac.load_checks(tmp_path)
+    assert any("routes[1]" in e and "argv" in e for e in errors), errors
+    assert not any("routes[0]" in e for e in errors), errors
+
+
+def test_tooling_and_needs_are_projected_from_routes(tmp_path):
+    """A migrated record's `tooling`/`needs` are read by call sites outside
+    this module that predate `routes`. Project them so none of those
+    readers has to change.
+    """
+    text = """---
+id: demo/thing
+domain: demo
+locality: local
+handbook: []
+handbook_note: Fixture record for route tests.
+routes:
+  - lang: python
+    kind: command
+    tool: pydeps
+    argv: [pydeps, --show-cycles]
+    needs: resolved-tree
+  - lang: python
+    kind: library
+    tool: grimp
+  - lang: typescript
+    kind: command
+    tool: dependency-cruiser
+    argv: [depcruise]
+---
+
+# Thing
+
+Fixture body.
+"""
+    _write(tmp_path, "demo-audit/checks/thing.md", text)
+    checks, errors = ac.load_checks(tmp_path)
+    assert errors == [], errors
+    check = checks["demo/thing"]
+    assert check.tooling == {
+        "python": ("pydeps", "grimp"),
+        "typescript": ("dependency-cruiser",),
+    }
+    assert check.needs == {"resolved-tree": ("pydeps",)}
+
+
+def test_an_any_route_contributes_to_every_named_language():
+    """No record in the tree uses `lang: any` yet - #58's schema pilot
+    introduces it - so this exercises `_project_tooling` directly on a
+    synthetic set of routes rather than asserting behaviour against a real
+    record that does not exist.
+    """
+    routes = (
+        ac.Route(
+            lang="python",
+            kind="command",
+            tool="pydeps",
+            package="pydeps",
+            argv=("pydeps",),
+            argv_by_manager={},
+            disposition="runs",
+            needs=None,
+            in_env=False,
+            findings_stream="stdout",
+            applies_when=None,
+            alone_insufficient=None,
+            note=None,
+        ),
+        ac.Route(
+            lang="typescript",
+            kind="command",
+            tool="madge",
+            package="madge",
+            argv=("madge",),
+            argv_by_manager={},
+            disposition="runs",
+            needs=None,
+            in_env=False,
+            findings_stream="stdout",
+            applies_when=None,
+            alone_insufficient=None,
+            note=None,
+        ),
+        ac.Route(
+            lang="any",
+            kind="library",
+            tool="semgrep",
+            package="semgrep",
+            argv=(),
+            argv_by_manager={},
+            disposition="runs",
+            needs=None,
+            in_env=False,
+            findings_stream="stdout",
+            applies_when=None,
+            alone_insufficient=None,
+            note=None,
+        ),
+    )
+    assert ac._project_tooling(routes) == {
+        "python": ("pydeps", "semgrep"),
+        "typescript": ("madge", "semgrep"),
+    }
+
+
 def test_missing_frontmatter_is_reported_not_raised(tmp_path):
     _write(tmp_path, "arch-audit/checks/broken.md", "# No frontmatter here\n")
     checks, errors = ac.load_checks(tmp_path)
