@@ -246,6 +246,29 @@ def _prescribing_paragraph(check: str, quote: str) -> str:
     return lines[0]
 
 
+def _route_anchoring(inv: Invocation) -> list[tuple[str, tuple[str, ...], bool]]:
+    """Whether each partition's prescribed command traces through the quote.
+
+    Every route rather than the first one found. `deps/inventory` prescribes four
+    commands - a subcommand per dependency file and uv's native export - and a
+    rule stopping at the first held one of them while the other three anchored by
+    luck. Which one was enforced also moved when the uv route was promoted out of
+    `supplied_by_partition`, so the entry's coverage narrowed with no test
+    changing, which is the shape this file exists to make impossible.
+
+    Separated from the property so the stopping-early defect can be tested on an
+    entry built to carry it, the tree by then having none.
+    """
+    quote = _tokens(inv.record_quote)
+    out = []
+    for partition in PARTITIONS:
+        argv = inv.prescribed(partition)
+        if not argv:
+            continue
+        out.append((partition, argv, _is_subsequence(_tokens(" ".join(argv)), quote)))
+    return out
+
+
 def _fallback_paragraphs(check: str) -> list[tuple[str, str]]:
     """Every paragraph of the record's `## Tooling fallback`, with its lens label.
 
@@ -732,6 +755,9 @@ def test_a_transcribed_command_occurs_in_the_sentence_that_prescribes_it():
     by a loophole in the rule, and each is here because the record writes a
     placeholder or delegates instead of naming a command - never because the
     record names no command at all, which is a record to correct.
+
+    Held for every partition's route, not for the first one that exists: see
+    `_route_anchoring` for what stopping at the first cost `deps/inventory`.
     """
     unanchored = {
         # The record delegates: "Same tools and same precedence as
@@ -743,12 +769,7 @@ def test_a_transcribed_command_occurs_in_the_sentence_that_prescribes_it():
     }
     seen = set()
     for inv in INVOCATIONS:
-        quote = _tokens(inv.record_quote)
-        for partition in PARTITIONS:
-            argv = inv.prescribed(partition)
-            if not argv:
-                continue
-            anchored = _is_subsequence(_tokens(" ".join(argv)), quote)
+        for partition, argv, anchored in _route_anchoring(inv):
             if (inv.check, inv.tool) in unanchored:
                 # Asserted, not merely recorded: an entry that has *become*
                 # anchored still counts as exercising its exception, so without
@@ -758,8 +779,32 @@ def test_a_transcribed_command_occurs_in_the_sentence_that_prescribes_it():
                 seen.add((inv.check, inv.tool))
             else:
                 assert anchored, (inv.check, inv.tool, partition, argv)
-            break
     assert seen == unanchored, "an exception nothing exercises is a stale exception"
+
+
+def test_every_partitions_route_is_held_against_the_quote():
+    """Stopping at the first route leaves the rest anchored by luck.
+
+    `deps/inventory` is the live case: four prescribed commands, one of which was
+    enforced, and which one moved when the uv route was promoted into
+    `argv_by_partition`. Built here rather than asserted about the tree, because
+    every route in the tree anchors today, so the tree cannot distinguish a rule
+    that checks all of them from one that checks the first.
+    """
+    inv = Invocation(
+        check="deps/inventory",
+        tool="cyclonedx-py",
+        argv_by_partition=(
+            ("uv", ("cyclonedx-py", "environment")),
+            ("pip", ("cyclonedx-py", "requirements")),
+        ),
+        record_quote="Run `cyclonedx-py environment` on this partition." + " x" * 20,
+    )
+    rows = _route_anchoring(inv)
+    assert [(partition, anchored) for partition, _, anchored in rows] == [
+        ("uv", True),
+        ("pip", False),
+    ]
 
 
 def test_folding_a_completion_into_the_argv_breaks_the_anchor():
