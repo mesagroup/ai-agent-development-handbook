@@ -414,10 +414,13 @@ def _prescribed_commands(inv: Invocation) -> list[tuple[str, tuple[str, ...]]]:
     message an entry with a shared argv produces.
 
     A supplied route is not here. It is authored in this table rather than
-    transcribed from a record, so it answers to no declaration the record makes,
-    which is what lets `deps/vulnerabilities` declare `pip-audit -r
-    <requirements>` `superseded` truthfully while the uv partition's supplied
-    route runs exactly that form.
+    transcribed from a record, so it answers to no declaration the record makes:
+    `deps/vulnerabilities` declares `pip-audit -r <requirements>` `superseded`
+    truthfully while the uv partition's supplied route runs that form. Excluding
+    it is what keeps that from reading as a contradiction, rather than what stops
+    a comparison firing - a supplied step is written in full, including the
+    runner that fetches its tool, so it does not equal a form the record writes
+    bare in any case.
     """
     out: dict[tuple[str, ...], str] = {}
     for partition in PARTITIONS:
@@ -1173,19 +1176,21 @@ def test_a_token_the_record_prescribes_never_hides_in_the_completion():
 
     The rule fails safe in the direction it does not guard. A future completion
     token colliding with a word of its own quote's prose fails loudly and gets
-    named or corrected; nothing about that direction passes in silence.
+    named or corrected; nothing about that direction passes in silence. Named
+    down to the token, so a second demotion on that entry fails rather than
+    sheltering under the exception the first one earned.
     """
     demoted = {
         # `ruff check --select D` against "`ruff` `D` rules": `D` is prescribed
         # and cannot reach the argv, because `check --select` would have to be
         # inserted rather than appended.
-        ("docs/docstring-coverage", "ruff"),
+        ("docs/docstring-coverage", "ruff"): ["D"],
     }
     seen = set()
     for inv in INVOCATIONS:
         hits = _demoted_tokens(inv)
         if (inv.check, inv.tool) in demoted:
-            assert hits, (inv.check, inv.tool)
+            assert hits == demoted[(inv.check, inv.tool)], (inv.check, inv.tool, hits)
             seen.add((inv.check, inv.tool))
         else:
             assert not hits, (
@@ -1193,7 +1198,7 @@ def test_a_token_the_record_prescribes_never_hides_in_the_completion():
                 "record's own sentence writes it, so the round reports a "
                 "prescription the record makes as one it omitted"
             )
-    assert seen == demoted, "an exception nothing exercises is a stale exception"
+    assert seen == set(demoted), "an exception nothing exercises is a stale exception"
 
 
 def test_a_two_command_route_runs_them_in_the_records_order():
@@ -1382,6 +1387,15 @@ def test_no_prescribed_command_is_exactly_a_form_the_record_warns_against():
     narrowing token from the argv, and the harness ships running exactly the
     form the record warns against.
 
+    Both the command the record prescribes and the command the harness runs,
+    which differ by the completion. Reading the prescribed half alone leaves the
+    executed form unwatched: an entry whose completion supplies exactly the
+    tokens its record warns against runs that form as written while its
+    prescribed half equals nothing, and the flag property passes it too, because
+    those tokens do occur in a declared form. The two are labelled apart in the
+    failure message, since a form the record prescribes and a form a completion
+    built are different corrections to make.
+
     Two limits, both real. Equality, so a non-`runs` form run as a strict prefix
     plus some unrelated token still passes: containment cannot be the test
     because a record supersedes a form by extending it, and every `superseded`
@@ -1391,9 +1405,15 @@ def test_no_prescribed_command_is_exactly_a_form_the_record_warns_against():
     its record stays a reading pass.
     """
     for inv in INVOCATIONS:
-        commands = _prescribed_commands(inv)
+        prescribed = _prescribed_commands(inv)
+        commands = list(prescribed)
+        if inv.completion:
+            commands += [
+                (f"{partition} as run", argv_for(inv, partition))
+                for partition, _ in prescribed
+            ]
         if inv.then:
-            commands = [*commands, ("then", inv.then)]
+            commands.append(("then", inv.then))
         for form, disposition in inv.forms:
             if disposition == "runs":
                 continue

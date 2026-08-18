@@ -456,16 +456,19 @@ class Invocation:
             A disposition is a claim about the record and not about this table:
             it says what the record names the form for, never whether anything
             here runs it.
-            The two can still diverge, inside bounds two properties now set. A
-            form declared `runs` that no argv carries fails the coverage
-            property. A form the harness runs *as written* while declaring it
-            `superseded` or `alternative` fails a second one, and flipping the
-            last `runs` form off an entry fails a third before any argv is
-            touched, which is what keeps the disposition from working as a
-            per-form off-switch for the coverage property. What is left is
-            narrower and stated where it is held: a non-`runs` form run as a
-            strict prefix plus an unrelated token, and a disposition simply
-            wrong about its record, which no extraction can read out of prose.
+            The two can still diverge, inside bounds the suite now sets. A form
+            declared `runs` that no argv carries fails the coverage property. A
+            form the harness runs as written while declaring it `superseded` or
+            `alternative` fails the property holding prescribed and completed
+            commands against the non-`runs` declarations - whether the record
+            prescribed the whole of it or a completion supplied the rest.
+            Flipping the last `runs` form off an entry fails the property
+            requiring an entry that declares forms to declare one it runs,
+            before any argv is touched, which is what keeps a disposition from
+            working as a per-form off-switch. What is left is narrower and stated
+            where it is held: a non-`runs` form run as a strict prefix plus an
+            unrelated token, and a disposition simply wrong about its record,
+            which no extraction can read out of prose.
             `deps/vulnerabilities` is the live instance rather than the
             hypothetical one: its `pip-audit -r <requirements>` is `superseded`,
             truthfully - the record narrows it with the `--no-deps --disable-pip`
