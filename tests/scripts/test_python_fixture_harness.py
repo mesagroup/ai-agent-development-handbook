@@ -924,7 +924,7 @@ def test_a_prescription_stays_in_the_paragraph_the_guard_watches():
     )
 
 
-def test_a_form_naming_the_tool_off_the_front_is_led_by_some_invocation():
+def test_a_form_naming_a_lead_word_off_the_front_is_led_by_some_invocation():
     """A prescription no lead word leads must not vanish.
 
     The declaration property compares what the lead words extract, so a span no
