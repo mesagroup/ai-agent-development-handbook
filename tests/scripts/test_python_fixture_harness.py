@@ -3627,3 +3627,129 @@ def test_the_uv_partition_still_probes_the_tool_its_sbom_route_never_runs(
     probe_versions("uv", "target-execution", tmp_path, timeout=5)
     expected = ("uvx", "--from", "cyclonedx-bom") + VERSION_PROBE["cyclonedx-py"]
     assert expected in {tuple(c) for c in recorded}
+
+
+def test_a_migrated_records_routes_agree_with_the_verified_table():
+    """The migration's only oracle, and it covers one language and one axis.
+
+    `INVOCATIONS` transcribes what each record prescribes and was held against
+    the records themselves through #53 and #55, then re-verified by mutation,
+    so a route that disagrees with it is a migration error rather than a
+    disagreement between two opinions.
+
+    Python only. The TypeScript routes are authored from documentation and one
+    smoke run rather than from a seeded fixture, so nothing here holds them -
+    which is the claim epic #44 exists to make good, and is why this test's
+    name says `verified table` rather than `the records`.
+
+    And python-with-a-table-entry only. The table transcribes a record's
+    python tooling section; a migrated record naming no python route at all -
+    `arch/size`, whose tools are `cloc`/`tokei` - has no oracle here and is
+    skipped below rather than counted as verified. A migrated record that
+    *does* carry a python route but that the table has no entry for at all is
+    not skipped the same way: that gap would mean the table stopped covering a
+    record it is supposed to, so it fails instead. `Check.tooling` is not the
+    signal for this, because for a migrated record it is a view derived from
+    `routes` rather than independent frontmatter (`_project_tooling`) - the
+    record's own routes are the only place left to read it from.
+
+    Keyed on the record id rather than on a hardcoded list, so each
+    arch-audit check the pilot still has to migrate is picked up the moment it
+    grows `routes`, with no edit here.
+
+    A route's `argv` is compared against the entry's `argv` only where the
+    route is `runs`, because that field is the record's own prescribed literal
+    command and never includes a completion the harness supplies at run time -
+    `arch/cycles`'s `pydeps` route omits the package path for the same reason
+    the table's entry does. Every python `kind: command` route, whatever its
+    disposition, is additionally compared against the entry's `forms` - the
+    `(form, disposition)` pairs the table read out of the record's prescribing
+    paragraph - because a record may narrow the same tool's command twice, once
+    `runs` and once `superseded`, and a comparison keyed on `(check, tool,
+    argv)` alone silently holds only the form whose argv happens to match:
+    `arch/cycles`'s superseded `pydeps --show-cycles` shares no argv with the
+    table's `pydeps` entry, which is keyed on the `--show-dot` form that runs.
+
+    Where an entry declares no `forms` at all, its own `argv` is the one form
+    the table knows about and is treated as `runs` implicitly - the shape
+    `arch/complexity`'s `xenon` entry and `arch/dead-code`'s `vulture` entry
+    both take, where the record names one command with nothing to narrow it
+    against. (Two entries elsewhere run a plain command that appears in no
+    form at all - the record's own quote is what runs, and its named forms are
+    only the alternatives above it - but neither is in the arch domain this
+    test covers, so that shape is not one this fallback has to reproduce.)
+
+    Held in both directions: a route naming a form the table does not carry is
+    a route the migration invented or a table gone stale; a form the table
+    carries with no matching route is a form the migration silently dropped.
+    """
+    checks, errors = load_checks(SKILLS_DIR)
+    assert not errors, errors
+    migrated = {
+        cid: c for cid, c in checks.items() if c.routes and cid.startswith("arch/")
+    }
+    assert migrated, "no arch record is migrated, so this test holds nothing"
+
+    by_check: dict[str, list[Invocation]] = {}
+    for inv in INVOCATIONS:
+        if inv.check in migrated:
+            by_check.setdefault(inv.check, []).append(inv)
+
+    def known_forms(inv: Invocation) -> tuple[tuple[str, str], ...]:
+        if inv.forms:
+            return inv.forms
+        if inv.argv:
+            return ((" ".join(inv.argv), "runs"),)
+        return ()
+
+    checked = []
+    for cid, check in sorted(migrated.items()):
+        entries = by_check.get(cid)
+        python_routes = [r for r in check.routes if r.lang == "python"]
+        if entries is None:
+            assert not python_routes, (
+                f"{cid}: declares {len(python_routes)} python route(s) and the "
+                "table carries no entry for it at all - either the table is stale "
+                "or this record's python tooling was never transcribed into it"
+            )
+            continue
+        checked.append(cid)
+        table = {inv.tool: inv for inv in entries}
+        command_routes = [r for r in python_routes if r.kind == "command"]
+        for route in command_routes:
+            inv = table.get(route.tool)
+            assert inv is not None, (
+                f"{cid}: route names python tool {route.tool!r}, which the table "
+                "carries no entry for - either the migration invented it or the "
+                "table is stale"
+            )
+            joined = " ".join(route.argv)
+            if route.disposition == "runs":
+                assert route.argv == inv.argv, (
+                    f"{cid}/{route.tool}: runs route argv {joined!r} does not match "
+                    f"the table's {' '.join(inv.argv)!r}"
+                )
+            forms = known_forms(inv)
+            assert (joined, route.disposition) in forms, (
+                f"{cid}: route {route.tool} {joined!r} declares disposition "
+                f"{route.disposition!r}, which the table's forms {forms} for that "
+                "tool do not carry - either the migration invented this form or "
+                "mistranscribed its disposition"
+            )
+            assert route.findings_stream == inv.findings_stream, (cid, route.tool)
+        for tool, inv in sorted(table.items()):
+            for form, disposition in known_forms(inv):
+                assert any(
+                    r.lang == "python"
+                    and r.kind == "command"
+                    and r.tool == tool
+                    and " ".join(r.argv) == form
+                    and r.disposition == disposition
+                    for r in command_routes
+                ), (
+                    f"{cid}: the table declares {tool} form {form!r} ({disposition}) "
+                    "and no route carries it - a migration silently dropped it"
+                )
+    assert checked, (
+        "no migrated arch record has a table entry, so this test holds nothing"
+    )
