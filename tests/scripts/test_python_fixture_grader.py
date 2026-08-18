@@ -199,27 +199,91 @@ def test_a_filter_naming_a_check_the_partition_lacks_gets_a_visible_row(grader):
     assert "no expectation" in text
 
 
-def test_an_unmatched_filter_carries_the_entries_without_calling_them_orphans(grader):
-    """The entries left beside a filter nothing matches may name a real check.
+def test_an_unmatched_filter_itemizes_its_entries_by_the_checks_they_name(grader, spec):
+    """A filter matching nothing still leaves entries, and each is its own fact.
 
-    `arch/cycles` is a `uv` expectation, so letting these entries fall through
-    to the orphan loop would print `_orphan_row`'s claim - that no expectation
-    names the check - over an entry whose check the partition does carry. The
-    unmatched-filter row carries them instead, and is the run's only row.
+    `arch/cycles` is a `uv` expectation and `made/up-check` is not, so lumping
+    both under the filter's row would put every tool beneath a check name the
+    spec does not recognize and swallow the orphan - a finding about the spec -
+    inside a note about scope. Each entry gets the row its own check earns, and
+    the filter row states only what is true of the file.
     """
+    assert any(e.check == "arch/cycles" for e in spec.expectations_for("uv"))
+    assert not any(e.check == "made/up-check" for e in spec.expectations_for("uv"))
     run = {
         "partition": "uv",
         "grant": "target-execution",
         "only_check": "arch/no-such-check",
         "results": [
             {"check": "arch/cycles", "tool": "pydeps", "ran": True, "status": "ok"},
+            {"check": "made/up-check", "tool": "ghost-tool", "ran": True},
+        ],
+    }
+    forms = {r.check: r.form for r in grader.grade_rows(run)}
+    assert forms == {
+        "arch/no-such-check": "unmatched-filter",
+        "arch/cycles": "out-of-scope",
+        "made/up-check": "orphan",
+    }
+    rows = grader.grade_rows(run)
+    carried = next(r for r in rows if r.check == "arch/cycles")
+    assert [o.tool for o in carried.observations] == ["pydeps"]
+    assert "no expectation" not in carried.claim
+
+
+def test_an_entry_outside_a_matched_filter_is_not_called_an_orphan(grader, spec):
+    """The orphan claim would be false of it, and this worksheet states facts.
+
+    `deps/hygiene` is a `uv` expectation, so an entry naming it is unaccounted
+    for by this run's own `only_check` scope, not unrecognized by the spec.
+    Reading the ungraded checks off the narrowed scope instead of off the
+    partition's would print `_orphan_row`'s claim - that no expectation names
+    the check for this partition - over a check the partition demonstrably
+    carries.
+    """
+    assert any(e.check == "deps/hygiene" for e in spec.expectations_for("uv"))
+    run = {
+        "partition": "uv",
+        "grant": "target-execution",
+        "only_check": "arch/cycles",
+        "results": [
+            {"check": "arch/cycles", "tool": "pydeps", "ran": True, "status": "ok"},
+            {"check": "deps/hygiene", "tool": "deptry", "ran": True, "status": "ok"},
         ],
     }
     rows = grader.grade_rows(run)
-    assert len(rows) == 1
-    assert rows[0].check == "arch/no-such-check"
-    assert [o.tool for o in rows[0].observations] == ["pydeps"]
-    assert rows[0].verdict == "unmatched-filter"
+    outside = next(r for r in rows if r.check == "deps/hygiene")
+    assert outside.form == "out-of-scope"
+    assert outside.verdict == "out-of-scope"
+    assert "no expectation" not in outside.claim
+    assert "only_check 'arch/cycles'" in outside.claim
+    assert [o.tool for o in outside.observations] == ["deptry"]
+
+
+def test_a_check_no_expectation_carries_still_reads_as_an_orphan_under_a_filter(
+    grader, spec
+):
+    """The two ungraded rows must not be conflated in either direction.
+
+    An entry the spec does not recognize is a finding about the spec, and
+    softening it into a note about the run's scope would hide it. So a matched
+    filter splits its ungraded entries by whether the partition carries the
+    check at all, not by whether the filter reached them.
+    """
+    assert not any(e.check == "made/up-check" for e in spec.expectations_for("uv"))
+    run = {
+        "partition": "uv",
+        "grant": "target-execution",
+        "only_check": "arch/cycles",
+        "results": [
+            {"check": "arch/cycles", "tool": "pydeps", "ran": True, "status": "ok"},
+            {"check": "deps/hygiene", "tool": "deptry", "ran": True, "status": "ok"},
+            {"check": "made/up-check", "tool": "ghost-tool", "ran": True},
+        ],
+    }
+    forms = {r.check: r.form for r in grader.grade_rows(run)}
+    assert forms["made/up-check"] == "orphan"
+    assert forms["deps/hygiene"] == "out-of-scope"
 
 
 def test_an_orphan_entry_gets_its_own_row_instead_of_vanishing(grader, spec):
@@ -622,6 +686,52 @@ def test_main_grades_the_healthy_runs_beside_a_stale_one_check_file(
     assert "deps/hygiene" in text
     assert "arch/cycles" in text
     assert "unmatched-filter" in text
+
+
+def test_main_never_writes_the_orphan_claim_over_a_check_the_partition_carries(
+    grader, spec, tmp_path
+):
+    """The worksheet is the artifact a reader trusts, so assert on its text.
+
+    A one-check file that mixes scopes is reachable the same way an unmatched
+    filter is: `fixtures/python/results/` is gitignored and nothing regenerates
+    it, so a hand-edited or outlived file can carry an entry from a wider run.
+    Under a matched filter that entry used to render the orphan claim, which is
+    false of a check `python_fixture_spec.py` does carry - and a false sentence
+    in this round's own output is the thing the round exists to remove.
+    """
+    assert any(e.check == "deps/hygiene" for e in spec.expectations_for("uv"))
+    (tmp_path / "uv-target-execution-arch-cycles.json").write_text(
+        json.dumps(
+            {
+                "grant": "target-execution",
+                "partition": "uv",
+                "only_check": "arch/cycles",
+                "results": [
+                    {
+                        "check": "arch/cycles",
+                        "tool": "pydeps",
+                        "ran": True,
+                        "status": "ok",
+                    },
+                    {
+                        "check": "deps/hygiene",
+                        "tool": "deptry",
+                        "ran": True,
+                        "status": "ok",
+                    },
+                    {"check": "made/up-check", "tool": "ghost-tool", "ran": True},
+                ],
+            }
+        )
+    )
+    assert grader.main([str(tmp_path)]) == 0
+    lines = (tmp_path / "worksheet.md").read_text().splitlines()
+    outside = next(line for line in lines if line.startswith("| deps/hygiene |"))
+    assert "out-of-scope" in outside
+    assert "no expectation in python_fixture_spec.py names this check" not in outside
+    orphan = next(line for line in lines if line.startswith("| made/up-check |"))
+    assert "no expectation in python_fixture_spec.py names this check" in orphan
 
 
 def test_main_writes_to_the_requested_output_path(grader, tmp_path):

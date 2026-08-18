@@ -47,14 +47,16 @@ grading a `none` run against `claim` instead reads a correct ungranted deptry
 run - which reports `markupsafe` as DEP001 rather than DEP003 - as a tool
 defect. `grade_row` selects between the two by the run's own `grant`.
 
-The fourth: a results entry whose check no `Expectation` names. `grade_rows`
-only ever iterates `expectations_for`, so left unchecked an orphan entry -
-`fixtures/` is gitignored and nothing regenerates it, so a stale results file
-surviving a check renamed or removed out of `EXPECTATIONS` is how one arrives -
-would vanish with no row, no error and no count discrepancy, while the
-worksheet still reads as full coverage. `grade_rows` renders one `_orphan_row`
-per check `run["results"]` names that no expectation claims, so the omission
-is visible instead of silent.
+The fourth: a results entry this run did not grade. `grade_rows` only ever
+iterates `expectations_for`, so left unchecked such an entry - `fixtures/` is
+gitignored and nothing regenerates it, so a stale results file surviving a
+check renamed or removed out of `EXPECTATIONS` is how one arrives - would
+vanish with no row, no error and no count discrepancy, while the worksheet
+still reads as full coverage. `grade_rows` renders a row per such check, and
+which row is itself a claim: `_orphan_row` where no expectation carries the
+check on this partition, `_out_of_scope_row` where one does and the run's own
+`only_check` did not reach it. Collapsing the two would print the orphan
+claim - that the spec names no such check - over a check the spec does name.
 
 Usage:
     uv run python scripts/grade_python_fixture_run.py fixtures/python/results
@@ -186,8 +188,8 @@ class Observation:
     """One tool's answer to one check, as the run recorded it.
 
     `findings_stream` is `""` for a row built from the run's raw entries -
-    `_orphan_row` and `_unmatched_filter_row` both read those directly rather
-    than through `observations_for`, which is what resolves one - and otherwise
+    `_orphan_row` and `_out_of_scope_row` both read those directly rather than
+    through `observations_for`, which is what resolves one - and otherwise
     either a real stream name or `UNRESOLVED_FINDINGS_STREAM` - the second
     case is a fact the render has to surface, not just carry, so a stale row
     reads as unresolved instead of as a silent zero.
@@ -281,12 +283,46 @@ def grade_row(expectation: Expectation, run: Run) -> Row:
     )
 
 
+def _ungraded_row(
+    *,
+    check: str,
+    run: Run,
+    form: str,
+    claim: str,
+    entries: Sequence[dict[str, object]],
+) -> Row:
+    """The mechanics every row that grades nothing has in common.
+
+    Three rows reach the worksheet without an expectation behind them - the
+    orphan, the out-of-scope entry and the unmatched filter - and each has to
+    carry no seeds, no signals, and a `verdict` naming the structural reason
+    rather than a grade. Sharing the construction puts that invariant in one
+    place, so none of the three can drift into looking judged; the `claim` and
+    the `form` stay at the call sites, because what is true of each is exactly
+    what must not be shared.
+    """
+    return Row(
+        check=check,
+        partition=str(run.get("partition", "")),
+        grant=str(run.get("grant", "")),
+        form=form,
+        claim=claim,
+        seeds=(),
+        observations=_observation_tuple(entries),
+        signals={},
+        verdict=form,
+    )
+
+
 def _orphan_row(check: str, run: Run) -> Row:
     """A row for result entries no expectation names.
 
-    `grade_row` only ever iterates `expectations_for`, so an entry whose check
-    that function does not return would otherwise vanish with no row, no error
-    and no count discrepancy - the exact "reads clean, isn't" failure this
+    Which entry that is reads off `expectations_for`'s own partition-level list,
+    never off the narrowed scope a run's `only_check` leaves behind - an entry
+    the filter merely did not reach is `_out_of_scope_row`'s, and this claim
+    would be false of it. `grade_row` only ever iterates expectations, so an
+    entry whose check none of them names would otherwise vanish with no row, no
+    error and no count discrepancy - the exact "reads clean, isn't" failure this
     round exists to catch, and the worst possible place to commit it is the
     grader's own inputs. `fixtures/` is gitignored and nothing regenerates it,
     so a stale results file surviving a check renamed or removed out of
@@ -299,11 +335,9 @@ def _orphan_row(check: str, run: Run) -> Row:
     already confirmed a `Row` for, and may not be one `INVOCATIONS` names
     either.
     """
-    entries = _entries_for(run, check)
-    return Row(
+    return _ungraded_row(
         check=check,
-        partition=str(run.get("partition", "")),
-        grant=str(run.get("grant", "")),
+        run=run,
         form="orphan",
         claim=(
             "no expectation in python_fixture_spec.py names this check for this "
@@ -311,10 +345,39 @@ def _orphan_row(check: str, run: Run) -> Row:
             "a check renamed or removed out of EXPECTATIONS, or a check the "
             "harness never should have run"
         ),
-        seeds=(),
-        observations=_observation_tuple(entries),
-        signals={},
-        verdict="orphan",
+        entries=_entries_for(run, check),
+    )
+
+
+def _out_of_scope_row(check: str, run: Run, only_check: str) -> Row:
+    """A row for an entry outside the filter a one-check run was graded under.
+
+    The check here *is* one `python_fixture_spec.py` carries for this partition,
+    which is what separates it from `_orphan_row`. Both rows exist because the
+    entry was not graded, but they say different things about why, and printing
+    the orphan claim over this entry would assert that no expectation names a
+    check the partition demonstrably carries - a false sentence in the very
+    worksheet this module writes to make silent misreads visible. The orphan
+    claim stays reserved for the entry no expectation covers, because that is a
+    real finding about the spec and softening it into a note about scope would
+    hide it.
+
+    Reachable the same way the unmatched filter is: a hand-edited or outlived
+    one-check file in a gitignored directory nothing regenerates can mix an
+    entry from a wider run into a narrower filter's file.
+    """
+    return _ungraded_row(
+        check=check,
+        run=run,
+        form="out-of-scope",
+        claim=(
+            f"the run was graded under only_check {only_check!r} and this entry "
+            "falls outside that filter; python_fixture_spec.py does carry an "
+            "expectation for this check on this partition, so the entry is "
+            "unaccounted for by the run's own scope rather than unrecognized by "
+            "the spec"
+        ),
+        entries=_entries_for(run, check),
     )
 
 
@@ -332,43 +395,48 @@ def _unmatched_filter_row(only_check: str, run: Run) -> Row:
     following the visible-rather-than-silent precedent `_orphan_row` and
     `UNRESOLVED_FINDINGS_STREAM` already set.
 
-    Carries every entry the file recorded as its observations, whatever check
-    each names, and is the run's only row. The filter claimed a scope the spec
-    does not recognize, so no entry here can be attributed to an expectation,
-    and letting the entries fall through to the orphan loop instead would print
-    `_orphan_row`'s claim - that no expectation names the check - over an entry
-    whose check the partition does carry, which is exactly what a file with a
-    hand-edited filter holds.
+    States the fact about the filter and carries no observations: it is a row
+    about the file's scope, and the entries the file recorded are itemized
+    beside it by `grade_rows`, one row per check they name. Attributing them to
+    this row instead would put every tool under a check name the spec does not
+    recognize, hiding which check each answered - and it would swallow the
+    orphan among them, which is a finding about the spec rather than a note
+    about scope and has to keep its own row.
     """
-    return Row(
+    return _ungraded_row(
         check=only_check,
-        partition=str(run.get("partition", "")),
-        grant=str(run.get("grant", "")),
+        run=run,
         form="unmatched-filter",
         claim=(
             f"the run names only_check {only_check!r} and no expectation in "
-            "python_fixture_spec.py carries that check on this partition; the file "
-            "is either hand-edited or has outlived the expectations, and the "
-            "observations listed are every entry it recorded, whatever check each "
-            "names"
+            "python_fixture_spec.py carries that check on this partition, so it "
+            "graded nothing; the file is either hand-edited or has outlived the "
+            "expectations, and whatever it did record is itemized in the rows "
+            "beside this one"
         ),
-        seeds=(),
-        observations=_observation_tuple(run.get("results", [])),
-        signals={},
-        verdict="unmatched-filter",
+        entries=(),
     )
 
 
 def grade_rows(run: Run) -> list[Row]:
     """Every expectation this run's partition carries, graded against it, plus
-    one row for every check in `run["results"]` no expectation names.
+    one row for every check `run["results"]` names that this run did not grade.
 
     The expectation rows alone are `expectations_for`'s own scope - one `Row`
-    per expectation per partition per grant. The orphan rows are the other
+    per expectation per partition per grant. The ungraded rows are the other
     direction of the same completeness question: without them, a results
     entry whose check the spec no longer recognizes disappears silently while
     every expectation row still renders, and the worksheet reads as full
     coverage of a run it did not fully account for.
+
+    An ungraded check gets whichever of the two true statements applies, read
+    off `partition_checks` rather than off the run's narrowed scope: no
+    expectation carries it on this partition, which is `_orphan_row` and a
+    finding about the spec, or an expectation does carry it and this run's
+    `only_check` did not cover it, which is `_out_of_scope_row` and a fact about
+    the file. Deriving both from the narrowed scope would print the orphan claim
+    over every entry a matched filter left behind, asserting that no expectation
+    names a check the partition demonstrably carries.
 
     A run carrying `only_check` narrows that scope to the one check it ran.
     `main` grades every `*.json` in a directory, so a one-check run sits beside
@@ -377,30 +445,35 @@ def grade_rows(run: Run) -> list[Row]:
     reading `(no observation)` beside the matrix row that did observe it - a
     reported absence where the truth is that the run never claimed the scope. An
     empty value is the full run the harness writes it as, not a filter matching
-    nothing, and a value naming a check the partition does not carry gets one
-    `_unmatched_filter_row` rather than grading to zero rows or raising: nothing
-    the harness writes produces that pair, so it is a hand-edited or outlived
+    nothing, and a value naming a check the partition carries no expectation for
+    gets one `_unmatched_filter_row` rather than grading to zero rows or raising:
+    nothing the harness writes produces that pair, so it is a hand-edited or outlived
     file, reporting it as a run with nothing to cover is the silence this module
     exists to break, and raising over it loses every other run in the directory
     because `main` iterates the results glob with no handler.
     """
     partition = str(run.get("partition", ""))
     expectations = expectations_for(partition)
+    partition_checks = {expectation.check for expectation in expectations}
     only_check = str(run.get("only_check", ""))
     if only_check:
         expectations = tuple(e for e in expectations if e.check == only_check)
-        if not expectations:
-            return [_unmatched_filter_row(only_check, run)]
     rows = [grade_row(expectation, run) for expectation in expectations]
-    known_checks = {expectation.check for expectation in expectations}
-    orphan_checks = sorted(
+    if only_check and not expectations:
+        rows.append(_unmatched_filter_row(only_check, run))
+    graded_checks = {expectation.check for expectation in expectations}
+    ungraded_checks = sorted(
         {
             str(entry.get("check", ""))
             for entry in run.get("results", [])
-            if str(entry.get("check", "")) not in known_checks
+            if str(entry.get("check", "")) not in graded_checks
         }
     )
-    rows.extend(_orphan_row(check, run) for check in orphan_checks)
+    for check in ungraded_checks:
+        if check in partition_checks:
+            rows.append(_out_of_scope_row(check, run, only_check))
+        else:
+            rows.append(_orphan_row(check, run))
     return rows
 
 
