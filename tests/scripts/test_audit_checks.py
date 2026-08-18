@@ -1681,7 +1681,6 @@ def test_the_real_checks_tree_loads_clean():
 LEGACY_TOOLING_RECORDS = frozenset(
     {
         "arch/complexity-gate",
-        "arch/hidden-coupling",
         "arch/layering",
         "arch/martin-metrics",
         "arch/over-abstraction",
