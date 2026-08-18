@@ -327,12 +327,22 @@ NO_VERSION_ROUTE: dict[str, str] = {}
 #   it would make the value a claim about the fixture set rather than about the
 #   record, which is the one thing a disposition never is.
 #
-# There is no value for a form a record names in order to warn against, and there
-# structurally cannot be one: extraction reads a form as a span carrying at least
-# one argument, and the only such warning any record here writes is against a bare
-# `pip-audit`, which that rule classes as a mention. A value with no user is
-# ceremony that reads as coverage, so this tuple holds exactly the values some
-# declared form carries, and a test in the suite fails when it stops doing so.
+# There is no value for a form a record names in order to warn against, and the
+# reason is disposition precedence rather than anything structural. Records do
+# warn against multi-token forms, and the extractor reads those spans as forms:
+# `arch/cycles` names `pydeps --show-cycles` and then says that form alone has no
+# textual output channel at all, and `deps/inventory` says it has no route
+# through `cyclonedx-py poetry` for a PEP 621 manifest. Each still carries the
+# disposition describing what the record does with it - the first is `superseded`,
+# because the record narrows the same command; the second is `runs`, because the
+# harness runs it on the partition whose manifest it does read. A warning is a
+# reason a record gives, and every form here has some other disposition that
+# already answers what the record names it for, so nothing reaches `forbidden`
+# today. A record writing "never run `foo --bar`", where the harness neither runs
+# that form nor narrows it, would give the value a user immediately. A value with
+# no user is ceremony that reads as coverage, so this tuple holds exactly the
+# values some declared form carries, and a test in the suite fails when it stops
+# doing so.
 #
 # Naming them is the point: without a disposition, a form the harness does not
 # run is indistinguishable from a form nobody noticed, which is how `--show-dot`
