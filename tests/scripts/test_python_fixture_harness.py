@@ -83,6 +83,18 @@ def _tokens(text: str) -> list[str]:
     return out
 
 
+def _marked(wanted: str) -> bool:
+    """Whether `_concrete` left this token a prefix for the caller to complete.
+
+    One place decides what the mark is, because two readers have to agree on it:
+    `_matches` treats a marked token as a prefix, and the coverage property holds
+    order among the unmarked tokens and presence for the marked ones. A
+    disagreement about which is which would move a token quietly from one rule to
+    the other.
+    """
+    return wanted.endswith("<")
+
+
 def _matches(wanted: str, token: str) -> bool:
     """Whether one command token satisfies one token the record wrote.
 
@@ -97,7 +109,7 @@ def _matches(wanted: str, token: str) -> bool:
     closes with `>`, so the older guards passing raw tokens through
     `_is_subsequence` still compare by equality.
     """
-    if wanted.endswith("<"):
+    if _marked(wanted):
         prefix = wanted[:-1]
         return token.startswith(prefix) and len(token) > len(prefix)
     return token == wanted
@@ -755,11 +767,21 @@ def test_every_form_the_harness_runs_appears_in_an_argv():
     provenance guard forbids: that one forbids a completion hiding inside the
     `argv` field, where nothing could tell it from what the record prescribed.
 
-    Presence rather than order, unlike the anchor guard. A completion is appended
-    at the end of the command while the record writes the token it supplies inside
-    the form, so no ordered test can pass on a form whose placeholder sits in the
-    middle. Order is held anyway, in the other direction, by the guard that traces
-    the transcribed argv through the record's own sentence.
+    Order is held among the tokens the record writes in full, and presence only
+    for a token whose tail the caller supplies. That split is what keeps the
+    relaxation to the single token that needs it: a completion is appended at the
+    end of the command while the record writes the token it supplies inside the
+    form, so an ordered test over the whole form fails on `pytest --cov=<pkg>
+    --cov-branch --cov-report=term-missing`, whose `--cov=` arrives last. Measured
+    over every form declared `runs`, that is the only token in the table any
+    command satisfies by completion alone, so it is the only one this exempts.
+
+    Nothing else in the suite holds a form's order for it. The guard that traces
+    a transcribed command through the record's sentence reads one argv per entry -
+    the first partition with a command - and never reads `then`, and it asserts
+    the *absence* of an anchor for the entries it excepts, so a form reachable
+    only through another partition's argv, only through `then`, or on an excepted
+    entry gets its order from here or from nowhere.
     """
     for inv in INVOCATIONS:
         commands = [c for c in (argv_for(inv, p) for p in PARTITIONS) if c]
@@ -770,8 +792,14 @@ def test_every_form_the_harness_runs_appears_in_an_argv():
             if disposition != "runs":
                 continue
             wanted = _concrete(_tokens(form))
+            # The vacuity its sibling refuses, refused here too: a form reducing
+            # to nothing would satisfy the `all` below however the command reads.
+            assert wanted, (inv.check, inv.tool, form)
+            ordered = [w for w in wanted if not _marked(w)]
+            supplied = [w for w in wanted if _marked(w)]
             assert any(
-                all(any(_matches(w, token) for token in tokens) for w in wanted)
+                _is_subsequence(ordered, tokens)
+                and all(any(_matches(w, token) for token in tokens) for w in supplied)
                 for tokens in carried
             ), (inv.check, inv.tool, form)
 
@@ -812,12 +840,12 @@ def test_a_prescription_stays_in_the_paragraph_the_guard_watches():
     holds Python prescriptions too, so a blanket skip of every label that is not
     `Python` would unwatch exactly where a Python correction would land.
 
-    One residual gap this cannot close, gated by a convention instead: a record
-    that prescribes a wholly new tool in prose without listing it under
-    `tooling:` has no invocation, so no lead word of any entry leads its span and
-    every property here passes over it. What catches that is the record
-    convention itself - a prescribed tool absent from `tooling` fails the
-    validator for a reason of its own.
+    One residual gap, and nothing closes it. A record that prescribes a tool in
+    prose without listing it under `tooling:` has no invocation here, so no lead
+    word of any entry leads its span and every property in this file passes over
+    it in silence. No other rule catches it either: `audit_checks` holds a
+    record's `needs` names against its `tooling` list, and nothing anywhere holds
+    its prose against either.
     """
     # Pinned rather than derived: a stray span under a lens this list does not
     # name fails, and somebody reads the paragraph before extending it.
