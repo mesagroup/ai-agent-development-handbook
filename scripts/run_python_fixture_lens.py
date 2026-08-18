@@ -455,7 +455,13 @@ class Invocation:
             property; a form the harness *does* run while declaring it
             `superseded` or `alternative` passes every test in the suite, because
             that property reads only the `runs` half and no property reads the
-            other. `deps/vulnerabilities` is the live instance rather than the
+            other. So the disposition doubles as a per-form off-switch for that
+            property: flipping one form from `runs` to `alternative` or
+            `superseded` stops that form being held against any command, while
+            every other form on the same entry stays watched. The flip is meant to
+            correct a claim about the record, and a wrong one silently narrows
+            what the suite checks to the forms still declared `runs`.
+            `deps/vulnerabilities` is the live instance rather than the
             hypothetical one: its `pip-audit -r <requirements>` is `superseded`,
             truthfully - the record narrows it with the `--no-deps --disable-pip`
             pair - and the uv partition's supplied route runs exactly that form

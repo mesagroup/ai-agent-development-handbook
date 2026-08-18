@@ -634,6 +634,18 @@ def test_folding_a_completion_into_the_argv_breaks_the_anchor():
     about the run looks different, so the guard has to be on the transcription:
     the argv alone traces through the record's sentence and the argv carrying
     its completion does not.
+
+    One direction only, and the other has no guard anywhere. This holds that a
+    completion has not been folded into `argv`; nothing holds that a token the
+    record does prescribe has not been moved the other way, out of `argv` and into
+    `completion`. Moved that way the run stays correct and every property passes:
+    the shorter argv still traces through the quote, and the coverage property
+    reads `argv_for`, which re-appends the completion before matching. What
+    inverts is the published provenance - the round would report that a record
+    failed to prescribe a flag the record bolds, and since this round's deliverable
+    is the list of records needing correction, that is the output falsified under a
+    green suite. Read a `note` claiming a record omitted something as a claim to
+    check against the record, not as one this file has verified.
     """
     completed = [i for i in INVOCATIONS if i.completion]
     assert len(completed) == 13, len(completed)
@@ -848,6 +860,25 @@ def test_a_prescription_stays_in_the_paragraph_the_guard_watches():
     holds Python prescriptions too, so a blanket skip of every label that is not
     `Python` would unwatch exactly where a Python correction would land.
 
+    The consequence of that exception, stated because a reader who sees the
+    skipped set would otherwise read it as a narrow one: a Python prescription
+    written inside a `**TypeScript**`-labelled paragraph is watched by nothing at
+    all. This property skips it as a sibling lens's business, and every other
+    property here reads only the paragraph holding `record_quote`, which that one
+    is not. The label decides which lens a paragraph belongs to, so a paragraph
+    labelled for the wrong lens takes its contents out of reach with it.
+
+    A second limit, and it is not hypothetical. Every property in this file is
+    scoped either to the source line holding `record_quote` or - here - to the
+    paragraphs of `## Tooling fallback`, so a prescription written in any other
+    section of a record is invisible to all of them. `arch/complexity-gate`
+    carries `ruff --select C901` in its `## Fix` section and `deps/freshness`
+    carries `uv lock` in its, each led by a tool the harness invokes, neither
+    declared in `forms`, and the suite is green over both. A command in `## Fix`
+    is unwatched: the section scoping is what buys the anchoring on `record_quote`
+    that lets a record with no `**Python**` line be watched at all, and it is paid
+    for in every section the scoping excludes.
+
     One residual gap, and nothing closes it. A record that prescribes a tool in
     prose without listing it under `tooling:` has no invocation here, so no lead
     word of any entry leads its span and every property in this file passes over
@@ -882,7 +913,7 @@ def test_a_prescription_stays_in_the_paragraph_the_guard_watches():
 
 
 def test_a_form_naming_the_tool_off_the_front_is_led_by_some_invocation():
-    """A prescription the leading-name rule cannot see must not vanish.
+    """A prescription no lead word leads must not vanish.
 
     The declaration property compares what the lead words extract, so a span no
     lead word leads is absent from both sides of that equality and it passes.
@@ -891,6 +922,18 @@ def test_a_form_naming_the_tool_off_the_front_is_led_by_some_invocation():
     `pip` entry's. What must never happen is a span naming a tool that no
     invocation on that record leads: `uvx pydeps --show-cycles` would be a
     prescription with no declaration and no failure.
+
+    Keyed on the entry's lead words rather than on its tool name, because the tool
+    name is not always a word any command carries. Four entries are named for a
+    plugin or a distribution the prescribed command never mentions -
+    `test/coverage-reach`'s `pytest-cov` and `coverage.py`, `test/determinism`'s
+    `pytest-randomly`, `test/isolation`'s `pytest-timeout` - and a rule looking for
+    that name off the front of a span fires on none of their paragraphs, so those
+    four got none of this protection while the docstring promised it to them.
+    `_lead_words` already carries the runner the record actually writes, so keying
+    here on the same set is what makes the promise hold for every entry: it is the
+    `coverage run -m pytest` span in `test/coverage-reach`'s paragraph that the
+    tool-name rule passed over and this one now reads.
     """
     for inv in INVOCATIONS:
         paragraph = _prescribing_paragraph(inv.check, inv.record_quote)
@@ -901,9 +944,10 @@ def test_a_form_naming_the_tool_off_the_front_is_led_by_some_invocation():
             for lead in _lead_words(other)
             for form in _command_forms(paragraph, lead)
         }
+        leads = _lead_words(inv)
         for span in _spans(paragraph):
             words = span.split()
-            if len(words) > 1 and inv.tool in words[1:]:
+            if len(words) > 1 and any(lead in words[1:] for lead in leads):
                 assert words[0] in led, (inv.check, inv.tool, span)
 
 
