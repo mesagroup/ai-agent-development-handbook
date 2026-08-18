@@ -1031,9 +1031,17 @@ def test_a_miscased_route_sentinel_is_rejected_by_name(tmp_path, spelling):
 
 
 def test_a_language_with_no_routes_is_not_silenced(tmp_path):
-    check = _routes_record(
-        tmp_path, [{"lang": "python", "kind": "procedure", "note": "read it"}]
-    )
+    """`all()` is vacuously true over an empty list - the same trap
+    `_fully_tiered_languages` already warns about for the legacy schema's
+    tooling dict, where a language listed with no tools must not read as
+    fully tiered. A record on the routes schema whose `routes:` list is
+    empty has offered no answering route for anything, so if
+    `_silenced_languages` ever stopped treating that as no claim at all,
+    this record would fail with an unmet demand for `answers_ungranted`, a
+    note it has no route left over to justify.
+    """
+    check = _routes_record(tmp_path, [])
+    assert check.routes == ()
     assert check.answers_ungranted is None
 
 
