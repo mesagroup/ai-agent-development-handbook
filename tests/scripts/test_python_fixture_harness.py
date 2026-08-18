@@ -379,6 +379,32 @@ def _unaccounted_flags(paragraphs: list[str], pooled: list[str]) -> set[str]:
     return out
 
 
+def _demoted_tokens(inv: Invocation) -> list[str]:
+    """The completion tokens the record's own sentence writes concretely.
+
+    A token the record writes in full is a token the record prescribes, so it
+    belongs in `argv`. Sitting in `completion` instead it inverts the round's
+    output: the results report a record that failed to prescribe a flag the
+    record prescribes, and since the deliverable is the list of records needing
+    correction, that is the output falsified while the executed command stays
+    byte-identical.
+
+    Compared against the quote's raw tokens rather than `_concrete`'s reduction
+    of them, which is what leaves a placeholder fill alone. The record writes
+    `--cov=<pkg>` and the completion supplies `--cov=fixture_app`; those are
+    never equal, so the canonical completion cannot hit this. Reduce the quote
+    first and `--cov=<pkg>` becomes the marked `--cov=<`, which `_matches`
+    satisfies with any `--cov=` token, and the one shape a completion exists for
+    reads as a demotion.
+
+    Equality is the whole comparison because a record's own tokens are never
+    marked: the placeholder a record writes closes with `>`, and only
+    `_concrete` leaves the trailing `<` that turns a token into a prefix.
+    """
+    quote = _tokens(inv.record_quote)
+    return [token for token in inv.completion if token in quote]
+
+
 # --- the extractor helpers ----------------------------------------------------
 
 
@@ -542,6 +568,68 @@ def test_the_watched_paragraphs_are_the_python_side_of_the_section():
     assert "With none of them installed" in labels
     assert "TypeScript" not in labels
     assert _prescribing_paragraph("arch/cycles", quote) in watched
+
+
+def test_a_token_the_record_writes_concretely_is_not_a_completion():
+    """The demotion this file had no guard against.
+
+    `arch/cycles` prescribes `pydeps --show-cycles --show-dot` and the record
+    bolds `--show-dot`. Moved out of the argv and into the completion the run
+    stays correct, the shorter argv still traces through the quote, and the
+    round reports that the record failed to prescribe a flag the record
+    prescribes. Built here rather than asserted about the tree, because no entry
+    in the tree carries the demotion, so the tree cannot distinguish a rule that
+    catches it from one that does not.
+    """
+    quote = (
+        "Run `pydeps --show-cycles --show-dot`: `--show-cycles` alone has no "
+        "textual output channel at all."
+    )
+    honest = Invocation(
+        check="arch/cycles",
+        tool="pydeps",
+        argv=("pydeps", "--show-cycles", "--show-dot"),
+        completion=("src/fixture_app",),
+        note="pydeps takes the package to graph and the record names none",
+        record_quote=quote,
+    )
+    demoted = Invocation(
+        check="arch/cycles",
+        tool="pydeps",
+        argv=("pydeps", "--show-cycles"),
+        completion=("--show-dot", "src/fixture_app"),
+        note="pydeps takes the package to graph and the record names none",
+        record_quote=quote,
+    )
+    assert _demoted_tokens(honest) == []
+    assert _demoted_tokens(demoted) == ["--show-dot"]
+
+
+def test_a_placeholder_the_record_leaves_open_is_a_legitimate_completion():
+    """The shape the rule must not fire on, and why the quote stays raw.
+
+    Filling a placeholder is what a completion is for: the record writes
+    `--cov=<pkg>` and the caller supplies the package. The two are never equal,
+    so comparing the completion against the quote's own tokens leaves the
+    legitimate shape alone. Reducing the quote with `_concrete` first is what
+    would break it - `--cov=<pkg>` becomes the marked `--cov=<`, which
+    `_matches` satisfies with any `--cov=` token, so the canonical completion
+    would read as a demoted prescription.
+    """
+    inv = Invocation(
+        check="test/coverage-reach",
+        tool="pytest-cov",
+        argv=("pytest", "--cov-branch", "--cov-report=term-missing"),
+        completion=("--cov=fixture_app",),
+        note="`<pkg>` is a placeholder the record leaves to the caller",
+        record_quote=(
+            "`pytest --cov=<pkg> --cov-branch --cov-report=term-missing` (or "
+            "`coverage run -m pytest` + `coverage report --show-missing`)."
+        ),
+    )
+    assert _demoted_tokens(inv) == []
+    marked = _concrete(_tokens(inv.record_quote))
+    assert any(_matches(w, "--cov=fixture_app") for w in marked)
 
 
 def test_every_python_tool_in_the_family_is_invoked():
@@ -817,17 +905,19 @@ def test_folding_a_completion_into_the_argv_breaks_the_anchor():
     the argv alone traces through the record's sentence and the argv carrying
     its completion does not.
 
-    One direction only, and the other has no guard anywhere. This holds that a
-    completion has not been folded into `argv`; nothing holds that a token the
-    record does prescribe has not been moved the other way, out of `argv` and into
-    `completion`. Moved that way the run stays correct and every property passes:
-    the shorter argv still traces through the quote, and the coverage property
-    reads `argv_for`, which re-appends the completion before matching. What
-    inverts is the published provenance - the round would report that a record
-    failed to prescribe a flag the record bolds, and since this round's deliverable
-    is the list of records needing correction, that is the output falsified under a
-    green suite. Read a `note` claiming a record omitted something as a claim to
-    check against the record, not as one this file has verified.
+    The other direction is held by
+    `test_a_token_the_record_prescribes_never_hides_in_the_completion` rather
+    than here, and neither implies the other: this one holds that a completion
+    has not been folded into `argv`, that one holds that a token the record
+    writes concretely has not been moved the other way. The move that way was
+    what left every property in this file green while inverting the published
+    provenance - the shorter argv still traces through the quote, and the
+    coverage property reads `argv_for`, which re-appends the completion before
+    matching - so the round would report that a record failed to prescribe a
+    flag the record bolds. A `note` claiming the record omitted a token the
+    record writes concretely is now checked against the record's own sentence.
+    One about a placeholder the record leaves to the caller is not, and stays a
+    claim to read against the record rather than one this file has verified.
     """
     completed = [i for i in INVOCATIONS if i.completion]
     assert len(completed) == 13, len(completed)
@@ -838,6 +928,47 @@ def test_folding_a_completion_into_the_argv_breaks_the_anchor():
         assert not _is_subsequence(
             _tokens(" ".join((*argv, *inv.completion))), quote
         ), (inv.check, inv.tool, inv.completion)
+
+
+def test_a_token_the_record_prescribes_never_hides_in_the_completion():
+    """The direction the folding guard above does not run.
+
+    That one holds that a completion has not been folded into `argv`. This one
+    holds the opposite move, which leaves every other property in this file
+    green: a token the record writes concretely, sitting in `completion` as
+    though the record had omitted it.
+
+    One entry genuinely cannot satisfy it, and the reason is structural rather
+    than a judgement. `docs/docstring-coverage` runs `ruff check --select D`
+    against a record naming ruff's `D` rules, so `D` is prescribed - but a
+    completion is *appended*, and putting `D` in the argv would need `check
+    --select` inserted between `ruff` and it. The exception is asserted rather
+    than merely allowed, so a record that grows a real command line fails here
+    instead of carrying a dead exception.
+
+    The rule fails safe in the direction it does not guard. A future completion
+    token colliding with a word of its own quote's prose fails loudly and gets
+    named or corrected; nothing about that direction passes in silence.
+    """
+    demoted = {
+        # `ruff check --select D` against "`ruff` `D` rules": `D` is prescribed
+        # and cannot reach the argv, because `check --select` would have to be
+        # inserted rather than appended.
+        ("docs/docstring-coverage", "ruff"),
+    }
+    seen = set()
+    for inv in INVOCATIONS:
+        hits = _demoted_tokens(inv)
+        if (inv.check, inv.tool) in demoted:
+            assert hits, (inv.check, inv.tool)
+            seen.add((inv.check, inv.tool))
+        else:
+            assert not hits, (
+                f"{inv.check}/{inv.tool}: {hits} sits in `completion` while the "
+                "record's own sentence writes it, so the round reports a "
+                "prescription the record makes as one it omitted"
+            )
+    assert seen == demoted, "an exception nothing exercises is a stale exception"
 
 
 def test_an_invocation_names_a_check_that_exists_and_a_partition_that_does():
