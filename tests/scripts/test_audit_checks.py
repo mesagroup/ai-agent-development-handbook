@@ -536,6 +536,47 @@ def test_an_unknown_route_key_is_rejected(tmp_path):
     assert any("runner" in e for e in errors), errors
 
 
+@pytest.mark.parametrize(
+    "field,route_body",
+    [
+        ("tool", "kind: command\n    tool: [t]\n    argv: [t]"),
+        (
+            "package",
+            "kind: command\n    tool: t\n    package: [t]\n    argv: [t]",
+        ),
+        (
+            "argv_by_manager",
+            "kind: command\n    tool: t\n    argv: [t]\n    argv_by_manager: [x]",
+        ),
+        (
+            "argv_by_manager",
+            "kind: command\n    tool: t\n    argv: [t]\n"
+            "    argv_by_manager:\n      pnpm: not-a-list",
+        ),
+        ("in_env", "kind: command\n    tool: t\n    argv: [t]\n    in_env: maybe"),
+        (
+            "applies_when",
+            "kind: command\n    tool: t\n    argv: [t]\n    applies_when: [oops]",
+        ),
+        (
+            "alone_insufficient",
+            "kind: command\n    tool: t\n    argv: [t]\n    alone_insufficient: [oops]",
+        ),
+        ("note", "kind: command\n    tool: t\n    argv: [t]\n    note: [oops]"),
+    ],
+)
+def test_a_wrong_typed_route_field_is_rejected(tmp_path, field, route_body):
+    """The review named eight validation branches in `_load_routes` with no
+    test of their own: `tool`, `package`, `argv_by_manager` (both its own
+    mapping type and a per-manager entry's list type), `in_env`,
+    `applies_when`, `alone_insufficient` and `note` each reject a
+    wrong-typed value. Assert only that the field name appears in the
+    message, not the message's full text.
+    """
+    errors = _errors_for_route(tmp_path, route_body)
+    assert any(field in e for e in errors), errors
+
+
 def test_a_record_may_not_carry_both_schemas(tmp_path):
     errors = _errors_for_both_schemas(tmp_path)
     assert any("routes" in e and "tooling" in e for e in errors), errors
@@ -652,62 +693,146 @@ Fixture body.
     assert check.needs == {"resolved-tree": ("pydeps",)}
 
 
-def test_an_any_route_contributes_to_every_named_language():
-    """No record in the tree uses `lang: any` yet - #58's schema pilot
-    introduces it - so this exercises `_project_tooling` directly on a
-    synthetic set of routes rather than asserting behaviour against a real
-    record that does not exist.
+def test_a_lang_any_route_projects_under_the_literal_any_key(tmp_path):
+    """`tooling: {any: [...]}` was the legacy shape for a language-agnostic
+    tool - every reader looks a language up with `.get(lang, ())`, so an
+    `any` tool is deliberately invisible to a `python`/`typescript` lookup.
+    A migrated record's `lang: any` route must project the same way: under
+    the literal `"any"` key, not fanned out to every language the record
+    also names.
     """
-    routes = (
-        ac.Route(
-            lang="python",
-            kind="command",
-            tool="pydeps",
-            package="pydeps",
-            argv=("pydeps",),
-            argv_by_manager={},
-            disposition="runs",
-            needs=None,
-            in_env=False,
-            findings_stream="stdout",
-            applies_when=None,
-            alone_insufficient=None,
-            note=None,
-        ),
-        ac.Route(
-            lang="typescript",
-            kind="command",
-            tool="madge",
-            package="madge",
-            argv=("madge",),
-            argv_by_manager={},
-            disposition="runs",
-            needs=None,
-            in_env=False,
-            findings_stream="stdout",
-            applies_when=None,
-            alone_insufficient=None,
-            note=None,
-        ),
-        ac.Route(
-            lang="any",
-            kind="library",
-            tool="semgrep",
-            package="semgrep",
-            argv=(),
-            argv_by_manager={},
-            disposition="runs",
-            needs=None,
-            in_env=False,
-            findings_stream="stdout",
-            applies_when=None,
-            alone_insufficient=None,
-            note=None,
-        ),
-    )
-    assert ac._project_tooling(routes) == {
-        "python": ("pydeps", "semgrep"),
-        "typescript": ("madge", "semgrep"),
+    text = """---
+id: demo/thing
+domain: demo
+locality: local
+handbook: []
+handbook_note: Fixture record for route tests.
+routes:
+  - lang: any
+    kind: library
+    tool: semgrep
+---
+
+# Thing
+
+Fixture body.
+"""
+    _write(tmp_path, "demo-audit/checks/thing.md", text)
+    checks, errors = ac.load_checks(tmp_path)
+    assert errors == [], errors
+    assert checks["demo/thing"].tooling == {"any": ("semgrep",)}
+
+
+def test_an_any_route_does_not_fan_into_a_named_language(tmp_path):
+    """A record naming both a `python` route and an `any` route must keep
+    the `any` tool out of `tooling["python"]` - fanning it out would hand
+    a check like `arch/size` (an `any`-only record today) Python
+    invocations it does not have, and would change which records a
+    Python lens believes it must cover.
+    """
+    text = """---
+id: demo/thing
+domain: demo
+locality: local
+handbook: []
+handbook_note: Fixture record for route tests.
+routes:
+  - lang: python
+    kind: command
+    tool: pydeps
+    argv: [pydeps]
+  - lang: any
+    kind: library
+    tool: semgrep
+---
+
+# Thing
+
+Fixture body.
+"""
+    _write(tmp_path, "demo-audit/checks/thing.md", text)
+    checks, errors = ac.load_checks(tmp_path)
+    assert errors == [], errors
+    check = checks["demo/thing"]
+    assert check.tooling == {"python": ("pydeps",), "any": ("semgrep",)}
+
+
+def test_a_forbidden_route_is_excluded_from_both_projections(tmp_path):
+    """A `disposition: forbidden` route names a command the record warns
+    against - the npm `semgrep` placeholder, the bare `dlx depcruise` - so
+    projecting it into `tooling`/`needs` would tell the lens to check a
+    tool the record forbids. `depcruise` appears only on the forbidden
+    route here, so it must not appear in either projection at all; `madge`
+    appears on an ordinary route and must appear normally.
+    """
+    text = """---
+id: demo/thing
+domain: demo
+locality: local
+handbook: []
+handbook_note: Fixture record for route tests.
+routes:
+  - lang: typescript
+    kind: command
+    tool: depcruise
+    argv: [dlx, depcruise]
+    disposition: forbidden
+  - lang: typescript
+    kind: command
+    tool: madge
+    argv: [madge]
+    needs: resolved-tree
+---
+
+# Thing
+
+Fixture body.
+"""
+    _write(tmp_path, "demo-audit/checks/thing.md", text)
+    checks, errors = ac.load_checks(tmp_path)
+    assert errors == [], errors
+    check = checks["demo/thing"]
+    assert check.tooling == {"typescript": ("madge",)}
+    assert check.needs == {"resolved-tree": ("madge",)}
+
+
+def test_alternative_and_superseded_routes_do_contribute(tmp_path):
+    """Unlike `forbidden`, an `alternative` or `superseded` route is a tool
+    the record does offer - just not the one it runs by default - so both
+    must still appear in the `tooling` projection.
+    """
+    text = """---
+id: demo/thing
+domain: demo
+locality: local
+handbook: []
+handbook_note: Fixture record for route tests.
+routes:
+  - lang: python
+    kind: command
+    tool: import-linter
+    argv: [lint-imports]
+  - lang: python
+    kind: command
+    tool: tach
+    argv: [tach, check]
+    disposition: alternative
+  - lang: python
+    kind: command
+    tool: pydeps
+    argv: [pydeps, --show-cycles]
+    disposition: superseded
+---
+
+# Thing
+
+Fixture body.
+"""
+    _write(tmp_path, "demo-audit/checks/thing.md", text)
+    checks, errors = ac.load_checks(tmp_path)
+    assert errors == [], errors
+    assert checks["demo/thing"].tooling == {
+        "python": ("import-linter", "tach", "pydeps")
     }
 
 

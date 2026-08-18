@@ -170,12 +170,14 @@ _TITLE_RE = re.compile(r"^# (.+?)\s*$", re.MULTILINE)
 class Route:
     """One way of answering one check in one language.
 
-    Three axes the record's prose used to write as a single sentence. `kind`
+    Three axes a record's prose used to write as a single sentence. `kind`
     says what the thing is, `disposition` says whether the harness takes this
     route, and `applies_when` says what the target must carry for the route to
-    be available at all. Reading the eleven arch records is what separated
-    them: fourteen of its nineteen invocations prescribe no command, for four
-    different reasons that one list of tool names cannot tell apart.
+    be available at all. They stay separate fields because one list of tool
+    names cannot tell a library apart from a command conditional on a target
+    artifact from a tool that is the check's subject rather than its
+    instrument - three different reasons a route might prescribe no command,
+    each needing its own field to be checked rather than read as prose.
     """
 
     lang: str
@@ -468,26 +470,23 @@ def _project_tooling(routes: tuple[Route, ...]) -> dict[str, tuple[str, ...]]:
 
     Returns:
         Language to the tools offered in that language, in route order,
-        duplicates collapsed. A `lang: any` route's tool is folded into
-        every language the record otherwise names - the languages of its
-        `python`/`typescript` routes - matching what `tooling: {any: [...]}`
-        meant before routes existed. A route naming no tool contributes
-        nothing.
+        duplicates collapsed. A `lang: any` route projects under the literal
+        `"any"` key, exactly as `tooling: {any: [...]}` did before routes
+        existed - every reader of `Check.tooling` already looks a language
+        up with `.get(lang, ())`, so an `any` tool stays invisible to a
+        `python`/`typescript` lookup precisely as it did before. A
+        `disposition: forbidden` route contributes nothing: the record is
+        warning against that tool, not offering it, though the same tool
+        offered by another route in the record still appears. A route
+        naming no tool contributes nothing either.
     """
-    named_langs = sorted({r.lang for r in routes if r.lang not in ("any", "none")})
-    per_lang: dict[str, list[str]] = {lang: [] for lang in named_langs}
+    per_lang: dict[str, list[str]] = {}
     for route in routes:
-        if route.tool is None:
+        if route.tool is None or route.disposition == "forbidden":
             continue
-        if route.lang == "any":
-            targets = named_langs
-        elif route.lang == "none":
-            targets = []
-        else:
-            targets = [route.lang]
-        for lang in targets:
-            if route.tool not in per_lang[lang]:
-                per_lang[lang].append(route.tool)
+        tools = per_lang.setdefault(route.lang, [])
+        if route.tool not in tools:
+            tools.append(route.tool)
     return {lang: tuple(tools) for lang, tools in per_lang.items()}
 
 
@@ -496,7 +495,9 @@ def _project_needs(routes: tuple[Route, ...]) -> dict[str, tuple[str, ...]]:
 
     The same view as `_project_tooling`: a route's tier is the only place it
     is declared, and this only reshapes it for the pre-migration readers of
-    `Check.needs`.
+    `Check.needs`. A `disposition: forbidden` route contributes nothing here
+    either, for the same reason `_project_tooling` excludes it - the record
+    is warning against the tool, not offering it under that tier.
 
     Args:
         routes: The record's parsed routes.
@@ -507,7 +508,11 @@ def _project_needs(routes: tuple[Route, ...]) -> dict[str, tuple[str, ...]]:
     """
     per_tier: dict[str, list[str]] = {}
     for route in routes:
-        if route.needs is None or route.tool is None:
+        if (
+            route.needs is None
+            or route.tool is None
+            or route.disposition == "forbidden"
+        ):
             continue
         tools = per_tier.setdefault(route.needs, [])
         if route.tool not in tools:
