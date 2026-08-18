@@ -124,15 +124,27 @@ def _is_subsequence(needle: list[str], haystack: list[str]) -> bool:
     command whose transcription drops `--cov=<pkg>` from the middle, and a
     contiguity test would fail on a correct entry.
 
-    Token equality is `_matches` rather than `==`, so a needle `_concrete` has
-    reduced to a prefix still finds the value the caller supplied for it.
+    Token equality goes through `_matches` rather than `==`, but every caller
+    passes unmarked tokens, so today that reduces to `==` on every comparison this
+    makes. The anchor guards pass `_tokens` output, and a record's own tokens close
+    a placeholder with `>` rather than the `<` that marks a truncation; the
+    coverage property passes the tokens it has already filtered to the unmarked
+    ones, holding order there and presence separately for the marked ones. Calling
+    `_matches` is what keeps a marked needle behaving as a prefix if a caller ever
+    hands one over, rather than silently demanding the mark be matched literally.
     """
     remaining = iter(haystack)
     return all(any(_matches(token, word) for word in remaining) for token in needle)
 
 
 def _spans(paragraph: str) -> list[str]:
-    """Every backtick span in the paragraph, in order, duplicates collapsed."""
+    """Every backtick span in the paragraph, in order, duplicates collapsed.
+
+    Collapsed because a record naming the same command twice prescribes it once,
+    and every reader of this is a set membership or an equality against a
+    declaration that carries each form once. Kept in order because a reader of the
+    list wants the paragraph's own sequence when a failure names a span.
+    """
     return list(dict.fromkeys(re.findall(r"`([^`]+)`", paragraph)))
 
 
@@ -271,7 +283,7 @@ def _fallback_paragraphs(check: str) -> list[tuple[str, str]]:
     return out
 
 
-# --- the extractor helpers (Task 2) -------------------------------------------
+# --- the extractor helpers ----------------------------------------------------
 
 
 def test_a_span_that_is_only_the_tool_name_is_a_mention_not_a_form():
