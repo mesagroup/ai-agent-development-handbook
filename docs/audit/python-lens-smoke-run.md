@@ -1,6 +1,6 @@
 # Python lens smoke run
 
-Every `python:` tooling entry in `arch`, `deps`, `docs`, `security` and `test` was authored from the tools' own documentation and had never been executed at all under both grant states. This record is what happened when they were run against five seeded Python partitions, on **2026-08-14**. It exists because a docs-only pass cannot catch the defect where a name resolves, a command runs, and the output is unusable or wrong at exit 0.
+Every `python:` tooling entry in `arch`, `deps`, `docs`, `security` and `test` was authored from the tools' own documentation and had never been executed at all under both grant states. This record is what happened when they were run against five seeded Python partitions, on **2026-08-14**; the `arch/cycles` cell carries a date of its own, stated in the section that holds it. It exists because a docs-only pass cannot catch the defect where a name resolves, a command runs, and the output is unusable or wrong at exit 0.
 
 The subject here is the **skill family**, not the fixture partitions: what appears below is tool behaviour, aggregate counts, and the corrections the run forced. [The build smoke record](python-fixture-build-smoke.md) is the sibling document for the fixture machinery itself - what was generated, which seed each planted construct produced when a tool was pointed at it directly, and the measured `pytest-randomly` shuffle seed. This record grades a different thing: whether each check record's own prescribed invocation, run under the grant state its `needs` tiers imply, reaches that same answer.
 
@@ -60,6 +60,21 @@ The results carry a top-level `versions` map, captured through the same launcher
 | `bandit` | 1.9.4 |
 | `semgrep` | 1.173.0 |
 
+## The `arch/cycles` cell, 2026-08-18
+
+`arch/cycles` carries three Python tools and one command between them, and it runs on the `uv` partition only; `pydeps` carries the `resolved-tree` tier, so that command's whole surface is a single cell, `uv` under `target-execution`. This cell was measured on **2026-08-18** against a fixture tree rebuilt from the same generator, and it carries its own versions rather than the table above: `uvx` resolves a tool's latest release at run time, so a version read off another day's run is a version nobody probed. `pydeps` v3.0.7, `import-linter` 2.13, `grimp` 3.15.
+
+`pydeps --show-cycles --show-dot src/fixture_app`, launched through `uvx`, exits 0 with 564 bytes on stdout and nothing on stderr. The dot source it prints carries the seeded two-module cycle as both of its directed edges:
+
+```
+    fixture_app_domain_model -> fixture_app_infra_store [fillcolor="blue",minlen="2"];
+    fixture_app_infra_store -> fixture_app_domain_model [fillcolor="blue",minlen="2"];
+```
+
+Those two are the whole edge set, and `fixture_app.domain.model` and `fixture_app.infra.store` the whole node set: `--show-cycles` restricts the graph to the modules on a cycle, so the printed dot source is the cycle rather than a graph a reader has to search for one. A node's identifier is its dotted module path with each `.` replaced by `_`, and its `label` carries the dotted form line-broken for the drawing, so an automated read matches identifiers rather than dotted names. `import-linter` and `grimp` produce nothing in this cell for the reasons the matrix already gives: the clone carries no `.importlinter` contract, and `grimp` is a library rather than a command.
+
+`git status --porcelain` was empty at the `uv` fixture tree before and after. The observation is written to a results file whose name carries the check's slug, so it sits beside the matrix artifact for the same cell rather than standing in for it.
+
 ## Result per entry
 
 `ok`/`met` means the entry produced the evidence its `## Severity` section or the published expectation asks for. `no-evidence` carries the reason the engine requires. `no command form` means the check's real route is a script, a library call, or a prose grep-and-read pass rather than a command line, so nothing here is broken - see the honesty limit below.
@@ -70,7 +85,7 @@ The results carry a top-level `versions` map, captured through the same launcher
 |---|---|---|
 | `ruff`, `radon`, `xenon` (`arch/complexity`) | **ok** - `ruff` computes `C901 classify is too complex (12 > 10)`, `radon` rates it C at 13, `xenon` exits 1 on `--max-absolute B` with its finding on stderr | ok, unchanged - untiered |
 | `ruff`/`radon`/`xenon` (`arch/complexity-gate`) | no command form - the primary route is reading the project's own configured threshold, and this fixture configures none | unchanged |
-| `import-linter`, `pydeps`, `grimp` (`arch/cycles`) | no-evidence - no `.importlinter` contract in the clone; `grimp` is a library, not a command | `pydeps --show-cycles` alone exits 0 with empty stdout and stderr over a tree with a real two-module cycle; `--show-dot` printing the cycle as text is a scratch-copy measurement, not an artifact of this matrix |
+| `import-linter`, `pydeps`, `grimp` (`arch/cycles`) | no-evidence - no `.importlinter` contract in the clone; `grimp` is a library, not a command | `pydeps --show-cycles` alone exits 0 with empty stdout and stderr over a tree with a real two-module cycle; with `--show-dot` the same tree prints both directed edges of that cycle on stdout, measured in the dated `arch/cycles` cell above |
 | `import-linter`, `tach`, `grimp` (`arch/layering`) | no command form for all three: the contract format, `tach`'s own configuration and `grimp`'s status as a library leave nothing to invoke | unchanged |
 | `grimp`, `pydeps` (`arch/coupling`) | no command form - computed from the same edge set / offered only as a picture | unchanged |
 | `grimp` (`arch/over-decomposition`) | no command form - computed from the edge set | unchanged |
@@ -130,7 +145,7 @@ The granted `mutmut run` generated 10 mutants in 77ms, then moved to its clean-t
 
 ### 3. `pydeps --show-cycles` has no textual output channel at all
 
-On the `uv` partition, `pydeps --show-cycles src/fixture_app` returns exit 0 with empty stdout and empty stderr over a tree carrying a real two-module cycle (`fixture_app.domain.model` and `fixture_app.infra.store`), and this half is in the matrix results. The tool draws its answer onto an SVG side-file rather than printing it, so "ran, exit 0, nothing on either stream" is this invocation's behaviour whether or not a cycle exists - indistinguishable to any caller that reads only the streams. `pydeps --show-cycles --show-dot` prints the underlying dot source as text, showing both directed edges of the cycle explicitly - measured in a scratch copy, not as an artifact of the ten-run matrix, whose harness never invoked this flag. `arch/cycles`'s record now appends `--show-dot` to the prescribed invocation for exactly this reason.
+On the `uv` partition, `pydeps --show-cycles src/fixture_app` returns exit 0 with empty stdout and empty stderr over a tree carrying a real two-module cycle (`fixture_app.domain.model` and `fixture_app.infra.store`), and this half is in the matrix results. The tool draws its answer onto an SVG side-file rather than printing it, so "ran, exit 0, nothing on either stream" is this invocation's behaviour whether or not a cycle exists - indistinguishable to any caller that reads only the streams. `pydeps --show-cycles --show-dot` prints the underlying dot source as text, showing both directed edges of the cycle explicitly, at exit 0 with 564 bytes on stdout and nothing on stderr - the dated `arch/cycles` cell above holds that observation, its command and the versions it probed. `arch/cycles`'s record prescribes `--show-dot` on the cycle invocation for exactly this reason.
 
 ### 4. `deps/inventory` has a working uv route, a poetry gap, and no licence field anywhere
 
