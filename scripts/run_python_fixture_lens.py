@@ -582,6 +582,7 @@ INVOCATIONS: tuple[Invocation, ...] = (
             "than running a tool, so there is no command to transcribe: running one "
             "measures code against a threshold, which is arch/complexity's question"
         ),
+        forms=(),
     ),
     Invocation(
         check="arch/complexity-gate",
@@ -591,6 +592,7 @@ INVOCATIONS: tuple[Invocation, ...] = (
             "number it never configured is a number nothing holds it to."
         ),
         note="the record prescribes no radon command for the gate question",
+        forms=(),
     ),
     Invocation(
         check="arch/complexity-gate",
@@ -600,6 +602,7 @@ INVOCATIONS: tuple[Invocation, ...] = (
             "its absence as a finding in its own right.**"
         ),
         note="the record prescribes no xenon command for the gate question",
+        forms=(),
     ),
     Invocation(
         check="arch/complexity",
@@ -609,6 +612,7 @@ INVOCATIONS: tuple[Invocation, ...] = (
             "`ruff check --select C901` or `radon cc` / `xenon`. Capture the metric "
             "per function."
         ),
+        forms=(("ruff check --select C901", "runs"),),
     ),
     Invocation(
         check="arch/complexity",
@@ -624,6 +628,7 @@ INVOCATIONS: tuple[Invocation, ...] = (
             "`ruff check --select C901` or `radon cc` / `xenon`. Capture the metric "
             "per function."
         ),
+        forms=(("radon cc", "runs"),),
     ),
     Invocation(
         check="arch/complexity",
@@ -646,6 +651,7 @@ INVOCATIONS: tuple[Invocation, ...] = (
             "`ruff check --select C901` or `radon cc` / `xenon`. Capture the metric "
             "per function."
         ),
+        forms=(),
     ),
     Invocation(
         check="arch/coupling",
@@ -658,6 +664,7 @@ INVOCATIONS: tuple[Invocation, ...] = (
             "grimp is a library the record asks to be computed with rather than a "
             "command, so the answer comes from a scripted pass over the built graph"
         ),
+        forms=(),
     ),
     Invocation(
         check="arch/coupling",
@@ -667,6 +674,7 @@ INVOCATIONS: tuple[Invocation, ...] = (
             "the record offers pydeps for a picture and says the counts are the "
             "evidence, so it prescribes no pydeps command for this check"
         ),
+        forms=(),
     ),
     Invocation(
         check="arch/cycles",
@@ -680,6 +688,7 @@ INVOCATIONS: tuple[Invocation, ...] = (
             "make the tool run would manufacture the configuration whose absence is "
             "what the run is meant to observe"
         ),
+        forms=(),
     ),
     Invocation(
         check="arch/cycles",
@@ -690,6 +699,10 @@ INVOCATIONS: tuple[Invocation, ...] = (
         record_quote=(
             "**Run `pydeps --show-cycles --show-dot`: `--show-cycles` alone has "
             "no textual output channel at all.**"
+        ),
+        forms=(
+            ("pydeps --show-cycles", "superseded"),
+            ("pydeps --show-cycles --show-dot", "runs"),
         ),
     ),
     Invocation(
@@ -702,6 +715,7 @@ INVOCATIONS: tuple[Invocation, ...] = (
             "running through it goes silently unreported rather than erroring."
         ),
         note="grimp's cycle detection runs on a graph a scripted pass builds",
+        forms=(),
     ),
     Invocation(
         check="arch/dead-code",
@@ -718,6 +732,7 @@ INVOCATIONS: tuple[Invocation, ...] = (
             "framework hooks, dynamic dispatch, and re-exports; verify before "
             "deleting)."
         ),
+        forms=(),
     ),
     Invocation(
         check="arch/hidden-coupling",
@@ -731,6 +746,7 @@ INVOCATIONS: tuple[Invocation, ...] = (
             "cannot answer this check, so the prescription is a grep-and-read pass "
             "rather than a grimp command"
         ),
+        forms=(),
     ),
     Invocation(
         check="arch/layering",
@@ -740,6 +756,7 @@ INVOCATIONS: tuple[Invocation, ...] = (
             "conditional on a contract the fixture does not carry, so the record "
             "prescribes no command here"
         ),
+        forms=(),
     ),
     Invocation(
         check="arch/layering",
@@ -754,12 +771,14 @@ INVOCATIONS: tuple[Invocation, ...] = (
             "tach is offered as the alternative to a contract and the record names no "
             "tach command; its own configuration is absent from the fixture too"
         ),
+        forms=(),
     ),
     Invocation(
         check="arch/layering",
         tool="grimp",
         record_quote="Record the offending `file:line` for each violation.",
         note="grimp builds the edge set the record asks to be walked",
+        forms=(),
     ),
     Invocation(
         check="arch/martin-metrics",
@@ -768,6 +787,7 @@ INVOCATIONS: tuple[Invocation, ...] = (
             "Record `Ca`, `Ce`, `I`, `A` and `D` per package; `D` is the evidence."
         ),
         note="the metrics are computed from the graph rather than reported by a command",
+        forms=(),
     ),
     Invocation(
         check="arch/over-abstraction",
@@ -777,6 +797,7 @@ INVOCATIONS: tuple[Invocation, ...] = (
             "sites (`grimp` refs or a scoped grep); **one** is the trigger."
         ),
         note="grimp refs are counted from the built graph rather than from a command",
+        forms=(),
     ),
     Invocation(
         check="arch/over-decomposition",
@@ -786,6 +807,7 @@ INVOCATIONS: tuple[Invocation, ...] = (
             "the evidence."
         ),
         note="the shape is computed from the same edge set rather than by a command",
+        forms=(),
     ),
     # --- deps ---------------------------------------------------------------
     Invocation(
@@ -815,6 +837,10 @@ INVOCATIONS: tuple[Invocation, ...] = (
             "that nothing is outdated - it can equally be evidence the command never "
             "found the environment."
         ),
+        forms=(
+            ("uv pip list --outdated", "superseded"),
+            ("uv pip list --outdated --python <path-to-venv-python>", "runs"),
+        ),
     ),
     Invocation(
         check="deps/freshness",
@@ -826,6 +852,7 @@ INVOCATIONS: tuple[Invocation, ...] = (
             "installed environment rather than the lockfile, so they need the tree "
             "resolved."
         ),
+        forms=(("pip list --outdated", "runs"),),
     ),
     Invocation(
         check="deps/hygiene",
@@ -846,6 +873,7 @@ INVOCATIONS: tuple[Invocation, ...] = (
             "`deptry` reads installed distribution metadata, so it must run inside the "
             "project's own environment."
         ),
+        forms=(),
     ),
     Invocation(
         check="deps/inventory",
@@ -884,6 +912,10 @@ INVOCATIONS: tuple[Invocation, ...] = (
             "produces a well-formed CycloneDX 1.5 document (6 components, "
             "`specVersion` 1.5, no `licenses` field)."
         ),
+        forms=(
+            ("cyclonedx-py environment", "alternative"),
+            ("cyclonedx-py poetry", "runs"),
+        ),
     ),
     Invocation(
         check="deps/licenses",
@@ -894,6 +926,7 @@ INVOCATIONS: tuple[Invocation, ...] = (
             "`pip-licenses`, or read each installed dist's `*.dist-info/METADATA` "
             "(`License` + `Classifier: License ::`)."
         ),
+        forms=(("pip-licenses --format json", "alternative"),),
     ),
     Invocation(
         check="deps/transitive-licenses",
@@ -905,6 +938,7 @@ INVOCATIONS: tuple[Invocation, ...] = (
             "section states; this check differs in how far down the graph the answer "
             "has to hold, not in what produces it."
         ),
+        forms=(),
     ),
     Invocation(
         check="deps/vulnerabilities",
@@ -967,6 +1001,11 @@ INVOCATIONS: tuple[Invocation, ...] = (
             "its own throwaway virtualenv to resolve it, so it needs network rather "
             "than the target's tree."
         ),
+        forms=(
+            ("pip-audit --locked .", "runs"),
+            ("pip-audit -r <requirements>", "superseded"),
+            ("pip-audit -r <requirements> --no-deps --disable-pip", "runs"),
+        ),
     ),
     Invocation(
         check="deps/vulnerabilities",
@@ -979,6 +1018,7 @@ INVOCATIONS: tuple[Invocation, ...] = (
             "the record names safety as the alternative and prescribes no command, "
             "and says it cannot run unauthenticated whatever else is true"
         ),
+        forms=(),
     ),
     # --- docs ---------------------------------------------------------------
     Invocation(
@@ -994,6 +1034,7 @@ INVOCATIONS: tuple[Invocation, ...] = (
             "`ruff` `D` rules / `pydocstyle` / `interrogate` if present, else an "
             "AST/grep sweep."
         ),
+        forms=(),
     ),
     Invocation(
         check="docs/docstring-coverage",
@@ -1003,6 +1044,7 @@ INVOCATIONS: tuple[Invocation, ...] = (
             "`ruff` `D` rules / `pydocstyle` / `interrogate` if present, else an "
             "AST/grep sweep."
         ),
+        forms=(),
     ),
     Invocation(
         check="docs/docstring-coverage",
@@ -1017,6 +1059,7 @@ INVOCATIONS: tuple[Invocation, ...] = (
             "pydocstyle and interrogate both default to the working directory, so the "
             "bare name is runnable for them"
         ),
+        forms=(),
     ),
     # --- security -----------------------------------------------------------
     *tuple(
@@ -1043,6 +1086,7 @@ INVOCATIONS: tuple[Invocation, ...] = (
                     "project standardizes on ruff, or `semgrep --config p/python` for "
                     "dataflow-aware rules."
                 ),
+                forms=(("bandit -r <pkg>", "runs"),),
             ),
             Invocation(
                 check=check,
@@ -1054,6 +1098,7 @@ INVOCATIONS: tuple[Invocation, ...] = (
                     "project standardizes on ruff, or `semgrep --config p/python` for "
                     "dataflow-aware rules."
                 ),
+                forms=(("ruff check --select S", "runs"),),
             ),
             Invocation(
                 check=check,
@@ -1065,6 +1110,7 @@ INVOCATIONS: tuple[Invocation, ...] = (
                     "project standardizes on ruff, or `semgrep --config p/python` for "
                     "dataflow-aware rules."
                 ),
+                forms=(("semgrep --config p/python", "runs"),),
             ),
         )
     ),
@@ -1083,6 +1129,7 @@ INVOCATIONS: tuple[Invocation, ...] = (
             "`pytest --cov=<pkg> --cov-branch --cov-report=term-missing` (or `coverage "
             "run -m pytest` + `coverage report --show-missing`)."
         ),
+        forms=(),
     ),
     Invocation(
         check="test/coverage-reach",
@@ -1098,6 +1145,7 @@ INVOCATIONS: tuple[Invocation, ...] = (
             "the record prescribes two commands in sequence for this route, so the "
             "second is held in `then` rather than dropped"
         ),
+        forms=(),
     ),
     Invocation(
         check="test/determinism",
@@ -1109,6 +1157,7 @@ INVOCATIONS: tuple[Invocation, ...] = (
             "the command is `pytest` itself; re-run a failing order with `pytest "
             "--randomly-seed=<n>`."
         ),
+        forms=(),
     ),
     Invocation(
         check="test/determinism",
@@ -1131,6 +1180,7 @@ INVOCATIONS: tuple[Invocation, ...] = (
             "the record asks for repeat runs and names no flag, so this plugin's own "
             "`--reruns` is nowhere in the prescription"
         ),
+        forms=(),
     ),
     Invocation(
         check="test/isolation",
@@ -1145,6 +1195,7 @@ INVOCATIONS: tuple[Invocation, ...] = (
             "is written against"
         ),
         record_quote="`pytest --durations=25` for the slowest tests; check unit tests for real I/O.",
+        forms=(),
     ),
     Invocation(
         check="test/mutation",
@@ -1152,6 +1203,10 @@ INVOCATIONS: tuple[Invocation, ...] = (
         argv=("mutmut", "run"),
         in_env=True,
         record_quote="**Python** - `mutmut run` or `cosmic-ray`.",
+        forms=(
+            ("mutmut results", "alternative"),
+            ("mutmut run", "runs"),
+        ),
     ),
     Invocation(
         check="test/mutation",
@@ -1170,6 +1225,7 @@ INVOCATIONS: tuple[Invocation, ...] = (
             "empty rather than run bare, which would report a record with no runnable "
             "command as a tool that failed"
         ),
+        forms=(),
     ),
     Invocation(
         check="test/property-based-gap",
@@ -1183,6 +1239,7 @@ INVOCATIONS: tuple[Invocation, ...] = (
             "a library imported inside the partition's own tests rather than a runner, "
             "so the record prescribes a reading pass and no command"
         ),
+        forms=(),
     ),
 )
 
