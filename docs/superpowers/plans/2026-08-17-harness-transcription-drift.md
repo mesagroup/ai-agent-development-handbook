@@ -788,7 +788,11 @@ for i in m.INVOCATIONS:
 "
 ```
 
-Expected: this prints the cases where a tool's command form appears in the fallback section outside the quoted paragraph. If it prints nothing, the property holds clean. If it prints rows, each is either real drift to repair or a legitimate mention in another language's paragraph, which becomes a named exception carrying the same "an exception nothing exercises is a stale exception" assertion the `unanchored` set already uses.
+Expected: rows, and the shape of them is already measured. All four `security/*` records will appear, because `semgrep` is one tool named in both the `**Python**` and the `**TypeScript**` paragraph of the same `## Tooling fallback` section - `semgrep scan --config p/javascript` is a legitimate sibling-language prescription, not drift. A named exception set is the wrong instrument for that: it would list four records today and grow with every tool any two language paragraphs share.
+
+Scope the property by review-lens label instead. Records prefix each language paragraph with `**<Label>** - `, so a paragraph carrying a label other than the one this lens reads is legitimately unwatched by it, and the property should skip those lines rather than except the records. What must still fail is a span in an **unlabelled** paragraph of the fallback section, which is where a correction would actually land - the shape Task 4 found in `arch/complexity-gate`, whose prescription sits in an unlabelled bolded directive.
+
+Two spans you will see and should report as confirmation rather than defects: `ruff --select C901` in `arch/complexity-gate`'s `## Fix` section, and `uv lock` in `deps/freshness`'s. Both sit outside `## Tooling fallback` and are correctly beyond this property's reach.
 
 - [ ] **Step 5: Write the containment property**
 
