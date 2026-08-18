@@ -324,9 +324,29 @@ def grade_rows(run: Run) -> list[Row]:
     entry whose check the spec no longer recognizes disappears silently while
     every expectation row still renders, and the worksheet reads as full
     coverage of a run it did not fully account for.
+
+    A run carrying `only_check` narrows that scope to the one check it ran.
+    `main` grades every `*.json` in a directory, so a one-check run sits beside
+    the full matrix artifact for the same partition and grant; graded against
+    the whole partition it would render a row per expectation it never ran, each
+    reading `(no observation)` beside the matrix row that did observe it - a
+    reported absence where the truth is that the run never claimed the scope. An
+    empty value is the full run the harness writes it as, not a filter matching
+    nothing, and a value naming a check the partition does not carry raises
+    rather than grading to zero rows: nothing the harness writes produces that
+    pair, so it is a hand-edited or outlived file, and reporting it as a run with
+    nothing to cover is the silence this module exists to break.
     """
     partition = str(run.get("partition", ""))
     expectations = expectations_for(partition)
+    only_check = str(run.get("only_check", ""))
+    if only_check:
+        expectations = tuple(e for e in expectations if e.check == only_check)
+        if not expectations:
+            raise ValueError(
+                f"run names only_check {only_check!r} and no expectation carries "
+                f"that check on the {partition} partition"
+            )
     rows = [grade_row(expectation, run) for expectation in expectations]
     known_checks = {expectation.check for expectation in expectations}
     orphan_checks = sorted(

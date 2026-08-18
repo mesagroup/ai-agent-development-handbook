@@ -131,6 +131,64 @@ def test_grade_rows_covers_every_expectation_the_partition_carries(grader, spec)
     assert len(rows) == len(spec.expectations_for("poetry"))
 
 
+def test_a_run_naming_one_check_is_graded_against_that_check_alone(grader):
+    """A one-check run's scope is what it says, not its partition's.
+
+    `main` grades every `*.json` in the directory, so a filtered run sits beside
+    the full matrix artifact for the same partition and grant. Graded against
+    the whole partition it would render a row per expectation, every one it did
+    not run reading `(no observation)` - twenty-five such rows on `uv`,
+    contradicting the matrix rows beside them and reading as coverage that was
+    lost rather than as scope that was never claimed.
+    """
+    run = {
+        "partition": "uv",
+        "grant": "target-execution",
+        "only_check": "arch/cycles",
+        "results": [
+            {
+                "check": "arch/cycles",
+                "tool": "pydeps",
+                "ran": True,
+                "status": "ok",
+                "stdout": "a -> b",
+                "stderr": "",
+            }
+        ],
+    }
+    rows = grader.grade_rows(run)
+    assert [r.check for r in rows] == ["arch/cycles"]
+    assert rows[0].observations[0].tool == "pydeps"
+
+
+def test_an_empty_only_check_is_a_full_run_rather_than_a_filter(grader, spec):
+    """The harness writes the key on every run, empty where nothing was filtered.
+
+    Reading an empty value as a filter would grade a full matrix against no
+    expectation at all and render nothing, which is the same silent hole the
+    orphan row exists to close.
+    """
+    run = {"partition": "poetry", "grant": "none", "only_check": "", "results": []}
+    assert len(grader.grade_rows(run)) == len(spec.expectations_for("poetry"))
+
+
+def test_a_filter_naming_a_check_the_partition_lacks_is_refused(grader):
+    """Nothing the harness writes produces this, and grading it silently would.
+
+    `invocations_for` refuses the pair, so a results file claiming it has been
+    hand-edited or has outlived the expectations. Rendering zero rows for it
+    would report a run that covered nothing as a run with nothing to cover.
+    """
+    run = {
+        "partition": "poetry",
+        "grant": "none",
+        "only_check": "arch/cycles",
+        "results": [],
+    }
+    with pytest.raises(ValueError, match="no expectation"):
+        grader.grade_rows(run)
+
+
 def test_an_orphan_entry_gets_its_own_row_instead_of_vanishing(grader, spec):
     """A results entry no expectation names must not disappear silently.
 
