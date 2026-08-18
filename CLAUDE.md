@@ -105,6 +105,8 @@ When dispatching any agent from a git worktree, pass the worktree's absolute roo
 
 New code ships with unit tests, and adding code must not lower coverage. Scripts are not exempt: load them with `importlib.util.spec_from_file_location` and exercise their pure helpers, with `scripts/` on `sys.path` via `tests/scripts/conftest.py`.
 
+Mutation checks against `scripts/run_python_fixture_lens.py` run with `PYTHONDONTWRITEBYTECODE=1`. Every mutation that table invites is a token moved from one field to another, so the source keeps its length, and a mutate-run-revert inside one second leaves both mtime and size unchanged - which is what `.pyc` invalidation compares, so the next run can honour the mutant's cached bytecode. It shows up as a failure on a byte-identical clean tree, or, in the direction that matters, as a green run over a mutation that should have failed.
+
 ## Errors
 
 No bare `except Exception: pass`. Every exception is reported to the caller with type and message, logged at the right level, or re-raised.
