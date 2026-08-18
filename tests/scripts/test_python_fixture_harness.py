@@ -434,6 +434,11 @@ def test_a_transcribed_command_occurs_in_the_sentence_that_prescribes_it():
                 continue
             anchored = _is_subsequence(_tokens(" ".join(argv)), quote)
             if (inv.check, inv.tool) in unanchored:
+                # Asserted, not merely recorded: an entry that has *become*
+                # anchored still counts as exercising its exception, so without
+                # this the exception outlives the defect it was written for and
+                # removing it depends on somebody noticing.
+                assert not anchored, (inv.check, inv.tool, partition, argv)
                 seen.add((inv.check, inv.tool))
             else:
                 assert anchored, (inv.check, inv.tool, partition, argv)
@@ -463,9 +468,16 @@ def test_folding_a_completion_into_the_argv_breaks_the_anchor():
 
 
 def test_an_invocation_names_a_check_that_exists_and_a_partition_that_does():
+    """Every field naming a partition, not only the one that maps commands.
+
+    `own_runner` is the one where a typo costs nothing visible: `prescribed`
+    falls back to a shared `argv` for any string, so an unknown partition passes
+    the field's own validation and then suppresses a prefix for a partition that
+    never runs.
+    """
     for inv in INVOCATIONS:
         assert _record_path(inv.check).exists(), inv.check
-        named = {p for p, _ in inv.argv_by_partition}
+        named = {p for p, _ in inv.argv_by_partition} | set(inv.own_runner)
         assert not named - set(PARTITIONS), (inv.check, sorted(named))
 
 
