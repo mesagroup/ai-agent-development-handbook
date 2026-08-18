@@ -412,10 +412,10 @@ def test_a_transcribed_command_occurs_in_the_sentence_that_prescribes_it():
     it breaks only when unrelated prose is reworded, and stays silent through
     exactly the edit it exists to catch.
 
-    Three entries genuinely cannot satisfy this, and each is named rather than
-    excused by a loophole in the rule: two because the record writes a
-    placeholder or delegates instead of naming a command, one because it
-    prescribes running the suite without naming what runs it.
+    The entries that genuinely cannot satisfy it are named rather than excused
+    by a loophole in the rule, and each is here because the record writes a
+    placeholder or delegates instead of naming a command - never because the
+    record names no command at all, which is a record to correct.
     """
     unanchored = {
         # The record delegates: "Same tools and same precedence as
@@ -424,9 +424,6 @@ def test_a_transcribed_command_occurs_in_the_sentence_that_prescribes_it():
         # The record writes `pip-audit -r <requirements>`; the fixture's own
         # file is what the placeholder resolves to.
         ("deps/vulnerabilities", "pip-audit"),
-        # The record prescribes running the suite in randomized order and names
-        # the plugin that randomizes it, never the runner that runs it.
-        ("test/determinism", "pytest-randomly"),
     }
     seen = set()
     for inv in INVOCATIONS:
@@ -791,6 +788,41 @@ def test_every_invoked_tool_resolves_to_a_package_that_can_be_fetched():
     ) == ("uvx", "--from", "cyclonedx-bom")
 
 
+def test_a_route_naming_its_own_runner_takes_no_prefix():
+    """And a sibling partition of the same entry still takes one.
+
+    Both directions on one entry, because the fetch is keyed on the entry's tool
+    and not on the command: a prefix suppressed for the whole entry would send
+    the partitions whose command really is `cyclonedx-py` off to a tool nothing
+    fetched, and a prefix applied to all of them would front a command that
+    never calls `cyclonedx-bom` with a fetch for it.
+    """
+    inv = _entry("deps/inventory", "cyclonedx-py")
+    for granted in (True, False):
+        assert launcher(inv, "uv", granted=granted) == ()
+        assert launcher(inv, "pip", granted=granted) == (
+            "uvx",
+            "--from",
+            "cyclonedx-bom",
+        )
+
+
+def test_the_version_probe_obtains_a_tool_its_route_never_fetches():
+    """The probe is not the record's command, so the suppression is not its own.
+
+    `own_runner` says one partition's *prescribed command* arrives complete.
+    `VERSION_PROBE` runs the tool's own `--version` instead, which still has to
+    be fetched - probed bare it would report a missing tool on the partition
+    where the record's route is fine, which reads as the tool being broken.
+    """
+    inv = _entry("deps/inventory", "cyclonedx-py")
+    assert launcher(inv, "uv", granted=True, honour_own_runner=False) == (
+        "uvx",
+        "--from",
+        "cyclonedx-bom",
+    )
+
+
 def test_a_route_that_runs_the_suite_brings_a_runner_the_fixture_does_not_declare():
     """The fixture declares no pytest, so `coverage run -m pytest` has none.
 
@@ -1089,16 +1121,20 @@ def test_the_sbom_route_is_the_partitions_own_dependency_file_in_every_case():
     The record prescribes "the subcommand matching the partition's own
     dependency file", which makes each row a separate claim about that record -
     and a row pointed at the wrong subcommand still runs a real tool and still
-    produces a document, so nothing downstream distinguishes it.
+    produces a document, so nothing downstream distinguishes it. The uv row is
+    the same claim about the same record: what it names there is the native
+    export, whose first word is `uv` rather than this entry's tool, which is why
+    that row is the one naming its own runner.
     """
     inv = _entry("deps/inventory", "cyclonedx-py")
     assert inv.argv_by_partition == (
-        ("uv", ()),
+        ("uv", ("uv", "export", "--format=cyclonedx1.5", "--frozen")),
         ("pip", ("cyclonedx-py", "requirements")),
         ("poetry", ("cyclonedx-py", "poetry")),
         ("pipenv", ("cyclonedx-py", "pipenv")),
         ("pylock", ()),
     )
+    assert inv.own_runner == ("uv",)
     assert {p for p, _ in inv.argv_by_partition} == set(PARTITIONS)
 
 
@@ -1110,7 +1146,7 @@ def test_a_supplied_route_is_exactly_the_two_named_holes():
 
     A supplied route is the audit's own answer to a hole the record leaves, and
     the rule that nothing corrects a record survives only while every one of
-    them is visible as supplied rather than prescribed. A fourth appearing
+    them is visible as supplied rather than prescribed. One appearing here
     unnoticed is a correction made by the harness.
     """
     supplied = {
@@ -1119,9 +1155,6 @@ def test_a_supplied_route_is_exactly_the_two_named_holes():
         for p, steps in i.supplied_by_partition
     }
     assert supplied == {
-        ("deps/inventory", "cyclonedx-py", "uv"): (
-            ("uv", "export", "--format", "cyclonedx1.5", "--frozen"),
-        ),
         ("deps/inventory", "cyclonedx-py", "pylock"): (
             ("uvx", "cyclonedx-py", "requirements", "pylock.toml"),
         ),
@@ -1191,6 +1224,52 @@ def test_a_supplied_route_refuses_to_travel_without_its_reason():
         )
 
 
+def test_an_own_runner_partition_needs_a_command_of_its_own_to_run():
+    """Named against nothing, the field silently covers no route at all.
+
+    The third shape - a partition carrying a supplied route as well - is
+    rejected by `_check_supplied` rather than here, from whichever side it is
+    written: with no prescribed command the first case below fires, and with one
+    the supplied guard does.
+    """
+    with pytest.raises(ValueError, match="has no prescribed command"):
+        Invocation(
+            check="deps/inventory",
+            tool="cyclonedx-py",
+            record_quote="x" * 40,
+            argv_by_partition=(("pip", ("cyclonedx-py", "requirements")),),
+            own_runner=("uv",),
+        )
+    with pytest.raises(ValueError, match="has no prescribed command"):
+        Invocation(
+            check="deps/inventory",
+            tool="cyclonedx-py",
+            record_quote="x" * 40,
+            own_runner=("uv",),
+            supplied_by_partition=(("uv", (("uv", "export"),)),),
+            supplied_note="why",
+        )
+    with pytest.raises(ValueError, match="both a prescribed route and a supplied"):
+        Invocation(
+            check="deps/inventory",
+            tool="cyclonedx-py",
+            record_quote="x" * 40,
+            argv_by_partition=(("uv", ("uv", "export")),),
+            own_runner=("uv",),
+            supplied_by_partition=(("uv", (("uv", "export"),)),),
+            supplied_note="why",
+        )
+    with pytest.raises(ValueError, match="own_runner partition takes no launcher"):
+        Invocation(
+            check="deps/hygiene",
+            tool="deptry",
+            record_quote="x" * 40,
+            argv=("deptry", "."),
+            in_env=True,
+            own_runner=("uv",),
+        )
+
+
 def test_a_form_carrying_an_unknown_disposition_is_rejected():
     with pytest.raises(ValueError, match="not one of"):
         Invocation(
@@ -1242,14 +1321,18 @@ def test_a_supplied_route_never_renders_as_the_records_own_command(
     )
     rows = {(r["check"], r["tool"]): r for r in observed["results"]}
 
+    # The other direction of the same provenance claim: this row's command is
+    # the record's own, so it renders as `record_argv` with no supplied step
+    # beside it and no launcher prefix in front of it.
     sbom = rows[("deps/inventory", "cyclonedx-py")]
-    assert sbom["record_argv"] == []
-    assert sbom["supplied"] == [
-        ["uv", "export", "--format", "cyclonedx1.5", "--frozen"]
+    assert sbom["record_argv"] == [
+        "uv",
+        "export",
+        "--format=cyclonedx1.5",
+        "--frozen",
     ]
-    assert (
-        sbom["supplied_note"] == _entry("deps/inventory", "cyclonedx-py").supplied_note
-    )
+    assert "supplied" not in sbom
+    assert sbom["command"] == sbom["record_argv"]
     assert sbom["ran"] is True
     assert sbom["status"] == "ok"
 
@@ -2277,4 +2360,22 @@ def test_a_granted_uv_partition_resolves_the_rerunfailures_probe_into_an_environ
     expected = ("uv", "run", "--with", "pytest-rerunfailures") + VERSION_PROBE[
         "pytest-rerunfailures"
     ]
+    assert expected in {tuple(c) for c in recorded}
+
+
+def test_the_uv_partition_still_probes_the_tool_its_sbom_route_never_runs(
+    tmp_path, monkeypatch
+):
+    """End to end through `probe_versions`, not just the `launcher` unit above.
+
+    The unit test fixes the argument; only this one fixes the call site, and the
+    call site is the whole of the behaviour: drop the override there and the
+    probe dispatches a bare `cyclonedx-py --version` on the partition whose
+    record names another tool's command, recording a missing tool as this tool's
+    version.
+    """
+    recorded = []
+    monkeypatch.setattr("run_python_fixture_lens._run", _fake_run(recorded))
+    probe_versions("uv", "target-execution", tmp_path, timeout=5)
+    expected = ("uvx", "--from", "cyclonedx-bom") + VERSION_PROBE["cyclonedx-py"]
     assert expected in {tuple(c) for c in recorded}

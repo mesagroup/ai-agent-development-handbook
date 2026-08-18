@@ -800,14 +800,15 @@ EXPECTATIONS = (
         "deps/inventory",
         (FULL_PARTITION,),
         "exact",
-        "`uv export --format cyclonedx1.5 --frozen` emits CycloneDX 1.5 listing the "
+        "`uv export --format=cyclonedx1.5 --frozen` emits CycloneDX 1.5 listing the "
         f"{len(declared())} declared dependencies plus markupsafe and pyparsing, both "
         "transitive. The record names this command for a uv-locked partition, "
         "cyclonedx-py having no uv subcommand, so the route is the record's rather "
-        "than the audit's invention. The harness still carries it as a supplied step "
-        "rather than as the prescribed command of its cyclonedx-py entry, because it "
-        "is not a cyclonedx-py command and a prescribed route takes that entry's "
-        "launcher prefix; the harness's note says so. No component carries a "
+        "than the audit's invention. The harness carries it as the prescribed command "
+        "of its cyclonedx-py entry for this partition, and puts nothing in front of "
+        "it: the command names its own runner, so fronting it with the fetch that "
+        "entry's tool name resolves to would obtain a package it never calls. No "
+        "component carries a "
         "licences field, which is a family finding rather than a fixture gap: no route "
         "this record offers populates licences on any partition, so an SBOM is not "
         "where this family's licence evidence comes from and deps/licenses owns it "
