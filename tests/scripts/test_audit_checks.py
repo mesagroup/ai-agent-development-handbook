@@ -796,6 +796,47 @@ Fixture body.
     assert check.needs == {"resolved-tree": ("madge",)}
 
 
+def test_a_forbidden_route_does_not_hide_the_same_tool_offered_elsewhere(tmp_path):
+    """The two tests above name a different tool on the forbidden route than
+    on the ordinary one, so neither would notice a regression that filtered
+    by tool name instead of by route - a record forbids an invocation, not
+    a tool, so the same tool run one way (`uvx semgrep`) and forbidden run
+    another way (`npx semgrep`) must still appear as offered, from the
+    route that offers it. This is the shape `security/injection` takes once
+    migrated: one tool, two routes, opposite dispositions.
+    """
+    text = """---
+id: demo/thing
+domain: demo
+locality: local
+handbook: []
+handbook_note: Fixture record for route tests.
+routes:
+  - lang: python
+    kind: command
+    tool: semgrep
+    argv: [uvx, semgrep, scan]
+    needs: resolved-tree
+  - lang: python
+    kind: command
+    tool: semgrep
+    argv: [npx, semgrep, scan]
+    disposition: forbidden
+    needs: resolved-tree
+---
+
+# Thing
+
+Fixture body.
+"""
+    _write(tmp_path, "demo-audit/checks/thing.md", text)
+    checks, errors = ac.load_checks(tmp_path)
+    assert errors == [], errors
+    check = checks["demo/thing"]
+    assert check.tooling == {"python": ("semgrep",)}
+    assert check.needs == {"resolved-tree": ("semgrep",)}
+
+
 def test_alternative_and_superseded_routes_do_contribute(tmp_path):
     """Unlike `forbidden`, an `alternative` or `superseded` route is a tool
     the record does offer - just not the one it runs by default - so both
