@@ -652,6 +652,44 @@ Refs #51" -- scripts/run_python_fixture_lens.py tests/scripts/test_python_fixtur
 - Consumes: everything from Tasks 1, 2 and 5.
 - Produces: the flag property, the coverage property, the vocabulary property and the containment property.
 
+- [ ] **Step 0: Extract by the command's own lead word, not by the tool's name, and drop the dead disposition**
+
+Task 5 populated the declarations and measured two things this task has to act on before any property is written.
+
+**Eleven entries declare no form while their record prescribes a command.** Seven of those are correct: their record names the tool bare, and a bare name is a mention rather than a form. The other four are blind spots, and they are blind because `_command_forms` keys on the tool's name while the record names a command led by something else. Measured, with the forms each one currently hides:
+
+| Entry | `argv[0]` | The form the tool-name rule cannot see |
+|---|---|---|
+| `test/coverage-reach` + `pytest-cov` | `pytest` | `pytest --cov=<pkg> --cov-branch --cov-report=term-missing` |
+| `test/coverage-reach` + `coverage.py` | `coverage` | `coverage run -m pytest` and `coverage report --show-missing` |
+| `test/determinism` + `pytest-randomly` | `pytest` | `pytest --randomly-seed=<n>` |
+| `test/isolation` + `pytest-timeout` | `pytest` | `pytest --durations=25` |
+
+Change the lead word from the tool's name to **the first token of the entry's own transcribed argv, falling back to the tool's name where the entry prescribes no command**. This keeps the guard anchored to one specific word, so it cannot misattribute `uv pip list --outdated` to the `pip` entry the way an anywhere-in-the-span rule would: that entry's argv leads with `pip`. Add a helper beside the others in the test module:
+
+```python
+def _lead_words(inv) -> set[str]:
+    """The words a form for this entry may lead with.
+
+    The tool's name is the obvious one and it is not enough: a record names the
+    command it wants run, and that command's first word is often a runner rather
+    than the tool being checked - `pytest --randomly-seed=<n>` for
+    `pytest-randomly`, `coverage run -m pytest` for `coverage.py`. Keyed on the
+    tool's name alone, the extractor returns nothing for those and an empty
+    declaration then passes as though the record prescribed nothing at all.
+    Keyed on the argv's own first token, it stays anchored to one word, so it
+    still cannot pull a neighbour's command in: `deps/freshness` prescribes both
+    `uv pip list --outdated` and `pip list --outdated`, and the `pip` entry's
+    argv leads with `pip`.
+    """
+    argvs = [a for a in [inv.argv, *(a for _, a in inv.argv_by_partition)] if a]
+    return {a[0] for a in argvs} | {inv.tool}
+```
+
+Extract with every lead word, declare the forms the four entries were hiding, and give each a disposition by reading the record as Task 5 did. Note that `coverage report --show-missing` is the entry's `then` command rather than its `argv`, so the coverage property in Step 2 must look at `then` as well as `argv` or it will call a `runs` form uncarried.
+
+**`forbidden` has no user and structurally cannot get one.** The only command any record names in order to warn against is a bare `pip-audit`, which the mention rule excludes by design. Delete `forbidden` from `DISPOSITIONS`. This is the vocabulary property in Step 3 doing its job in advance: a value nothing uses is ceremony that reads as coverage. While there, remove the `# noqa: F401` from the `DISPOSITIONS` import in the test module, which Step 3 makes a real use.
+
 - [ ] **Step 1: Write the flag property**
 
 Two things this property must get right, both measured over all 50 invocations rather than reasoned about. **The flags pool across the paragraph, not the tool.** One paragraph can prescribe for several tools - `deps/freshness` carries a `uv` invocation and a `pip` one sharing a single quote - so a flag belonging to the neighbour's command is still accounted for. Checking each tool against only its own forms fails on 12 (entry, flag) pairs; pooling across the paragraph's invocations cuts that to 5. **And a placeholder token can never appear in a form's tokens the way the record writes it**, so `_concrete` applies to the flag as well: that cuts 5 to 3.
@@ -803,7 +841,8 @@ def test_a_form_naming_the_tool_off_the_front_is_led_by_some_invocation():
             form.split()[0]
             for other in INVOCATIONS
             if other.check == inv.check
-            for form in _command_forms(paragraph, other.tool)
+            for lead in _lead_words(other)
+            for form in _command_forms(paragraph, lead)
         }
         for span in _spans(paragraph):
             words = span.split()
