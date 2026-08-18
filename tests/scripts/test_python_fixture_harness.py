@@ -467,11 +467,19 @@ def _follows_in_the_record(inv: Invocation) -> bool:
     against the record - the anchor guard traces one command at a time and never
     reads `then` - so the swap failed only tests pinning the tuples as literals,
     which reads as a literal to update rather than as a route reversed.
+
+    An entry prescribing a second command and no first one answers `False` rather
+    than passing on `all([])`. Such an entry has no order to hold rather than an
+    order this satisfies, and a vacuous pass is the shape this file exists to
+    catch rather than an instance of it.
     """
     quote = _tokens(inv.record_quote)
+    commands = _prescribed_commands(inv)
+    if not commands:
+        return False
     return all(
         _is_subsequence(_tokens(" ".join((*argv, *inv.then))), quote)
-        for _, argv in _prescribed_commands(inv)
+        for _, argv in commands
     )
 
 
@@ -801,6 +809,52 @@ def test_swapping_the_two_commands_breaks_the_records_order():
     )
     assert _follows_in_the_record(forward)
     assert not _follows_in_the_record(swapped)
+
+
+def test_a_second_command_with_no_first_one_is_not_an_order_this_can_hold():
+    """The vacuous pass, refused where `all([])` would grant it.
+
+    Unreachable in the tree, where the entry carrying a `then` carries a command
+    as well, and refused here so that an entry growing the combination fails
+    rather than reporting an order nothing read.
+    """
+    inv = Invocation(
+        check="test/coverage-reach",
+        tool="coverage.py",
+        then=("coverage", "report", "--show-missing"),
+        record_quote="`coverage run -m pytest` + `coverage report --show-missing`.",
+    )
+    assert not _follows_in_the_record(inv)
+
+
+def test_every_partitions_first_command_precedes_the_shared_second_one():
+    """A `then` is shared across partitions, so every first command answers to it.
+
+    Built rather than asserted about the tree, which carries no entry combining a
+    per-partition command with a `then`. Holding only the first route found would
+    leave the rest of them ordered by luck, which is the defect the anchor guard
+    had and this must not repeat.
+    """
+    quote = "Run `coverage run -m pytest` then `coverage report --show-missing`."
+    holds = Invocation(
+        check="test/coverage-reach",
+        tool="coverage.py",
+        argv_by_partition=(("uv", ("coverage", "run", "-m", "pytest")),),
+        then=("coverage", "report", "--show-missing"),
+        record_quote=quote,
+    )
+    one_route_adrift = Invocation(
+        check="test/coverage-reach",
+        tool="coverage.py",
+        argv_by_partition=(
+            ("uv", ("coverage", "run", "-m", "pytest")),
+            ("pip", ("coverage", "run", "--branch")),
+        ),
+        then=("coverage", "report", "--show-missing"),
+        record_quote=quote,
+    )
+    assert _follows_in_the_record(holds)
+    assert not _follows_in_the_record(one_route_adrift)
 
 
 def test_every_python_tool_in_the_family_is_invoked():
@@ -2944,16 +2998,24 @@ def test_a_route_whose_reporting_half_fails_is_not_a_clean_run(tmp_path, monkeyp
     Classifying on the first alone grades a route whose report died as `ok`
     with no coverage table behind it - a check that answered nothing, recorded
     as a check that answered.
+
+    Which command counts as the reporting half is read from the entry rather than
+    repeated here. Repeated, this test goes red whenever that command changes for
+    any reason at all - a swapped route, a renamed subcommand - with no injected
+    failure ever occurring, and the failure it prints then reads as a literal
+    somebody needs to update. Read from the entry, it asserts the thing it is for
+    and leaves the record's order to the property that holds it.
     """
     source = tmp_path / "fixture" / "uv"
     source.mkdir(parents=True)
+    reporting = list(_entry("test/coverage-reach", "coverage.py").then)
     monkeypatch.setattr(
         "run_python_fixture_lens._run",
         _fake_run(
             [],
             respond=lambda command: (
                 _outcome(returncode=1, stdout="", stderr="no data")
-                if command[-2:] == ["report", "--show-missing"]
+                if command[-len(reporting) :] == reporting
                 else None
             ),
         ),
