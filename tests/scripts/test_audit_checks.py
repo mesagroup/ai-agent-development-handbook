@@ -359,6 +359,23 @@ def test_evidence_carries_the_check_level_measurement(tmp_path):
     assert checks["demo/thing"].evidence == "Line counts per file; flag outliers."
 
 
+def test_evidence_is_stored_stripped(tmp_path):
+    """The same normalisation `ungranted_note` does, for the same reason.
+
+    Every record that will carry this field writes it as a YAML folded scalar,
+    which leaves the value's surrounding whitespace up to how the block was
+    indented rather than up to what the author meant. Storing it raw would put
+    that accident into the value a reader compares.
+    """
+    check = _record(
+        tooling={"python": ["t"]},
+        extra="evidence: >-\n  Line counts per file.\n",
+    )
+    checks, errors = _load_one(tmp_path, check)
+    assert errors == []
+    assert checks["demo/thing"].evidence == "Line counts per file."
+
+
 @pytest.mark.parametrize(
     ("extra", "fragment"),
     [

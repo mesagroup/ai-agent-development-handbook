@@ -77,6 +77,17 @@ It is required on exactly the records this rule would silence, so an absent
 key is never a silent claim - which is the hazard `needs` still carries and
 this field does not.
 
+`evidence` is the one field that is about neither the tools nor the grant:
+what does this check measure, and what does a row record as the evidence
+behind it? A record whose every route measures the same thing says it once
+here rather than once per route, which is the case that has no other home -
+a route's own `note` is the right place for a measurement only that route
+takes. It is optional on either schema and carries no derived meaning, so
+an absent key claims nothing at all; that is the difference from `needs`,
+whose absence is the positive claim that no tool here needs a grant. What
+it must not be is present and empty, because YAML reads a bare key as
+nothing and the dataclass cannot tell that from an omitted one.
+
 A record may declare `routes` instead of `tooling`/`needs`/`ungranted_note`:
 one list of `Route`s, each one way of answering the check in one language,
 in place of a free-form tool list plus the two side mappings that classify
@@ -832,6 +843,8 @@ def _load_one(
                 f"{where}: evidence is blank - write what the check measures, or "
                 "drop the key"
             )
+        else:
+            evidence = evidence.strip()
 
     raw_routes = meta.get("routes")
     routes, route_errors = _load_routes(raw_routes, where)
