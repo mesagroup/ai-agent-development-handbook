@@ -2175,7 +2175,7 @@ def test_no_prescribed_command_is_never_classified_as_a_tool_failure(
     `invocations_for` scopes to, and a routed row can prescribe a reading pass
     too - `arch/complexity-gate`'s `kind: subject` routes are one today - so
     the classification this test pins has to hold for them as well, not only
-    for the hand-written table's own `cosmic-ray`, `safety` and `hypothesis`.
+    for the hand-written entries that prescribe a reading pass of their own.
     """
     reading = [i for i in every_invocation() if not i.argv and not i.argv_by_partition]
     assert reading, "some records prescribe a reading pass rather than a command"
