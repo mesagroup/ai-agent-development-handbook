@@ -134,17 +134,24 @@ routes:
     kind: procedure
     applies_when: >-
       The project carries no `.dependency-cruiser` config, so the
-      dependency-cruiser route above does not apply, AND the partition's
-      `tsconfig` does not `extend` a base that lives in `node_modules`.
+      dependency-cruiser route above does not apply. Where the partition's
+      `tsconfig` also `extend`s a base that lives in `node_modules`, this
+      route needs the tree materialized under `resolved-tree`: the extends
+      chain resolves from the installed tree, and with it the `paths` this
+      route reads.
     alone_insufficient: >-
-      Where the `tsconfig` does extend such a base, an uninstalled tree
-      loses that `extends` chain and `paths` falls back to nothing, so the
-      aliases this route reads as the declared boundaries disappear with it
-      and an alias-routed cross-boundary edge goes unseen rather than
-      merely unchecked - a clean result here would be a false one. What
-      answers then is the dependency-cruiser route under `resolved-tree`,
-      and only where that grant is withheld too does the record reach
-      `no-evidence (not-permitted)`.
+      Where the `tsconfig` extends such a base and the tree is NOT present,
+      that chain is lost and `paths` falls back to nothing, so the aliases
+      this route reads as the declared boundaries disappear with it and an
+      alias-routed cross-boundary edge goes unseen rather than merely
+      unchecked - a clean result would be a false one. Both conditions have
+      to hold for that: an extending `tsconfig` alone does not disqualify
+      this route, and neither does an absent tree on a partition whose
+      `tsconfig` extends nothing. Where both do hold, the record has no
+      route left for this partition and reaches
+      `no-evidence (not-permitted)`, the dependency-cruiser route above
+      being unavailable for the separate reason that the project has no
+      config of its own.
     note: >-
       Read the `tsconfig` path aliases and project references as the
       declared boundaries, walk each module's import specifiers, and check
