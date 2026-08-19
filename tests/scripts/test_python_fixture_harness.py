@@ -1322,7 +1322,9 @@ def test_every_command_form_the_record_names_is_declared():
     Read only over the records whose fallback lives in prose. A migrated record
     has no prose that could grow a form its routes do not carry, and the
     routes-to-`INVOCATIONS` oracle binds its declared forms instead, as far
-    as that oracle reaches - `_ORACLE_DOMAINS` says how far.
+    as that oracle reaches - and it reaches less far than this scope does, in
+    the three ways `test_every_migrated_record_is_in_the_domain_the_oracle_covers`
+    sets out.
     """
     for inv in INVOCATIONS:
         if inv.check not in PROSE_FALLBACK_CHECKS:
@@ -1369,7 +1371,8 @@ def test_every_flag_the_record_names_occurs_in_a_declared_form():
     names no flag anywhere but in the route that declares it, so there is no
     second copy a flag can be appended to, and the routes-to-`INVOCATIONS`
     oracle binds its declared forms instead, as far as that oracle reaches -
-    `_ORACLE_DOMAINS` says how far.
+    and it reaches less far than this scope does, in the three ways
+    `test_every_migrated_record_is_in_the_domain_the_oracle_covers` sets out.
     """
     for inv in INVOCATIONS:
         if inv.check not in PROSE_FALLBACK_CHECKS:
@@ -1623,7 +1626,9 @@ def test_a_prescription_stays_in_the_paragraph_the_guard_watches():
     Read only over the records whose fallback lives in prose. A migrated record
     has no section for a stray paragraph to appear in, and the
     routes-to-`INVOCATIONS` oracle binds its declared forms instead, as far
-    as that oracle reaches - `_ORACLE_DOMAINS` says how far.
+    as that oracle reaches - and it reaches less far than this scope does, in
+    the three ways `test_every_migrated_record_is_in_the_domain_the_oracle_covers`
+    sets out.
     """
     skipped = set()
     for inv in INVOCATIONS:
@@ -1677,7 +1682,9 @@ def test_a_form_naming_a_lead_word_off_the_front_is_led_by_some_invocation():
     Read only over the records whose fallback lives in prose. A migrated record
     has no paragraph for an unled span to sit in, and the
     routes-to-`INVOCATIONS` oracle binds its declared forms instead, as far
-    as that oracle reaches - `_ORACLE_DOMAINS` says how far.
+    as that oracle reaches - and it reaches less far than this scope does, in
+    the three ways `test_every_migrated_record_is_in_the_domain_the_oracle_covers`
+    sets out.
     """
     for inv in INVOCATIONS:
         if inv.check not in PROSE_FALLBACK_CHECKS:
@@ -3726,20 +3733,35 @@ known gap with a passing test.
 """
 
 
-def test_every_migrated_record_is_one_the_oracle_covers():
-    """The coverage hole the scoping opens, as a failure rather than a silence.
+def test_every_migrated_record_is_in_the_domain_the_oracle_covers():
+    """One of the three dimensions the oracle's reach has, and only one.
 
     `PROSE_FALLBACK_CHECKS` narrows the prose-anchored properties by the schema
     a record declares, so a record stops being read by them the moment it
-    migrates. What takes over is the oracle below - and that reads only
-    `_ORACLE_DOMAINS`, only python routes, and only routes with a table entry.
-    A record migrated in any other domain therefore leaves the prose properties
-    and enters nothing, and every test in this file still passes.
+    migrates. What takes over is the oracle below, and its reach is narrower
+    than that in three independent ways: it reads only `_ORACLE_DOMAINS`, only
+    `python` routes, and only routes carrying a table entry.
 
-    So the assumption is asserted rather than left implicit. When this fails,
-    the fix is a verified table for that domain's routes and `_ORACLE_DOMAINS`
-    widened to match - not this assertion deleted, which would restore exactly
-    the silence it exists to break.
+    **This holds the first and says nothing about the other two.** A record
+    migrated outside `_ORACLE_DOMAINS` fails here rather than leaving the prose
+    properties for nothing. A migrated record inside it with no `python`
+    `kind: command` route passes here and is held by nothing at all, and
+    `arch/size` is the live instance: it declares two command routes with
+    concrete argv, has no table entry, and its `cloc` argv can be changed to
+    contradict its own note with the whole suite still green. That hole is
+    older than the scoping - no prose property ever read that record either,
+    because it never had a table entry to be read through - so the scoping did
+    not open it and this assertion does not close it.
+
+    Closing it means a verified table entry per migrated record, for routes in
+    any language rather than `python` alone, which is `#44`'s and `#58`'s
+    territory and a scope decision rather than a test edit. Until then, the
+    honest statement of coverage is this one: the domain dimension is held, the
+    other two are not.
+
+    When this fails, the fix is a verified table for that domain's routes and
+    `_ORACLE_DOMAINS` widened to match - not this assertion deleted, which
+    would restore the silence in the one dimension that is guarded.
     """
     checks, errors = load_checks(SKILLS_DIR)
     assert not errors, errors

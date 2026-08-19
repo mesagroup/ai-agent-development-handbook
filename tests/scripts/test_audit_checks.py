@@ -2414,7 +2414,7 @@ def test_a_routes_record_may_not_carry_a_fallback_section(tmp_path):
 
 
 def test_a_tooling_record_may_carry_a_fallback_section(tmp_path):
-    """The 66 records still on the old schema keep theirs, and must."""
+    """A record still on the old schema keeps its section, and must."""
     _write(
         tmp_path,
         "demo-audit/checks/thing.md",
