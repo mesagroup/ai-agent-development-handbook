@@ -70,8 +70,9 @@ routes:
     tool: eslint-plugin-sonarjs
     needs: target-execution
     note: >-
-      Cognitive complexity, captured per function like the metrics above. The
-      record names the plugin and prescribes no command line for it. Its type-aware rules need a real TypeScript program
+      Capture the metric per function. Cognitive complexity, and the same
+      per-function record as the routes above. The record names the plugin
+      and prescribes no command line for it. Its type-aware rules need a real TypeScript program
       over the installed tree, so unlike the core rules above there is no
       audit-owned-config path that avoids the grant.
   - lang: any
