@@ -44,8 +44,12 @@ some row cites may not claim to be ungrounded.
 A `tooling` value is a list of names, not of invocations, and a name may be
 a registry package, a subcommand of the target's own package manager, or a
 standalone binary in no registry. Nothing here validates which - a name is
-only a string to this loader - so the record's `## Tooling fallback` is where
-the kind and the precedence between them are stated.
+only a string to this loader - so a record still carrying `tooling` states
+the kind and the precedence between its names in `## Tooling fallback`
+prose. A record carrying `routes` instead (below) states both as data:
+`kind` is a field on every route, and precedence is the route's
+`disposition` and its position in the list, so neither depends on prose
+there.
 
 `needs` answers a different question about the same names: not where the
 tool comes from, but what must be present in the target before it can
