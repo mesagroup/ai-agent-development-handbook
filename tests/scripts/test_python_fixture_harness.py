@@ -1717,10 +1717,16 @@ def test_every_disposition_in_the_vocabulary_is_used():
     because the two failures are different findings: an unused value is ceremony,
     and a used value missing from the tuple is already rejected by `Invocation`.
 
-    Read over both enumeration paths - `arch/cycles`'s own `superseded` route
-    is one of the two examples this docstring already names, so a version
-    reading `INVOCATIONS` alone would count on `deps/freshness` alone to keep
-    that value used and go silent the day it stopped.
+    Read over both enumeration paths, and not because either population
+    currently needs the other to keep a value used - the hand-written table
+    carries `superseded` forms of its own, so an equality over it alone holds
+    today. It is because a value's users migrate. Every record that declares
+    its routes moves its forms out of this table and into the enumeration, so
+    an equality read over one population is a claim that stops being about the
+    same thing under it: the day the last hand-written user of a value
+    migrates, the version reading `INVOCATIONS` alone starts failing on a
+    vocabulary that is still in use. Reading the union is what makes this
+    property survive the stage that moves the rest of the records.
     """
     assert {d for inv in every_invocation() for _, d in inv.forms} == set(DISPOSITIONS)
 
