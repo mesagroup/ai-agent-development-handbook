@@ -322,11 +322,23 @@ def test_the_prose_fallback_scope_is_not_empty_and_holds_no_migrated_record():
     over a tree it had stopped reading. The other direction is a migrated
     record left in the set, where a property looks for prose the record no
     longer has and fails for a reason that is not drift.
+
+    Both halves read the declared schema rather than a domain prefix. `arch` is
+    the only domain migrated as this is written, so `not c.startswith("arch/")`
+    would pass here for the same reason and would go on passing once another
+    domain migrates - at which point it would no longer be a statement about
+    migrated records at all, and the watched set it computes would quietly
+    start including records that had stopped carrying prose.
     """
     assert _LOAD_ERRORS == []
     assert PROSE_FALLBACK_CHECKS
-    assert not any(c.startswith("arch/") for c in PROSE_FALLBACK_CHECKS)
-    watched = {i.check for i in INVOCATIONS if not i.check.startswith("arch/")}
+    migrated = {cid for cid, check in _LOADED_CHECKS.items() if check.routes}
+    assert migrated, (
+        "no record declares routes:, so this set is every record and the "
+        "scoping it performs is not a narrowing of anything"
+    )
+    assert not PROSE_FALLBACK_CHECKS & migrated
+    watched = {i.check for i in INVOCATIONS} - migrated
     assert watched <= PROSE_FALLBACK_CHECKS, watched - PROSE_FALLBACK_CHECKS
 
 
