@@ -65,7 +65,7 @@ import sys
 import tempfile
 from collections.abc import Sequence
 from dataclasses import dataclass
-from functools import lru_cache
+from functools import cache, lru_cache
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -438,6 +438,12 @@ class Invocation:
             prescription unwatched. And a quote naming no command at all is one
             whose record prescribes by delegating to another check's fallback
             section, which makes the delegation the prescription.
+
+            Empty on a row built from a record's `routes`, where there is no
+            transcription to anchor: the prescription is read from the record
+            each run rather than copied here, so there is nothing for a quote
+            to hold it against. The property above is what keeps the empty
+            value from spreading to a hand-written entry.
         forms: Every command form this record's prescribing paragraph names for
             this route, as `(form, disposition)` pairs, taken by reading it. The
             declaration is what the record-to-harness guards compare: the three
@@ -480,7 +486,7 @@ class Invocation:
 
     check: str
     tool: str
-    record_quote: str
+    record_quote: str = ""
     argv: tuple[str, ...] = ()
     argv_by_partition: tuple[tuple[str, tuple[str, ...]], ...] = ()
     supplied_by_partition: tuple[tuple[str, tuple[tuple[str, ...], ...]], ...] = ()
@@ -629,6 +635,65 @@ def argv_for(invocation: Invocation, partition: str) -> tuple[str, ...]:
     if not base:
         return ()
     return base + invocation.completion
+
+
+@dataclass(frozen=True)
+class Completion:
+    """What a partition needed that the record did not say, and why.
+
+    Round-owned, which is the whole reason it is here and not in the record:
+    a record whose command needs completing is a record to correct, and the
+    completion is this round's report of that. `tokens` never reaches the
+    prescribed command, so what the record said stays distinguishable from
+    what the audit added.
+    """
+
+    tokens: tuple[str, ...]
+    note: str
+
+    def __post_init__(self) -> None:
+        if not self.tokens:
+            raise ValueError("a completion with no tokens is not a completion")
+        if not self.note:
+            raise ValueError(
+                "a completion needs the reason it was needed; unexplained, it "
+                "reports a repaired command as a clean run"
+            )
+
+
+# Keyed `(check, tool)` to match a row rather than a record: a tool answering
+# two checks may need completing for one and not the other.
+COMPLETIONS: dict[tuple[str, str], Completion] = {
+    ("arch/complexity", "radon"): Completion(
+        tokens=("src",),
+        note=(
+            "`radon cc` takes a path and the record names none; ruff defaults "
+            "to the working directory and radon does not, so the same sentence "
+            "is runnable for one tool and not the other"
+        ),
+    ),
+    ("arch/complexity", "xenon"): Completion(
+        tokens=("--max-absolute", "B", "src"),
+        note=(
+            "the record names the tool and no arguments; xenon needs both a "
+            "threshold and a path, and the expectation is written against "
+            "`--max-absolute B`"
+        ),
+    ),
+    ("arch/cycles", "pydeps"): Completion(
+        tokens=("src/fixture_app",),
+        note="pydeps takes the package to graph and the record names none",
+    ),
+    ("arch/dead-code", "vulture"): Completion(
+        tokens=("src", "tests"),
+        note=(
+            "vulture takes the paths to scan and the record names none; both "
+            "trees are passed because a symbol referenced only by a test is "
+            "not dead, and scanning src alone would report the suite's own "
+            "callees as unused"
+        ),
+    ),
+}
 
 
 # The transcription. One entry per (check, tool) pair, because a tool answering
@@ -1379,6 +1444,113 @@ def grant_tier(check: str, tool: str) -> str:
         if tool in tools:
             return tier
     return ""
+
+
+@cache
+def routed_invocations() -> tuple[Invocation, ...]:
+    """Every row a migrated record prescribes, read from the record.
+
+    One row per `(check, tool)` rather than per route: a record may narrow the
+    same tool's command twice, once `runs` and once `superseded`, and those are
+    two forms of one row. A route naming no tool is a reading pass and produces
+    no row. A route whose `kind` is not `command` produces a row prescribing no
+    command, which is what the record says and what the engine grades.
+
+    `lang: python` only. A `lang: any` route is applicable to a python
+    partition by its own note, and selecting it would still be wrong here: it
+    adds a check the expectations do not grade, so the three-way equality that
+    holds the harness to them would fail rather than the round quietly growing
+    a row nothing checks.
+
+    A row's `note` says why it is not simply the record's command running as
+    written, which is the only thing worth carrying into the artifact. Two
+    things produce that. Where the round had to complete the command, the
+    reason is round-owned and comes from `COMPLETIONS`. Where the record
+    prescribes no command at all, the reason is the record's own and comes from
+    that route's `note`. A command that ran as written explains itself and
+    carries none.
+
+    Raises:
+        ValueError: If a group carries more than one `runs` command route, two
+            different `findings_stream` values, two different `in_env` values,
+            a disposition outside `DISPOSITIONS`, or - where it prescribes no
+            command and no completion was supplied - more than one route to
+            read the reason off. Each would otherwise resolve silently to
+            whichever route happened to come first.
+    """
+    rows: list[Invocation] = []
+    for check_id, record in sorted(_records().items()):
+        if not record.routes:
+            continue
+        groups: dict[str, list] = {}
+        for route in record.routes:
+            if route.lang != "python" or not route.tool:
+                continue
+            groups.setdefault(route.tool, []).append(route)
+        for tool, routes in sorted(groups.items()):
+            commands = [r for r in routes if r.kind == "command"]
+            for route in commands:
+                if route.disposition not in DISPOSITIONS:
+                    raise ValueError(
+                        f"{check_id}/{tool}: route disposition "
+                        f"{route.disposition!r} is one the record loader permits "
+                        f"and this module's form vocabulary {DISPOSITIONS} does "
+                        "not carry, so nothing here decides whether the harness "
+                        "may offer it as a form. `forbidden` is the live case: "
+                        "the loader's vocabulary carries it and records declare "
+                        "it on typescript routes, which this selection never "
+                        "reaches. Giving it a slot means deciding whether a form "
+                        "the record warns against is one the guards should see, "
+                        "and that is a decision rather than a widened tuple"
+                    )
+            runs = [r for r in commands if r.disposition == "runs"]
+            if len(runs) > 1:
+                raise ValueError(
+                    f"{check_id}/{tool}: {len(runs)} command routes declare "
+                    "`runs`, so which one the round ran would depend on their "
+                    "order in the record"
+                )
+            streams = {r.findings_stream for r in routes}
+            if len(streams) > 1:
+                raise ValueError(
+                    f"{check_id}/{tool}: routes disagree on findings_stream "
+                    f"({sorted(streams)}); classify reads one stream, and "
+                    "picking either would grade every run of this tool"
+                )
+            in_env = {bool(r.in_env) for r in routes}
+            if len(in_env) > 1:
+                raise ValueError(
+                    f"{check_id}/{tool}: routes disagree on in_env, so whether "
+                    "the tool launches through the partition's environment "
+                    "would depend on their order in the record"
+                )
+            supplied = COMPLETIONS.get((check_id, tool))
+            argv = tuple(runs[0].argv) if runs else ()
+            if supplied:
+                note = supplied.note
+            elif argv:
+                note = ""
+            elif len(routes) == 1:
+                note = routes[0].note
+            else:
+                raise ValueError(
+                    f"{check_id}/{tool}: prescribes no command and declares "
+                    f"{len(routes)} routes, so which one explains the absence "
+                    "is ambiguous; the row would carry whichever came first"
+                )
+            rows.append(
+                Invocation(
+                    check=check_id,
+                    tool=tool,
+                    argv=argv,
+                    forms=tuple((" ".join(r.argv), r.disposition) for r in commands),
+                    findings_stream=streams.pop(),
+                    in_env=in_env.pop(),
+                    completion=supplied.tokens if supplied else (),
+                    note=note,
+                )
+            )
+    return tuple(rows)
 
 
 def invocations_for(

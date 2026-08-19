@@ -9,7 +9,9 @@ produce, and it only shows up as one if the transcription is held to the record.
 import json
 import os
 import re
+from contextlib import contextmanager
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from audit_checks import SKILLS_DIR, fallback_lives_in_prose, load_checks
@@ -24,6 +26,7 @@ from python_fixture_spec import (
     render_manifests,
 )
 from run_python_fixture_lens import (
+    COMPLETIONS,
     DETAILS,
     DISPOSITIONS,
     FROZEN_FORM,
@@ -40,6 +43,7 @@ from run_python_fixture_lens import (
     TOOL_PACKAGES,
     VENV_BIN,
     VERSION_PROBE,
+    Completion,
     Invocation,
     _fixture_env,
     _run,
@@ -54,6 +58,7 @@ from run_python_fixture_lens import (
     packages_for,
     probe_versions,
     reconstruct,
+    routed_invocations,
     run_partition,
     tools_named_in_records,
 )
@@ -3908,3 +3913,207 @@ def test_a_migrated_records_routes_agree_with_the_verified_table():
     assert checked, (
         "no migrated arch record has a table entry, so this test holds nothing"
     )
+
+
+def test_a_routed_row_is_one_per_check_and_tool_rather_than_one_per_route():
+    """`arch/cycles` declares four python routes and has three rows.
+
+    Its `superseded` `pydeps --show-cycles` is a second form of the same tool,
+    not a second row. A rule keyed on routes would run a form the record
+    narrows against as though it prescribed it.
+    """
+    rows = {(r.check, r.tool) for r in routed_invocations()}
+    cycles = sorted(t for c, t in rows if c == "arch/cycles")
+    assert cycles == ["grimp", "import-linter", "pydeps"]
+    pydeps = next(
+        r
+        for r in routed_invocations()
+        if r.check == "arch/cycles" and r.tool == "pydeps"
+    )
+    assert pydeps.argv == ("pydeps", "--show-cycles", "--show-dot")
+    assert set(pydeps.forms) == {
+        ("pydeps --show-cycles --show-dot", "runs"),
+        ("pydeps --show-cycles", "superseded"),
+    }
+
+
+def test_a_route_that_is_not_a_command_still_produces_a_row():
+    """`arch/complexity-gate`'s three `subject` routes are three rows.
+
+    The engine grades a row prescribing no command as exactly that, so
+    dropping these would shrink the round's evidence rather than simplify it.
+    """
+    rows = [r for r in routed_invocations() if r.check == "arch/complexity-gate"]
+    assert sorted(r.tool for r in rows) == ["radon", "ruff", "xenon"]
+    assert all(r.argv == () and r.forms == () for r in rows)
+
+
+def test_a_route_naming_no_tool_produces_no_row():
+    """A `procedure` route with no tool is a reading pass, not a row.
+
+    `arch/martin-metrics` declares two python routes and has one row.
+    """
+    rows = [r for r in routed_invocations() if r.check == "arch/martin-metrics"]
+    assert [r.tool for r in rows] == ["grimp"]
+
+
+def test_a_record_with_no_python_route_produces_no_row():
+    """`arch/size` declares `lang: any` routes only, and selection is python.
+
+    Widening selection is #44's territory: it changes the set of checks the
+    round runs, and `arch/size` is in neither the expectations' declared scope
+    nor the three-way equality that holds the harness to them.
+    """
+    assert not [r for r in routed_invocations() if r.check == "arch/size"]
+
+
+def test_a_routed_row_carries_the_rounds_completion_and_its_reason():
+    """The completion is round-owned and travels with why it was needed."""
+    row = next(
+        r
+        for r in routed_invocations()
+        if r.check == "arch/dead-code" and r.tool == "vulture"
+    )
+    assert row.completion == ("src", "tests")
+    assert "the record names none" in row.note
+
+
+def test_a_quote_belongs_to_a_transcription_and_only_to_one():
+    """The field is the prose population's, and the split is asserted.
+
+    Every hand-written entry carries the sentence it was transcribed from;
+    every routed row carries none, because there is no second copy for a quote
+    to drift from. Read together these two say which population a row belongs
+    to without a flag naming it, which is why they are one property and not
+    two.
+    """
+    assert all(i.record_quote for i in INVOCATIONS), sorted(
+        (i.check, i.tool) for i in INVOCATIONS if not i.record_quote
+    )
+    assert all(not r.record_quote for r in routed_invocations())
+
+
+def _fake_record(*routes):
+    return SimpleNamespace(routes=routes)
+
+
+def _fake_route(**kw):
+    field = {
+        "lang": "python",
+        "kind": "command",
+        "tool": "t",
+        "argv": ("t",),
+        "disposition": "runs",
+        "findings_stream": "stdout",
+        "in_env": False,
+        "note": "",
+    }
+    field.update(kw)
+    return SimpleNamespace(**field)
+
+
+@contextmanager
+def _records_replaced_by(monkeypatch, records):
+    routed_invocations.cache_clear()
+    monkeypatch.setattr("run_python_fixture_lens._records", lambda: records)
+    try:
+        yield
+    finally:
+        routed_invocations.cache_clear()
+
+
+def test_a_completion_with_no_tokens_or_no_reason_is_rejected():
+    with pytest.raises(ValueError, match="not a completion"):
+        Completion(tokens=(), note="why")
+    with pytest.raises(ValueError, match="repaired command as a clean run"):
+        Completion(tokens=("src",), note="")
+
+
+@pytest.mark.parametrize(
+    "routes, expected",
+    [
+        (
+            (_fake_route(disposition="forbidden"),),
+            "does not carry",
+        ),
+        (
+            (_fake_route(argv=("t", "a")), _fake_route(argv=("t", "b"))),
+            "declare `runs`",
+        ),
+        (
+            (
+                _fake_route(),
+                _fake_route(disposition="superseded", findings_stream="stderr"),
+            ),
+            "disagree on findings_stream",
+        ),
+        (
+            (_fake_route(), _fake_route(disposition="superseded", in_env=True)),
+            "disagree on in_env",
+        ),
+        (
+            (
+                _fake_route(kind="library", argv=()),
+                _fake_route(kind="procedure", argv=()),
+            ),
+            "which one explains the absence",
+        ),
+    ],
+)
+def test_an_ambiguous_group_is_refused_by_name(monkeypatch, routes, expected):
+    """Each raise names the group and what is ambiguous about it.
+
+    Every one of these resolves silently to whichever route came first if the
+    guard is removed, and four of the five fire on data no record carries
+    today - so the message is the only thing a future reader gets, and it is
+    read here rather than assumed.
+    """
+    with (
+        _records_replaced_by(monkeypatch, {"x/y": _fake_record(*routes)}),
+        pytest.raises(ValueError, match=expected),
+    ):
+        routed_invocations()
+
+
+def test_the_enumeration_reproduces_the_table_it_replaces():
+    """Transitional. Deleted in the commit that cuts the arch entries.
+
+    Held while both copies exist, because that is the only moment the claim
+    "nothing about what runs moves" is checkable. Kept afterwards it would be
+    a second copy of the prescription, which is the defect this stage removes,
+    so its output goes in the PR and the test goes with the entries.
+
+    Compares forms as sets: the table's are in the order somebody typed them
+    and the enumeration's follow the record, and neither order is a claim.
+
+    `note` is the one field this does not hold as an equality, and the
+    asymmetry is the finding rather than a weakened assertion. On the four
+    rows a completion covers it is exact. On the fourteen prescribing no
+    command the table carried a hand-authored paraphrase of the record's
+    reasoning, and the enumeration carries the record's own sentence, so the
+    assertion is that the row still explains itself and that the text is no
+    longer the transcription. That is a visible change in the results
+    artifact, where `note` is written out per row, and it is the intended
+    direction: the explanation stops being a copy somebody has to keep in
+    step. Every field that decides what actually runs is held as an equality.
+    """
+    migrated = {cid for cid, c in load_checks(SKILLS_DIR)[0].items() if c.routes}
+    table = {(i.check, i.tool): i for i in INVOCATIONS if i.check in migrated}
+    derived = {(r.check, r.tool): r for r in routed_invocations()}
+    assert set(derived) == set(table), sorted(set(derived) ^ set(table))
+    for key, row in sorted(derived.items()):
+        entry = table[key]
+        assert row.argv == entry.argv, key
+        assert row.findings_stream == entry.findings_stream, key
+        assert row.in_env == entry.in_env, key
+        assert row.completion == entry.completion, key
+        if key in COMPLETIONS:
+            assert row.note == entry.note, key
+        elif row.argv:
+            assert row.note == "" and entry.note == "", key
+        else:
+            assert row.note and row.note != entry.note, key
+        expected = set(entry.forms) or (
+            {(" ".join(entry.argv), "runs")} if entry.argv else set()
+        )
+        assert set(row.forms) == expected, key
