@@ -38,10 +38,10 @@ A token-level diff of each record's fallback prose against everything else in th
 
 | population | records | prose-only / concrete |
 |---|---|---|
-| pure duplication | `complexity-gate`, `martin-metrics`, `hidden-coupling`, `complexity`, `dead-code`, `size` | 1/0, 4/0, 7/0, 8/0, 9/0, 12/0 |
+| pure duplication | `complexity-gate`, `martin-metrics`, `hidden-coupling`, `complexity`, `dead-code`, `size` | 1/0, 4/0, 7/0, 8/1, 9/0, 12/0 |
 | prose carries more | `over-abstraction`, `cycles`, `coupling`, `layering`, `over-decomposition` | 43/6, 132/17, 138/18, 170/24, 186/22 |
 
-The first population's residue is connective prose over claims the frontmatter already states, so those six are read once and deleted.
+The first population's residue is connective prose over claims the frontmatter already states, so those six are read once and deleted. `complexity`'s single concrete token is an artifact of the measure rather than a claim: the tokenizer strips backticks before splitting, so a sentence ending in a backticked word plus a full stop leaves a bare `.`, which the concrete pattern matches on its leading character. Read each concrete list rather than counting it.
 
 The second population's concrete residue is measured smoke-run observation - 1090 edges thinning to 122, dependency-cruiser 18.2.0, pnpm 9.15.9 against 11, `--no-config` discarding `--ts-config`, `tsconfig.app.json` - plus, on all four of the TypeScript-heavy records, the link to the document that carries it. Two gaps in that story are real and were found by checking rather than assumed:
 
