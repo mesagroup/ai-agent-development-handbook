@@ -26,10 +26,12 @@ routes:
     kind: command
     tool: wc
     argv: [wc, "-l"]
-    applies_when: >-
-      Neither `cloc` nor `tokei` is available.
+    disposition: alternative
     note: >-
-      The record quotes this command verbatim and says it answers the
+      Reached once neither `cloc` nor `tokei` is available, which is where
+      this route sits in the precedence rather than a precondition the target
+      carries - `applies_when` states the second, so availability belongs
+      here. The record quotes this command verbatim and says it answers the
       check once neither other tool is available. The file list to run it
       over is an operand the record names none for.
 ---

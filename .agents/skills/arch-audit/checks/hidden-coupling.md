@@ -12,12 +12,19 @@ routes:
   - lang: python
     kind: subject
     tool: grimp
-    alone_insufficient: >-
+    note: >-
       The import graph won't show this. Coupling that never travels through an
       `import` is what this check exists for, so a clean graph from the tool
       that builds it is not evidence about this check at all - an unreported
       hidden edge is a false negative, which is worse than a false positive.
-      The graph is the blind spot, not the lens.
+      The graph is the blind spot, not the lens, which is the definition of a
+      subject rather than an instrument, and is why this record's kind differs
+      from the `library` its siblings give the same tool: they compute over the
+      graph `grimp` builds and it is their evidence, while here it is the one
+      place the coupling this check looks for is guaranteed not to appear.
+      Nothing to pair it with, either - `alone_insufficient` would say a clean
+      result needs supplementing, and a subject route contributes no result to
+      supplement.
   - lang: python
     kind: procedure
     note: >-
