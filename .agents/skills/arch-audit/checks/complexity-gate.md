@@ -87,10 +87,6 @@ Whether a complexity threshold is actually configured and enforced, not just mea
 
 **Important** - the threshold is unconfigured, so complexity is ungated and a regression is never caught.
 
-## Tooling fallback
-
-**Read the project's configured threshold before measuring, and treat its absence as a finding in its own right.** `C901` needs `mccabe` max-complexity set in `pyproject.toml`; if it is unset, passing a threshold on the command line yields clean numbers and silently hides the gap. Whichever tool you run, record what the project itself enforces - a number it never configured is a number nothing holds it to. On an uninstalled TypeScript tree, ESLint aborts with `ERR_MODULE_NOT_FOUND` before it reaches a threshold at all - that abort is a missing `node_modules`, not a verdict on whether the gate is configured, so don't record it as either a clean or a failing threshold check.
-
 ## Fix
 
 Configure an explicit threshold for whichever tool the project already uses (`mccabe` max-complexity in `pyproject.toml` for `ruff --select C901`, or the equivalent for `radon`/`xenon`/ESLint's `complexity` rule/`eslint-plugin-sonarjs`), then wire the check into CI as a required job so a regression fails the build rather than only surfacing in this audit's next run.

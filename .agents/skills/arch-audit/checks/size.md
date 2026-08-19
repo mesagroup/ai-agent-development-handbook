@@ -2,6 +2,8 @@
 id: arch/size
 domain: arch
 locality: local
+evidence: >-
+  Line counts per file; flag outliers and anything over a documented norm.
 handbook:
   - codebase-structure/watch-for-structural-decay-beyond-layering
 routes:
@@ -43,10 +45,6 @@ Files grown past the point of holding in context at once (the contributor guide 
 ## Severity
 
 **Minor** - an oversized-but-cohesive file - real but low-cost, fix when touching the area.
-
-## Tooling fallback
-
-Line counts per file; flag outliers and anything over a documented norm. The two tools are not the same kind: `cloc` is on the npm registry, so a one-shot runner fetches it (`npx cloc`) whatever the partition's language, while `tokei` is a standalone binary in no language registry and an audit environment expected to use it needs it installed in advance - `npx tokei` resolves an unrelated package that declares no bin and fails with `could not determine executable to run`, which looks like a missing tool rather than the wrong one. Where neither is available, `wc -l` over the file list answers this check.
 
 ## Fix
 

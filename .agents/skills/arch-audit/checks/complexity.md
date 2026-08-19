@@ -97,11 +97,3 @@ Functions/modules with high cyclomatic complexity or deep nesting that resist un
 **Important** - a function whose complexity makes it untestable.
 
 **Minor** - a moderately complex function - real but low-cost, fix when touching the area.
-
-## Tooling fallback
-
-**Python** - `ruff check --select C901` or `radon cc` / `xenon`. Capture the metric per function. `xenon` reports its finding on stderr, not stdout, and exits 1 when a block breaches the configured threshold - observed as `ERROR:xenon:block "<path>:<line> <function>" has a rank of C` on stderr with stdout empty. A caller that reads stdout, or that treats the non-zero exit itself as the tool having failed, loses a real finding rather than an absence of one.
-
-**TypeScript** - ESLint's `complexity` and `max-depth` rules, or `eslint-plugin-sonarjs` for cognitive complexity. Capture the metric per function. Both, run under the target's own flat config, load their plugins from the target's own `node_modules`; without it ESLint aborts with `ERR_MODULE_NOT_FOUND` rather than reporting a metric, and `eslint-plugin-sonarjs`'s type-aware rules additionally need a real TypeScript program over the installed tree - see the note above for the audit-owned-config path that avoids this.
-
-**With none of them installed** - walk each function's syntax tree and count its branch points (every `if`, `for`, `while`, `case`, `except`/`catch`, boolean operator and comprehension condition adds one to a base of one); that is cyclomatic complexity by definition, and a few lines of `ast` or an equivalent parser gets it. Nesting depth is the cheaper proxy where no parser is available at all.
