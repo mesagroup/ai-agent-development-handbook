@@ -4,8 +4,34 @@ domain: arch
 locality: local
 handbook:
   - codebase-structure/watch-for-structural-decay-beyond-layering
-tooling:
-  any: [cloc, tokei]
+routes:
+  - lang: any
+    kind: command
+    tool: cloc
+    argv: [npx, cloc]
+    note: >-
+      `cloc` is on the npm registry, so a one-shot runner fetches it
+      whatever the partition's language.
+  - lang: any
+    kind: procedure
+    tool: tokei
+    note: >-
+      `tokei` is a standalone binary in no language registry, and an audit
+      environment expected to use it needs it installed in advance - the
+      record prescribes no working invocation for it. `npx tokei` resolves
+      an unrelated package that declares no bin and fails with `could not
+      determine executable to run`, which looks like a missing tool rather
+      than the wrong one, so it is not a route this record offers.
+  - lang: any
+    kind: command
+    tool: wc
+    argv: [wc, "-l"]
+    applies_when: >-
+      Neither `cloc` nor `tokei` is available.
+    note: >-
+      The record quotes this command verbatim and says it answers the
+      check once neither other tool is available. The file list to run it
+      over is an operand the record names none for.
 ---
 
 # File / module size
