@@ -4064,9 +4064,15 @@ def test_an_ambiguous_group_is_refused_by_name(monkeypatch, routes, expected):
     """Each raise names the group and what is ambiguous about it.
 
     Every one of these resolves silently to whichever route came first if the
-    guard is removed, and four of the five fire on data no record carries
-    today - so the message is the only thing a future reader gets, and it is
-    read here rather than assumed.
+    guard is removed, and these shapes are ones the record set does not
+    currently contain - so the message is the only thing a future reader gets,
+    and it is read here rather than assumed.
+
+    That last claim needs no test holding it, and stating why is the point: a
+    record growing one of these shapes makes `routed_invocations` raise, and
+    the enumeration is read by enough of this file that the suite goes red
+    rather than quietly disagreeing with this sentence. The shapes stay absent
+    loudly, which is the only kind of absence worth asserting.
     """
     with (
         _records_replaced_by(monkeypatch, {"x/y": _fake_record(*routes)}),
