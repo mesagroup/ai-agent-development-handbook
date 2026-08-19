@@ -40,6 +40,15 @@ routes:
       AST/`ast`-based walk, or a scoped grep)" - so this is a graph a
       scripted pass builds rather than a command grimp itself runs. Record
       the offending `file:line` for each violation.
+  - lang: python
+    kind: procedure
+    note: >-
+      Where neither tool answers, the record has the reader build the
+      ground-truth edge set by hand instead: parse each module's `import` /
+      `from ... import` statements (an AST/`ast`-based walk, or a scoped
+      grep) and check every cross-tier edge against the declared rules,
+      flagging the file and line of each one. Needs nothing installed,
+      unlike `import-linter`, `tach` and `grimp` above.
   - lang: typescript
     kind: command
     tool: dependency-cruiser
