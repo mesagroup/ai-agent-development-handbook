@@ -35,12 +35,12 @@ routes:
     kind: procedure
     tool: eslint
     note: >-
-      ESLint's core `complexity` and `max-depth` rules under a flat config the
-      audit supplies rather than the target's: pointed at an audit-owned flat
-      config with `--config` and `--no-config-lookup`, they read the target's
-      source without loading the target's own flat config, so no `node_modules`
-      is needed - 286 functions over a threshold of 10 on the target this was
-      first run against. The record names those two flags in a sentence and
+      Capture the metric per function. ESLint's core `complexity` and
+      `max-depth` rules under a flat config the audit supplies rather than the
+      target's: pointed at an audit-owned flat config with `--config` and
+      `--no-config-lookup`, they read the target's source without loading the
+      target's own flat config, so no `node_modules` is needed - 286 functions
+      over a threshold of 10 on the target this was first run against. The record names those two flags in a sentence and
       prescribes no command line, and `--config` takes a config path the record
       names no value for, so there is no argv to declare and a `kind: command`
       route would have to invent one. Install ESLint and the TypeScript parser
@@ -55,8 +55,9 @@ routes:
     tool: eslint
     needs: target-execution
     note: >-
-      The same two rules run under the target's own flat config, which is what
-      the grant buys: the thresholds the project set for itself. That config
+      Capture the metric per function. The same two rules run under the
+      target's own flat config, which is what the grant buys: the thresholds
+      the project set for itself. That config
       loads its plugins from the target's own `node_modules`, and without it
       ESLint aborts with `ERR_MODULE_NOT_FOUND` rather than reporting a metric.
       The record names the rules and prescribes no command line for them, so
@@ -69,8 +70,8 @@ routes:
     tool: eslint-plugin-sonarjs
     needs: target-execution
     note: >-
-      Cognitive complexity. The record names the plugin and prescribes no
-      command line for it. Its type-aware rules need a real TypeScript program
+      Cognitive complexity, captured per function like the metrics above. The
+      record names the plugin and prescribes no command line for it. Its type-aware rules need a real TypeScript program
       over the installed tree, so unlike the core rules above there is no
       audit-owned-config path that avoids the grant.
   - lang: any
