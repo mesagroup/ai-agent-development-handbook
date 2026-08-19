@@ -342,13 +342,15 @@ def _languages_rescued_by_an_untiered_route(check: ac.Check) -> list[str]:
     untiered answering route.
 
     A language qualifies when it offers at least one answering route that
-    needs a grant *and* at least one that does not: delete the untiered ones
-    and `_silenced_languages` would name it, so the record would owe
-    `answers_ungranted`. The untiered side is taken from the loader's own
-    `_routes_answering_ungranted` rather than recomputed, so the two
-    exclusions that grouping applies - a `kind: subject` route is not an
-    answer, a `disposition: forbidden` route is not an offer - cannot drift
-    away from the rule this is counted against.
+    needs a grant *and* at least one that answers it needing none: delete
+    the untiered ones and `_silenced_languages` would name it, so the record
+    would owe `answers_ungranted`. The untiered side is taken from the
+    loader's own `_routes_answering_ungranted` rather than recomputed, so
+    neither the two exclusions that grouping applies - a `kind: subject`
+    route is not an answer, a `disposition: forbidden` route is not an offer
+    - nor the universal spread it applies, whereby an untiered `lang: any`
+    or `lang: none` route answers for every language the record answers for,
+    can drift away from the rule this is counted against.
 
     Args:
         check: A loaded record. One carrying no routes yields no languages,
@@ -1180,6 +1182,74 @@ def test_an_untiered_route_in_the_same_language_answers_it(tmp_path):
     assert check.answers_ungranted is None
 
 
+@pytest.mark.parametrize("lang", ["any", "none"])
+def test_an_untiered_universal_route_answers_a_tiered_language(tmp_path, lang):
+    """`lang: any` and `lang: none` both mean the route applies whatever the
+    partition's language is - that is the whole difference between them and
+    a named language, and `audit-core/SKILL.md` states it as the rule an
+    executing agent follows. So an untiered universal route is what still
+    answers for Python once the grant is withheld, and grouping the routes
+    under their literal `lang` alone would demand `answers_ungranted: none`
+    from a record that plainly has something left to run - a false claim
+    forced into frontmatter by the rule that exists to keep false claims out
+    of it.
+    """
+    check = _routes_record(
+        tmp_path,
+        [
+            {
+                "lang": "python",
+                "kind": "command",
+                "tool": "t",
+                "argv": ["t"],
+                "needs": "target-execution",
+            },
+            {"lang": lang, "kind": "procedure", "note": "walk the AST by hand"},
+        ],
+    )
+    assert check.answers_ungranted is None
+    assert ac._silenced_languages(check.routes) == ()
+
+
+@pytest.mark.parametrize(
+    "rescue",
+    [
+        {"lang": "any", "kind": "subject", "tool": "ruff"},
+        {
+            "lang": "any",
+            "kind": "command",
+            "tool": "depcruise",
+            "argv": ["depcruise"],
+            "disposition": "forbidden",
+        },
+    ],
+)
+def test_a_universal_route_rescues_only_where_it_answers(tmp_path, rescue):
+    """Applying to every language does not make a route an answer. The two
+    exclusions the grouping already applies hold across languages exactly as
+    they hold within one: a `kind: subject` route names what the check
+    inspects rather than what runs it, and a `disposition: forbidden` route
+    is one the record warns against running rather than one it offers.
+    Either read as a universal escape would silence a record without it ever
+    saying what answers, which is the silence this rule exists to prevent,
+    produced by the rule itself.
+    """
+    errors = _errors_for_routes(
+        tmp_path,
+        [
+            {
+                "lang": "python",
+                "kind": "command",
+                "tool": "t",
+                "argv": ["t"],
+                "needs": "target-execution",
+            },
+            rescue,
+        ],
+    )
+    assert any("answers_ungranted" in e and "python" in e for e in errors), errors
+
+
 def test_a_subject_route_does_not_answer_the_check(tmp_path):
     errors = _errors_for_routes(
         tmp_path,
@@ -1358,6 +1428,54 @@ def test_routes_answering_ungranted_excludes_subject_routes():
     )
     assert errors == []
     assert ac._routes_answering_ungranted(routes) == {"python": ()}
+
+
+def test_routes_answering_ungranted_spreads_a_universal_route():
+    """Direct unit test of the universal spread: an untiered `lang: any` or
+    `lang: none` route is filed under every language the record answers
+    for, because that is what those two values mean - the route applies
+    whatever the partition's language is. Asserted on the mapping rather
+    than only through `_silenced_languages`, so the spread is pinned where
+    it happens: the counting helper this module uses for the ungranted
+    floor reads this mapping too, and a spread applied only in the
+    silencing wrapper would leave the two disagreeing.
+    """
+    routes, errors = ac._load_routes(
+        [
+            {
+                "lang": "python",
+                "kind": "command",
+                "tool": "t",
+                "argv": ["t"],
+                "needs": "target-execution",
+            },
+            {"lang": "any", "kind": "procedure", "note": "walk the AST by hand"},
+        ],
+        "demo-audit/checks/thing.md",
+    )
+    assert errors == []
+    answering = ac._routes_answering_ungranted(routes)
+    assert sorted(answering) == ["any", "python"]
+    assert [route.lang for route in answering["python"]] == ["any"]
+    assert [route.lang for route in answering["any"]] == ["any"]
+
+
+def test_a_universal_route_does_not_create_a_language(tmp_path):
+    """The spread reaches only languages the record already answers for. A
+    language with no answering route of its own has made no claim about
+    grants, so it must stay absent from the mapping rather than arrive
+    carrying a universal route - the same vacuity rule that keeps an empty
+    tuple from reading as a claim.
+    """
+    routes, errors = ac._load_routes(
+        [
+            {"lang": "python", "kind": "subject", "tool": "ruff"},
+            {"lang": "any", "kind": "procedure", "note": "read the config"},
+        ],
+        "demo-audit/checks/thing.md",
+    )
+    assert errors == []
+    assert sorted(ac._routes_answering_ungranted(routes)) == ["any"]
 
 
 def test_routes_answering_ungranted_keeps_an_untiered_procedure():
