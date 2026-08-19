@@ -9,11 +9,125 @@ handbook:
   - codebase-structure/compose-agents-with-typed-hooks-over-a-generic-runner-b
   - codebase-structure/dispatch-on-a-discriminator-not-a-type
   - three-layer-model/hold-the-contracts-that-make-layering-pay-off-a
-tooling:
-  python: [import-linter, tach, grimp]
-  typescript: [dependency-cruiser, madge]
-needs:
-  resolved-tree: [dependency-cruiser]
+routes:
+  - lang: python
+    kind: procedure
+    tool: import-linter
+    applies_when: >-
+      The partition carries a `.importlinter` contract.
+    note: >-
+      The record names the tool and its contract and prescribes no command
+      line for it, so there is no argv to declare and a `kind: command`
+      route would have to invent one.
+  - lang: python
+    kind: procedure
+    tool: tach
+    applies_when: >-
+      The partition carries no `.importlinter` contract for the route above
+      to apply. The record offers `tach` as the alternative and names no
+      command for it either.
+    note: >-
+      Where neither tool's condition holds, the record has the reader build
+      the ground-truth edge set by hand instead: parse each module's
+      `import` / `from ... import` statements and check every cross-tier
+      edge against the declared rules.
+  - lang: python
+    kind: library
+    tool: grimp
+    note: >-
+      Builds the edge set the record's manual fallback asks to be walked -
+      "parse each module's import statements ... (`grimp`, or an
+      AST/`ast`-based walk, or a scoped grep)" - so this is a graph a
+      scripted pass builds rather than a command grimp itself runs. Record
+      the offending `file:line` for each violation.
+  - lang: typescript
+    kind: command
+    tool: dependency-cruiser
+    applies_when: >-
+      The project has its own `.dependency-cruiser` config. Absent one, the
+      record has the reader fall back to reading the `tsconfig` path
+      aliases and project references as the declared boundaries instead of
+      reaching for this tool.
+    argv: [npx, "--package", "typescript@^5", "--package", dependency-cruiser, "--", depcruise]
+    argv_by_manager:
+      pnpm: [pnpm, "--package=typescript@^5", "--package=dependency-cruiser", dlx, depcruise]
+      yarn: [yarn, dlx, "-p", "typescript@^5", "-p", dependency-cruiser, depcruise]
+    needs: resolved-tree
+    note: >-
+      Needs the target's own dependencies present for two reasons the
+      record gives: an uninstalled tree returns every external import as
+      `couldNotResolve: true` with dependency type `unknown`, so a
+      project's own config that forbids by dependency type
+      (`not-to-dev-dep`, `not-to-unresolvable`, `no-non-package-json`)
+      silently stops enforcing those rules while still reporting green;
+      and where the `tsconfig` extends a base config living in
+      `node_modules`, an uninstalled tree loses that `extends` chain,
+      `paths` falls back to nothing, and the path aliases the fallback
+      above reads as the declared boundaries disappear along with it, so a
+      first-party cross-boundary edge routed through an alias goes unseen
+      rather than merely unchecked. Each spelling names the packages rather
+      than leaning on the command name, and the three differ structurally:
+      the flags precede `dlx` on pnpm, since `pnpm dlx --package=` reads
+      the flag as a package spec and fails with
+      `ERR_PNPM_SPEC_NOT_SUPPORTED_BY_ANY_RESOLVER`. The `typescript` pin
+      is load-bearing: unpinned it resolves to 7.x, outside the
+      `>=2.0.0 <7.0.0` this tool declares, and a directory argument then
+      cruises `totalCruised: 0` at exit 0.
+    alone_insufficient: >-
+      Each spelling above is the prefix the record writes, not a complete
+      invocation. A target with no `.dependency-cruiser` config - the
+      record calls this the ordinary case, not the exotic one - exits 1
+      with `Can't open a config file`, so this tool answers only once
+      given `--config` with an audit-owned config or `--no-config`, and
+      that choice is not free: `--no-config` discards `--ts-config` along
+      with the rules, and the tree that resolved its first-party graph
+      under an audit-owned config came back with 281 unresolvable
+      first-party specifiers and an empty cycle set under it, at exit 0.
+      Prefer an audit-owned config setting `options.tsConfig` and
+      `enhancedResolveOptions.extensions`.
+  - lang: typescript
+    kind: command
+    tool: depcruise
+    argv: [dlx, depcruise]
+    disposition: forbidden
+    note: >-
+      `depcruise` is the command dependency-cruiser documents but not the
+      name of the package that provides it, and npm carries an unrelated
+      package under that name - a dependency-confusion placeholder whose
+      bin prints a misconfiguration notice and exits 0 - so a bare
+      `dlx depcruise` comes back with nothing at exit 0, which reads as
+      zero violations rather than as nothing having been checked.
+  - lang: typescript
+    kind: procedure
+    tool: madge
+    applies_when: >-
+      The partition's `tsconfig` does not `extend` a base that lives in
+      `node_modules`. Where it does, the `extends` chain and the `paths`
+      it carries are unresolvable without the tree, so neither TypeScript
+      route here has a complete first-party graph and the check is
+      `no-evidence (not-permitted)` rather than a clean conformance
+      result.
+    note: >-
+      The record prescribes no boundary-checking command for `madge`; it
+      names the tool as the one to reach for first on a partition where
+      the tree isn't resolved, since it excludes installed dependencies
+      and carries its own TypeScript, and has the reader give it the
+      partition's own `tsconfig` explicitly with `--ts-config` - the file
+      that carries `paths`, which on a solution-style layout is not
+      `tsconfig.json` - before walking the graph it builds for
+      cross-boundary edges. Passing no flag, or the wrong `tsconfig` file,
+      resolves no `paths` at all and every alias-routed cross-boundary
+      edge this check exists to find is missing from the graph.
+  - lang: typescript
+    kind: procedure
+    applies_when: >-
+      The project carries no `.dependency-cruiser` config, so the
+      dependency-cruiser route above does not apply.
+    note: >-
+      Read the `tsconfig` path aliases and project references as the
+      declared boundaries, walk each module's import specifiers, and check
+      every cross-boundary edge against them. Record the offending
+      `file:line`.
 ---
 
 # Layering / dependency-rule conformance
