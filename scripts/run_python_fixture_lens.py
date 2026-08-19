@@ -812,9 +812,9 @@ INVOCATIONS: tuple[Invocation, ...] = (
             "each hit."
         ),
         note=(
-            "the record names grimp in its tooling and then says the import graph "
-            "cannot answer this check, so the prescription is a grep-and-read pass "
-            "rather than a grimp command"
+            "the record declares grimp the check's subject rather than its "
+            "instrument, because the import graph is what this check looks past, "
+            "so the prescription is a grep-and-read pass rather than a grimp command"
         ),
         forms=(),
     ),

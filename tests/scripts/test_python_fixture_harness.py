@@ -3644,8 +3644,10 @@ def test_a_migrated_records_routes_agree_with_the_verified_table():
 
     And python-with-a-table-entry only. The table transcribes a record's
     python tooling section; a migrated record naming no python route at all -
-    `arch/size`, whose tools are `cloc`/`tokei` - has no oracle here and is
-    skipped below rather than counted as verified. A migrated record that
+    `arch/size` is the one in this domain - has no oracle here and is skipped
+    below rather than counted as verified. Its tools are named in the record
+    rather than repeated here, so a route added to it cannot leave this
+    sentence describing a set it no longer has. A migrated record that
     *does* carry a python route but that the table has no entry for at all is
     not skipped the same way: that gap would mean the table stopped covering a
     record it is supposed to, so it fails instead. `Check.tooling` is not the
