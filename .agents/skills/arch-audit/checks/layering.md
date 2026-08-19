@@ -27,10 +27,12 @@ routes:
       to apply. The record offers `tach` as the alternative and names no
       command for it either.
     note: >-
-      Where neither tool's condition holds, the record has the reader build
-      the ground-truth edge set by hand instead: parse each module's
-      `import` / `from ... import` statements and check every cross-tier
-      edge against the declared rules.
+      The record names `tach` as the alternative to a contract and
+      prescribes nothing further about it - no command line, no
+      configuration file, no output to capture - so, as with
+      `import-linter` above, there is no argv to declare. What the record
+      has the reader do by hand is the case where neither tool's condition
+      holds, which is the tool-less route below rather than this one.
   - lang: python
     kind: library
     tool: grimp
