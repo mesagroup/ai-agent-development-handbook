@@ -1364,11 +1364,13 @@ def test_every_command_form_the_record_names_is_declared():
     naming the span nothing declares.
 
     Read only over the records whose fallback lives in prose. A migrated record
-    has no prose that could grow a form its routes do not carry, and the
-    routes-to-`INVOCATIONS` oracle binds its declared forms instead, as far
-    as that oracle reaches - and it reaches less far than this scope does, in
-    the three ways `test_every_migrated_record_is_in_the_domain_the_oracle_covers`
-    sets out.
+    has no prose that could grow a form its routes do not carry: its
+    prescription is read from the record rather than transcribed into this
+    module, so there is no transcription left for this property to hold
+    against it. Nothing takes over in its place, and nothing needs to - the
+    record is what the harness runs. Whether the route it declares is *true*
+    is a different question, one this property never answered even before the
+    migration, and a fixture round answers it.
     """
     for inv in INVOCATIONS:
         if inv.check not in PROSE_FALLBACK_CHECKS:
@@ -1413,10 +1415,12 @@ def test_every_flag_the_record_names_occurs_in_a_declared_form():
 
     Read only over the records whose fallback lives in prose. A migrated record
     names no flag anywhere but in the route that declares it, so there is no
-    second copy a flag can be appended to, and the routes-to-`INVOCATIONS`
-    oracle binds its declared forms instead, as far as that oracle reaches -
-    and it reaches less far than this scope does, in the three ways
-    `test_every_migrated_record_is_in_the_domain_the_oracle_covers` sets out.
+    second copy for this property to hold that flag against: the prescription
+    is read from the record rather than transcribed here. No other property
+    picks up the slack once a record leaves this scope, because none needs to
+    - the harness runs the route as the record states it. Whether the flag it
+    declares belongs to a command that actually carries it stays unanswered,
+    exactly as it was before the migration.
     """
     for inv in INVOCATIONS:
         if inv.check not in PROSE_FALLBACK_CHECKS:
@@ -1668,11 +1672,12 @@ def test_a_prescription_stays_in_the_paragraph_the_guard_watches():
     its prose against either.
 
     Read only over the records whose fallback lives in prose. A migrated record
-    has no section for a stray paragraph to appear in, and the
-    routes-to-`INVOCATIONS` oracle binds its declared forms instead, as far
-    as that oracle reaches - and it reaches less far than this scope does, in
-    the three ways `test_every_migrated_record_is_in_the_domain_the_oracle_covers`
-    sets out.
+    has no `## Tooling fallback` section for a stray paragraph to appear in:
+    its prescription is a route read from the record directly, not a second
+    copy transcribed into this module for this property to hold against it.
+    Nothing takes over once a record leaves this scope, and nothing needs to -
+    the record is what the harness runs. Whether the route it declares matches
+    what the tool actually does is unanswered here, as it always was.
     """
     skipped = set()
     for inv in INVOCATIONS:
@@ -1724,11 +1729,13 @@ def test_a_form_naming_a_lead_word_off_the_front_is_led_by_some_invocation():
     tool-name rule passed over and this one now reads.
 
     Read only over the records whose fallback lives in prose. A migrated record
-    has no paragraph for an unled span to sit in, and the
-    routes-to-`INVOCATIONS` oracle binds its declared forms instead, as far
-    as that oracle reaches - and it reaches less far than this scope does, in
-    the three ways `test_every_migrated_record_is_in_the_domain_the_oracle_covers`
-    sets out.
+    has no paragraph for an unled span to sit in, because there is no prose
+    prescription at all: the route is read from the record directly, and no
+    transcription of it exists here for this property to hold. Nothing stands
+    in for this property once a record leaves its scope, because there is
+    nothing left to hold - the harness runs the route the record declares.
+    Whether that route names the tool truthfully is a question this property
+    never reached, migrated or not.
     """
     for inv in INVOCATIONS:
         if inv.check not in PROSE_FALLBACK_CHECKS:
@@ -3768,67 +3775,19 @@ def test_the_uv_partition_still_probes_the_tool_its_sbom_route_never_runs(
     assert expected in {tuple(c) for c in recorded}
 
 
-_ORACLE_DOMAINS = ("arch/",)
-"""The domains whose routes the verified-table oracle below holds.
-
-Read by the oracle and by the tripwire beside it, from one place, because the
-two say different things about the same set and a rename that reached only one
-of them would leave the tripwire guarding a domain the oracle had stopped
-covering.
-
-Narrow on purpose. The table it compares against transcribes what a record
-prescribes and was held against the records themselves and then re-verified by
-mutation; a domain with no such table has nothing for the oracle to be an
-oracle against, so widening this without building that table would replace a
-known gap with a passing test.
-"""
-
-
-def test_every_migrated_record_is_in_the_domain_the_oracle_covers():
-    """One of the three dimensions the oracle's reach has, and only one.
-
-    `PROSE_FALLBACK_CHECKS` narrows the prose-anchored properties by the schema
-    a record declares, so a record stops being read by them the moment it
-    migrates. What takes over is the oracle below, and its reach is narrower
-    than that in three independent ways: it reads only `_ORACLE_DOMAINS`, only
-    `python` routes, and only routes carrying a table entry.
-
-    **This holds the first and says nothing about the other two.** A record
-    migrated outside `_ORACLE_DOMAINS` fails here rather than leaving the prose
-    properties for nothing. A migrated record inside it with no `python`
-    `kind: command` route passes here and is held by nothing at all, and that
-    is most of them rather than an edge case: the oracle asserts pairs on the
-    migrated records carrying such a route and there is no assertion of any
-    kind over the rest, several of which declare command routes with concrete
-    argv. Two are proven by mutation, in the two unheld dimensions
-    respectively - `arch/size`'s `cloc` argv can be changed to contradict its
-    own note, and `arch/coupling`'s `typescript@^5` pin can be moved outside
-    the range its own note states, each with the whole suite still green. That
-    hole is older than the scoping: no prose property ever read either record's
-    prescription, the first for want of a table entry and the second because
-    every TypeScript paragraph was excluded from those properties as a sibling
-    lens. So the scoping did not open it and this assertion does not close it.
-
-    Closing it means a verified table entry per migrated record, for routes in
-    any language rather than `python` alone, which is `#44`'s and `#58`'s
-    territory and a scope decision rather than a test edit. Until then, the
-    honest statement of coverage is this one: the domain dimension is held, the
-    other two are not.
-
-    When this fails, the fix is a verified table for that domain's routes and
-    `_ORACLE_DOMAINS` widened to match - not this assertion deleted, which
-    would restore the silence in the one dimension that is guarded.
-    """
-    checks, errors = load_checks(SKILLS_DIR)
-    assert not errors, errors
-    migrated = {cid for cid, c in checks.items() if c.routes}
-    assert migrated, "no record declares routes:, so this holds nothing"
-    uncovered = {cid for cid in migrated if not cid.startswith(_ORACLE_DOMAINS)}
-    assert not uncovered, (
-        f"{sorted(uncovered)} declare routes: and sit outside "
-        f"{_ORACLE_DOMAINS}, so the prose properties no longer read them and "
-        "the verified-table oracle does not either"
-    )
+# The routes oracle stood here, with the tripwire that guarded its reach beside
+# it. It held a migrated record's routes against this module's transcription of
+# them, and while both copies existed it was the only check on the migration.
+# `routed_invocations` is now the single source, so the oracle had nothing left
+# to compare - a derivation cannot disagree with itself - and the tripwire had
+# nothing left to guard the reach of.
+#
+# What neither ever held, and what still nothing holds, is whether a route is
+# true. `arch/size`'s `cloc` argv and `arch/coupling`'s `typescript@^5` pin can
+# each be edited to contradict their own notes with this suite green, before
+# this change and after it. That is answered by running a route against a
+# seeded fixture, which is epic #44, and reading these deletions as having
+# closed it would be exactly backwards.
 
 
 def test_a_routed_row_is_one_per_check_and_tool_rather_than_one_per_route():
