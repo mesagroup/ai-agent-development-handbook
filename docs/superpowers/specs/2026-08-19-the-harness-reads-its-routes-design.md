@@ -40,7 +40,9 @@ keys only in table:   []
 mismatching rows: 0
 ```
 
-That is the evidence the rule is a derivation of the existing table rather than a re-authoring of it. It is also why the acceptance guard below can be as strict as it is.
+Extended to the two other fields a row carries from its route, over all 19 rows rather than the command ones alone, `findings_stream` and `in_env` agree with zero mismatches.
+
+That is the evidence the rule is a derivation of the existing table rather than a re-authoring of it.
 
 ## Route selection: `lang: python` only
 
@@ -48,7 +50,7 @@ The harness selects `lang: python` routes and no others.
 
 The alternative considered was `python` plus `lang: any`, which has a real argument behind it: `arch/size`'s `cloc` route says in its own note that a one-shot runner fetches the tool whatever the partition's language, so an `any` route is applicable to a python partition by the record's own claim. Selecting it would bring `arch/size` into the round and make its argv the thing that actually executes, which is the only way a mutation to that argv gets caught.
 
-It is rejected here for two reasons. It gives the Python lens a node dependency, so a partition without node grades the row `no-evidence (tool-unavailable)` and the generated expectations become a fact about the machine rather than about the fixture. And it changes what the harness runs, which forfeits the guard this whole change rests on: that the expectations re-render byte-identical. Widening the selection is a scope decision that belongs with `#44`, where running a route against a seeded fixture is the deliverable.
+It is rejected here for two reasons. It gives the Python lens a node dependency, so a partition without node grades the row `no-evidence (tool-unavailable)` and the generated expectations become a fact about the machine rather than about the fixture. And it changes the set of checks the round runs: `arch/size` carries no `python` tooling, so it is absent from both the expectations' declared scope and the three-way equality below, and enumerating it would mean editing the expectations to admit a check whose route no fixture verifies. Widening the selection is a scope decision that belongs with `#44`, where running a route against a seeded fixture is the deliverable.
 
 A third option - selecting `any` routes that need no registry fetch, so `wc -l` runs and `npx cloc` does not - is rejected outright: `wc` carries `disposition: alternative`, reached only once neither `cloc` nor `tokei` is available, so running it unconditionally would contradict the record's own precedence.
 
@@ -66,7 +68,7 @@ The line between record-owned and engine-owned is prescription against interpret
 
 ## What the table becomes
 
-The 19 entries belonging to migrated checks go. Four survive, as an overlay keyed `(check, tool)` carrying `completion` and nothing else:
+The 19 entries belonging to migrated checks go. Four survive, as an overlay keyed `(check, tool)` carrying a `completion` and the reason it was needed:
 
 | check | tool |
 |---|---|
@@ -75,7 +77,7 @@ The 19 entries belonging to migrated checks go. Four survive, as an overlay keye
 | `arch/cycles` | `pydeps` |
 | `arch/dead-code` | `vulture` |
 
-None of the 19 uses `argv_by_partition`, `own_runner`, `then`, `supplied_by_partition` or `supplied_note`, so the overlay needs no field beyond `completion` today. It is a mapping rather than a dataclass: a four-entry overlay beside a 31-entry `INVOCATIONS` is two shapes, and the alternative - one dataclass with most fields unused on migrated rows - keeps a slot for every prescription field on exactly the rows that must not carry one.
+The reason is not decoration and not prose that could live in the record: each of the four reads as a finding about what the record failed to say - `radon cc` takes a path and the record names none, `xenon` needs both a threshold and a path, `vulture` needs both trees passed because a symbol referenced only by a test is not dead. That is the round's deliverable in one sentence, and `test_a_completed_argv_says_why_it_had_to_be_completed` already refuses a completion travelling without it. None of the 19 uses `argv_by_partition`, `own_runner`, `then`, `supplied_by_partition` or `supplied_note`, so the overlay needs no field beyond those two today. It is a mapping rather than a dataclass: a four-entry overlay beside a 31-entry `INVOCATIONS` is two shapes, and the alternative - one dataclass with most fields unused on migrated rows - keeps a slot for every prescription field on exactly the rows that must not carry one.
 
 `INVOCATIONS` keeps its 31 entries for the 16 prose-anchored checks, `record_quote` included, because that field is still the only thing holding those transcriptions to their records.
 
@@ -95,16 +97,34 @@ Every prose-parsing helper is then either still reached by a property covering t
 
 Both docstrings state that the reach hole is `#44`'s and `#58`'s territory, and that stays exactly as true afterwards. `arch/size`'s `cloc` argv and `arch/coupling`'s `typescript@^5` pin can each be mutated with the suite green today, and can afterwards. What changes is the hole's shape rather than its size: with one copy instead of two, a wrong argv is a wrong route rather than a disagreement between a transcription and a record, and whether a route is true is answered by running it against a seeded fixture. This buys simplicity, not defect-finding power, and no acceptance criterion here may be read as claiming otherwise.
 
+## The guard, and the guard this is not
+
+The obvious candidate was a byte-identical re-render of `docs/audit/python-fixture-expectations.md`. It is not a guard on this change and the spec does not use it as one: `render_python_fixture_expectations.py` reads `python_fixture_spec.py` and neither imports `run_python_fixture_lens.py`, so that file re-renders identically whatever the enumeration does. It stays a gate that must pass, as it must for every change, and it proves nothing about this one.
+
+What does bridge the two is `test_the_harness_runs_exactly_the_checks_the_expectations_declare`, which holds three views of one set equal: the records carrying `python` tooling, the checks the harness runs, and the checks the expectations grade. It reads `INVOCATIONS` directly, so enumerating migrated checks elsewhere breaks it, and restating it is part of this work rather than a consequence to absorb. Its new form is a union over the two enumeration paths, verified against this tree before being written:
+
+```
+records with python tooling: 26
+enumerated from routes: 10
+table rows for prose checks: 16
+union == with_python: True
+missing from union: []   extra in union: []
+```
+
+A check dropped by the enumeration, invented by it, or claimed by both paths at once fails that equality. That is the property the change actually rests on.
+
+The row-level derivation comparison stays evidence rather than becoming a test. Frozen into the suite as a literal expected set it would be a second copy of the prescription, which is the defect this whole stage removes; so it runs once against the pre-change table, its output goes in the PR, and what remains in the suite are the properties that hold shape rather than content.
+
 ## Acceptance criteria
 
 - [ ] Every migrated check's executed command is derived from that record's `routes`. No migrated check's argv appears twice in the tree.
-- [ ] The enumeration rule reproduces the 19 rows, keyed `(check, tool)`, with non-`command` kinds producing no-command rows and grouped forms carrying every `kind: command` route's `(argv, disposition)` pair.
-- [ ] `record_quote` is gone from every migrated check's data, and the four surviving overlay entries carry `completion` and nothing else.
+- [ ] The enumeration rule reproduces the 19 rows, keyed `(check, tool)`, on argv, forms, `findings_stream` and `in_env`, with non-`command` kinds producing no-command rows and grouped forms carrying every `kind: command` route's `(argv, disposition)` pair. The comparison runs against the pre-change table and its output goes in the PR.
+- [ ] `record_quote` is gone from every migrated check's data, and the four surviving overlay entries carry a completion and the reason it was needed, and nothing else.
 - [ ] A property fails if a migrated check has an `INVOCATIONS` entry.
 - [ ] `NONZERO_EXIT_MEANING`, `VERSION_PROBE` and `TOOL_PACKAGES` stay engine-owned, and the properties over them read the tools a route runs rather than the tools the table names.
 - [ ] The routes oracle and its domain guard are deleted, each with its reason recorded in the module.
 - [ ] `PROSE_FALLBACK_CHECKS` still covers every unmigrated invoked check, and every surviving prose-parsing helper is reached by a property covering the 66 unmigrated records.
-- [ ] `docs/audit/python-fixture-expectations.md` re-renders byte-identical. Nothing about what the harness runs moves; only where it is read from.
+- [ ] `test_the_harness_runs_exactly_the_checks_the_expectations_declare` is restated as a union over the two enumeration paths and still holds all three views equal, so a check dropped, invented or double-claimed fails it.
 - [ ] `uv run pytest tests/ -q` green, `ruff check`, `ruff format --check`, `render_handbook_traceability.py --check` and `render_python_fixture_expectations.py --check` green.
 - [ ] The harness's mutation table is re-run under `PYTHONDONTWRITEBYTECODE=1`, and any mutation this change makes unreachable is recorded as such rather than deleted.
 - [ ] #58's staging is corrected on the epic: the parser's deletion is stage 4's deliverable, stage 4 takes `deps`, `docs`, `security` and `test` first, and #54 and #56 close there.
@@ -119,6 +139,8 @@ Both docstrings state that the reach hole is `#44`'s and `#58`'s territory, and 
 
 ## Testing
 
-The strictest guard available is that the generated expectations do not change: a byte-identical re-render of `docs/audit/python-fixture-expectations.md` proves the harness reads the records without altering what it runs. It is available only because route selection stays `lang: python`, which is the main reason that decision went the way it did.
+The behavioural guard is the three-way check-set equality above, restated as a union and held against the expectations' own declared scope. It is a live guard, unlike the re-render, and it is the reason route selection staying `lang: python` matters: widening it puts a check in the harness that the expectations do not grade, and the equality fails rather than the round quietly growing a row nothing checks.
 
-Beyond it, three properties carry the design's invariants rather than its behaviour: no `INVOCATIONS` entry for a migrated check, every surviving prose helper reachable from a property over the unmigrated records, and every tool a route runs carrying an engine-owned grading rule. Each fails on a plausible future edit rather than only on a deliberate one.
+Three further properties carry the design's invariants rather than its behaviour: no `INVOCATIONS` entry for a migrated check, every surviving prose helper reachable from a property over the unmigrated records, and every tool a route runs carrying an engine-owned grading rule. Each fails on a plausible future edit rather than only on a deliberate one.
+
+The row-level derivation is verification, not a test, for the reason given above: kept in the suite it would reintroduce the second copy.
