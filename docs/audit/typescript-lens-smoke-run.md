@@ -91,6 +91,8 @@ The four records say the claim is reasoned from documented behaviour and "not re
 
 Both halves hold: a missing flag yields a false cycle-free verdict, and the hub counts come back **wrong**, not merely thin - 89% of the edges gone and the ranking reshuffled. dependency-cruiser's 7 modules-in-cycles corroborate madge's 2 chains.
 
+This is why passing `--ts-config` is not optional rather than merely helpful: madge's `tsConfig` option is documented with a default of `null`, and madge discovers no config on its own. Absent the flag, only a `.madgerc` file or a `madge` key in the partition's own `package.json` supplies one.
+
 ### 4. The coverage fallback returns a false clean
 
 This is the most consequential finding, and it is the exact class the exercise was for.
@@ -146,6 +148,7 @@ Confirmed rather than corrected, on the pnpm side: `pnpm licenses list` needs th
 - **An ESLint exit code is not a verdict under an audit-owned config.** The target's own `eslint-disable` comments name rules the audit config does not load, and ESLint reports each as an **error-severity** `Definition for rule 'X' was not found`. Nineteen of them here, while every real hit was a warning: exit 1, no findings. Read the message list, not the status.
 - **The Semgrep registry rulesets are narrow.** `p/javascript` plus `p/typescript` ran **74 rules and returned 0 findings** on a tree where `eslint-plugin-security` produced 557 hits, six of them `detect-non-literal-fs-filename`. On this target Semgrep alone would have reported all four security checks clean. Semgrep also notes that the scan was **limited to files tracked by git**, so an untracked file is skipped silently.
 - **`knip` without the tree flags 62 unused files against 27 with it**, at exit 0 with a single stderr line. Its documented quiet degradation, quantified: 35 genuinely-used files falsely flagged.
+- **A `ts-morph` walk from an audit-owned install, against the same target, found 502 interfaces, 484 of them with no implementer at all, and 150 single-export modules.** `knip` could not have corroborated these counts: without the resolved tree it reports first-party files and imported packages alike as unused, which inflates exactly this kind of figure.
 - **`depcheck` without the tree** falsely reported `typescript`, `tsx`, `@types/react-dom` and `react-dom` unused; all four disappeared after the install. The record's fixture claim, reproduced on a real target.
 - **`npm outdated` without the tree** reported all 37 production dependencies with no `current` and **dropped all 14 devDependencies from the output**, exactly as documented; with the tree it reported 36 entries and 12 devDependencies.
 - **`diff-cover` has a working npm namesake.** `uvx diff-cover` gives 10.5.0; `npx diff-cover` gives 0.1.0 and runs. The record's warning, confirmed.
