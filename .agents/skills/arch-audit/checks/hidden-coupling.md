@@ -10,7 +10,7 @@ handbook_note: >-
   the note on codebase-structure/watch-for-structural-decay-beyond-layering.
 routes:
   - lang: python
-    kind: library
+    kind: subject
     tool: grimp
     alone_insufficient: >-
       The import graph won't show this. Coupling that never travels through an
