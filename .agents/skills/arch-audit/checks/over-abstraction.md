@@ -18,9 +18,9 @@ routes:
     note: >-
       The fan-in-to-abstraction signal - subclasses per abstraction, call
       sites per single-function module or one-method wrapper class,
-      registrants or `match` arms per registry, entry point or
-      `match`-dispatch, distinct values bound per parameter/flag/config
-      field - is computed from the same edge/AST set built for layering. An
+      registrants or `match` arms per registry / entry point /
+      `match`-dispatch, and distinct values bound per
+      parameter/flag/config field - is computed from the same edge/AST set built for layering. An
       abstraction is an `ABC` base, a `Protocol` base, or any class carrying
       `@abstractmethod`, and the subclass count is of concrete subclasses
       across the tree; `grimp` refs, counted from the built graph rather
