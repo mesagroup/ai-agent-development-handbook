@@ -18,18 +18,19 @@ routes:
     note: >-
       The fan-in-to-abstraction signal - subclasses per abstraction, call
       sites per single-function module or one-method wrapper class,
-      registrants or `match` arms per registry/dispatch, distinct values
-      bound per parameter/flag/config field - is computed from the same
-      edge/AST set built for layering. An abstraction is an `ABC` base, a
-      `Protocol` base, or any class carrying `@abstractmethod`, and the
-      subclass count is of concrete subclasses across the tree; `grimp`
-      refs, counted from the built graph rather than from a command run for
-      this check specifically, or a scoped grep where the graph does not
-      cover the call, source the call-site count for a single-function
-      module or one-method wrapper class. The AST of the call arguments, or
-      a grep of the setter where the value is assigned rather than passed,
-      sources the distinct-values count for a parameter, flag, or config
-      field.
+      registrants or `match` arms per registry, entry point or
+      `match`-dispatch, distinct values bound per parameter/flag/config
+      field - is computed from the same edge/AST set built for layering. An
+      abstraction is an `ABC` base, a `Protocol` base, or any class carrying
+      `@abstractmethod`, and the subclass count is of concrete subclasses
+      across the tree; `grimp` refs, counted from the built graph rather
+      than from a command run for this check specifically, or a scoped grep,
+      source the call-site count for a single-function module or one-method
+      wrapper class. The AST of the call arguments, or a grep of the setter
+      where the value is assigned rather than passed, sources the
+      distinct-values count, which is of the values bound across all of a
+      parameter's, flag's or config field's call sites rather than at any
+      one of them.
     alone_insufficient: >-
       The count is the evidence, but "a row only becomes a finding after a
       read confirms (a) no second consumer or second value is imminent
