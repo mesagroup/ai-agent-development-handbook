@@ -337,6 +337,58 @@ def test_an_unsilenced_record_needs_no_note(tmp_path):
     assert errors == [], errors
 
 
+def test_evidence_is_absent_rather_than_blank_when_the_routes_carry_it(tmp_path):
+    """A record with nothing check-level to say about measurement omits it.
+
+    Unlike `needs`, whose absence is the positive claim that no tool here needs
+    a grant, an absent `evidence` claims nothing at all: what to measure is in
+    the routes, which is where a per-tool measurement belongs.
+    """
+    checks, errors = _load_one(tmp_path, _record(tooling={"python": ["t"]}))
+    assert errors == []
+    assert checks["demo/thing"].evidence is None
+
+
+def test_evidence_carries_the_check_level_measurement(tmp_path):
+    check = _record(
+        tooling={"python": ["t"]},
+        extra="evidence: Line counts per file; flag outliers.\n",
+    )
+    checks, errors = _load_one(tmp_path, check)
+    assert errors == []
+    assert checks["demo/thing"].evidence == "Line counts per file; flag outliers."
+
+
+@pytest.mark.parametrize(
+    ("extra", "fragment"),
+    [
+        ("evidence:\n", "evidence is empty"),
+        ("evidence: ''\n", "evidence is blank"),
+        ("evidence: '   '\n", "evidence is blank"),
+    ],
+)
+def test_an_empty_evidence_key_is_rejected_rather_than_read_as_absent(
+    tmp_path, extra, fragment
+):
+    """The key present and saying nothing is the one state that must not pass.
+
+    YAML turns a bare `evidence:` into `None`, which is indistinguishable from
+    omitting the key by the time it reaches the dataclass - and the two mean
+    opposite things, so the difference has to be caught where it is still
+    visible. Asserted on the message rather than on the word `evidence`
+    appearing somewhere in the error list, because the unknown-key rule already
+    produces an error naming `evidence` and these would pass against it.
+    """
+    _, errors = _load_one(tmp_path, _record(tooling={"python": ["t"]}, extra=extra))
+    assert any(fragment in e for e in errors), errors
+
+
+def test_evidence_must_be_prose_not_a_list(tmp_path):
+    check = _record(tooling={"python": ["t"]}, extra="evidence: [a, b]\n")
+    _, errors = _load_one(tmp_path, check)
+    assert any("evidence must be a string" in e for e in errors), errors
+
+
 def _languages_rescued_by_an_untiered_route(check: ac.Check) -> list[str]:
     """The languages a migrated record would be silenced in but for an
     untiered answering route.
