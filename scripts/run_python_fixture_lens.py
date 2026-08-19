@@ -639,6 +639,12 @@ def argv_for(invocation: Invocation, partition: str) -> tuple[str, ...]:
 # names the tool.
 INVOCATIONS: tuple[Invocation, ...] = (
     # --- arch ---------------------------------------------------------------
+    # On a migrated record the `record_quote` below is no longer a citation: the
+    # prose it was lifted from is gone, and `PROSE_FALLBACK_CHECKS` scopes the
+    # properties that held it against the record out of these entries. It stays as
+    # the prescription the argv is still held against - `_route_anchoring`'s two
+    # consumers read both sides from this table - so an argv edited away from what
+    # the record prescribed still fails, and editing one means editing the other.
     Invocation(
         check="arch/complexity-gate",
         tool="ruff",
