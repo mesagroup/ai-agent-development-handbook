@@ -214,6 +214,14 @@ def routed_invocations() -> tuple[Invocation, ...]:
     holds the harness to them would fail rather than the round quietly growing
     a row nothing checks.
 
+    A row's `note` says why it is not simply the record's command running as
+    written, which is the only thing worth carrying into the artifact. Two
+    things produce that. Where the round had to complete the command, the
+    reason is round-owned and comes from `COMPLETIONS`. Where the record
+    prescribes no command at all, the reason is the record's own and comes from
+    that route's `note`. A command that ran as written explains itself and
+    carries none.
+
     Raises:
         ValueError: If a group carries more than one `runs` command route, two
             different `findings_stream` values, two different `in_env` values,
@@ -261,11 +269,24 @@ def routed_invocations() -> tuple[Invocation, ...]:
                     "would depend on their order in the record"
                 )
             supplied = COMPLETIONS.get((check_id, tool))
+            argv = tuple(runs[0].argv) if runs else ()
+            if supplied:
+                note = supplied.note
+            elif argv:
+                note = ""
+            elif len(routes) == 1:
+                note = routes[0].note
+            else:
+                raise ValueError(
+                    f"{check_id}/{tool}: prescribes no command and declares "
+                    f"{len(routes)} routes, so which one explains the absence "
+                    "is ambiguous; the row would carry whichever came first"
+                )
             rows.append(
                 Invocation(
                     check=check_id,
                     tool=tool,
-                    argv=tuple(runs[0].argv) if runs else (),
+                    argv=argv,
                     forms=tuple(
                         (" ".join(r.argv), r.disposition) for r in commands
                     ),
@@ -318,6 +339,17 @@ def test_the_enumeration_reproduces_the_table_it_replaces():
 
     Compares forms as sets: the table's are in the order somebody typed them
     and the enumeration's follow the record, and neither order is a claim.
+
+    `note` is the one field this does not hold as an equality, and the
+    asymmetry is the finding rather than a weakened assertion. On the four
+    rows a completion covers it is exact. On the fourteen prescribing no
+    command the table carried a hand-authored paraphrase of the record's
+    reasoning, and the enumeration carries the record's own sentence, so the
+    assertion is that the row still explains itself and that the text is no
+    longer the transcription. That is a visible change in the results
+    artifact, where `note` is written out per row, and it is the intended
+    direction: the explanation stops being a copy somebody has to keep in
+    step. Every field that decides what actually runs is held as an equality.
     """
     migrated = {cid for cid, c in load_checks(SKILLS_DIR)[0].items() if c.routes}
     table = {
@@ -333,7 +365,12 @@ def test_the_enumeration_reproduces_the_table_it_replaces():
         assert row.findings_stream == entry.findings_stream, key
         assert row.in_env == entry.in_env, key
         assert row.completion == entry.completion, key
-        assert row.note == entry.note, key
+        if key in COMPLETIONS:
+            assert row.note == entry.note, key
+        elif row.argv:
+            assert row.note == "" and entry.note == "", key
+        else:
+            assert row.note and row.note != entry.note, key
         expected = set(entry.forms) or (
             {(" ".join(entry.argv), "runs")} if entry.argv else set()
         )
