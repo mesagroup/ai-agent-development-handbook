@@ -115,60 +115,65 @@ for p in sorted(CHECKS.glob("*.md")):
 
 - [ ] **Step 1: Write the failing tests**
 
-Append to `tests/scripts/test_audit_checks.py`. `_write_check` is the module's existing record-writing helper - read its signature first and pass the frontmatter the same way its neighbours do.
+Append to `tests/scripts/test_audit_checks.py`, beside the `ungranted_note` tests that use the same two helpers. `_record(tooling=None, needs=None, extra="")` renders a minimal `demo/thing` record and inserts `extra` as sibling frontmatter at column 0; `_load_one(tmp_path, check)` writes it as the only record in a fresh tree and loads it.
 
 ```python
-def test_evidence_is_optional_and_absent_is_not_a_claim(tmp_path):
+def test_evidence_is_absent_rather_than_blank_when_the_routes_carry_it(tmp_path):
     """A record with nothing check-level to say about measurement omits it.
 
     Unlike `needs`, whose absence is the positive claim that no tool here needs
-    a grant, an absent `evidence` claims nothing: what to measure is in the
-    routes, which is where a per-tool measurement belongs.
+    a grant, an absent `evidence` claims nothing at all: what to measure is in
+    the routes, which is where a per-tool measurement belongs.
     """
-    check = _minimal_check(tmp_path, "arch", "no-evidence-key")
-    checks, errors = ac.load_checks(tmp_path)
+    checks, errors = _load_one(tmp_path, _record(tooling={"python": ["t"]}))
     assert errors == []
-    assert checks["arch/no-evidence-key"].evidence is None
+    assert checks["demo/thing"].evidence is None
 
 
 def test_evidence_carries_the_check_level_measurement(tmp_path):
-    _minimal_check(
-        tmp_path,
-        "arch",
-        "has-evidence",
-        extra={"evidence": "Line counts per file; flag outliers."},
+    check = _record(
+        tooling={"python": ["t"]},
+        extra="evidence: Line counts per file; flag outliers.\n",
     )
-    checks, errors = ac.load_checks(tmp_path)
+    checks, errors = _load_one(tmp_path, check)
     assert errors == []
-    assert checks["arch/has-evidence"].evidence == "Line counts per file; flag outliers."
+    assert checks["demo/thing"].evidence == "Line counts per file; flag outliers."
 
 
-@pytest.mark.parametrize("value", [None, "", "   "])
-def test_an_empty_evidence_key_is_rejected_rather_than_read_as_absent(tmp_path, value):
+@pytest.mark.parametrize(
+    ("extra", "fragment"),
+    [
+        ("evidence:\n", "evidence is empty"),
+        ("evidence: ''\n", "evidence is blank"),
+        ("evidence: '   '\n", "evidence is blank"),
+    ],
+)
+def test_an_empty_evidence_key_is_rejected_rather_than_read_as_absent(
+    tmp_path, extra, fragment
+):
     """The key present and saying nothing is the one state that must not pass.
 
     YAML turns a bare `evidence:` into `None`, which is indistinguishable from
-    omitting the key once it reaches the dataclass - and the two mean opposite
-    things, so the difference has to be caught where the difference is still
-    visible.
+    omitting the key by the time it reaches the dataclass - and the two mean
+    opposite things, so the difference has to be caught where it is still
+    visible. Asserted on the message rather than on the word `evidence`
+    appearing somewhere in the error list, because the unknown-key rule already
+    produces an error naming `evidence` and these would pass against it.
     """
-    _minimal_check(tmp_path, "arch", "blank-evidence", extra={"evidence": value})
-    _, errors = ac.load_checks(tmp_path)
-    assert any("evidence" in e for e in errors), errors
+    _, errors = _load_one(tmp_path, _record(tooling={"python": ["t"]}, extra=extra))
+    assert any(fragment in e for e in errors), errors
 
 
 def test_evidence_must_be_prose_not_a_list(tmp_path):
-    _minimal_check(tmp_path, "arch", "listy-evidence", extra={"evidence": ["a", "b"]})
-    _, errors = ac.load_checks(tmp_path)
+    check = _record(tooling={"python": ["t"]}, extra="evidence: [a, b]\n")
+    _, errors = _load_one(tmp_path, check)
     assert any("evidence must be a string" in e for e in errors), errors
 ```
-
-`_minimal_check` may not exist under that name. Read the top of `tests/scripts/test_audit_checks.py`, find the helper its existing loader tests use to write a record into `tmp_path`, and use that one - adding an `extra` frontmatter argument to it if it has none. Do not write a second helper beside it.
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
 Run: `caffeinate uv run pytest tests/scripts/test_audit_checks.py -q -k evidence`
-Expected: FAIL. The first two on `AttributeError: 'Check' object has no attribute 'evidence'`; the last two on an empty `errors` list, because an unknown key is either ignored or already rejected as unknown - read which, because if `FIELDS` rejects unknown keys then the last two fail for the wrong reason and their assertions need the real message.
+Expected: all six FAIL. `FIELDS` rejects an unknown frontmatter key (line 757), so the four that write the key fail with `unknown frontmatter key 'evidence'`, and the first fails on `AttributeError: 'Check' object has no attribute 'evidence'`. That the empty-key cases assert a specific message rather than the word `evidence` is what makes them fail here rather than pass against the unknown-key error.
 
 - [ ] **Step 3: Add the field**
 
@@ -203,10 +208,12 @@ Beside the `handbook_note` validation, after the `if handbook and note:` block e
                 f"{where}: evidence must be a string, got {evidence!r} - it is one "
                 "statement about the check, not a list of them"
             )
+            evidence = None
         elif not evidence.strip():
-            errors.append(f"{where}: evidence is blank")
-    if evidence is not None and not isinstance(evidence, str):
-        evidence = None
+            errors.append(
+                f"{where}: evidence is blank - write what the check measures, or "
+                "drop the key"
+            )
 ```
 
 In the `Check(...)` construction (line 1027 onwards), add `evidence=evidence,` after `answers_ungranted=answers_ungranted,`.
@@ -817,23 +824,33 @@ def test_a_routes_record_may_not_carry_a_fallback_section(tmp_path):
 
     Scoping the prose properties to records declaring `tooling:` stops them
     reading a section that is not there. It says nothing about a section coming
-    back: a migrated record that grows one again is a second copy of its routes
-    that no property reads and nothing holds against them, which is the state
-    this whole change exists to end.
+    back: a migrated record that grows one again carries a second copy of its
+    routes that no property reads and nothing holds against them, which is the
+    state this whole change exists to end.
     """
-    _routes_check(tmp_path, "arch", "regrown", body_extra="## Tooling fallback\n\nRun the tool.\n")
+    text = _routes_frontmatter("kind: command\n    tool: t\n    argv: [t]")
+    _write(
+        tmp_path,
+        "demo-audit/checks/thing.md",
+        text + "\n## Tooling fallback\n\nRun `t` over the package.\n",
+    )
     _, errors = ac.load_checks(tmp_path)
     assert any("Tooling fallback" in e for e in errors), errors
 
 
 def test_a_tooling_record_may_carry_a_fallback_section(tmp_path):
-    """The 66 records still on the old schema keep theirs."""
-    _minimal_check(tmp_path, "deps", "legacy", body_extra="## Tooling fallback\n\nRun the tool.\n")
+    """The 66 records still on the old schema keep theirs, and must."""
+    _write(
+        tmp_path,
+        "demo-audit/checks/thing.md",
+        _record(tooling={"python": ["t"]})
+        + "\n## Tooling fallback\n\nRun `t` over the package.\n",
+    )
     _, errors = ac.load_checks(tmp_path)
-    assert errors == []
+    assert errors == [], errors
 ```
 
-`_routes_check` and `_minimal_check` stand in for whichever helpers this file already uses to write a routes record and a tooling record into `tmp_path`; read the file, use those, and extend them with a `body_extra` argument if they do not take one.
+Both build the record text and write it with `_write` rather than going through `_one_route_record` or `_load_one`, because those two render the body themselves and neither takes a body argument. Do not add a body parameter to them for two tests.
 
 - [ ] **Step 2: Run them to verify the first fails**
 
