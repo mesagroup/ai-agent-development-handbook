@@ -2,6 +2,11 @@
 id: arch/coupling
 domain: arch
 locality: global
+evidence: >-
+  The afferent and efferent counts per module are the evidence, whichever
+  tool produced the dependency map they were computed over, and the top hubs
+  are what a finding flags. A graph render is a visual rather than the
+  evidence.
 handbook:
   - codebase-structure/watch-for-structural-decay-beyond-layering
 routes:

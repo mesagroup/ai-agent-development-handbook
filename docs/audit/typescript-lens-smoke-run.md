@@ -82,7 +82,7 @@ The bare-name hazard the records document is real: `npx depcruise` prints `🔒 
 
 ### 3. `madge`'s `--ts-config` claim is confirmed, on both halves
 
-The four records say the claim is reasoned from documented behaviour and "not reproduced on a fixture here". It is now reproduced, on a partition whose `tsconfig` extends nothing:
+Reproduced on a partition whose `tsconfig` extends nothing, so the `--ts-config` half rests on measurement rather than on TypeScript's documented `extends` resolution:
 
 | | cycles reported | nodes | edges | edge/node | top hub, afferent |
 |---|---|---|---|---|---|
