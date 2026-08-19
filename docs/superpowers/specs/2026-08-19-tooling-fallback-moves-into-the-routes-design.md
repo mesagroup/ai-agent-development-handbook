@@ -24,9 +24,9 @@ Three facts make this the smaller change rather than the larger one.
 
 ## The one schema addition: `evidence:`
 
-Some fallback prose belongs to the check rather than to any route. `arch/size` opens with "Line counts per file; flag outliers and anything over a documented norm."; `arch/complexity-gate` opens with "**Read the project's configured threshold before measuring, and treat its absence as a finding in its own right.**". Both are check-level directives that no route owns, and they are the only two of the eleven whose fallback section has an unlabelled paragraph.
+Some fallback prose belongs to the check rather than to any route. `arch/size` opens with "Line counts per file; flag outliers and anything over a documented norm.", and `arch/over-abstraction` states the threshold every one of its counts is read against - "**one** (or zero) is the trigger" - and the rule that a row records "the count and the `file:line` of both the abstraction and its lone consumer". Neither is any one route's claim: `size` measures the same thing whichever of its three tools runs, and `over-abstraction`'s trigger governs four different counts across two languages. `arch/complexity-gate` reads as this shape and is not: its threshold directive is already carried by a `lang: none` route, which is the routes schema's own way of saying a claim belongs to the check rather than to a language, so that record needs no new field.
 
-The shape is not confined to those two. `arch/coupling`'s **Python** paragraph opens with "compute afferent/efferent counts per module from the same edge set; flag the top hubs", which is the check's measurement instruction sitting inside a language-labelled paragraph. `arch/martin-metrics` and `arch/over-decomposition` do the same.
+Where a measurement instruction is already stated once per route it stays there rather than moving. `arch/coupling` writes the afferent/efferent counts into both its `grimp` note and its `dependency-cruiser` note, and `arch/martin-metrics` writes the five formulas into its `grimp` note and its lead prose; restating those in a new field would add a third copy to a change whose point is to remove the second. `evidence:` is for a claim that is currently in no field at all.
 
 So the record gains one optional record-level frontmatter field, `evidence:` - a short statement of what to measure and what counts as evidence, validated as present-and-non-empty or absent. The name is the family's own word: these records already write "the counts are the evidence", "`D` is the evidence", "Record the ratio ... as the evidence".
 
@@ -34,14 +34,19 @@ The alternative was to fold that content into the record's lead prose above `## 
 
 ## Evidence triage - the only place information can be silently destroyed
 
-A token-level diff of each record's fallback prose against its frontmatter splits the eleven:
+A token-level diff of each record's fallback prose against everything else in the file - frontmatter and the rest of the body both - splits the eleven. The second column counts tokens the fallback section is the only place in the record to carry; the third counts how many of those are concrete rather than connective prose, a token carrying a digit, a path, a flag or a namespace separator:
 
-| population | records | prose-only tokens |
+| population | records | prose-only / concrete |
 |---|---|---|
-| pure duplication | `complexity-gate`, `martin-metrics`, `complexity`, `dead-code`, `hidden-coupling`, `size` | 0, 5, 6, 6, 7, 12 |
-| prose carries more | `over-abstraction`, `cycles`, `coupling`, `layering`, `over-decomposition` | 50, 116, 120, 147, 174 |
+| pure duplication | `complexity-gate`, `martin-metrics`, `hidden-coupling`, `complexity`, `dead-code`, `size` | 1/0, 4/0, 7/0, 8/0, 9/0, 12/0 |
+| prose carries more | `over-abstraction`, `cycles`, `coupling`, `layering`, `over-decomposition` | 43/6, 132/17, 138/18, 170/24, 186/22 |
 
-The excess in the second population is measured smoke-run observation: 1090 edges thinning to 122, dependency-cruiser 18.2.0, pnpm 9.15.9 against 11, `--no-config` discarding `--ts-config`, `.madgerc`, `tsconfig.app.json`. `docs/audit/typescript-lens-smoke-run.md` already carries all of it - 9.15.9, 18.2.0, `--no-config`, 281, `totalCruised`, 1090, `tsconfig.app.json`, 45 warnings and 31 warnings all occur in that file - and the prose being deleted already links to it.
+The first population's residue is connective prose over claims the frontmatter already states, so those six are read once and deleted.
+
+The second population's concrete residue is measured smoke-run observation - 1090 edges thinning to 122, dependency-cruiser 18.2.0, pnpm 9.15.9 against 11, `--no-config` discarding `--ts-config`, `tsconfig.app.json` - plus, on all four of the TypeScript-heavy records, the link to the document that carries it. Two gaps in that story are real and were found by checking rather than assumed:
+
+- **No arch record's frontmatter carries the smoke-run link at all.** Four records link it from the prose being deleted and nowhere else, so deleting the prose drops the pointer to where the observed behaviour lives. The link moves into a route field on each.
+- **`docs/audit/typescript-lens-smoke-run.md` does not carry `.madgerc`, and no document under `docs/audit/` carries `arch/over-abstraction`'s three measured counts** - 502 interfaces, 484 with no implementer, 150 single-export modules. Those are added to the smoke-run record before the prose that holds them is deleted.
 
 **The rule, and it is absolute: no record body is touched until every claim in its fallback prose is traced.** Each claim resolves to one of three dispositions, recorded per record:
 
@@ -53,7 +58,7 @@ Anything that fits none of the three is a conscious drop and is recorded as one.
 
 ## The obstacle: the transcription guards are anchored on hand-written sentences
 
-`tests/scripts/test_python_fixture_harness.py` anchors **19 of its 50 `INVOCATIONS` - the whole arch set** - on paragraphs of `## Tooling fallback`, through `_fallback_paragraphs`, which raises by design when a record has no such section. Each entry carries a `record_quote` lifted verbatim from that prose, and **15 of the 19 carry no `argv` at all**: `arch/layering/grimp`'s quote is "Record the offending `file:line` for each violation.", and `arch/complexity-gate/xenon`'s is the bolded threshold directive.
+`tests/scripts/test_python_fixture_harness.py` anchors **19 of its 50 `INVOCATIONS` - the whole arch set** - on paragraphs of `## Tooling fallback`, through `_fallback_paragraphs`, which raises by design when a record has no such section. Each entry carries a `record_quote` lifted verbatim from that prose, and **14 of the 19 carry no `argv` at all**: `arch/layering/grimp`'s quote is "Record the offending `file:line` for each violation.", and `arch/complexity-gate/xenon`'s is the bolded threshold directive.
 
 These properties are **prose-drift instruments**. They exist to catch a prescription written in prose diverging from the declared forms. Once the prose is gone there is no second copy to drift, and for a migrated record the routes-to-`INVOCATIONS` oracle already owns the binding, in both directions across `argv` and `forms`.
 
