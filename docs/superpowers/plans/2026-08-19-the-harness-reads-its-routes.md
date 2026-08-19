@@ -656,23 +656,33 @@ Message: `harness: the oracle's tripwire and every claim that outlived it`. Say 
 
 ---
 
-### Task 4: Engine-owned properties read the routes, and unreached helpers go
+### Task 4: Every property says which population it reads, and unreached helpers go
 
 **Files:**
 - Test: `tests/scripts/test_python_fixture_harness.py`
-- Possibly modify: `scripts/run_python_fixture_lens.py` (only if a property proves a table is now incomplete)
+- Possibly modify: `scripts/run_python_fixture_lens.py`, only if a property proves an engine-owned table is now incomplete
 
 **Interfaces:**
 - Consumes: `routed_invocations()`.
-- Produces: nothing new. This task re-points existing properties and deletes dead helpers.
+- Produces: no new behaviour. This task re-points properties, adds one, and deletes what nothing reaches.
 
-- [ ] **Step 1: Find every property that reads `INVOCATIONS` where it means "every row"**
+**The sweep list is computed, not to be rediscovered.** 36 functions read `INVOCATIONS` without also reading `routed_invocations()`. They are listed with their opening docstring line in `.superpowers/sdd/2026-08-19-the-harness-reads-its-routes/task-4-sweep-list.txt`. Regenerate that list with an AST walk over the test module if the count has moved: for each module-level function, take its source segment and select the ones mentioning `INVOCATIONS` and not `routed_invocations()`.
 
-Run: `caffeinate grep -n 'INVOCATIONS' tests/scripts/test_python_fixture_harness.py`
+- [ ] **Step 1: Triage all 36 into three buckets, and record the bucket in the docstring where it is not already obvious**
 
-For each, decide which of two things it means, and say which in its docstring if it is not already obvious: rows the table hand-writes, or rows the harness runs. The second must read `INVOCATIONS + routed_invocations()`. `_tools_that_can_run_a_command` and the properties over `NONZERO_EXIT_MEANING` and `VERSION_PROBE` are the ones the spec names: a tool a routed row runs and no engine table grades must fail.
+The buckets are not "fix" and "leave". They are three, and the third is the one that makes this task finite:
 
-- [ ] **Step 2: Write the failing test for the engine-table coverage**
+1. **Rows the table hand-writes.** Transcription-fidelity properties: a quote occurring once in its record, a completion carrying its reason, a prescribed token not hiding in a completion, a form extracted from a paragraph. These read `INVOCATIONS` correctly and must not be widened.
+2. **Every row the harness runs.** Properties about what a run does: which tool a row names, whether a check and partition exist, launching through an environment, a placeholder never reaching a command. These read the union, and a narrowing left in place is a property that silently stopped covering 19 rows while reading green.
+3. **Tautological on routed rows.** A property that would hold trivially over a routed row, because the row is derived from the record rather than transcribed from it - there is no second copy for a fidelity check to catch. Widening one of these adds a passing assertion that proves nothing, which reads as coverage. Leave it, and say in the docstring that it belongs to bucket 1 for this reason rather than by omission.
+
+Bucket 3 is why the answer is not "widen all 36". Deciding between 1 and 3 needs the property's own subject read, not its name.
+
+- [ ] **Step 2: Introduce one helper for the union and use it everywhere bucket 2 applies**
+
+The union is currently retyped at each call site. One helper, named for what it returns rather than for how it is built, with a docstring saying that a caller wanting only the hand-written rows reads `INVOCATIONS` directly and says why in its own docstring.
+
+- [ ] **Step 3: Write the failing test for the engine-table coverage**
 
 ```python
 def test_every_tool_the_harness_runs_carries_an_engine_grading_rule():
@@ -682,53 +692,31 @@ def test_every_tool_the_harness_runs_carries_an_engine_grading_rule():
     from it. A routed row whose tool no rule grades would be classified by a
     default nobody chose, so it fails here instead.
     """
-    for inv in INVOCATIONS + routed_invocations():
+    for inv in every_invocation():
         if not inv.argv and not inv.argv_by_partition:
             continue
         assert nonzero_exit_meaning(inv.tool) in NONZERO_EXIT_KINDS, inv.tool
 ```
 
-- [ ] **Step 3: Run it**
+- [ ] **Step 4: Run it**
 
 Run: `caffeinate uv run pytest tests/scripts/test_python_fixture_harness.py -q -k engine_grading`
-Expected: PASS if the tables already cover the five routed command tools, and that is the likely outcome - `ruff`, `radon`, `xenon`, `pydeps` and `vulture` are all in `NONZERO_EXIT_MEANING` today. A failure names a tool to add, and adding it is in scope for this task.
+Expected: PASS is the likely outcome, since `ruff`, `radon`, `xenon`, `pydeps` and `vulture` are all already graded. A failure names a tool to add, and adding it to the engine table is in scope here.
 
-- [ ] **Step 4: Audit the prose helpers for reachability**
+- [ ] **Step 5: Audit the prose helpers for reachability**
 
-For each private helper defined before the first test in `tests/scripts/test_python_fixture_harness.py`, establish whether any surviving property still calls it, directly or through another helper:
+Walk the test module's AST, build the call graph over its module-level functions, mark everything reachable from a function whose name starts with `test_`, and print the private helpers that nothing reaches.
 
-```bash
-caffeinate uv run python - <<'PY'
-import ast, pathlib
-src = pathlib.Path("tests/scripts/test_python_fixture_harness.py").read_text()
-tree = ast.parse(src)
-defs = {n.name: n for n in tree.body if isinstance(n, ast.FunctionDef)}
-helpers = {n for n in defs if n.startswith("_")}
-called: dict[str, set] = {n: set() for n in defs}
-for name, node in defs.items():
-    for sub in ast.walk(node):
-        if isinstance(sub, ast.Call) and isinstance(sub.func, ast.Name):
-            if sub.func.id in defs:
-                called[name].add(sub.func.id)
-reached, frontier = set(), [n for n in defs if n.startswith("test_")]
-while frontier:
-    n = frontier.pop()
-    for m in called[n] - reached:
-        reached.add(m); frontier.append(m)
-print("helpers no test reaches:", sorted(helpers - reached))
-PY
-```
+Delete every helper it names. A helper with no caller is indistinguishable from one whose caller was deleted by mistake, and the record set is in git if stage 4 wants it back. Report the list rather than asserting a count in prose.
 
-Delete every helper the script names. A helper with no caller is indistinguishable from a helper whose caller was deleted by mistake, and the record set is in git if stage 4 wants it back. Report the list in the task report rather than asserting a count in prose.
-
-- [ ] **Step 5: Confirm the parser still covers the population it is for**
+- [ ] **Step 6: Confirm the parser still covers the population it is for**
 
 Run: `caffeinate uv run pytest tests/scripts/test_python_fixture_harness.py -q -k "prose_fallback_scope"`
-Expected: PASS. `PROSE_FALLBACK_CHECKS` must still be non-empty and hold no migrated record, which is the assertion that the 16 live transcriptions are still guarded.
+Expected: PASS. `PROSE_FALLBACK_CHECKS` must still be non-empty and hold no migrated record: that is the assertion that the 16 live transcriptions are still guarded, and it is the reason the parser survives this stage at all.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
-Message: `harness: the engine's tables cover every row, from either source`, naming the deleted helpers in the body. `Refs #63`.
+Message: `harness: every property says which population it reads`. In the body, give the bucket counts as computed, name the deleted helpers, and name any property left in bucket 3 with its reason. `Refs #63`.
 
 ---
 
