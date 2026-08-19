@@ -134,7 +134,17 @@ routes:
     kind: procedure
     applies_when: >-
       The project carries no `.dependency-cruiser` config, so the
-      dependency-cruiser route above does not apply.
+      dependency-cruiser route above does not apply, AND the partition's
+      `tsconfig` does not `extend` a base that lives in `node_modules`.
+    alone_insufficient: >-
+      Where the `tsconfig` does extend such a base, an uninstalled tree
+      loses that `extends` chain and `paths` falls back to nothing, so the
+      aliases this route reads as the declared boundaries disappear with it
+      and an alias-routed cross-boundary edge goes unseen rather than
+      merely unchecked - a clean result here would be a false one. What
+      answers then is the dependency-cruiser route under `resolved-tree`,
+      and only where that grant is withheld too does the record reach
+      `no-evidence (not-permitted)`.
     note: >-
       Read the `tsconfig` path aliases and project references as the
       declared boundaries, walk each module's import specifiers, and check

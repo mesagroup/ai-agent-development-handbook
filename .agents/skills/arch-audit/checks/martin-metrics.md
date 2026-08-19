@@ -21,10 +21,12 @@ routes:
       from the graph rather than reported by a command.
   - lang: python
     kind: procedure
-    applies_when: >-
-      `grimp` is unavailable.
     note: >-
-      Every input is already to hand: `Ca` and `Ce` are in-degree and
+      What sends the reader here is `grimp` being unavailable, which is a
+      fact about the audit environment rather than about the target, so it
+      is not an `applies_when`: this route applies to any Python partition
+      and is simply not the first one to reach for. Every input is already
+      to hand: `Ca` and `Ce` are in-degree and
       out-degree over the same edge set the layering check built, and `A`
       needs one pass counting classes per package and how many of them are
       abstract (an `ABC` base, a `Protocol` base, or any `@abstractmethod`).
