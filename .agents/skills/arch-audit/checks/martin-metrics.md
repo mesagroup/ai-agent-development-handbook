@@ -8,8 +8,27 @@ handbook_note: >-
   A quantitative restatement of the god-module and over-abstraction axes
   rather than a clause of its own; the handbook states neither the metric nor
   a threshold for it.
-tooling:
-  python: [grimp]
+routes:
+  - lang: python
+    kind: library
+    tool: grimp
+    note: >-
+      Computed from the graph artifact built for layering, per package:
+      afferent coupling `Ca`, efferent coupling `Ce`, instability
+      `I = Ce / (Ca + Ce)`, abstractness `A = abstract types / total
+      types`, and distance `D = |A + I - 1|`. Record `Ca`, `Ce`, `I`, `A`
+      and `D` per package; `D` is the evidence. The metrics are computed
+      from the graph rather than reported by a command.
+  - lang: python
+    kind: procedure
+    applies_when: >-
+      `grimp` is unavailable.
+    note: >-
+      Every input is already to hand: `Ca` and `Ce` are in-degree and
+      out-degree over the same edge set the layering check built, and `A`
+      needs one pass counting classes per package and how many of them are
+      abstract (an `ABC` base, a `Protocol` base, or any `@abstractmethod`).
+      No dependency is required to compute any of the five numbers.
 ---
 
 # Package stability metrics (distance from the main sequence)
