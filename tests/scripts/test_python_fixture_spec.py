@@ -608,6 +608,17 @@ def test_the_ungranted_answer_is_stated_exactly_where_the_grant_changes_it():
     copy to keep in step; where some Python tool needs no grant, `claim` already
     holds in both states. Deriving the requirement rather than eyeballing it is
     what stops a new expectation quietly omitting the axis.
+
+    The derivation is written in the legacy schema's fields and is exact only
+    there. A record declaring `routes:` reaches it with `ungranted_note` unset
+    and a `tooling`/`needs` pair projected from its routes, so the branch it
+    takes is the untiered one whatever its routes say. That happens to be the
+    right answer for every routes record rather than by luck: the routes
+    counterpart of `ungranted_note` carries the sentinel and no prose, so no
+    routes record ever has a second answer to state and this field is correctly
+    empty on all of them. What the derivation would stop catching is a routes
+    record that did owe one - which the schema cannot express today, and the
+    reason to widen this rather than trust it is the schema gaining a way to.
     """
     checks, errors = load_checks(SKILLS_DIR)
     assert not errors, errors
@@ -615,6 +626,9 @@ def test_the_ungranted_answer_is_stated_exactly_where_the_grant_changes_it():
         record = checks[expectation.check]
         python_tools = set(record.tooling.get("python", ()))
         tiered = {t for names in (record.needs or {}).values() for t in names}
+        # Always "" on a routes record, which is the untiered branch and, per
+        # the docstring above, the right answer there for a structural reason
+        # rather than an accident of the field being absent.
         note = (record.ungranted_note or "").strip()
         differs = (
             bool(python_tools) and python_tools <= tiered and note not in ("", "none")
