@@ -376,8 +376,14 @@ def _languages_rescued_by_an_untiered_route(check: ac.Check) -> list[str]:
 def test_the_notes_are_not_all_sentinels():
     """The requirement can be satisfied without thought by writing the
     sentinel everywhere. Nothing can tell a correct `none` from a lazy one,
-    so hold the number of records that say something real at a floor, set
-    once from the count the sweep behind #26 produced.
+    so hold the number of records that say something real at a floor,
+    ratcheted to the population measured at the time and raised again with
+    every migration that grows it, rather than left with slack under it.
+    That is the convention its neighbour
+    `test_the_classification_is_not_vacuous` already follows and it is
+    followed here for the same reason: a floor sitting below the count is a
+    floor a deletion passes under in silence, and a deleted claim is not
+    visibly missing - the record simply stops demonstrating anything.
 
     What "something real" is has two spellings, and the floor counts their
     sum, because they are one property wearing two schemas. On the legacy
@@ -434,9 +440,9 @@ def test_the_notes_are_not_all_sentinels():
     to be rewritten are not the same set as the records that gained a
     second fully tiered language. The claim the floor rests on needs no
     count of records at all. A later change
-    that does add claims raises the count and therefore the slack above
-    this floor rather than the floor itself; raise the floor by hand if
-    that slack should be closed. Never lower it to make a deletion pass,
+    that does add claims raises the floor with it, in the same commit that
+    adds them, so no slack is left for a later deletion to hide in. Never
+    lower it to make a deletion pass,
     never narrow what it counts to make a migration pass, and never widen
     what it counts to recover a number: counting a tiered `kind: subject`
     route as something a language can be rescued from would recover a
@@ -461,19 +467,21 @@ def test_the_notes_are_not_all_sentinels():
     floor exists to protect, and being a truer measure over the same
     records, it can only ever sit at or above what the coarser one found -
     so a rise as migration proceeds is not a regression to explain, it is
-    slack accumulating on a floor that was set once, early, against a
-    smaller population than the one now being counted. Re-setting the floor
-    to match is end-of-migration work, done once the population has
-    stopped growing out from under it, not a judgement to make against an
-    incomplete count. The signal worth stopping for runs the other way: a
+    the truer measure reaching a claim the coarser one never asked about.
+    Ratchet the floor onto it in the commit that produces it: the guard is
+    only ever as strong as the distance between the floor and the count,
+    and a floor left behind a growing population stops protecting the
+    records it was raised over. The signal worth stopping for runs the other way: a
     **drop** means some record that used to demonstrate an ungranted answer
     no longer does, in either schema, which is a real defect regardless of
     which population lost the claim. A **rise** is the migration working as
     intended and is never, by itself, a reason to stop - including a rise
     produced by several records gaining their rescuing route in the same
     batch, which is this same mechanism repeated, not a different one, and
-    exactly why a remembered digit next to this floor is a liability rather
-    than a fact worth writing down.
+    then re-measured and ratcheted onto. What stays a liability is treating
+    the number written here as the count to expect: it records the
+    population at the last ratchet, and the only way to know the current one
+    is to measure it.
     """
     checks, errors = ac.load_checks(ac.SKILLS_DIR)
     assert errors == []
@@ -486,7 +494,7 @@ def test_the_notes_are_not_all_sentinels():
         c.id for c in checks.values() if _languages_rescued_by_an_untiered_route(c)
     ]
     claims = sorted(prose + routed)
-    assert len(claims) >= 10, f"only {len(claims)} records answer anything: {claims}"
+    assert len(claims) >= 15, f"only {len(claims)} records answer anything: {claims}"
 
 
 def test_a_language_with_no_tools_is_not_fully_tiered(tmp_path):
@@ -742,6 +750,27 @@ def test_routes_must_be_a_list_of_mappings(tmp_path):
     _write(tmp_path, "demo-audit/checks/thing.md", text)
     _, errors = ac.load_checks(tmp_path)
     assert any("routes must be a list of mappings" in e for e in errors)
+
+
+def test_an_empty_routes_list_is_rejected(tmp_path):
+    """`routes: []` is the schema declared and then not stated, and nothing
+    downstream can tell it from a record that never declared it: it projects
+    to no tooling and no needs, it silences no language, and so it is never
+    asked for `answers_ungranted`. Left accepted, a migration that emptied a
+    record's routes would read as a record still on the legacy schema rather
+    than as the mistake it is. The record must be named in the message,
+    because the loader collects rather than raises and a bare complaint about
+    an empty list points at no file.
+    """
+    text = _routes_frontmatter("kind: command\n    tool: t\n    argv: [t]").replace(
+        "routes:\n  - kind: command\n    tool: t\n    argv: [t]\n",
+        "routes: []\n",
+    )
+    _write(tmp_path, "demo-audit/checks/thing.md", text)
+    checks, errors = ac.load_checks(tmp_path)
+    assert any("routes is empty" in e for e in errors), errors
+    assert all("demo-audit/checks/thing.md" in e for e in errors), errors
+    assert "demo/thing" not in checks
 
 
 def test_a_route_error_names_its_index(tmp_path):
@@ -1147,19 +1176,25 @@ def test_a_miscased_route_sentinel_is_rejected_by_name(tmp_path, spelling):
     assert any("answers_ungranted" in e for e in errors), errors
 
 
-def test_a_language_with_no_routes_is_not_silenced(tmp_path):
+def test_no_routes_at_all_is_not_silenced():
     """`all()` is vacuously true over an empty list - the same trap
     `_fully_tiered_languages` already warns about for the legacy schema's
     tooling dict, where a language listed with no tools must not read as
-    fully tiered. A record on the routes schema whose `routes:` list is
-    empty has offered no answering route for anything, so if
-    `_silenced_languages` ever stopped treating that as no claim at all,
-    this record would fail with an unmet demand for `answers_ungranted`, a
-    note it has no route left over to justify.
+    fully tiered. A route tuple carrying nothing has offered no answering
+    route for any language, so if `_silenced_languages` ever stopped
+    treating that as no claim at all, every record on the legacy schema
+    would acquire an unmet demand for `answers_ungranted` - it reaches the
+    function with an empty tuple exactly as a routes record with nothing
+    left in it would.
+
+    Asserted against the function rather than through a loaded record,
+    because a record whose frontmatter says `routes: []` no longer loads:
+    it is rejected as the schema declared and then not stated. The vacuity
+    property still has to hold, since the legacy half of the family reaches
+    here through the same empty tuple.
     """
-    check = _routes_record(tmp_path, [])
-    assert check.routes == ()
-    assert check.answers_ungranted is None
+    assert ac._routes_answering_ungranted(()) == {}
+    assert ac._silenced_languages(()) == ()
 
 
 def test_answers_ungranted_without_routes_is_rejected(tmp_path):
@@ -1973,20 +2008,52 @@ def test_every_tooling_record_offers_a_typescript_lens():
     nobody looked at. Assert the exception set rather than a count, and
     assert it by equality: a new python-only record fails because it is not
     in the set, and a record whose lens was added fails until it is removed
-    from the set, so the set cannot quietly outlive the debt it names. A
-    record with no `tooling:` key at all is not in scope - it prescribes a
-    reading pass, which needs no language. What this checks is that a
-    `typescript:` or `any:` key is present, not what is under it, so
-    `typescript: []` would satisfy it. If this fails, add the lens or
-    add the record to the set with a reason; do not delete the assertion.
+    from the set, so the set cannot quietly outlive the debt it names. If
+    this fails, add the lens or add the record to the set with a reason; do
+    not delete the assertion.
+
+    Each schema is read on its own terms, because the projected `tooling`
+    a migrated record exposes cannot answer this question. The projection
+    keeps a `kind: subject` route's tool under that route's language, and a
+    subject route names what the check inspects rather than what answers it
+    - so a record whose every TypeScript route is a subject satisfies a
+    projection-based check with routes that answer nothing, which is exactly
+    the clean bill this guard exists to refuse. On a record declaring
+    `routes:` the requirement is therefore at least one answering-kind
+    (`command`, `library`, `procedure`), non-`forbidden` route whose `lang`
+    is `typescript`, `any` or `none`. `any` and `none` both apply whatever
+    the partition's language is, and `none` is how a single repo-wide fact
+    read off configuration answers for every partition at once, so a record
+    whose only untyped route is one of those has a TypeScript lens.
+
+    On a record declaring `tooling:` the requirement is a `typescript:` or
+    `any:` key, and what is checked is that the key is present rather than
+    what sits under it, so `typescript: []` would satisfy it. A record
+    declaring neither schema is in scope under neither branch - it
+    prescribes a reading pass, which needs no language.
+
+    Do not close the projection gap by dropping subject routes from
+    `_project_tooling` instead. `arch/complexity-gate` names `ruff`, `radon`
+    and `xenon` as subjects and offers no other Python route, so its
+    projected `python:` entry would vanish, and two guards in
+    `test_python_fixture_harness.py` carry it: the per-tool split naming the
+    checks whose records offer `ruff`, and the three-way equality between
+    the records carrying a `python:` entry, `INVOCATIONS` and `EXPECTATIONS`.
     """
     checks, errors = ac.load_checks(ac.SKILLS_DIR)
     assert errors == []
-    gaps = {
-        check_id
-        for check_id, check in checks.items()
-        if check.tooling and not ({"typescript", "any"} & set(check.tooling))
-    }
+    gaps = set()
+    for check_id, check in checks.items():
+        if check.routes:
+            if not any(
+                route.lang in {"typescript", "any", "none"}
+                and route.kind in ac.ANSWERING_ROUTE_KINDS
+                and route.disposition != "forbidden"
+                for route in check.routes
+            ):
+                gaps.add(check_id)
+        elif check.tooling and not ({"typescript", "any"} & set(check.tooling)):
+            gaps.add(check_id)
     assert gaps == _NO_TYPESCRIPT_LENS, (
         f"missing a TypeScript lens: {sorted(gaps - _NO_TYPESCRIPT_LENS)}; "
         f"lens added but still listed: {sorted(_NO_TYPESCRIPT_LENS - gaps)}"
