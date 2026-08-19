@@ -363,9 +363,12 @@ def _is_sibling_lens(label: str) -> bool:
     set bought and this keeps.
 
     A label naming a condition rather than a language is never a sibling lens.
-    `With none of them installed` holds the Python fallback for exactly the case
-    where no tool is present, and skipping it would unwatch the paragraph a
-    correction is most likely to land in.
+    `test/coverage-reach`'s `Both` labels a paragraph that binds every command
+    above it, and `With none of them installed` held the Python fallback for
+    exactly the case where no tool is present; skipping either would unwatch a
+    paragraph a correction is likely to land in. The second spelling occurs only
+    on records that have migrated, so a condition label reaching this function
+    is a legacy record's.
     """
     return any(language in label for language in SIBLING_LENS_LANGUAGES)
 
@@ -1318,7 +1321,8 @@ def test_every_command_form_the_record_names_is_declared():
 
     Read only over the records whose fallback lives in prose. A migrated record
     has no prose that could grow a form its routes do not carry, and the
-    routes-to-`INVOCATIONS` oracle binds its declared forms directly.
+    routes-to-`INVOCATIONS` oracle binds its declared forms instead, as far
+    as that oracle reaches - `_ORACLE_DOMAINS` says how far.
     """
     for inv in INVOCATIONS:
         if inv.check not in PROSE_FALLBACK_CHECKS:
@@ -1364,7 +1368,8 @@ def test_every_flag_the_record_names_occurs_in_a_declared_form():
     Read only over the records whose fallback lives in prose. A migrated record
     names no flag anywhere but in the route that declares it, so there is no
     second copy a flag can be appended to, and the routes-to-`INVOCATIONS`
-    oracle binds its declared forms directly.
+    oracle binds its declared forms instead, as far as that oracle reaches -
+    `_ORACLE_DOMAINS` says how far.
     """
     for inv in INVOCATIONS:
         if inv.check not in PROSE_FALLBACK_CHECKS:
@@ -1617,7 +1622,8 @@ def test_a_prescription_stays_in_the_paragraph_the_guard_watches():
 
     Read only over the records whose fallback lives in prose. A migrated record
     has no section for a stray paragraph to appear in, and the
-    routes-to-`INVOCATIONS` oracle binds its declared forms directly.
+    routes-to-`INVOCATIONS` oracle binds its declared forms instead, as far
+    as that oracle reaches - `_ORACLE_DOMAINS` says how far.
     """
     skipped = set()
     for inv in INVOCATIONS:
@@ -1670,7 +1676,8 @@ def test_a_form_naming_a_lead_word_off_the_front_is_led_by_some_invocation():
 
     Read only over the records whose fallback lives in prose. A migrated record
     has no paragraph for an unled span to sit in, and the
-    routes-to-`INVOCATIONS` oracle binds its declared forms directly.
+    routes-to-`INVOCATIONS` oracle binds its declared forms instead, as far
+    as that oracle reaches - `_ORACLE_DOMAINS` says how far.
     """
     for inv in INVOCATIONS:
         if inv.check not in PROSE_FALLBACK_CHECKS:
@@ -3703,6 +3710,49 @@ def test_the_uv_partition_still_probes_the_tool_its_sbom_route_never_runs(
     assert expected in {tuple(c) for c in recorded}
 
 
+_ORACLE_DOMAINS = ("arch/",)
+"""The domains whose routes the verified-table oracle below holds.
+
+Read by the oracle and by the tripwire beside it, from one place, because the
+two say different things about the same set and a rename that reached only one
+of them would leave the tripwire guarding a domain the oracle had stopped
+covering.
+
+Narrow on purpose. The table it compares against transcribes what a record
+prescribes and was held against the records themselves and then re-verified by
+mutation; a domain with no such table has nothing for the oracle to be an
+oracle against, so widening this without building that table would replace a
+known gap with a passing test.
+"""
+
+
+def test_every_migrated_record_is_one_the_oracle_covers():
+    """The coverage hole the scoping opens, as a failure rather than a silence.
+
+    `PROSE_FALLBACK_CHECKS` narrows the prose-anchored properties by the schema
+    a record declares, so a record stops being read by them the moment it
+    migrates. What takes over is the oracle below - and that reads only
+    `_ORACLE_DOMAINS`, only python routes, and only routes with a table entry.
+    A record migrated in any other domain therefore leaves the prose properties
+    and enters nothing, and every test in this file still passes.
+
+    So the assumption is asserted rather than left implicit. When this fails,
+    the fix is a verified table for that domain's routes and `_ORACLE_DOMAINS`
+    widened to match - not this assertion deleted, which would restore exactly
+    the silence it exists to break.
+    """
+    checks, errors = load_checks(SKILLS_DIR)
+    assert not errors, errors
+    migrated = {cid for cid, c in checks.items() if c.routes}
+    assert migrated, "no record declares routes:, so this holds nothing"
+    uncovered = {cid for cid in migrated if not cid.startswith(_ORACLE_DOMAINS)}
+    assert not uncovered, (
+        f"{sorted(uncovered)} declare routes: and sit outside "
+        f"{_ORACLE_DOMAINS}, so the prose properties no longer read them and "
+        "the verified-table oracle does not either"
+    )
+
+
 def test_a_migrated_records_routes_agree_with_the_verified_table():
     """The migration's only oracle, and it covers one language and one axis.
 
@@ -3762,7 +3812,9 @@ def test_a_migrated_records_routes_agree_with_the_verified_table():
     checks, errors = load_checks(SKILLS_DIR)
     assert not errors, errors
     migrated = {
-        cid: c for cid, c in checks.items() if c.routes and cid.startswith("arch/")
+        cid: c
+        for cid, c in checks.items()
+        if c.routes and cid.startswith(_ORACLE_DOMAINS)
     }
     assert migrated, "no arch record is migrated, so this test holds nothing"
 
