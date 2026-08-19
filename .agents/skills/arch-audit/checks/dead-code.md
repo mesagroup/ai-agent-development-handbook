@@ -48,8 +48,9 @@ routes:
     note: >-
       With none of them installed, enumerate each module's public symbols and
       grep the tree for references to each; a symbol referenced nowhere
-      outside the module that defines it is the candidate. The verify-before-
-      deleting caveat matters more here, not less: a hand-rolled sweep sees
+      outside the module that defines it is the candidate. The
+      verify-before-deleting caveat matters more here, not less: a hand-rolled
+      sweep sees
       neither dynamic dispatch nor entry points declared in packaging
       metadata, so check both before believing any hit.
 ---
