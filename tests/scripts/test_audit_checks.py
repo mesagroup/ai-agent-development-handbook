@@ -1764,6 +1764,28 @@ def test_a_note_alongside_anchors_is_rejected(tmp_path):
     assert any("handbook_note" in e for e in errors)
 
 
+def test_a_non_string_frontmatter_key_is_reported_not_raised(tmp_path):
+    """`load_checks` collects problems; a malformed record must not silence
+    the rest of the tree.
+
+    YAML admits a non-string mapping key, and sorting a set holding both a
+    string and an int raises. Reached through `load_checks` rather than the
+    helper, because what matters is that one bad record leaves the others
+    reportable rather than that a function returns a list: the integrity gate
+    runs over every record at once, and a raise there loses the whole sweep
+    to whichever file happened to be malformed.
+    """
+    _write(
+        tmp_path,
+        "demo-audit/checks/thing.md",
+        "---\nid: demo/thing\ndomain: demo\nlocality: local\nhandbook: []\n"
+        "handbook_note: Fixture record.\n1: oops\nweird: whatever\n---\n\n# Thing\n\nBody.\n",
+    )
+    _, errors = ac.load_checks(tmp_path)
+    assert any("is not a string" in e for e in errors), errors
+    assert any("'weird'" in e for e in errors), errors
+
+
 def test_unknown_frontmatter_key_is_rejected(tmp_path):
     _write(
         tmp_path,

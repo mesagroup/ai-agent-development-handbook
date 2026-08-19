@@ -748,8 +748,21 @@ def _load_one(
         return None, [f"{where}: {err}"], None
 
     errors: list[str] = []
-    for key in sorted(set(meta) - FIELDS):
-        errors.append(f"{where}: unknown frontmatter key {key!r}")
+    # Sorted by a stable string form for the same reason the route keys are:
+    # YAML admits a non-string mapping key, and sorting a set holding both a
+    # string and an int raises `TypeError`, which would leave `_load_one`
+    # raising out of `load_checks` and lose every other problem in the tree to
+    # one malformed record. This path serves every record rather than only a
+    # migrated one, so it reaches further than the route-level check does.
+    for key in sorted(set(meta) - FIELDS, key=repr):
+        if isinstance(key, str):
+            errors.append(f"{where}: unknown frontmatter key {key!r}")
+        else:
+            errors.append(
+                f"{where}: frontmatter key {key!r} is not a string - every "
+                "field is named by a string, so a key YAML parsed as anything "
+                "else names none of them whatever it was meant to say"
+            )
 
     expected_id = f"{expected_domain}/{path.stem}"
     cid = meta.get("id")
