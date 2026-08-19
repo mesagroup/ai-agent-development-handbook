@@ -9,11 +9,84 @@ handbook_note: >-
   fault, so no clause grounds this check. Mapping it to that clause would be a
   near miss the matrix's own rule forbids: the section would pass a codebase
   that is fragmented rather than tangled.
-tooling:
-  python: [grimp]
-  typescript: [madge, dependency-cruiser]
-needs:
-  resolved-tree: [dependency-cruiser]
+routes:
+  - lang: python
+    kind: library
+    tool: grimp
+    note: >-
+      Graph-level shape - the edge-to-node ratio, the distribution of
+      public-symbols-per-module and LOC-per-module, and call chains
+      threading through pass-through units - is computed from the same
+      edge set built for layering, rather than by a command run for this
+      check specifically.
+  - lang: typescript
+    kind: procedure
+    tool: madge
+    applies_when: >-
+      The partition's `tsconfig` does not `extend` a base that lives in
+      `node_modules`. Where it does, the `extends` chain and the `paths`
+      it carries are unresolvable without the tree, so neither TypeScript
+      route here has a complete first-party graph and the check is
+      `no-evidence (not-permitted)` rather than a graph-shape result.
+    note: >-
+      The record prescribes no graph-shape command for `madge`; it names
+      the tool as the one to reach for first on a partition where the tree
+      isn't resolved, since it excludes installed dependencies and carries
+      its own TypeScript, and has the reader give it the partition's own
+      `tsconfig` explicitly with `--ts-config` - the file that carries
+      `paths`, which on a solution-style layout is not `tsconfig.json` -
+      before reading the edge-to-node ratio and pass-through chains from
+      the dependency map it builds. Passing no flag, or the wrong
+      `tsconfig` file, resolves no `paths` at all and the ratio comes back
+      computed over a graph every aliased import has dropped out of.
+  - lang: typescript
+    kind: command
+    tool: dependency-cruiser
+    argv: [npx, "--package", "typescript@^5", "--package", dependency-cruiser, "--", depcruise]
+    argv_by_manager:
+      pnpm: [pnpm, "--package=typescript@^5", "--package=dependency-cruiser", dlx, depcruise]
+      yarn: [yarn, dlx, "-p", "typescript@^5", "-p", dependency-cruiser, depcruise]
+    needs: resolved-tree
+    note: >-
+      Needs the target's own dependencies present for the reason the
+      record gives: where the `tsconfig` extends a base config living in
+      `node_modules`, an uninstalled tree loses that `extends` chain and
+      `paths` falls back to nothing, so first-party aliased imports stop
+      resolving and the graph-shape metrics this check rests on - the
+      edge-to-node ratio, the pass-through chains - go wrong rather than
+      merely sparse. Each spelling names the packages rather than leaning
+      on the command name, and the three differ structurally: the flags
+      precede `dlx` on pnpm, since `pnpm dlx --package=` reads the flag as
+      a package spec and fails with
+      `ERR_PNPM_SPEC_NOT_SUPPORTED_BY_ANY_RESOLVER`. The `typescript` pin
+      is load-bearing: unpinned it resolves to 7.x, outside the
+      `>=2.0.0 <7.0.0` this tool declares, and a directory argument then
+      cruises `totalCruised: 0` at exit 0.
+    alone_insufficient: >-
+      Each spelling above is the prefix the record writes, not a complete
+      invocation. A target with no `.dependency-cruiser` config - the
+      record calls this the ordinary case, not the exotic one - exits 1
+      with `Can't open a config file`, so this tool answers only once
+      given `--config` with an audit-owned config or `--no-config`, and
+      that choice is not free: `--no-config` discards `--ts-config` along
+      with the rules, and the tree that resolved its first-party graph
+      under an audit-owned config came back with 281 unresolvable
+      first-party specifiers and an empty cycle set under it, at exit 0.
+      Prefer an audit-owned config setting `options.tsConfig` and
+      `enhancedResolveOptions.extensions`.
+  - lang: typescript
+    kind: command
+    tool: depcruise
+    argv: [dlx, depcruise]
+    disposition: forbidden
+    note: >-
+      `depcruise` is the command dependency-cruiser documents but not the
+      name of the package that provides it, and npm carries an unrelated
+      package under that name - a dependency-confusion placeholder whose
+      bin prints a misconfiguration notice and exits 0 - so a bare
+      `dlx depcruise` comes back with nothing at exit 0, an empty graph
+      that looks like a clean, undecomposed project rather than an
+      unanalysed one.
 ---
 
 # Over-decomposition
