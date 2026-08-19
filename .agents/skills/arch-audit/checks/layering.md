@@ -88,14 +88,13 @@ routes:
       Each spelling above is the prefix the record writes, not a complete
       invocation. A target with no `.dependency-cruiser` config - the
       record calls this the ordinary case, not the exotic one - exits 1
-      with `Can't open a config file`, so this tool answers only once
-      given `--config` with an audit-owned config or `--no-config`, and
-      that choice is not free: `--no-config` discards `--ts-config` along
-      with the rules, and the tree that resolved its first-party graph
-      under an audit-owned config came back with 281 unresolvable
-      first-party specifiers and an empty cycle set under it, at exit 0.
-      Prefer an audit-owned config setting `options.tsConfig` and
-      `enhancedResolveOptions.extensions`.
+      with `Can't open a config file`. The audit-owned `--config` that
+      answers that for other checks does not answer it for this one: the
+      project's own config IS the declared boundary this check tests, so
+      supplying one of the audit's own would judge layering against rules
+      the audit invented. Where the project has no config this route does
+      not apply at all, and the `applies_when` above sends the reader to
+      the `tsconfig` path aliases and project references instead.
   - lang: typescript
     kind: command
     tool: depcruise
