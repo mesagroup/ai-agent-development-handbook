@@ -106,7 +106,11 @@ and their tiers, and no ungranted claim, so whether a withheld grant
 silences a language is read from the routes through
 `_silenced_languages` and never off the projected pair - `_project_tooling`
 keeps a `kind: subject` route's tool under its language, which is how a
-language nothing there was answering reads as fully tiered.
+language nothing there was answering reads as fully tiered. A record
+declaring `routes` may not also carry a `## Tooling fallback` section: on
+this schema the routes are the fallback, and a section beside them would be
+a second copy nothing holds against the first, unread by the properties
+that read it on a record still declaring `tooling`.
 
 `answers_ungranted` is `ungranted_note`'s counterpart under `routes`: where
 every answering-kind route (`command`, `library`, `procedure`) a language
@@ -228,6 +232,7 @@ FIELDS = frozenset(
 
 _FRONTMATTER_RE = re.compile(r"\A---\n(.*?)\n---(?:\n(.*))?\Z", re.DOTALL)
 _TITLE_RE = re.compile(r"^# (.+?)\s*$", re.MULTILINE)
+_FALLBACK_SECTION_RE = re.compile(r"^## Tooling fallback\s*$", re.M)
 
 
 @dataclass(frozen=True)
@@ -1052,6 +1057,17 @@ def _load_one(
         title = ""
     else:
         title = title_match.group(1)
+
+    if raw_routes is not None and _FALLBACK_SECTION_RE.search(body):
+        errors.append(
+            f"{where}: declares routes: and carries a `## Tooling fallback` "
+            "section. On this schema the routes are the fallback - a route's "
+            "note says what to run, its alone_insufficient says what running it "
+            "is not enough for on its own, and its needs says what must be "
+            "present first. A section beside them is a second copy nothing "
+            "holds against the first, and the properties that would have read "
+            "it do not read a migrated record"
+        )
 
     if errors:
         return None, errors, declared
