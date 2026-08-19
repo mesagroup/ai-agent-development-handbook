@@ -19,6 +19,11 @@ routes:
       threading through pass-through units - is computed from the same
       edge set built for layering, rather than by a command run for this
       check specifically.
+    alone_insufficient: >-
+      "A finding needs a read confirming the units are genuinely trivial
+      and merging them raises cohesion (files that change together) - a
+      fine-grained split that maps onto real, independently-changing
+      responsibilities is correct design, not a finding."
   - lang: typescript
     kind: procedure
     tool: madge
@@ -39,6 +44,10 @@ routes:
       the dependency map it builds. Passing no flag, or the wrong
       `tsconfig` file, resolves no `paths` at all and the ratio comes back
       computed over a graph every aliased import has dropped out of.
+    alone_insufficient: >-
+      "The same read requirement applies" as the Python pass - "a
+      fine-grained split that maps onto real, independently-changing
+      responsibilities is correct design, not a finding."
   - lang: typescript
     kind: command
     tool: dependency-cruiser
@@ -73,7 +82,10 @@ routes:
       under an audit-owned config came back with 281 unresolvable
       first-party specifiers and an empty cycle set under it, at exit 0.
       Prefer an audit-owned config setting `options.tsConfig` and
-      `enhancedResolveOptions.extensions`.
+      `enhancedResolveOptions.extensions`. Once the graph is complete, "the
+      same read requirement applies" as the Python pass - "a fine-grained
+      split that maps onto real, independently-changing responsibilities is
+      correct design, not a finding."
   - lang: typescript
     kind: command
     tool: depcruise
