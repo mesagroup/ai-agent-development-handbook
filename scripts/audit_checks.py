@@ -341,13 +341,16 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
     Collects every problem rather than stopping at the first, matching
     `_load_one`'s contract: a caller that raised on the first bad route in a
     twelve-route record would hide the other eleven. Validates, in order:
-    the value is a list of mappings; the list is not empty; every key is one
-    `ROUTE_FIELDS` knows; `lang`, `kind`, `disposition`, `findings_stream`
-    and `needs` each name a known value; `tool` is present unless `kind` is
-    `procedure`; `package` defaults to `tool`; `argv` and `argv_by_manager`
-    are present only where `kind` is `command`, and `argv` is required and
-    non-empty there; a `disposition` other than `runs` appears only where
-    `kind` is `command`.
+    the value is a list of mappings; the list is not empty; every key is a
+    string, and one `ROUTE_FIELDS` knows; `lang`, `kind`, `disposition`,
+    `findings_stream` and `needs` each name a known value; `tool` is present
+    unless `kind` is `procedure`; `package` defaults to `tool` when the key
+    is absent and is rejected when the key is written with no value, because
+    those two are the same YAML to `get` and different claims to a reader;
+    `argv` and `argv_by_manager` are present only where `kind` is `command`,
+    and every argv they name - `argv` itself, and each manager's entry
+    under `argv_by_manager` - is non-empty there; a `disposition` other than
+    `runs` appears only where `kind` is `command`.
 
     The empty list is rejected rather than tolerated because `routes: []` and
     an absent `routes` key are indistinguishable to everything downstream:
@@ -384,8 +387,22 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
     routes: list[Route] = []
     for i, entry in enumerate(raw):
         loc = f"{where}: routes[{i}]"
-        for key in sorted(set(entry) - ROUTE_FIELDS):
-            errors.append(f"{loc}: unknown route key {key!r}")
+        # Sorted by a stable string form rather than by the keys
+        # themselves: YAML admits a non-string mapping key (`1: extra`
+        # parses to an int), and sorting a set holding both raises
+        # `TypeError`, which would leave `_load_routes` raising out of
+        # `load_checks` and lose every other problem in the tree to one
+        # malformed record.
+        for key in sorted(set(entry) - ROUTE_FIELDS, key=repr):
+            if isinstance(key, str):
+                errors.append(f"{loc}: unknown route key {key!r}")
+            else:
+                errors.append(
+                    f"{loc}: route key {key!r} is not a string - every route "
+                    "field is named by a string, so a key YAML parsed as "
+                    "anything else names none of them whatever it was meant "
+                    "to say"
+                )
 
         lang = entry.get("lang", "any")
         if lang not in ROUTE_LANGS:
@@ -432,7 +449,16 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
             )
 
         package = entry.get("package", tool)
-        if package is not None and not isinstance(package, str):
+        if "package" in entry and entry["package"] is None:
+            errors.append(
+                f"{loc}: package is empty - YAML reads `null`, `~` and a bare "
+                "key as nothing, which is not the same as an absent key: an "
+                "absent key falls back to tool, while this one takes neither "
+                "the fallback nor the string check. Name the package, or drop "
+                "the key to take the tool name"
+            )
+            package = tool
+        elif package is not None and not isinstance(package, str):
             errors.append(f"{loc}: package must be a string, got {package!r}")
             package = tool
 
@@ -467,6 +493,15 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
                         errors.append(
                             f"{loc}: argv_by_manager[{manager!r}] must be a list "
                             "of argv strings"
+                        )
+                        continue
+                    if not names:
+                        errors.append(
+                            f"{loc}: argv_by_manager[{manager!r}] is empty - a "
+                            "command route carries a command for every manager "
+                            "it names, and an empty one declares that manager "
+                            "answered by nothing at all, which is the absence "
+                            "the non-empty argv rule already rejects"
                         )
                         continue
                     argv_by_manager[manager] = names

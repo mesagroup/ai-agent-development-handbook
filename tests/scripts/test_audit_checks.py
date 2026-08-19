@@ -594,6 +594,24 @@ def test_a_package_defaults_to_the_tool_name(tmp_path):
     assert check.routes[0].package == "pydeps"
 
 
+def test_a_package_written_with_no_value_is_rejected(tmp_path):
+    """`package:` with nothing after it and `package: null` both parse to
+    `None`, which `get` cannot tell from an absent key - so the fallback to
+    the tool name never fires and the string check is skipped, and a record
+    that meant to name a package ends up naming none while loading clean.
+    This is the shape `ungranted_note` and `answers_ungranted` already
+    reject by name, for the same reason: an empty value is a claim the
+    reader cannot distinguish from an omission.
+    """
+    errors = _errors_for_route(
+        tmp_path, "kind: command\n    tool: t\n    argv: [t]\n    package:"
+    )
+    assert any("package" in e for e in errors), errors
+    assert errors == _errors_for_route(
+        tmp_path, "kind: command\n    tool: t\n    argv: [t]\n    package: null"
+    )
+
+
 def test_a_package_is_written_only_where_it_differs(tmp_path):
     check = _one_route_record(
         tmp_path,
@@ -662,6 +680,37 @@ def test_an_unknown_route_key_is_rejected(tmp_path):
     assert any("runner" in e for e in errors), errors
 
 
+def test_a_non_string_route_key_is_reported_rather_than_raised(tmp_path):
+    """YAML admits a mapping key that is not a string - `1: extra` parses to
+    an int - and the unknown-key sweep sorts the keys a route carries that
+    the schema does not know. Sorting a set holding an int beside a string
+    raises `TypeError`, and `_load_routes` is reached from `load_checks`,
+    which promises to collect problems rather than raise: the traceability
+    gate would then stop on one malformed record with a traceback in place
+    of the other records' messages. A key of any other type names no route
+    field either, so it is reported in its own right rather than passed
+    over.
+    """
+    errors = _errors_for_route(
+        tmp_path, "kind: command\n    tool: t\n    argv: [t]\n    1: extra"
+    )
+    assert any("not a string" in e for e in errors), errors
+
+
+def test_a_non_string_route_key_beside_a_string_one_reports_both(tmp_path):
+    """The mixed set is the shape that raises - a set of ints alone sorts
+    fine - so the two kinds of key have to arrive together for the guard to
+    be exercised at all, and both must be named: reporting one and dropping
+    the other would fix the crash by hiding half the record's problems.
+    """
+    errors = _errors_for_route(
+        tmp_path,
+        "kind: command\n    tool: t\n    argv: [t]\n    1: extra\n    weird: whatever",
+    )
+    assert any("not a string" in e for e in errors), errors
+    assert any("weird" in e for e in errors), errors
+
+
 @pytest.mark.parametrize(
     "field,route_body",
     [
@@ -723,6 +772,22 @@ def test_argv_by_manager_needs_a_command_kind(tmp_path):
         "kind: library\n    tool: grimp\n    argv_by_manager:\n      pnpm: [x]",
     )
     assert any("argv_by_manager" in e for e in errors), errors
+
+
+def test_an_argv_by_manager_entry_must_be_non_empty(tmp_path):
+    """`argv` on a command route is required to be non-empty, and a
+    per-manager argv is the command that replaces it on a target using that
+    manager. An empty list there declares a manager the route names and
+    supplies nothing to run for it, which is the same absence the rule on
+    `argv` exists to reject - and `_str_list` returns an empty tuple rather
+    than `None` for it, so the mapping's own type check passes it through.
+    """
+    errors = _errors_for_route(
+        tmp_path,
+        "kind: command\n    tool: t\n    argv: [t]\n"
+        "    argv_by_manager:\n      pnpm: []",
+    )
+    assert any("argv_by_manager" in e and "pnpm" in e for e in errors), errors
 
 
 def test_a_route_defaults_to_the_any_language(tmp_path):
