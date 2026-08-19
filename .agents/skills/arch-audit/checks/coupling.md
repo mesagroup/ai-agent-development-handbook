@@ -81,9 +81,12 @@ routes:
     applies_when: >-
       The partition's `tsconfig` does not `extend` a base that lives in
       `node_modules`. Where it does, the `extends` chain and the `paths` it
-      carries are unresolvable without the tree, so neither TypeScript route
-      here has a complete first-party graph and the check is
-      `no-evidence (not-permitted)` rather than a hub count.
+      carries are unresolvable without the tree, so this route has no
+      complete first-party graph. What that leaves is the sibling
+      `dependency-cruiser` route, which carries `resolved-tree` and does
+      have the tree under that grant; only where the grant is withheld too
+      does the record reach `no-evidence (not-permitted)` rather than a hub
+      count.
     note: >-
       The counts come from madge's dependency map. The record names the tool
       and the flag to pass it - give madge the partition's own `tsconfig`
