@@ -14,7 +14,8 @@ routes:
     tool: grimp
     note: >-
       Computed from the graph artifact built for layering, per package:
-      afferent coupling `Ca`, efferent coupling `Ce`, instability
+      afferent coupling `Ca` (the packages that depend on it), efferent
+      coupling `Ce` (the packages it depends on), instability
       `I = Ce / (Ca + Ce)`, abstractness `A = abstract types / total
       types`, and distance `D = |A + I - 1|`. Record `Ca`, `Ce`, `I`, `A`
       and `D` per package; `D` is the evidence. The metrics are computed
