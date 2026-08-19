@@ -34,6 +34,7 @@ Frontmatter fields:
 | `ungranted_note` | iff every tool in a language needs a grant | What the check still answers when that grant is withheld |
 | `routes` | no, and non-empty where present | A list of `Route`s: what this check can run, replacing `tooling`/`needs`/`ungranted_note` for a migrated record |
 | `answers_ungranted` | iff every answering-kind route in a language needs a grant | The routes-schema counterpart of `ungranted_note`: the sentinel `none`, written where no route in that language answers without a grant |
+| `evidence` | no, and non-empty where present | What this check measures and what a row records as its evidence, where that belongs to the check rather than to any one route |
 | `optin` | no | Default `false`; an opt-in sub-audit that produces findings |
 
 `handbook` is a list because a check is commonly grounded in several
@@ -209,6 +210,7 @@ FIELDS = frozenset(
         "ungranted_note",
         "routes",
         "answers_ungranted",
+        "evidence",
         "optin",
     }
 )
@@ -261,6 +263,7 @@ class Check:
     ungranted_note: str | None
     routes: tuple[Route, ...]
     answers_ungranted: str | None
+    evidence: str | None
     optin: bool
     path: Path
 
@@ -809,6 +812,27 @@ def _load_one(
             f"{len(handbook)} anchor(s), so the note belongs in the body"
         )
 
+    evidence = meta.get("evidence")
+    if "evidence" in meta:
+        if evidence is None:
+            errors.append(
+                f"{where}: evidence is empty - YAML reads a bare key as `None`, "
+                "which is indistinguishable from omitting it once it reaches the "
+                "dataclass, and the two say opposite things. Write what the check "
+                "measures, or drop the key"
+            )
+        elif not isinstance(evidence, str):
+            errors.append(
+                f"{where}: evidence must be a string, got {evidence!r} - it is one "
+                "statement about the check, not a list of them"
+            )
+            evidence = None
+        elif not evidence.strip():
+            errors.append(
+                f"{where}: evidence is blank - write what the check measures, or "
+                "drop the key"
+            )
+
     raw_routes = meta.get("routes")
     routes, route_errors = _load_routes(raw_routes, where)
     errors.extend(route_errors)
@@ -1036,6 +1060,7 @@ def _load_one(
             ungranted_note=ungranted,
             routes=routes,
             answers_ungranted=answers_ungranted,
+            evidence=evidence,
             optin=optin,
             path=path,
         ),
