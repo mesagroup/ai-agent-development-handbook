@@ -30,9 +30,12 @@ routes:
     applies_when: >-
       The partition's `tsconfig` does not `extend` a base that lives in
       `node_modules`. Where it does, the `extends` chain and the `paths`
-      it carries are unresolvable without the tree, so neither TypeScript
-      route here has a complete first-party graph and the check is
-      `no-evidence (not-permitted)` rather than a graph-shape result.
+      it carries are unresolvable without the tree, so this route has no
+      complete first-party graph. What remains is the sibling
+      `dependency-cruiser` route, which carries `resolved-tree` and does have
+      the tree under that grant; the record reaches
+      `no-evidence (not-permitted)` rather than a graph-shape result only
+      once that grant is withheld too.
     note: >-
       The record prescribes no graph-shape command for `madge`; it names
       the tool as the one to reach for first on a partition where the tree
