@@ -16,6 +16,20 @@ routes:
       parameter/flag/config field - is computed from the same edge/AST set
       built for layering; `grimp` refs are counted from the built graph
       rather than from a command run for this check specifically.
+    alone_insufficient: >-
+      The count is the evidence, but "a row only becomes a finding after a
+      read confirms (a) no second consumer or second value is imminent
+      in-tree and (b) collapsing the construct (inlining the abstraction,
+      dropping the knob) removes indirection without losing a genuine
+      seam." "A planned, documented extension point - one implementer, or
+      one config value, today - is a suppression, not a finding, recorded
+      with its reason."
+  - lang: python
+    kind: procedure
+    note: >-
+      Grep the project's forbidden-shim markers (`backward compat`,
+      `deprecated`, `re-export`, a function body that is a single call to a
+      renamed symbol) against the contributor guide's stated policy.
   - lang: typescript
     kind: procedure
     tool: knip
@@ -27,6 +41,14 @@ routes:
       not merely present - on an uninstalled one it reports first-party
       files and imported packages alike as unused, inflating the
       fan-in-to-abstraction counts this check is built on.
+    alone_insufficient: >-
+      The record has this route "apply the same read confirmation and
+      suppression rule" as the Python fan-in counts "before a count becomes
+      a finding": a row only becomes a finding after a read confirms no
+      second consumer or second value is imminent in-tree and that
+      collapsing the construct removes indirection without losing a genuine
+      seam. A planned, documented extension point is a suppression, not a
+      finding, recorded with its reason.
   - lang: typescript
     kind: library
     tool: ts-morph
@@ -46,6 +68,13 @@ routes:
       package 'ts-morph'` - so it needs installing somewhere the walking
       script can import it from, an audit-owned directory rather than a
       one-shot fetch.
+    alone_insufficient: >-
+      The same "read confirmation and suppression rule" the record applies
+      to the Python fan-in counts: a row only becomes a finding after a
+      read confirms no second consumer or second value is imminent in-tree
+      and that collapsing the construct removes indirection without losing
+      a genuine seam. A planned, documented extension point is a
+      suppression, not a finding, recorded with its reason.
 ---
 
 # Over-abstraction / speculative generality
