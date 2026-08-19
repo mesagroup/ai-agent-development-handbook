@@ -98,9 +98,13 @@ language nothing there was answering reads as fully tiered.
 
 `answers_ungranted` is `ungranted_note`'s counterpart under `routes`: where
 every answering-kind route (`command`, `library`, `procedure`) a language
-offers needs a grant, the record must also carry an untiered route in that
-language, or the sentinel `none`, for the same reason `ungranted_note` is
-required rather than left to an absent key reading as a claim. A
+offers needs a grant, the record must also carry an untiered route that
+answers there, or the sentinel `none`, for the same reason `ungranted_note`
+is required rather than left to an absent key reading as a claim. A route
+whose `lang` is one of `UNIVERSAL_ROUTE_LANGS` answers in every language
+the record answers for, because that is what those two `ROUTE_LANGS`
+values mean, so an untiered one rescues a language whose own routes are
+all tiered. A
 `kind: subject` route is excluded from this rule in both directions - it
 never supplies the untiered escape, and it never counts toward a language
 having a claim to silence in the first place - because it names what the
@@ -117,7 +121,7 @@ exclusion exists for. `alternative` and `superseded` routes are not
 excluded; the record does offer those, it simply does not run them by
 default. `_routes_answering_ungranted` computes, per language, the routes
 actually in scope for this: the answering-kind, non-forbidden routes
-carrying no tier. A language absent from its result has offered no such
+carrying no tier, each language's own plus the universal ones. A language absent from its result has offered no such
 route at all, so it has made no claim this rule can silence, exactly as a
 language absent from `tooling` makes none under the legacy schema.
 
@@ -169,6 +173,11 @@ ROUTE_KINDS = ("command", "library", "procedure", "subject")
 ANSWERING_ROUTE_KINDS = ("command", "library", "procedure")
 DISPOSITIONS = ("runs", "alternative", "superseded", "forbidden")
 ROUTE_LANGS = ("python", "typescript", "any", "none")
+# The `ROUTE_LANGS` that name no language of their own. A route carrying
+# one applies whatever the partition's language is, which is why
+# `_routes_answering_ungranted` reads an untiered one as an answer for
+# every language the record answers for rather than only under its own key.
+UNIVERSAL_ROUTE_LANGS = ("any", "none")
 FINDINGS_STREAMS = ("stdout", "stderr")
 ROUTE_FIELDS = frozenset(
     {
@@ -644,23 +653,48 @@ def _routes_answering_ungranted(
       An `alternative` or `superseded` route is not excluded - the record
       does offer those, it just does not run them by default.
 
+    An untiered route whose `lang` is one of `UNIVERSAL_ROUTE_LANGS` is
+    what still answers for every language, not only for the key it is
+    filed under: the schema says such a route applies whatever the
+    partition's language is, so a record pairing a tiered `python` route
+    with an untiered `any` one has an answer for Python once the grant is
+    withheld. Reading it under the literal key alone demanded
+    `answers_ungranted: none` from a record that is not silenced, which
+    is a false claim forced into frontmatter by the rule meant to prevent
+    one. This differs from `_project_tooling`, which files an `any` route
+    under the literal `"any"` key on purpose - there the question is which
+    invocations a language's lens should run, and here it is whether
+    anything at all still answers.
+
     Args:
         routes: The record's parsed routes.
 
     Returns:
         Language to the tuple of its untiered answering routes, for every
         language offering at least one answering-kind, non-forbidden
-        route (`command`, `library`, `procedure`). A language offering
-        none at all - no routes, only a `subject` route, or only
+        route (`command`, `library`, `procedure`), each language's own
+        untiered routes first and the universal ones after. A language
+        offering none at all - no routes, only a `subject` route, or only
         `forbidden` routes - is absent from the mapping: it has made no
-        claim about grants for this rule to silence.
+        claim about grants for this rule to silence, and a universal route
+        does not put it back, because spreading only reaches languages the
+        record already answers for.
     """
     by_lang: dict[str, list[Route]] = {}
     for route in routes:
         if route.kind in ANSWERING_ROUTE_KINDS and route.disposition != "forbidden":
             by_lang.setdefault(route.lang, []).append(route)
+    universal = [
+        route
+        for lang_routes in by_lang.values()
+        for route in lang_routes
+        if route.lang in UNIVERSAL_ROUTE_LANGS and route.needs is None
+    ]
     return {
-        lang: tuple(route for route in lang_routes if route.needs is None)
+        lang: tuple(
+            [route for route in lang_routes if route.needs is None]
+            + [route for route in universal if route.lang != lang]
+        )
         for lang, lang_routes in by_lang.items()
     }
 
