@@ -43,7 +43,7 @@ Computed on 2026-08-19 by diffing each record's `## Tooling fallback` tokens aga
 | `complexity-gate` | 1 / 0 | Delete. The threshold directive is already the `lang: none` route's note. |
 | `martin-metrics` | 4 / 0 | Delete. The five formulas are in the `grimp` note and the lead prose. |
 | `hidden-coupling` | 7 / 0 | Delete. |
-| `complexity` | 8 / 0 | Delete. `--select C901` is in the `ruff` route's `argv`. |
+| `complexity` | 8 / 1 | Delete. `--select C901` is in the `ruff` route's `argv`; the one concrete token is a tokenizer artifact, see below. |
 | `dead-code` | 9 / 0 | Delete. The vulture-confidence caveat is in the `vulture` note. |
 | `size` | 12 / 0 | `evidence:` gains the measurement, then delete. |
 | `over-abstraction` | 43 / 6 | Three route-note additions, one `evidence:`, one smoke-run addition, then delete. |
@@ -56,6 +56,8 @@ Two facts behind the right-hand column, both established by checking rather than
 
 - **No arch record's frontmatter carries the smoke-run link.** `coupling`, `cycles`, `layering` and `over-decomposition` link `docs/audit/typescript-lens-smoke-run.md` from the prose being deleted and from nowhere else; `cycles` also links `docs/audit/python-lens-smoke-run.md` there. Deleting the prose drops the pointer to where the observed behaviour lives.
 - **Two measurements have no home.** `docs/audit/typescript-lens-smoke-run.md` carries `9.15.9`, `18.2.0`, `--no-config`, `281`, `totalCruised`, `1090`, `122`, `tsconfig.app.json`, `45` and `31`; it does **not** carry `.madgerc`. No file under `docs/audit/` carries `arch/over-abstraction`'s `502`, `484` or `150`.
+
+**The concrete count over-reports, and by a knowable amount.** The tokenizer strips backticks before splitting, so a sentence ending `` `xenon`. `` leaves a bare `.` behind, and the `CONCRETE` regex matches it on its leading dot. That is the whole of `complexity`'s single concrete token, and the same artifact will appear in the four larger records' lists. Read each concrete list before believing it: a token that is punctuation, or a fragment of a word the stripping broke, is an artifact and not a claim.
 
 ## The triage script
 
