@@ -670,11 +670,18 @@ class Expectation:
     the grant moves. `claim` is the answer with the grant; this is
     the answer without it, and it is set on exactly the checks where the two
     differ - which is derivable rather than a judgement call, so a test derives
-    it: a check whose every Python tool carries a `needs` tier answers something
-    different ungranted, and its record's `ungranted_note` already says what.
-    Where the note is the `none` sentinel the ungranted answer is
-    `no-evidence (not-permitted)` and needs no restating here; where some Python
-    tool needs no grant at all, `claim` already holds in both states. Without
+    it. On a record declaring `tooling:`, a check whose every Python tool
+    carries a `needs` tier answers something different ungranted, and that
+    record's `ungranted_note` already says what. Where the note is the `none`
+    sentinel the ungranted answer is `no-evidence (not-permitted)` and needs no
+    restating here; where some Python tool needs no grant at all, `claim`
+    already holds in both states. A record declaring `routes:` never sets this
+    field, and that is structural rather than a set of entries nobody got to:
+    the routes counterpart of `ungranted_note` carries the sentinel and no prose
+    of its own, so a Python language whose every answering route needs the grant
+    answers `no-evidence (not-permitted)` and an untiered route left in that
+    language is itself what still runs - neither leaves a second answer for an
+    entry to state. Without
     this field a correct ungranted run of `deps/hygiene` - which reports DEP001
     where the granted run reports DEP003 - would be graded against the granted
     answer and recorded as a tool defect.
