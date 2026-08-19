@@ -703,253 +703,6 @@ COMPLETIONS: dict[tuple[str, str], Completion] = {
 # would test one rule selection and report it as evidence about every check that
 # names the tool.
 INVOCATIONS: tuple[Invocation, ...] = (
-    # --- arch ---------------------------------------------------------------
-    # On a migrated record the `record_quote` below is no longer a citation: the
-    # prose it was lifted from is gone, and `PROSE_FALLBACK_CHECKS` scopes the
-    # properties that held it against the record out of these entries. It stays as
-    # the prescription the argv is still held against - `_route_anchoring`'s two
-    # consumers read both sides from this table - so an argv edited away from what
-    # the record prescribed still fails, and editing one means editing the other.
-    Invocation(
-        check="arch/complexity-gate",
-        tool="ruff",
-        record_quote=(
-            "`C901` needs `mccabe` max-complexity set in `pyproject.toml`; if it is "
-            "unset, passing a threshold on the command line yields clean numbers and "
-            "silently hides the gap."
-        ),
-        note=(
-            "the record prescribes reading the project's configured threshold rather "
-            "than running a tool, so there is no command to transcribe: running one "
-            "measures code against a threshold, which is arch/complexity's question"
-        ),
-        forms=(),
-    ),
-    Invocation(
-        check="arch/complexity-gate",
-        tool="radon",
-        record_quote=(
-            "Whichever tool you run, record what the project itself enforces - a "
-            "number it never configured is a number nothing holds it to."
-        ),
-        note="the record prescribes no radon command for the gate question",
-        forms=(),
-    ),
-    Invocation(
-        check="arch/complexity-gate",
-        tool="xenon",
-        record_quote=(
-            "**Read the project's configured threshold before measuring, and treat "
-            "its absence as a finding in its own right.**"
-        ),
-        note="the record prescribes no xenon command for the gate question",
-        forms=(),
-    ),
-    Invocation(
-        check="arch/complexity",
-        tool="ruff",
-        argv=("ruff", "check", "--select", "C901"),
-        record_quote=(
-            "`ruff check --select C901` or `radon cc` / `xenon`. Capture the metric "
-            "per function."
-        ),
-        forms=(("ruff check --select C901", "runs"),),
-    ),
-    Invocation(
-        check="arch/complexity",
-        tool="radon",
-        argv=("radon", "cc"),
-        completion=("src",),
-        note=(
-            "`radon cc` takes a path and the record names none; ruff defaults to the "
-            "working directory and radon does not, so the same sentence is runnable "
-            "for one tool and not the other"
-        ),
-        record_quote=(
-            "`ruff check --select C901` or `radon cc` / `xenon`. Capture the metric "
-            "per function."
-        ),
-        forms=(("radon cc", "runs"),),
-    ),
-    Invocation(
-        check="arch/complexity",
-        tool="xenon",
-        argv=("xenon",),
-        completion=("--max-absolute", "B", "src"),
-        note=(
-            "the record names the tool and no arguments; xenon needs both a threshold "
-            "and a path, and the expectation is written against `--max-absolute B`"
-        ),
-        # Measured: `uvx xenon --max-absolute B src` on the seeded partition exits 1
-        # with stdout empty and the whole finding on stderr -
-        # `ERROR:xenon:block "src/fixture_app/complexity.py:4 classify" has a rank of
-        # C`. Left at the stdout default, that finding was invisible to `classify`,
-        # which read an empty stdout and graded the row `tool-failed` - a real hit
-        # converted into no-evidence, the same shape `deptry` would be in without its
-        # own `findings_stream="stderr"` below.
-        findings_stream="stderr",
-        record_quote=(
-            "`ruff check --select C901` or `radon cc` / `xenon`. Capture the metric "
-            "per function."
-        ),
-        forms=(),
-    ),
-    Invocation(
-        check="arch/coupling",
-        tool="grimp",
-        record_quote=(
-            "compute afferent/efferent counts per module from the same edge set; flag "
-            "the top hubs."
-        ),
-        note=(
-            "grimp is a library the record asks to be computed with rather than a "
-            "command, so the answer comes from a scripted pass over the built graph"
-        ),
-        forms=(),
-    ),
-    Invocation(
-        check="arch/coupling",
-        tool="pydeps",
-        record_quote="`pydeps` gives a visual; the counts are the evidence.",
-        note=(
-            "the record offers pydeps for a picture and says the counts are the "
-            "evidence, so it prescribes no pydeps command for this check"
-        ),
-        forms=(),
-    ),
-    Invocation(
-        check="arch/cycles",
-        tool="import-linter",
-        record_quote=(
-            "`import-linter`'s cycle contract, `pydeps --show-cycles`, or `grimp`'s "
-            "cycle detection on the built graph."
-        ),
-        note=(
-            "the contract is the input and the fixture carries none; writing one to "
-            "make the tool run would manufacture the configuration whose absence is "
-            "what the run is meant to observe"
-        ),
-        forms=(),
-    ),
-    Invocation(
-        check="arch/cycles",
-        tool="pydeps",
-        argv=("pydeps", "--show-cycles", "--show-dot"),
-        completion=(f"src/{PACKAGE}",),
-        note="pydeps takes the package to graph and the record names none",
-        record_quote=(
-            "**Run `pydeps --show-cycles --show-dot`: `--show-cycles` alone has "
-            "no textual output channel at all.**"
-        ),
-        forms=(
-            ("pydeps --show-cycles", "superseded"),
-            ("pydeps --show-cycles --show-dot", "runs"),
-        ),
-    ),
-    Invocation(
-        check="arch/cycles",
-        tool="grimp",
-        record_quote=(
-            "`pydeps` doesn't execute the target - it reads import opcodes from "
-            "compiled bytecode - but it only sees modules the import machinery can "
-            "find, so an uninstalled dependency drops out of the graph and a cycle "
-            "running through it goes silently unreported rather than erroring."
-        ),
-        note="grimp's cycle detection runs on a graph a scripted pass builds",
-        forms=(),
-    ),
-    Invocation(
-        check="arch/dead-code",
-        tool="vulture",
-        argv=("vulture",),
-        completion=("src", "tests"),
-        note=(
-            "vulture takes the paths to scan and the record names none; both trees are "
-            "passed because a symbol referenced only by a test is not dead, and "
-            "scanning src alone would report the suite's own callees as unused"
-        ),
-        record_quote=(
-            "`vulture` (note its confidence score - it has false positives on "
-            "framework hooks, dynamic dispatch, and re-exports; verify before "
-            "deleting)."
-        ),
-        forms=(),
-    ),
-    Invocation(
-        check="arch/hidden-coupling",
-        tool="grimp",
-        record_quote=(
-            "the import graph won't show this, so grep the AST for the tells and read "
-            "each hit."
-        ),
-        note=(
-            "the record declares grimp the check's subject rather than its "
-            "instrument, because the import graph is what this check looks past, "
-            "so the prescription is a grep-and-read pass rather than a grimp command"
-        ),
-        forms=(),
-    ),
-    Invocation(
-        check="arch/layering",
-        tool="import-linter",
-        record_quote="`import-linter` if a `.importlinter` contract exists, or `tach`.",
-        note=(
-            "conditional on a contract the fixture does not carry, so the record "
-            "prescribes no command here"
-        ),
-        forms=(),
-    ),
-    Invocation(
-        check="arch/layering",
-        tool="tach",
-        record_quote=(
-            "If neither, build the ground-truth edge set yourself - parse each "
-            "module's `import` / `from ... import` statements (`grimp`, or an "
-            "AST/`ast`-based walk, or a scoped grep) and check every cross-tier edge "
-            "against the declared rules."
-        ),
-        note=(
-            "tach is offered as the alternative to a contract and the record names no "
-            "tach command; its own configuration is absent from the fixture too"
-        ),
-        forms=(),
-    ),
-    Invocation(
-        check="arch/layering",
-        tool="grimp",
-        record_quote="Record the offending `file:line` for each violation.",
-        note="grimp builds the edge set the record asks to be walked",
-        forms=(),
-    ),
-    Invocation(
-        check="arch/martin-metrics",
-        tool="grimp",
-        record_quote=(
-            "Record `Ca`, `Ce`, `I`, `A` and `D` per package; `D` is the evidence."
-        ),
-        note="the metrics are computed from the graph rather than reported by a command",
-        forms=(),
-    ),
-    Invocation(
-        check="arch/over-abstraction",
-        tool="grimp",
-        record_quote=(
-            "For each single-function module or one-method wrapper class, count call "
-            "sites (`grimp` refs or a scoped grep); **one** is the trigger."
-        ),
-        note="grimp refs are counted from the built graph rather than from a command",
-        forms=(),
-    ),
-    Invocation(
-        check="arch/over-decomposition",
-        tool="grimp",
-        record_quote=(
-            "Record the ratio / the count of trivial nodes / the offending chain as "
-            "the evidence."
-        ),
-        note="the shape is computed from the same edge set rather than by a command",
-        forms=(),
-    ),
     # --- deps ---------------------------------------------------------------
     Invocation(
         check="deps/freshness",
@@ -1559,7 +1312,9 @@ def invocations_for(
     """Every invocation one partition runs.
 
     Scoped by the expectations rather than by a second list, so the harness
-    cannot run a set the published record does not grade.
+    cannot run a set the published record does not grade. The rows come from
+    two places: the records for those that declare their routes, and this
+    file for those whose fallback is still prose.
 
     Args:
         partition: Which partition's scope to read.
@@ -1576,7 +1331,8 @@ def invocations_for(
             f"unknown partition {partition!r}; expected one of {PARTITIONS}"
         )
     carried = {e.check for e in expectations_for(partition)}
-    scoped = tuple(i for i in INVOCATIONS if i.check in carried)
+    everything = INVOCATIONS + routed_invocations()
+    scoped = tuple(i for i in everything if i.check in carried)
     if only_check is None:
         return scoped
     filtered = tuple(i for i in scoped if i.check == only_check)
@@ -2157,7 +1913,7 @@ def probe_versions(
     """
     granted = grant != "none"
     representative: dict[str, Invocation] = {}
-    for inv in INVOCATIONS:
+    for inv in INVOCATIONS + routed_invocations():
         representative.setdefault(inv.tool, inv)
 
     versions: dict[str, str] = {}

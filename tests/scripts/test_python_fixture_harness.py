@@ -26,7 +26,6 @@ from python_fixture_spec import (
     render_manifests,
 )
 from run_python_fixture_lens import (
-    COMPLETIONS,
     DETAILS,
     DISPOSITIONS,
     FROZEN_FORM,
@@ -909,7 +908,8 @@ def test_every_partitions_first_command_precedes_the_shared_second_one():
 
 
 def test_every_python_tool_in_the_family_is_invoked():
-    assert {i.tool for i in INVOCATIONS} == tools_named_in_records()
+    invoked = {i.tool for i in INVOCATIONS} | {i.tool for i in routed_invocations()}
+    assert invoked == tools_named_in_records()
 
 
 def test_no_check_invokes_the_same_tool_twice():
@@ -922,9 +922,14 @@ def test_a_tool_answering_several_checks_is_invoked_once_per_check():
 
     A superset assertion passes on a table that has quietly grown a ruff entry
     for a check whose record never offered ruff, which is the mistranscription
-    the per-check split exists to make visible.
+    the per-check split exists to make visible. Read over both enumeration
+    paths: `arch/complexity` and `arch/complexity-gate` name ruff through their
+    routes now, not through a hand-written entry.
     """
-    assert {i.check for i in INVOCATIONS if i.tool == "ruff"} == {
+    ruff_checks = {i.check for i in INVOCATIONS if i.tool == "ruff"} | {
+        i.check for i in routed_invocations() if i.tool == "ruff"
+    }
+    assert ruff_checks == {
         "arch/complexity",
         "arch/complexity-gate",
         "docs/docstring-coverage",
@@ -996,19 +1001,48 @@ def test_the_deps_checks_are_all_represented():
 # --- the exact-set guard -------------------------------------------------------
 
 
-def test_the_harness_runs_exactly_the_checks_the_expectations_declare():
-    """Three views of one set, held equal rather than kept in step by reading.
+def test_no_migrated_check_has_a_hand_written_entry():
+    """Two enumeration paths, and a row belongs to exactly one.
 
-    The records carrying a `python:` entry are what the round exists to exercise;
-    the expectations are what each one is graded against; the harness is what
-    runs them. A check present in any one of the three and missing from another
-    is either a check nobody grades or a claim nobody tests, and both look like
-    a complete run.
+    A stale entry is the silent failure this change opens: it keeps a check
+    running after its record stops being the source, so editing the record
+    has no effect on the run and nothing goes red. Held on the schema the
+    record declares rather than on a list of check ids, so a record migrating
+    in stage 4 fails here until its entry goes.
+    """
+    checks, errors = load_checks(SKILLS_DIR)
+    assert not errors, errors
+    migrated = {cid for cid, c in checks.items() if c.routes}
+    stale = sorted({i.check for i in INVOCATIONS} & migrated)
+    assert not stale, (
+        f"{stale} declare routes and still have a hand-written entry, so the "
+        "record is no longer what the run reads"
+    )
+
+
+def test_the_harness_runs_exactly_the_checks_the_expectations_declare():
+    """Three views of one set, held equal, over both enumeration paths.
+
+    The records carrying a `python:` entry are what the round exists to
+    exercise; the expectations are what each one is graded against; the
+    harness is what runs them. A check present in any one of the three and
+    missing from another is either a check nobody grades or a claim nobody
+    tests, and both look like a complete run.
+
+    The harness's view is now a union: hand-written entries for the checks
+    whose fallback lives in prose, routed rows for the records that declare
+    their routes. A check dropped by the enumeration, invented by it, or
+    claimed by both paths fails here.
     """
     checks, errors = load_checks(SKILLS_DIR)
     assert not errors, errors
     with_python = {c.id for c in checks.values() if c.tooling.get("python")}
-    assert {i.check for i in INVOCATIONS} == with_python
+    from_table = {i.check for i in INVOCATIONS}
+    from_records = {r.check for r in routed_invocations()}
+    assert from_table | from_records == with_python, sorted(
+        (from_table | from_records) ^ with_python
+    )
+    assert not from_table & from_records
     assert {e.check for e in EXPECTATIONS} == with_python
 
 
@@ -1041,14 +1075,19 @@ def test_every_python_tooling_entry_has_an_invocation():
     declared = {
         (c.id, tool) for c in checks.values() for tool in c.tooling.get("python", ())
     }
-    assert {(i.check, i.tool) for i in INVOCATIONS} == declared
+    enumerated = {(i.check, i.tool) for i in INVOCATIONS} | {
+        (i.check, i.tool) for i in routed_invocations()
+    }
+    assert enumerated == declared
 
 
 # --- version routes -------------------------------------------------------------
 
 
 def test_every_invoked_tool_has_a_version_route_or_a_stated_absence():
-    invoked = {inv.tool for inv in INVOCATIONS}
+    invoked = {inv.tool for inv in INVOCATIONS} | {
+        inv.tool for inv in routed_invocations()
+    }
     assert set(VERSION_PROBE) == invoked
 
 
@@ -1205,7 +1244,7 @@ def test_folding_a_completion_into_the_argv_breaks_the_anchor():
     claim to read against the record rather than one this file has verified.
     """
     completed = [i for i in INVOCATIONS if i.completion]
-    assert len(completed) == 13, len(completed)
+    assert len(completed) == 9, len(completed)
     for inv in completed:
         quote = _tokens(inv.record_quote)
         argv = inv.argv or next(a for _, a in inv.argv_by_partition if a)
@@ -1713,7 +1752,9 @@ def test_a_form_naming_a_lead_word_off_the_front_is_led_by_some_invocation():
 
 
 def test_the_full_partition_runs_every_invocation():
-    assert set(invocations_for(FULL_PARTITION)) == set(INVOCATIONS)
+    assert set(invocations_for(FULL_PARTITION)) == set(INVOCATIONS) | set(
+        routed_invocations()
+    )
 
 
 def test_a_thin_partition_runs_the_deps_checks_and_nothing_arch():
@@ -1758,9 +1799,10 @@ def test_an_unknown_check_or_tool_is_rejected_by_name():
 
 
 def test_a_filtered_run_names_only_the_check_it_was_given():
+    everything = tuple(INVOCATIONS) + routed_invocations()
     assert [i.check for i in invocations_for("uv", only_check="arch/cycles")] == [
         "arch/cycles"
-    ] * len([i for i in INVOCATIONS if i.check == "arch/cycles"])
+    ] * len([i for i in everything if i.check == "arch/cycles"])
 
 
 def test_an_unknown_check_filter_is_refused():
@@ -1894,10 +1936,12 @@ def test_deptry_and_xenon_are_the_entries_that_report_on_stderr():
     stdout default, that finding was invisible and the row graded
     `tool-failed` instead of the hit it actually was.
     """
-    assert {
-        (i.check, i.tool) for i in INVOCATIONS if i.findings_stream == "stderr"
-    } == {("deps/hygiene", "deptry"), ("arch/complexity", "xenon")}
-    assert all(i.findings_stream in ("stdout", "stderr") for i in INVOCATIONS)
+    everything = tuple(INVOCATIONS) + routed_invocations()
+    assert {(i.check, i.tool) for i in everything if i.findings_stream == "stderr"} == {
+        ("deps/hygiene", "deptry"),
+        ("arch/complexity", "xenon"),
+    }
+    assert all(i.findings_stream in ("stdout", "stderr") for i in everything)
     with pytest.raises(ValueError, match="findings_stream"):
         Invocation(
             check="deps/hygiene",
@@ -1909,16 +1953,17 @@ def test_deptry_and_xenon_are_the_entries_that_report_on_stderr():
 
 
 def _tools_that_can_run_a_command() -> set[str]:
-    """Every tool `INVOCATIONS` could actually hand `classify` an exit code.
+    """Every tool either enumeration path could actually hand `classify` an exit code.
 
     A tool named only in an entry with no `argv`, no `argv_by_partition` and no
     `supplied_by_partition` never runs a command at all - `grimp`, `safety`,
     `cosmic-ray`, `hypothesis` - so it never reaches `classify` and has nothing
     to state a non-zero-exit meaning about.
     """
+    everything = tuple(INVOCATIONS) + routed_invocations()
     return {
         i.tool
-        for i in INVOCATIONS
+        for i in everything
         if i.argv or i.argv_by_partition or i.supplied_by_partition
     }
 
@@ -3452,8 +3497,9 @@ def test_a_filtered_run_never_writes_the_filename_a_full_run_writes(
     assert not (fixture_root / "results" / "uv-none.json").exists()
     observed = json.loads(written.read_text())
     assert {row["check"] for row in observed["results"]} == {"arch/cycles"}
+    everything = tuple(INVOCATIONS) + routed_invocations()
     assert set(observed["versions"]) == {
-        inv.tool for inv in INVOCATIONS if inv.check == "arch/cycles"
+        inv.tool for inv in everything if inv.check == "arch/cycles"
     }
     assert "written to" in capsys.readouterr().out
 
@@ -3785,136 +3831,6 @@ def test_every_migrated_record_is_in_the_domain_the_oracle_covers():
     )
 
 
-def test_a_migrated_records_routes_agree_with_the_verified_table():
-    """The migration's only oracle, and it covers one language and one axis.
-
-    `INVOCATIONS` transcribes what each record prescribes and was held against
-    the records themselves through #53 and #55, then re-verified by mutation,
-    so a route that disagrees with it is a migration error rather than a
-    disagreement between two opinions.
-
-    Python only. The TypeScript routes are authored from documentation and one
-    smoke run rather than from a seeded fixture, so nothing here holds them -
-    which is the claim epic #44 exists to make good, and is why this test's
-    name says `verified table` rather than `the records`.
-
-    And python-with-a-table-entry only. The table transcribes a record's
-    python tooling section; a migrated record naming no python route at all -
-    `arch/size` is the one in this domain - has no oracle here and is skipped
-    below rather than counted as verified. Its tools are named in the record
-    rather than repeated here, so a route added to it cannot leave this
-    sentence describing a set it no longer has. A migrated record that
-    *does* carry a python route but that the table has no entry for at all is
-    not skipped the same way: that gap would mean the table stopped covering a
-    record it is supposed to, so it fails instead. `Check.tooling` is not the
-    signal for this, because for a migrated record it is a view derived from
-    `routes` rather than independent frontmatter (`_project_tooling`) - the
-    record's own routes are the only place left to read it from.
-
-    Keyed on the record id rather than on a hardcoded list, so each
-    arch-audit check the pilot still has to migrate is picked up the moment it
-    grows `routes`, with no edit here.
-
-    A route's `argv` is compared against the entry's `argv` only where the
-    route is `runs`, because that field is the record's own prescribed literal
-    command and never includes a completion the harness supplies at run time -
-    `arch/cycles`'s `pydeps` route omits the package path for the same reason
-    the table's entry does. Every python `kind: command` route, whatever its
-    disposition, is additionally compared against the entry's `forms` - the
-    `(form, disposition)` pairs the table read out of the record's prescribing
-    paragraph - because a record may narrow the same tool's command twice, once
-    `runs` and once `superseded`, and a comparison keyed on `(check, tool,
-    argv)` alone silently holds only the form whose argv happens to match:
-    `arch/cycles`'s superseded `pydeps --show-cycles` shares no argv with the
-    table's `pydeps` entry, which is keyed on the `--show-dot` form that runs.
-
-    Where an entry declares no `forms` at all, its own `argv` is the one form
-    the table knows about and is treated as `runs` implicitly - the shape
-    `arch/complexity`'s `xenon` entry and `arch/dead-code`'s `vulture` entry
-    both take, where the record names one command with nothing to narrow it
-    against. (Two entries elsewhere run a plain command that appears in no
-    form at all - the record's own quote is what runs, and its named forms are
-    only the alternatives above it - but neither is in the arch domain this
-    test covers, so that shape is not one this fallback has to reproduce.)
-
-    Held in both directions: a route naming a form the table does not carry is
-    a route the migration invented or a table gone stale; a form the table
-    carries with no matching route is a form the migration silently dropped.
-    """
-    checks, errors = load_checks(SKILLS_DIR)
-    assert not errors, errors
-    migrated = {
-        cid: c
-        for cid, c in checks.items()
-        if c.routes and cid.startswith(_ORACLE_DOMAINS)
-    }
-    assert migrated, "no arch record is migrated, so this test holds nothing"
-
-    by_check: dict[str, list[Invocation]] = {}
-    for inv in INVOCATIONS:
-        if inv.check in migrated:
-            by_check.setdefault(inv.check, []).append(inv)
-
-    def known_forms(inv: Invocation) -> tuple[tuple[str, str], ...]:
-        if inv.forms:
-            return inv.forms
-        if inv.argv:
-            return ((" ".join(inv.argv), "runs"),)
-        return ()
-
-    checked = []
-    for cid, check in sorted(migrated.items()):
-        entries = by_check.get(cid)
-        python_routes = [r for r in check.routes if r.lang == "python"]
-        if entries is None:
-            assert not python_routes, (
-                f"{cid}: declares {len(python_routes)} python route(s) and the "
-                "table carries no entry for it at all - either the table is stale "
-                "or this record's python tooling was never transcribed into it"
-            )
-            continue
-        checked.append(cid)
-        table = {inv.tool: inv for inv in entries}
-        command_routes = [r for r in python_routes if r.kind == "command"]
-        for route in command_routes:
-            inv = table.get(route.tool)
-            assert inv is not None, (
-                f"{cid}: route names python tool {route.tool!r}, which the table "
-                "carries no entry for - either the migration invented it or the "
-                "table is stale"
-            )
-            joined = " ".join(route.argv)
-            if route.disposition == "runs":
-                assert route.argv == inv.argv, (
-                    f"{cid}/{route.tool}: runs route argv {joined!r} does not match "
-                    f"the table's {' '.join(inv.argv)!r}"
-                )
-            forms = known_forms(inv)
-            assert (joined, route.disposition) in forms, (
-                f"{cid}: route {route.tool} {joined!r} declares disposition "
-                f"{route.disposition!r}, which the table's forms {forms} for that "
-                "tool do not carry - either the migration invented this form or "
-                "mistranscribed its disposition"
-            )
-            assert route.findings_stream == inv.findings_stream, (cid, route.tool)
-        for tool, inv in sorted(table.items()):
-            for form, disposition in known_forms(inv):
-                assert any(
-                    r.lang == "python"
-                    and r.kind == "command"
-                    and r.tool == tool
-                    and " ".join(r.argv) == form
-                    and r.disposition == disposition
-                    for r in command_routes
-                ), (
-                    f"{cid}: the table declares {tool} form {form!r} ({disposition}) "
-                    "and no route carries it - a migration silently dropped it"
-                )
-    assert checked, (
-        "no migrated arch record has a table entry, so this test holds nothing"
-    )
-
-
 def test_a_routed_row_is_one_per_check_and_tool_rather_than_one_per_route():
     """`arch/cycles` declares four python routes and has three rows.
 
@@ -4079,47 +3995,3 @@ def test_an_ambiguous_group_is_refused_by_name(monkeypatch, routes, expected):
         pytest.raises(ValueError, match=expected),
     ):
         routed_invocations()
-
-
-def test_the_enumeration_reproduces_the_table_it_replaces():
-    """Transitional. Deleted in the commit that cuts the arch entries.
-
-    Held while both copies exist, because that is the only moment the claim
-    "nothing about what runs moves" is checkable. Kept afterwards it would be
-    a second copy of the prescription, which is the defect this stage removes,
-    so its output goes in the PR and the test goes with the entries.
-
-    Compares forms as sets: the table's are in the order somebody typed them
-    and the enumeration's follow the record, and neither order is a claim.
-
-    `note` is the one field this does not hold as an equality, and the
-    asymmetry is the finding rather than a weakened assertion. On the four
-    rows a completion covers it is exact. On the fourteen prescribing no
-    command the table carried a hand-authored paraphrase of the record's
-    reasoning, and the enumeration carries the record's own sentence, so the
-    assertion is that the row still explains itself and that the text is no
-    longer the transcription. That is a visible change in the results
-    artifact, where `note` is written out per row, and it is the intended
-    direction: the explanation stops being a copy somebody has to keep in
-    step. Every field that decides what actually runs is held as an equality.
-    """
-    migrated = {cid for cid, c in load_checks(SKILLS_DIR)[0].items() if c.routes}
-    table = {(i.check, i.tool): i for i in INVOCATIONS if i.check in migrated}
-    derived = {(r.check, r.tool): r for r in routed_invocations()}
-    assert set(derived) == set(table), sorted(set(derived) ^ set(table))
-    for key, row in sorted(derived.items()):
-        entry = table[key]
-        assert row.argv == entry.argv, key
-        assert row.findings_stream == entry.findings_stream, key
-        assert row.in_env == entry.in_env, key
-        assert row.completion == entry.completion, key
-        if key in COMPLETIONS:
-            assert row.note == entry.note, key
-        elif row.argv:
-            assert row.note == "" and entry.note == "", key
-        else:
-            assert row.note and row.note != entry.note, key
-        expected = set(entry.forms) or (
-            {(" ".join(entry.argv), "runs")} if entry.argv else set()
-        )
-        assert set(row.forms) == expected, key
