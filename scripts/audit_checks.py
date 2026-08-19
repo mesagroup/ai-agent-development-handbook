@@ -334,12 +334,21 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
     Collects every problem rather than stopping at the first, matching
     `_load_one`'s contract: a caller that raised on the first bad route in a
     twelve-route record would hide the other eleven. Validates, in order:
-    the value is a list of mappings; every key is one `ROUTE_FIELDS` knows;
-    `lang`, `kind`, `disposition`, `findings_stream` and `needs` each name a
-    known value; `tool` is present unless `kind` is `procedure`; `package`
-    defaults to `tool`; `argv` and `argv_by_manager` are present only where
-    `kind` is `command`, and `argv` is required and non-empty there; a
-    `disposition` other than `runs` appears only where `kind` is `command`.
+    the value is a list of mappings; the list is not empty; every key is one
+    `ROUTE_FIELDS` knows; `lang`, `kind`, `disposition`, `findings_stream`
+    and `needs` each name a known value; `tool` is present unless `kind` is
+    `procedure`; `package` defaults to `tool`; `argv` and `argv_by_manager`
+    are present only where `kind` is `command`, and `argv` is required and
+    non-empty there; a `disposition` other than `runs` appears only where
+    `kind` is `command`.
+
+    The empty list is rejected rather than tolerated because `routes: []` and
+    an absent `routes` key are indistinguishable to everything downstream:
+    both project to no tooling and no needs, neither can silence a language,
+    and so neither is ever asked for `answers_ungranted`. A record that
+    declared the routes schema and then listed nothing would read as one that
+    never declared it, which is the schema question answered by default in
+    the direction that hides it.
 
     Args:
         raw: The frontmatter's `routes` value, or `None` if the record does
@@ -356,6 +365,13 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
         return (), errors
     if not isinstance(raw, list) or not all(isinstance(entry, dict) for entry in raw):
         errors.append(f"{where}: routes must be a list of mappings")
+        return (), errors
+    if not raw:
+        errors.append(
+            f"{where}: routes is empty - a record declaring routes must declare "
+            "at least one; an empty list reads downstream exactly as a record "
+            "that declares no routes at all"
+        )
         return (), errors
 
     routes: list[Route] = []
