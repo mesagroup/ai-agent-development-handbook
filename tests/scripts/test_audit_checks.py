@@ -376,8 +376,8 @@ def _languages_rescued_by_an_untiered_route(check: ac.Check) -> list[str]:
 def test_the_notes_are_not_all_sentinels():
     """The requirement can be satisfied without thought by writing the
     sentinel everywhere. Nothing can tell a correct `none` from a lazy one,
-    so hold the number of records that say something real at a floor: the
-    sweep behind #26 produced ten.
+    so hold the number of records that say something real at a floor, set
+    once from the count the sweep behind #26 produced.
 
     What "something real" is has two spellings, and the floor counts their
     sum, because they are one property wearing two schemas. On the legacy
@@ -394,23 +394,25 @@ def test_the_notes_are_not_all_sentinels():
     `ungranted_note: none` does not. The two populations cannot overlap: the
     loader rejects a record carrying both schemas.
 
-    The sum is 12 against this floor of 10, and it arrived there by moving
-    once, downward, for a reason worth keeping: `arch/complexity-gate` was in
-    the original ten and is in neither population now. It lost no claim. Both
-    sentences of its note became structure - the reading of the linter
-    configuration and the CI workflow files became an untiered route, and
-    "the classified tools are the gate's subject rather than its instrument"
-    became `kind: subject` on all five of them. It leaves the population
-    because it was never really silenced: the legacy schema had no way to say
-    a tool is the check's subject rather than its instrument, so tiering
-    ESLint under `typescript` made that language read as fully tiered, the
-    loader demanded a note, and the record spent that note explaining why its
-    own frontmatter was misleading. The note was an artifact of a missing
-    field, not a claim, and `kind: subject` retires it. The other seven
-    records still carrying prose notes were read for the same shape and none
-    has it - every one is a within-language rescue, a tiered scanner beside a
-    reading pass in the same language that still answers - so this is an
-    exception of exactly one record rather than the leading edge of a
+    The sum moves as migration proceeds, in both directions, and is never
+    itself the thing to check against a remembered number - the paragraphs
+    below make the case for why. One move worth keeping straight because it
+    looks like a loss and is not: `arch/complexity-gate` was in the
+    population the floor was first set against and is in neither population
+    now. It lost no claim. Both sentences of its note became structure - the
+    reading of the linter configuration and the CI workflow files became an
+    untiered route, and "the classified tools are the gate's subject rather
+    than its instrument" became `kind: subject` on all five of them. It
+    leaves the population because it was never really silenced: the legacy
+    schema had no way to say a tool is the check's subject rather than its
+    instrument, so tiering ESLint under `typescript` made that language read
+    as fully tiered, the loader demanded a note, and the record spent that
+    note explaining why its own frontmatter was misleading. The note was an
+    artifact of a missing field, not a claim, and `kind: subject` retires it.
+    The records still carrying prose notes were read for the same shape and
+    none has it - every one is a within-language rescue, a tiered scanner
+    beside a reading pass in the same language that still answers - so this
+    was an exception of exactly one record rather than the leading edge of a
     pattern. Should a second record ever leave the population this way, that
     is the pattern arriving and the floor is the wrong instrument for it.
 
@@ -437,9 +439,9 @@ def test_the_notes_are_not_all_sentinels():
     that slack should be closed. Never lower it to make a deletion pass,
     never narrow what it counts to make a migration pass, and never widen
     what it counts to recover a number: counting a tiered `kind: subject`
-    route as something a language can be rescued from would restore the 13
-    above by contradicting both the independence of `needs` and `kind` and
-    the test below that pins that edge, and a number restored by
+    route as something a language can be rescued from would recover a
+    number by contradicting both the independence of `needs` and `kind` and
+    the test below that pins that edge, and a number recovered by
     contradicting a guard is worse than a number that moved for a reason.
 
     A later migration can also raise this sum without either schema gaining
@@ -467,7 +469,11 @@ def test_the_notes_are_not_all_sentinels():
     **drop** means some record that used to demonstrate an ungranted answer
     no longer does, in either schema, which is a real defect regardless of
     which population lost the claim. A **rise** is the migration working as
-    intended and is never, by itself, a reason to stop.
+    intended and is never, by itself, a reason to stop - including a rise
+    produced by several records gaining their rescuing route in the same
+    batch, which is this same mechanism repeated, not a different one, and
+    exactly why a remembered digit next to this floor is a liability rather
+    than a fact worth writing down.
     """
     checks, errors = ac.load_checks(ac.SKILLS_DIR)
     assert errors == []
