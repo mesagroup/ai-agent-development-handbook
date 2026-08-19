@@ -2,6 +2,12 @@
 id: arch/over-abstraction
 domain: arch
 locality: global
+evidence: >-
+  Every count this check takes is read against the same trigger: one
+  concrete subclass, one call site, one registrant or arm, one distinct
+  bound value - or zero - is the trigger, and more than one is not. Record
+  the count and the `file:line` of both the abstraction and its lone
+  consumer.
 handbook:
   - implementation-disciplines/coding-hygiene-rules-that-surface-at-review-b
   - codebase-structure/why-the-rule-matters-a
@@ -10,12 +16,20 @@ routes:
     kind: library
     tool: grimp
     note: >-
-      The fan-in-to-abstraction signal - subclasses per `ABC`/`Protocol`,
-      call sites per single-function module or one-method wrapper class,
-      registrants per registry/dispatch, distinct values bound per
-      parameter/flag/config field - is computed from the same edge/AST set
-      built for layering; `grimp` refs are counted from the built graph
-      rather than from a command run for this check specifically.
+      The fan-in-to-abstraction signal - subclasses per abstraction, call
+      sites per single-function module or one-method wrapper class,
+      registrants or `match` arms per registry/dispatch, distinct values
+      bound per parameter/flag/config field - is computed from the same
+      edge/AST set built for layering. An abstraction is an `ABC` base, a
+      `Protocol` base, or any class carrying `@abstractmethod`, and the
+      subclass count is of concrete subclasses across the tree; `grimp`
+      refs, counted from the built graph rather than from a command run for
+      this check specifically, or a scoped grep where the graph does not
+      cover the call, source the call-site count for a single-function
+      module or one-method wrapper class. The AST of the call arguments, or
+      a grep of the setter where the value is assigned rather than passed,
+      sources the distinct-values count for a parameter, flag, or config
+      field.
     alone_insufficient: >-
       The count is the evidence, but "a row only becomes a finding after a
       read confirms (a) no second consumer or second value is imminent
@@ -67,7 +81,9 @@ routes:
       ts-morph -- <script>` aborts with `ERR_MODULE_NOT_FOUND: Cannot find
       package 'ts-morph'` - so it needs installing somewhere the walking
       script can import it from, an audit-owned directory rather than a
-      one-shot fetch.
+      one-shot fetch. The counts this produced on the target it was first
+      run against are recorded in [the smoke
+      run](https://github.com/mesagroup/ai-agent-development-handbook/blob/main/docs/audit/typescript-lens-smoke-run.md).
     alone_insufficient: >-
       The same "read confirmation and suppression rule" the record applies
       to the Python fan-in counts: a row only becomes a finding after a
@@ -88,12 +104,6 @@ Structure that exceeds the problem it solves: an interface/ABC/protocol with a s
 **Important** - a registry / plugin / config-dispatch mechanism serving a single case, or a multi-module indirection layer every call threads through to reach one implementation, where the machinery actively blocks a reader from following the call path.
 
 **Minor** - a single-implementer interface/ABC, a one-caller forwarding wrapper, an unused generic parameter, an unexercised knob (a parameter/flag/config option with one value everywhere) - real but low-cost, fix when touching the area.
-
-## Tooling fallback
-
-**Python** - the signal is *fan-in to an abstraction*, computed from the same edge/AST set built for layering. For each `ABC`/`Protocol`/class with `@abstractmethod`, count concrete subclasses across the tree; **one** (or zero) is the trigger. For each single-function module or one-method wrapper class, count call sites (`grimp` refs or a scoped grep); **one** is the trigger. For each registry / entry-point / `match`-dispatch, count registrants/arms; **one** is the trigger. For each function parameter, feature flag, or settings field, count the **distinct values** bound across all call sites (AST of the call arguments, or a grep of the setter); a single value everywhere is the trigger - the knob is unexercised (YAGNI residue). Grep the project's forbidden-shim markers (`backward compat`, `deprecated`, `re-export`, a function body that is a single call to a renamed symbol) against the contributor guide's stated policy. **Record the count and the `file:line` of both the abstraction and its lone consumer** - the count is the evidence, but a row only becomes a finding after a read confirms (a) no second consumer or second value is imminent in-tree and (b) collapsing the construct (inlining the abstraction, dropping the knob) removes indirection without losing a genuine seam. A planned, documented extension point - one implementer, or one config value, *today* - is a suppression, not a finding, recorded with its reason.
-
-**TypeScript** - the same fan-in counts, from `knip` (unused files and exports, single-use exports) and a `ts-morph` walk of the AST: implementers per interface or abstract class, call sites per wrapper module or forwarding function, registrants per registry or dispatch table, type arguments bound per generic, and the distinct values bound to each parameter, flag, or config field across every call site. Record the count and the `file:line` of both the abstraction and its lone consumer, and apply the same read confirmation and suppression rule before a count becomes a finding. `knip` needs the tree to be accurate, not merely present - on an uninstalled one it reports first-party files and imported packages alike as unused, inflating the fan-in-to-abstraction counts this check is built on; `ts-morph` needs nothing installed *in the target* for a syntax-level walk, serving its own `lib.d.ts` from memory, but the moment it reaches into a dependency's own types to resolve an implementer or a bound generic, that resolution degrades silently without the tree, so keep this pass syntactic rather than type-aware. It does need to be installed somewhere the walking script can import it from: `ts-morph` is a library rather than a bin, so a one-shot runner cannot supply it to a script that lives outside the runner's sandbox - `npx --package ts-morph -- <script>` aborts with `ERR_MODULE_NOT_FOUND: Cannot find package 'ts-morph'`. Install it into an audit-owned directory and run the walk from there, which is how the counts on the target this was first run against were produced: 502 interfaces, 484 of them with no implementer at all, and 150 single-export modules, none of which a `knip` run without the tree could have been trusted to corroborate.
 
 ## Fix
 
