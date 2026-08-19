@@ -441,6 +441,33 @@ def test_the_notes_are_not_all_sentinels():
     above by contradicting both the independence of `needs` and `kind` and
     the test below that pins that edge, and a number restored by
     contradicting a guard is worse than a number that moved for a reason.
+
+    A later migration can also raise this sum without either schema gaining
+    a new explanation to make. `arch/layering`'s legacy `typescript` tooling
+    already paired a tiered `dependency-cruiser` (`needs: resolved-tree`)
+    with an untiered `madge` - removing `madge` would have silenced
+    `typescript`, which is exactly the routed population's own definition -
+    but the legacy rule only ever asks whether *every* tool in a language
+    needs a grant, so it never noticed and no `ungranted_note` was ever
+    required. Migrating the record to routes did not create that claim; it
+    gave the counting function, which only ever reads `check.routes`, its
+    first look at a fact the record's own `tooling`/`needs` declaration
+    always carried. The two populations are therefore not symmetric by
+    construction: prose counts what the legacy rule forced a record to
+    write down, routed counts what is actually true whether or not the old
+    rule ever asked. The second is the more honest measure of what this
+    floor exists to protect, and being a truer measure over the same
+    records, it can only ever sit at or above what the coarser one found -
+    so a rise as migration proceeds is not a regression to explain, it is
+    slack accumulating on a floor that was set once, early, against a
+    smaller population than the one now being counted. Re-setting the floor
+    to match is end-of-migration work, done once the population has
+    stopped growing out from under it, not a judgement to make against an
+    incomplete count. The signal worth stopping for runs the other way: a
+    **drop** means some record that used to demonstrate an ungranted answer
+    no longer does, in either schema, which is a real defect regardless of
+    which population lost the claim. A **rise** is the migration working as
+    intended and is never, by itself, a reason to stop.
     """
     checks, errors = ac.load_checks(ac.SKILLS_DIR)
     assert errors == []
