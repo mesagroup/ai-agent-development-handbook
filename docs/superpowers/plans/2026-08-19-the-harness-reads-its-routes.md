@@ -243,9 +243,15 @@ def routed_invocations() -> tuple[Invocation, ...]:
                 if route.disposition not in DISPOSITIONS:
                     raise ValueError(
                         f"{check_id}/{tool}: route disposition "
-                        f"{route.disposition!r} is outside {DISPOSITIONS}, which "
-                        "is the vocabulary the form guards read; a form carrying "
-                        "an unknown one would be compared against nothing"
+                        f"{route.disposition!r} is one the record loader permits "
+                        f"and this module's form vocabulary {DISPOSITIONS} does "
+                        "not carry, so nothing here decides whether the harness "
+                        "may offer it as a form. `forbidden` is the live case: "
+                        "the loader's vocabulary carries it and records declare "
+                        "it on typescript routes, which this selection never "
+                        "reaches. Giving it a slot means deciding whether a form "
+                        "the record warns against is one the guards should see, "
+                        "and that is a decision rather than a widened tuple"
                     )
             runs = [r for r in commands if r.disposition == "runs"]
             if len(runs) > 1:
@@ -293,7 +299,7 @@ def routed_invocations() -> tuple[Invocation, ...]:
                     findings_stream=streams.pop(),
                     in_env=in_env.pop(),
                     completion=supplied.tokens if supplied else (),
-                    note=supplied.note if supplied else "",
+                    note=note,
                 )
             )
     return tuple(rows)
@@ -323,6 +329,90 @@ Append one sentence to that argument's existing docstring paragraph rather than 
 
 Run: `caffeinate uv run pytest tests/scripts/test_python_fixture_harness.py -q -k "routed"`
 Expected: PASS.
+
+- [ ] **Step 4b: Exercise every raise this task adds**
+
+Seven branches ship with this task: two in `Completion.__post_init__` and five in `routed_invocations`. A raise no test reaches is a branch nobody has read the message of, and two of these fire only on data no record carries today, which is exactly when a wrong message costs the most.
+
+`routed_invocations` reads `_records()` and is `@cache`d, so a test substitutes the loader and clears the cache. `routed_invocations.cache_clear()` in a fixture or `finally` block, both before and after, or a later test reads a synthetic tree.
+
+```python
+def _fake_record(*routes):
+    return SimpleNamespace(routes=routes)
+
+
+def _fake_route(**kw):
+    field = {
+        "lang": "python", "kind": "command", "tool": "t", "argv": ("t",),
+        "disposition": "runs", "findings_stream": "stdout", "in_env": False,
+        "note": "",
+    }
+    field.update(kw)
+    return SimpleNamespace(**field)
+
+
+@contextmanager
+def _records_replaced_by(monkeypatch, records):
+    routed_invocations.cache_clear()
+    monkeypatch.setattr("run_python_fixture_lens._records", lambda: records)
+    try:
+        yield
+    finally:
+        routed_invocations.cache_clear()
+
+
+def test_a_completion_with_no_tokens_or_no_reason_is_rejected():
+    with pytest.raises(ValueError, match="not a completion"):
+        Completion(tokens=(), note="why")
+    with pytest.raises(ValueError, match="repaired command as a clean run"):
+        Completion(tokens=("src",), note="")
+
+
+@pytest.mark.parametrize(
+    "routes, expected",
+    [
+        (
+            (_fake_route(disposition="forbidden"),),
+            "does not carry",
+        ),
+        (
+            (_fake_route(argv=("t", "a")), _fake_route(argv=("t", "b"))),
+            "declare `runs`",
+        ),
+        (
+            (_fake_route(), _fake_route(disposition="superseded",
+                                        findings_stream="stderr")),
+            "disagree on findings_stream",
+        ),
+        (
+            (_fake_route(), _fake_route(disposition="superseded", in_env=True)),
+            "disagree on in_env",
+        ),
+        (
+            (_fake_route(kind="library", argv=()),
+             _fake_route(kind="procedure", argv=())),
+            "which one explains the absence",
+        ),
+    ],
+)
+def test_an_ambiguous_group_is_refused_by_name(monkeypatch, routes, expected):
+    """Each raise names the group and what is ambiguous about it.
+
+    Every one of these resolves silently to whichever route came first if the
+    guard is removed, and four of the five fire on data no record carries
+    today - so the message is the only thing a future reader gets, and it is
+    read here rather than assumed.
+    """
+    with _records_replaced_by(monkeypatch, {"x/y": _fake_record(*routes)}):
+        with pytest.raises(ValueError, match=expected):
+            routed_invocations()
+```
+
+Adjust the `match` strings to the messages actually raised rather than editing a message to fit a test: the message is the deliverable here. Add whatever imports these need (`pytest`, `SimpleNamespace`, `contextmanager`, `Completion`) in the file's existing import style.
+
+- [ ] **Step 4c: Confirm the substitution did not leak**
+
+Run the whole file, not only the new tests: `caffeinate uv run pytest tests/scripts/test_python_fixture_harness.py -q`. A cached `routed_invocations` holding a synthetic tree would show up as unrelated failures later in the file, and that is the failure mode this step exists to catch.
 
 - [ ] **Step 5: Write the transitional equality, which Task 2 deletes**
 
