@@ -121,9 +121,10 @@ exclusion exists for. `alternative` and `superseded` routes are not
 excluded; the record does offer those, it simply does not run them by
 default. `_routes_answering_ungranted` computes, per language, the routes
 actually in scope for this: the answering-kind, non-forbidden routes
-carrying no tier, each language's own plus the universal ones. A language absent from its result has offered no such
-route at all, so it has made no claim this rule can silence, exactly as a
-language absent from `tooling` makes none under the legacy schema.
+carrying no tier, each language's own plus the universal ones. A
+language absent from its result has offered no such route at all, so it
+has made no claim this rule can silence, exactly as a language absent
+from `tooling` makes none under the legacy schema.
 
 Usage:
     from audit_checks import SKILLS_DIR, load_checks
