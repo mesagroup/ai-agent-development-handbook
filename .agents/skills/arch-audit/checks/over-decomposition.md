@@ -2,6 +2,10 @@
 id: arch/over-decomposition
 domain: arch
 locality: global
+evidence: >-
+  Graph-level shape rather than per-module counts: the edge-to-node ratio,
+  the count of trivial nodes, or the offending pass-through chain is recorded
+  as the evidence, according to which of the three the finding rests on.
 handbook: []
 handbook_note: >-
   The handbook's structural-decay list names hub modules and grab-bag utils -
