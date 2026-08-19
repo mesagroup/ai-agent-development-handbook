@@ -32,7 +32,7 @@ Frontmatter fields:
 | `tooling` | no | Language to preferred tools; `any` for language-agnostic |
 | `needs` | no | Tier to tool names, for tools needing more than a read-only clone |
 | `ungranted_note` | iff every tool in a language needs a grant | What the check still answers when that grant is withheld |
-| `routes` | no | A list of `Route`s: what this check can run, replacing `tooling`/`needs`/`ungranted_note` for a migrated record |
+| `routes` | no, and non-empty where present | A list of `Route`s: what this check can run, replacing `tooling`/`needs`/`ungranted_note` for a migrated record |
 | `answers_ungranted` | iff every answering-kind route in a language needs a grant | The routes-schema counterpart of `ungranted_note`: the sentinel `none`, written where no route in that language answers without a grant |
 | `optin` | no | Default `false`; an opt-in sub-audit that produces findings |
 
@@ -79,7 +79,9 @@ this field does not.
 A record may declare `routes` instead of `tooling`/`needs`/`ungranted_note`:
 one list of `Route`s, each one way of answering the check in one language,
 in place of a free-form tool list plus the two side mappings that classify
-it. The two schemas are mutually exclusive - a record naming both is
+it. The list must hold at least one route, because an empty one is the
+schema declared and then not stated - indistinguishable downstream from a
+record that never declared it. The two schemas are mutually exclusive - a record naming both is
 rejected, because a route's tier is the only place a tool's requirement is
 declared, and repeating it under `needs` too would reopen the drift
 `needs`'s own repetition-check exists to close. A migrated record's
@@ -87,7 +89,12 @@ declared, and repeating it under `needs` too would reopen the drift
 `_project_tooling` and `_project_needs`), so the call sites in
 `run_python_fixture_lens.py`, `test_python_fixture_harness.py` and
 `test_python_fixture_spec.py` that predate `routes` still read the same
-shape without change.
+shape without change. The shape is all the projection carries: the tools
+and their tiers, and no ungranted claim, so whether a withheld grant
+silences a language is read from the routes through
+`_silenced_languages` and never off the projected pair - `_project_tooling`
+keeps a `kind: subject` route's tool under its language, which is how a
+language nothing there was answering reads as fully tiered.
 
 `answers_ungranted` is `ungranted_note`'s counterpart under `routes`: where
 every answering-kind route (`command`, `library`, `procedure`) a language
