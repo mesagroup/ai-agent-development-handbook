@@ -3745,13 +3745,18 @@ def test_every_migrated_record_is_in_the_domain_the_oracle_covers():
     **This holds the first and says nothing about the other two.** A record
     migrated outside `_ORACLE_DOMAINS` fails here rather than leaving the prose
     properties for nothing. A migrated record inside it with no `python`
-    `kind: command` route passes here and is held by nothing at all, and
-    `arch/size` is the live instance: it declares two command routes with
-    concrete argv, has no table entry, and its `cloc` argv can be changed to
-    contradict its own note with the whole suite still green. That hole is
-    older than the scoping - no prose property ever read that record either,
-    because it never had a table entry to be read through - so the scoping did
-    not open it and this assertion does not close it.
+    `kind: command` route passes here and is held by nothing at all, and that
+    is most of them rather than an edge case: the oracle asserts pairs on the
+    migrated records carrying such a route and there is no assertion of any
+    kind over the rest, several of which declare command routes with concrete
+    argv. Two are proven by mutation, in the two unheld dimensions
+    respectively - `arch/size`'s `cloc` argv can be changed to contradict its
+    own note, and `arch/coupling`'s `typescript@^5` pin can be moved outside
+    the range its own note states, each with the whole suite still green. That
+    hole is older than the scoping: no prose property ever read either record's
+    prescription, the first for want of a table entry and the second because
+    every TypeScript paragraph was excluded from those properties as a sibling
+    lens. So the scoping did not open it and this assertion does not close it.
 
     Closing it means a verified table entry per migrated record, for routes in
     any language rather than `python` alone, which is `#44`'s and `#58`'s
