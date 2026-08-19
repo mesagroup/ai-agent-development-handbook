@@ -1017,8 +1017,8 @@ def test_a_forbidden_route_does_not_hide_the_same_tool_offered_elsewhere(tmp_pat
     by tool name instead of by route - a record forbids an invocation, not
     a tool, so the same tool run one way (`uvx semgrep`) and forbidden run
     another way (`npx semgrep`) must still appear as offered, from the
-    route that offers it. This is the shape `security/injection` takes once
-    migrated: one tool, two routes, opposite dispositions.
+    route that offers it. The shape under test is one tool, two routes,
+    opposite dispositions.
     """
     text = """---
 id: demo/thing
