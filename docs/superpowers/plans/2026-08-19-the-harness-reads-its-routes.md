@@ -583,47 +583,76 @@ Message: `harness: the record is the only place a migrated row's command is writ
 
 ---
 
-### Task 3: The oracle dissolves, with its reason recorded
+### Task 3: The oracle's remains, and every claim that still names it
 
 **Files:**
 - Test: `tests/scripts/test_python_fixture_harness.py`
 
 **Interfaces:**
 - Consumes: nothing.
-- Produces: nothing. This task only removes, and records why.
+- Produces: nothing. This task only removes, and rewrites the claims the removal falsified.
 
-- [ ] **Step 1: Delete the two oracle tests**
+**Scope changed after Task 2, and this is the corrected version.** This task was written to delete two tests. Task 2 had to delete the first of them, `test_a_migrated_records_routes_agree_with_the_verified_table`, because that test's oracle IS the arch entries Task 2 removes: with them gone it asserts `not python_routes` for every migrated check and fails on the first one rather than passing vacuously. The plan was mis-sequenced, the deletion was correct, and its evidence is in Task 2's commit body. What is left here is the companion guard, the constant it reads, and six places whose prose still describes the deleted oracle as a thing that exists.
 
-Remove `test_a_migrated_records_routes_agree_with_the_verified_table` and `test_every_migrated_record_is_in_the_domain_the_oracle_covers`, together with `_ORACLE_DOMAINS` if nothing else reads it. Both exist to catch two copies of one prescription disagreeing, and with one copy neither has a subject.
+- [ ] **Step 1: Delete the companion guard and its constant**
 
-- [ ] **Step 2: Record the reason where the next reader will look**
+Remove `test_every_migrated_record_is_in_the_domain_the_oracle_covers` and `_ORACLE_DOMAINS`. The guard held one of the deleted oracle's three reach dimensions: it failed when a record migrated outside the domain the oracle covered, so that a migration could not leave the prose properties without the oracle taking over. With no oracle to take over, a record migrating outside `arch` is simply read by the enumeration, and the guard now fails for a reason that no longer exists.
 
-Add a module-level comment where they were, not a commit message alone:
+Confirm nothing else reads the constant before removing it:
 
-```python
-# The routes oracle stood here. It held a migrated record's routes against this
-# module's transcription of them, which was the only check on the migration
-# while both copies existed. `routed_invocations` is now the single source, so
-# the oracle had nothing left to compare and was deleted rather than weakened -
-# a derivation cannot disagree with itself. Its companion held one of its three
-# reach dimensions and went with it.
-#
-# What it never held, and what still nothing holds, is whether a route is true.
-# `arch/size`'s `cloc` argv and `arch/coupling`'s `typescript@^5` pin can each
-# be edited to contradict their own notes with this suite green, before this
-# change and after it. That is answered by running a route against a seeded
-# fixture, which is epic #44, and reading this deletion as having closed it
-# would be exactly backwards.
+```bash
+caffeinate grep -rn '_ORACLE_DOMAINS' tests/ scripts/
 ```
 
-- [ ] **Step 3: Run the suite**
+- [ ] **Step 2: Rewrite the four prose properties' claims about what takes over**
+
+Four properties carry a paragraph saying that a migrated record leaves their scope and "the routes-to-`INVOCATIONS` oracle binds its declared forms instead, as far as that oracle reaches". That sentence is now false in a way a reader cannot detect, because it names a test that is gone:
+
+- `test_every_command_form_the_record_names_is_declared`
+- `test_every_flag_the_record_names_occurs_in_a_declared_form`
+- `test_a_prescription_stays_in_the_paragraph_the_guard_watches`
+- `test_a_form_naming_a_lead_word_off_the_front_is_led_by_some_invocation`
+
+Replace the claim with what is true, in each one's own words rather than by pasting one sentence four times. What is true: a migrated record leaves this scope because its prescription is read from the record rather than transcribed into this module, so there is no transcription left for these properties to hold against it. Nothing takes over, and nothing needs to: the record is what the harness runs. What stays unanswered is whether a route is *true*, which no property here ever held and which a fixture round answers.
+
+Do not write a sentence claiming these properties now cover the migrated records, and do not write one claiming the migrated records are verified.
+
+- [ ] **Step 3: Record the reason where the next reader will look**
+
+Add a module-level comment where the two deleted tests stood, not a commit message alone:
+
+```python
+# The routes oracle stood here, with the tripwire that guarded its reach beside
+# it. It held a migrated record's routes against this module's transcription of
+# them, and while both copies existed it was the only check on the migration.
+# `routed_invocations` is now the single source, so the oracle had nothing left
+# to compare - a derivation cannot disagree with itself - and the tripwire had
+# nothing left to guard the reach of.
+#
+# What neither ever held, and what still nothing holds, is whether a route is
+# true. `arch/size`'s `cloc` argv and `arch/coupling`'s `typescript@^5` pin can
+# each be edited to contradict their own notes with this suite green, before
+# this change and after it. That is answered by running a route against a
+# seeded fixture, which is epic #44, and reading these deletions as having
+# closed it would be exactly backwards.
+```
+
+- [ ] **Step 4: Confirm no claim naming a deleted test survives**
+
+```bash
+caffeinate grep -rn 'oracle\|verified_table\|_ORACLE_DOMAINS' tests/ scripts/
+```
+
+Every remaining hit must be either the module comment above or a sentence that reads correctly with the oracle gone. A hit inside a docstring that still says "the oracle below" is the defect this step exists to catch.
+
+- [ ] **Step 5: Run the suite**
 
 Run: `caffeinate uv run pytest tests/ -q`
-Expected: PASS, with two fewer tests than Task 2's run. Report both counts.
+Expected: PASS, one test fewer than Task 2's run. Report both counts.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 6: Commit**
 
-Message: `harness: the routes oracle has no subject once there is one copy`. `Refs #63`.
+Message: `harness: the oracle's tripwire and every claim that outlived it`. Say in the body why nothing replaces them and that the reach hole is unchanged. `Refs #63`.
 
 ---
 
