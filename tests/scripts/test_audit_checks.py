@@ -1464,6 +1464,31 @@ def test_a_subject_route_is_not_the_tier_a_language_is_rescued_from(tmp_path):
     assert _languages_rescued_by_an_untiered_route(check) == []
 
 
+def test_a_sentinel_language_is_not_a_rescued_one(tmp_path):
+    """A language answered only by tiered routes, whose withheld-grant claim
+    is spelled `answers_ungranted: none` rather than answered by an untiered
+    route, must not count as rescued either - the sentinel says nothing else
+    answers, and reading it as a routed claim anyway would let the floor
+    count the same withheld grant twice: once for needing the sentinel at
+    all, once for treating the sentinel as if an untiered route had rescued
+    the language it was written for.
+    """
+    check = _routes_record(
+        tmp_path,
+        [
+            {
+                "lang": "python",
+                "kind": "command",
+                "tool": "t",
+                "argv": ["t"],
+                "needs": "resolved-tree",
+            },
+        ],
+        answers_ungranted="none",
+    )
+    assert _languages_rescued_by_an_untiered_route(check) == []
+
+
 def test_missing_frontmatter_is_reported_not_raised(tmp_path):
     _write(tmp_path, "arch-audit/checks/broken.md", "# No frontmatter here\n")
     checks, errors = ac.load_checks(tmp_path)
