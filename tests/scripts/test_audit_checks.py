@@ -2350,6 +2350,13 @@ def test_a_record_that_classifies_a_tool_states_a_fallback():
     every-name-must-appear rule would force it to duplicate exactly what
     it was written to avoid. Whether the prose actually explains the
     consequence is a reading pass, not a test.
+
+    Scoped to the records whose fallback lives in prose. On a record declaring
+    `routes:` the same requirement is machine-enforced instead of being a
+    section that exists: a language whose every answering route needs a grant
+    must carry `answers_ungranted`, and what to do instead is the untiered
+    route itself. The projected `needs` still reports a tier there, so without
+    the predicate this would demand a section the schema has replaced.
     """
     checks, errors = ac.load_checks(ac.SKILLS_DIR)
     assert errors == []
@@ -2357,6 +2364,7 @@ def test_a_record_that_classifies_a_tool_states_a_fallback():
         check_id
         for check_id, check in checks.items()
         if check.needs
+        and ac.fallback_lives_in_prose(check)
         and not re.search(
             r"^## Tooling fallback\n\s*\S",
             check.path.read_text(),
@@ -2366,3 +2374,21 @@ def test_a_record_that_classifies_a_tool_states_a_fallback():
     assert silent == [], (
         f"these records classify a tool and state no fallback: {silent}"
     )
+
+
+def test_the_prose_fallback_predicate_follows_the_declared_schema():
+    """One predicate, so a property's scope cannot drift from the test's.
+
+    Read off the declared schema rather than off the presence of the section:
+    presence is what several of these properties are there to check, so keying
+    the scope on it would make each one vacuous on exactly the record it was
+    written to catch.
+    """
+    checks, errors = ac.load_checks(ac.SKILLS_DIR)
+    assert errors == []
+    prose = {c for c, k in checks.items() if ac.fallback_lives_in_prose(k)}
+    routed = {c for c, k in checks.items() if not ac.fallback_lives_in_prose(k)}
+    assert prose and routed, (len(prose), len(routed))
+    assert prose | routed == set(checks)
+    assert not prose & routed
+    assert routed == {c for c, k in checks.items() if k.routes}

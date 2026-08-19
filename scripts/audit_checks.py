@@ -1134,3 +1134,21 @@ def load_checks(skills_dir: Path) -> tuple[dict[str, Check], list[str]]:
                 continue
             checks[check.id] = check
     return checks, errors
+
+
+def fallback_lives_in_prose(check: Check) -> bool:
+    """Whether this record's `## Tooling fallback` prose is its source of truth.
+
+    A record declaring `tooling:` states what to run instead in that section and
+    nowhere else, so a property holding a transcription against the record reads
+    it there. A record declaring `routes:` states the same thing per route - the
+    `note`, the `alone_insufficient` and the `needs` - and carries no such
+    section at all, so the same property has no prose to read and its subject is
+    the routes.
+
+    Keyed on the declared schema rather than on whether the section is present.
+    Presence is what several of those properties exist to check, and a scope
+    keyed on it would switch each one off on exactly the record it was written
+    to catch.
+    """
+    return not check.routes

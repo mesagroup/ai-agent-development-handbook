@@ -12,7 +12,7 @@ import re
 from pathlib import Path
 
 import pytest
-from audit_checks import SKILLS_DIR, load_checks
+from audit_checks import SKILLS_DIR, fallback_lives_in_prose, load_checks
 from build_python_fixtures import PINNED_MANAGERS
 from python_fixture_spec import (
     DEPS_CHECKS,
@@ -192,7 +192,7 @@ def _flag_spans(paragraph: str) -> set[str]:
 
     Pooled across the paragraph rather than attributed to a tool, because a
     record prescribing a flag does not repeat the command it belongs to:
-    `arch/cycles` writes "Append `--show-dot` to that `pydeps` invocation", and
+    `arch/cycles` wrote "Append `--show-dot` to that `pydeps` invocation", and
     a rule keyed on the tool's name would miss the very drift this guards.
     """
     return {span for span in _spans(paragraph) if span.startswith("-")}
@@ -276,7 +276,7 @@ def _fallback_paragraphs(check: str) -> list[tuple[str, str]]:
     review lens with `**<Label>** - `, so a span under another language's label is
     that lens's prescription and not a correction this one lost. The label is the
     empty string where the paragraph carries none, which is the case the
-    containment property must still watch - `arch/complexity-gate` prescribes
+    containment property must still watch - `arch/complexity-gate` prescribed
     inside an unlabelled bolded directive.
 
     A record with no such section raises rather than returning nothing: the
@@ -304,6 +304,30 @@ def _fallback_paragraphs(check: str) -> list[tuple[str, str]]:
         label = re.match(r"\*\*([^*]+)\*\* - ", line.strip())
         out.append((label.group(1) if label else "", line))
     return out
+
+
+_LOADED_CHECKS, _LOAD_ERRORS = load_checks(SKILLS_DIR)
+PROSE_FALLBACK_CHECKS = frozenset(
+    check_id
+    for check_id, check in _LOADED_CHECKS.items()
+    if fallback_lives_in_prose(check)
+)
+
+
+def test_the_prose_fallback_scope_is_not_empty_and_holds_no_migrated_record():
+    """The set every property below narrows to, held against both ways it fails.
+
+    Empty is the dangerous direction: each property scoped by this set would
+    iterate nothing, assert nothing and pass, so the whole file would go green
+    over a tree it had stopped reading. The other direction is a migrated
+    record left in the set, where a property looks for prose the record no
+    longer has and fails for a reason that is not drift.
+    """
+    assert _LOAD_ERRORS == []
+    assert PROSE_FALLBACK_CHECKS
+    assert not any(c.startswith("arch/") for c in PROSE_FALLBACK_CHECKS)
+    watched = {i.check for i in INVOCATIONS if not i.check.startswith("arch/")}
+    assert watched <= PROSE_FALLBACK_CHECKS, watched - PROSE_FALLBACK_CHECKS
 
 
 SIBLING_LENS_LANGUAGES = ("TypeScript", "JavaScript")
@@ -593,8 +617,8 @@ def test_a_lead_word_stays_one_word_so_a_neighbours_command_is_not_pulled_in():
 
 
 def test_the_prescribing_paragraph_is_the_line_holding_the_quote():
-    quote = "Run `pydeps --show-cycles --show-dot`: `--show-cycles` alone has no textual output channel at all."
-    paragraph = _prescribing_paragraph("arch/cycles", quote)
+    quote = "`pytest --cov=<pkg> --cov-branch --cov-report=term-missing` (or `coverage run -m pytest` + `coverage report --show-missing`)."
+    paragraph = _prescribing_paragraph("test/coverage-reach", quote)
     assert quote in paragraph
     assert paragraph.count("\n") == 0
 
@@ -635,27 +659,31 @@ def test_a_flag_only_a_second_paragraph_carries_is_unaccounted():
 def test_the_watched_paragraphs_are_the_python_side_of_the_section():
     """Every paragraph a Python correction can land in, and no sibling lens's.
 
-    `arch/cycles` carries all three cases: the paragraph its quote sits in, a
-    `With none of them installed` paragraph that is Python's fallback and must be
-    watched, and a `TypeScript` paragraph that is another lens's prescription.
+    `test/coverage-reach` carries all three cases: the `**Python**` paragraph
+    its quote sits in, a `**Both**` paragraph labelled for a condition rather
+    than a language and so watched, and a `**TypeScript**` paragraph that is
+    another lens's prescription.
+
+    On a record whose fallback lives in prose, because the helper reads that
+    section and a migrated record has none.
     """
-    quote = "Run `pydeps --show-cycles --show-dot`: `--show-cycles` alone has no textual output channel at all."
-    watched = _watched_paragraphs("arch/cycles", quote)
+    quote = "`pytest --cov=<pkg> --cov-branch --cov-report=term-missing` (or `coverage run -m pytest` + `coverage report --show-missing`)."
+    watched = _watched_paragraphs("test/coverage-reach", quote)
     labels = {
         label
-        for label, paragraph in _fallback_paragraphs("arch/cycles")
+        for label, paragraph in _fallback_paragraphs("test/coverage-reach")
         if paragraph in watched
     }
-    assert "With none of them installed" in labels
+    assert "Both" in labels
     assert "TypeScript" not in labels
-    assert _prescribing_paragraph("arch/cycles", quote) in watched
+    assert _prescribing_paragraph("test/coverage-reach", quote) in watched
 
 
 def test_a_token_the_record_writes_concretely_is_not_a_completion():
     """The demotion this file had no guard against.
 
-    `arch/cycles` prescribes `pydeps --show-cycles --show-dot` and the record
-    bolds `--show-dot`. Moved out of the argv and into the completion the run
+    `arch/cycles` prescribed `pydeps --show-cycles --show-dot` and the record
+    bolded `--show-dot`. Moved out of the argv and into the completion the run
     stays correct, the shorter argv still traces through the quote, and the
     round reports that the record failed to prescribe a flag the record
     prescribes. Built here rather than asserted about the tree, because no entry
@@ -888,7 +916,16 @@ def test_a_tool_answering_several_checks_is_invoked_once_per_check():
 
 
 def test_every_invocation_quotes_its_record_verbatim():
+    """`record_quote` is a citation, and this is what makes it one.
+
+    Read only over the records whose fallback lives in prose. A migrated record
+    has no second copy for the quote to drift from, and counting the quote in
+    its text would find zero occurrences of a prescription the routes carry
+    instead.
+    """
     for inv in INVOCATIONS:
+        if inv.check not in PROSE_FALLBACK_CHECKS:
+            continue
         text = _record_path(inv.check).read_text()
         assert text.count(inv.record_quote) == 1, (
             f"{inv.check}: {inv.record_quote[:40]}"
@@ -1040,7 +1077,7 @@ def test_a_completed_argv_says_why_it_had_to_be_completed():
 def test_a_quote_is_a_sentence_rather_than_a_fragment():
     """Short fragments collide, and a colliding quote fails for the wrong reason.
 
-    `C901` occurs in `arch/complexity-gate`'s fallback and again in its Fix
+    `C901` occurred in `arch/complexity-gate`'s fallback and again in its Fix
     section, so a quote that short would fail the verbatim guard on a record
     nobody had changed.
 
@@ -1266,8 +1303,14 @@ def test_every_command_form_the_record_names_is_declared():
     Those guards hold the transcription against the record, so a record that
     *grows* a prescription leaves all three green. This one fails instead,
     naming the span nothing declares.
+
+    Read only over the records whose fallback lives in prose. A migrated record
+    has no prose that could grow a form its routes do not carry, and the
+    routes-to-`INVOCATIONS` oracle binds its declared forms directly.
     """
     for inv in INVOCATIONS:
+        if inv.check not in PROSE_FALLBACK_CHECKS:
+            continue
         paragraph = _prescribing_paragraph(inv.check, inv.record_quote)
         extracted = set()
         for lead in _lead_words(inv):
@@ -1305,8 +1348,15 @@ def test_every_flag_the_record_names_occurs_in_a_declared_form():
     declared form as `--python <path-to-venv-python>`, two placeholders for the
     same hole, so neither side can ever match the other as written. Dropping the
     placeholder from both is what leaves the flag itself to match.
+
+    Read only over the records whose fallback lives in prose. A migrated record
+    names no flag anywhere but in the route that declares it, so there is no
+    second copy a flag can be appended to, and the routes-to-`INVOCATIONS`
+    oracle binds its declared forms directly.
     """
     for inv in INVOCATIONS:
+        if inv.check not in PROSE_FALLBACK_CHECKS:
+            continue
         pooled = _tokens(
             " ".join(
                 form
@@ -1502,7 +1552,7 @@ def test_a_prescription_stays_in_the_paragraph_the_guard_watches():
     A correction that appends a whole new paragraph instead of a sentence lands
     outside the paragraph holding `record_quote`, which is this same defect one
     level up - and it is the shape `arch/complexity-gate` was found in, whose
-    whole fallback section is an unlabelled bolded directive rather than a
+    whole fallback section was an unlabelled bolded directive rather than a
     labelled lens paragraph.
 
     This property carries one half of that: a stray *command form*. A stray bare
@@ -1552,9 +1602,15 @@ def test_a_prescription_stays_in_the_paragraph_the_guard_watches():
     it in silence. No other rule catches it either: `audit_checks` holds a
     record's `needs` names against its `tooling` list, and nothing anywhere holds
     its prose against either.
+
+    Read only over the records whose fallback lives in prose. A migrated record
+    has no section for a stray paragraph to appear in, and the
+    routes-to-`INVOCATIONS` oracle binds its declared forms directly.
     """
     skipped = set()
     for inv in INVOCATIONS:
+        if inv.check not in PROSE_FALLBACK_CHECKS:
+            continue
         for label, paragraph in _fallback_paragraphs(inv.check):
             if inv.record_quote in paragraph:
                 continue
@@ -1599,8 +1655,14 @@ def test_a_form_naming_a_lead_word_off_the_front_is_led_by_some_invocation():
     here on the same set is what makes the promise hold for every entry: it is the
     `coverage run -m pytest` span in `test/coverage-reach`'s paragraph that the
     tool-name rule passed over and this one now reads.
+
+    Read only over the records whose fallback lives in prose. A migrated record
+    has no paragraph for an unled span to sit in, and the
+    routes-to-`INVOCATIONS` oracle binds its declared forms directly.
     """
     for inv in INVOCATIONS:
+        if inv.check not in PROSE_FALLBACK_CHECKS:
+            continue
         paragraph = _prescribing_paragraph(inv.check, inv.record_quote)
         led = {
             form.split()[0]
