@@ -612,6 +612,18 @@ Prose about the code, separate from the skill prompt. Two commits if `audit-core
 
 ---
 
+## What execution corrected in this plan
+
+Recorded rather than edited away. A plan is the decision as it was taken, and five of its instructions turned out to be wrong in ways worth keeping visible - four of them were caught by an implementer refusing to transcribe them, which is the behaviour this repository wants and would lose if the record were tidied.
+
+- **Task 1 Step 6, the `lang: any` projection.** The plan said an `any` route contributes to every language the record otherwise names. It must project under the literal `"any"` key instead. Twelve records carry `tooling: {any: [...]}`, `arch/size` among them, and every consumer reads `tooling.get("python")`, so fanning out would hand records python invocations they do not have.
+- **Task 4 Step 2, the `import-linter` sketch.** It showed `argv: [lint-imports]`. The record prescribes no command line for that tool, and `lint-imports` appears in no check record at all. Writing it would have invented a prescription and then declared it verified.
+- **Task 5's two-commit split.** Committing a record and its legacy-set line separately leaves the first commit failing its own suite. One commit per record, including that line.
+- **Task 5, dropping `arch/complexity-gate`'s tier.** The plan said a subject route is not tiered. `eslint` is `target-execution` on seven records, so dropping it on one makes that record claim eslint answers from a read-only clone; and exactly the number of records the classification floor requires carry `needs`, so dropping one fails that guard too. `needs` and `kind` are independent axes.
+- **Task 6's oracle comparison.** Keying on `inv.argv` alone misses every non-`runs` route, because the table carries those in `forms` as `(form, disposition)` pairs. The plan's test would have raised on a correct migration, and the tempting fix - deleting the superseded route - is the migration losing content to satisfy its own guard.
+
+One statement of the silencing rule in Task 2 is also imprecise as written: a language is silenced when it has at least one answering-kind, non-`forbidden` route and none of them untiered. Taken literally, the plan's wording makes a subject-only language silenced, which is the opposite of what was built and of what `arch/complexity-gate` needs.
+
 ## Final verification
 
 - [ ] `PYTHONDONTWRITEBYTECODE=1 caffeinate uv run pytest tests/ -q`
