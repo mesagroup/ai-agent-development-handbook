@@ -1732,7 +1732,6 @@ def test_the_real_checks_tree_loads_clean():
 
 LEGACY_TOOLING_RECORDS = frozenset(
     {
-        "arch/over-abstraction",
         "arch/over-decomposition",
         "arch/size",
         "ci/action-supply-chain",

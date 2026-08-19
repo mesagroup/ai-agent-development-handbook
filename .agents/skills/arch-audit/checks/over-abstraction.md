@@ -5,11 +5,47 @@ locality: global
 handbook:
   - implementation-disciplines/coding-hygiene-rules-that-surface-at-review-b
   - codebase-structure/why-the-rule-matters-a
-tooling:
-  python: [grimp]
-  typescript: [knip, ts-morph]
-needs:
-  target-execution: [knip]
+routes:
+  - lang: python
+    kind: library
+    tool: grimp
+    note: >-
+      The fan-in-to-abstraction signal - subclasses per `ABC`/`Protocol`,
+      call sites per single-function module or one-method wrapper class,
+      registrants per registry/dispatch, distinct values bound per
+      parameter/flag/config field - is computed from the same edge/AST set
+      built for layering; `grimp` refs are counted from the built graph
+      rather than from a command run for this check specifically.
+  - lang: typescript
+    kind: procedure
+    tool: knip
+    needs: target-execution
+    note: >-
+      The record prescribes no knip command line; it reads knip's own
+      report of unused files and exports and single-use exports as one of
+      the two inputs to the fan-in counts. Needs the tree to be accurate,
+      not merely present - on an uninstalled one it reports first-party
+      files and imported packages alike as unused, inflating the
+      fan-in-to-abstraction counts this check is built on.
+  - lang: typescript
+    kind: library
+    tool: ts-morph
+    note: >-
+      A `ts-morph` walk of the AST counts implementers per interface or
+      abstract class, call sites per wrapper module or forwarding function,
+      registrants per registry or dispatch table, type arguments bound per
+      generic, and distinct values bound per parameter/flag/config field.
+      Needs nothing installed in the target for a syntax-level walk - it
+      serves its own `lib.d.ts` from memory - but the moment it reaches
+      into a dependency's own types to resolve an implementer or a bound
+      generic, that resolution degrades silently without the tree, so the
+      record keeps this pass syntactic rather than type-aware. `ts-morph`
+      is a library rather than a bin, so a one-shot runner cannot supply it
+      to a script living outside the runner's sandbox - `npx --package
+      ts-morph -- <script>` aborts with `ERR_MODULE_NOT_FOUND: Cannot find
+      package 'ts-morph'` - so it needs installing somewhere the walking
+      script can import it from, an audit-owned directory rather than a
+      one-shot fetch.
 ---
 
 # Over-abstraction / speculative generality
