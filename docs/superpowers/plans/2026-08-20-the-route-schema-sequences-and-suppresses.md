@@ -639,6 +639,16 @@ git commit -F - -- CLAUDE.md
 
 The message says **why**: the file is the prompt an agent reads before writing a record, so a field it does not list is a field the next record cannot use.
 
-- [ ] **Step 6: Stale-prose pass, scoped by blast radius**
+- [ ] **Step 6: Extend `.agents/skills/audit/SKILL.md`'s route-reading instruction, in its own commit**
 
-Dispatch to a subagent that has seen neither the plan nor the implementation. Give it the worktree's absolute root, require it to confirm `git rev-parse --show-toplevel` and `git rev-parse HEAD` before reading, and scope it by what the change could have invalidated rather than by the diff: every mention of the route field list, of what `Invocation.then`/`own_runner` are populated from, of "no python route carries an `argv_by_manager`", and of `_fake_route`'s fields. `docs/audit/sweep-obligations.md`, the nine `<domain>-audit/SKILL.md` files and `docs/engineering/` are in scope for the reading even though no task edits them.
+This is the step the plan originally missed, and it is the one that matters most to an executing agent. Line 53 of that file tells an agent how to read a route: which `kind` hands it something to run, that a `kind: command` route's `argv` or matching `argv_by_manager` entry is what to run, what each `disposition` means. An agent reading that instruction against a record carrying `then` runs the first command and drops the second - which is precisely the failure `then` exists to prevent, reintroduced one layer up. Same for `own_runner`: an agent that fronts a complete command with a one-shot runner fetches a package the command never calls, and the run reports that package's version as the one that answered.
+
+Add to that instruction, in its existing voice: that a `kind: command` route may carry a `then`, which is the second half of the same route rather than a route of its own, so both commands run in the record's order and a route whose `then` is dropped reports a tool that produced nothing; and that `own_runner` says the prescribed command is complete as written, so the one-shot runner the surrounding instruction otherwise requires goes in front of nothing - `true` for the route's one argv, or the managers named for their `argv_by_manager` entries.
+
+Then check `docs/audit/sweep-obligations.md`, which is hand-maintained and whose rows quote `audit-core` verbatim: `CLAUDE.md` states that editing `audit/SKILL.md` means checking it. `tests/scripts/test_sweep_obligations.py` catches a row whose anchor moved or whose quotation is no longer verbatim; it cannot judge whether a disposition is still true, so read the rows whose subject is route-reading.
+
+Commit alone: `git commit -F - -- .agents/skills/audit/SKILL.md`, and the message says why - the file is the instruction an executing agent follows, so a route field it does not describe is a field the agent ignores at run time even though the loader accepts it and the harness threads it.
+
+- [ ] **Step 7: Stale-prose pass, scoped by blast radius**
+
+Dispatch to a subagent that has seen neither the plan nor the implementation. Give it the worktree's absolute root, require it to confirm `git rev-parse --show-toplevel` and `git rev-parse HEAD` before reading, and scope it by what the change could have invalidated rather than by the diff: every mention of the route field list, of what `Invocation.then`/`own_runner` are populated from, of "no python route carries an `argv_by_manager`", and of `_fake_route`'s fields. `docs/audit/sweep-obligations.md`, the nine `<domain>-audit/SKILL.md` files and `docs/engineering/` are in scope for the reading even though no task edits them, and so is `audit-core/SKILL.md`, whose record-schema paragraph names what each schema carries.
