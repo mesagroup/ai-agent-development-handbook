@@ -109,7 +109,7 @@ SUPPLIED_REQUIREMENTS = "audit-export-requirements.txt"
 # Where every materialization route below puts the partition's own environment,
 # and so what `<path-to-venv-python>` resolves to in the one command a record
 # writes that placeholder into. Named here rather than beside `launcher`,
-# because the transcription reads it too.
+# because the completion that supplies that path reads it too.
 VENV_BIN = ".venv/bin"
 
 # The engine's scale, from `audit-core`. Neither tuple grows: a fourth status
@@ -720,6 +720,31 @@ COMPLETIONS: dict[tuple[str, str], Completion] = {
             "callees as unused"
         ),
     ),
+    # The flag the path completes is the record's, not this table's: measured,
+    # `uv pip list --outdated` with the interpreter unnamed prints nothing at
+    # exit 0 on a partition whose environment has three outdated packages,
+    # because an inner `uv` - the command rather than the thing running it -
+    # does its own environment resolution and does not inherit the `--python`
+    # the overlay already named. The record's route names the interpreter
+    # explicitly for that reason and stops at the flag, so the only thing left
+    # to supply here is the path.
+    ("deps/freshness", "uv"): Completion(
+        tokens=(f"{VENV_BIN}/python",),
+        note=(
+            "`<path-to-venv-python>` is a placeholder the record leaves to the caller; "
+            "it resolves to the interpreter the partition's own materialization built "
+            "inside the copy this run owns"
+        ),
+    ),
+    ("deps/hygiene", "deptry"): Completion(
+        tokens=(".",),
+        note=(
+            "deptry takes a scan root and the record prescribes none; the answer moves "
+            "with it - `deptry src` makes the package local and the self-import rows "
+            "vanish - so the expectation is written against `deptry .` and the missing "
+            "root is a gap in the record"
+        ),
+    ),
 }
 
 
@@ -773,8 +798,11 @@ class Supplied:
 
 
 # The round's own contributions, for a partition a migrated record prescribes
-# no route for. Ships empty: nothing here yet has migrated out of `INVOCATIONS`
-# below, so there is nothing for a routed row to read.
+# no route for. Ships empty: every record migrated so far prescribes one shared
+# command per tool, which every partition runs, so no routed row has a hole for
+# a supplied route to fill. The two rows that do carry one - `deps/inventory`'s
+# PEP 751 partition and `deps/vulnerabilities`' uv one - are still transcribed
+# below, where the entry itself holds the route.
 SUPPLIED: dict[tuple[str, str], Supplied] = {}
 
 
@@ -786,71 +814,6 @@ SUPPLIED: dict[tuple[str, str], Supplied] = {}
 # names the tool.
 INVOCATIONS: tuple[Invocation, ...] = (
     # --- deps ---------------------------------------------------------------
-    Invocation(
-        check="deps/freshness",
-        tool="uv",
-        argv=("uv", "pip", "list", "--outdated", "--python"),
-        completion=(f"{VENV_BIN}/python",),
-        in_env=True,
-        # The flag is the record's, not this table's: measured, `uv pip list
-        # --outdated` with the interpreter unnamed prints nothing at exit 0 on a
-        # partition whose environment has three outdated packages, because an
-        # inner `uv` - the command rather than the thing running it - does its
-        # own environment resolution and does not inherit the `--python` the
-        # overlay already named. The record names the interpreter explicitly for
-        # that reason, so the only thing left to supply here is the path.
-        note=(
-            "`<path-to-venv-python>` is a placeholder the record leaves to the caller; "
-            "it resolves to the interpreter the partition's own materialization built "
-            "inside the copy this run owns"
-        ),
-        record_quote=(
-            "Name the interpreter explicitly on the `uv` route, as `uv pip list "
-            "--outdated --python <path-to-venv-python>`: without `--python <path>`, "
-            "`uv pip list --outdated` can return empty output at exit 0 against a tree "
-            "with stale packages in it, rather than erroring or falling back to a "
-            "discovered venv, so a clean run of the unqualified command is not evidence "
-            "that nothing is outdated - it can equally be evidence the command never "
-            "found the environment."
-        ),
-        forms=(
-            ("uv pip list --outdated", "superseded"),
-            ("uv pip list --outdated --python <path-to-venv-python>", "runs"),
-        ),
-    ),
-    Invocation(
-        check="deps/freshness",
-        tool="pip",
-        argv=("pip", "list", "--outdated"),
-        in_env=True,
-        record_quote=(
-            "`uv pip list --outdated` / `pip list --outdated`, both of which read the "
-            "installed environment rather than the lockfile, so they need the tree "
-            "resolved."
-        ),
-        forms=(("pip list --outdated", "runs"),),
-    ),
-    Invocation(
-        check="deps/hygiene",
-        tool="deptry",
-        argv=("deptry",),
-        completion=(".",),
-        in_env=True,
-        # Measured: on a seeded partition `deptry .` exits 1 with an empty
-        # stdout and its whole DEP002/DEP001 report on stderr.
-        findings_stream="stderr",
-        note=(
-            "deptry takes a scan root and the record prescribes none; the answer moves "
-            "with it - `deptry src` makes the package local and the self-import rows "
-            "vanish - so the expectation is written against `deptry .` and the missing "
-            "root is a gap in the record"
-        ),
-        record_quote=(
-            "`deptry` reads installed distribution metadata, so it must run inside the "
-            "project's own environment."
-        ),
-        forms=(),
-    ),
     Invocation(
         check="deps/inventory",
         tool="cyclonedx-py",
@@ -893,29 +856,6 @@ INVOCATIONS: tuple[Invocation, ...] = (
             ("cyclonedx-py poetry", "runs"),
             ("uv export --format=cyclonedx1.5 --frozen", "runs"),
         ),
-    ),
-    Invocation(
-        check="deps/licenses",
-        tool="pip-licenses",
-        argv=("pip-licenses",),
-        in_env=True,
-        record_quote=(
-            "`pip-licenses`, or read each installed dist's `*.dist-info/METADATA` "
-            "(`License` + `Classifier: License ::`)."
-        ),
-        forms=(("pip-licenses --format json", "alternative"),),
-    ),
-    Invocation(
-        check="deps/transitive-licenses",
-        tool="pip-licenses",
-        argv=("pip-licenses",),
-        in_env=True,
-        record_quote=(
-            "Same tools and same precedence as `deps/licenses`, which its own fallback "
-            "section states; this check differs in how far down the graph the answer "
-            "has to hold, not in what produces it."
-        ),
-        forms=(),
     ),
     Invocation(
         check="deps/vulnerabilities",
@@ -2196,8 +2136,8 @@ def run_partition(
 
     Returns the whole observation rather than a verdict: the raw exit code,
     stdout and stderr are kept so that a later pass can re-classify without
-    re-running, and so that a completion the transcription had to make is
-    visible beside what it produced.
+    re-running, and so that a completion this round had to make is visible
+    beside what it produced.
 
     `only_check` narrows the run to one check id and reaches the version probe
     as well as the rows, so the observation covers exactly the cell that ran.

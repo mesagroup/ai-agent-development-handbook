@@ -2327,11 +2327,7 @@ LEGACY_TOOLING_RECORDS = frozenset(
         "data-protection/residency-pinning",
         "data-protection/retention-limits",
         "data-protection/stored-artifact-pii",
-        "deps/freshness",
-        "deps/hygiene",
         "deps/inventory",
-        "deps/licenses",
-        "deps/transitive-licenses",
         "deps/vulnerabilities",
         "docs/coverage",
         "docs/cross-referencing",
@@ -2585,12 +2581,12 @@ def test_a_record_that_classifies_a_tool_states_a_fallback():
     assertion.
 
     This deliberately checks that the section exists and not that it names
-    each classified tool. `deps/transitive-licenses` defers its whole
-    fallback to `deps/licenses` by reference rather than restating the
-    tool list, which is the right shape for that record; an
-    every-name-must-appear rule would force it to duplicate exactly what
-    it was written to avoid. Whether the prose actually explains the
-    consequence is a reading pass, not a test.
+    each classified tool. A record whose whole fallback is another record's,
+    deferred to by reference rather than by restating its tool list, is a
+    shape the family writes and the right one where it does; an
+    every-name-must-appear rule would force such a record to duplicate
+    exactly what it was written to avoid. Whether the prose actually explains
+    the consequence is a reading pass, not a test.
 
     Scoped to the records whose fallback lives in prose. On a record declaring
     `routes:` the same requirement is machine-enforced instead of being a

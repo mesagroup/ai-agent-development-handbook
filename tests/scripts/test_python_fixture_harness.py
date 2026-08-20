@@ -649,18 +649,32 @@ def test_a_form_led_by_a_runner_is_found_through_the_argvs_own_first_word():
 def test_a_lead_word_stays_one_word_so_a_neighbours_command_is_not_pulled_in():
     """The reason this is not simply "the tool's name occurs anywhere in the span".
 
-    `deps/freshness` writes `uv pip list --outdated` and `pip list --outdated` in
-    one sentence. An anywhere-in-the-span rule would attribute the first to the
-    `pip` entry, which would then have to declare a form it never runs; keyed on
-    the argv's own first token, that entry leads with `pip` and sees only its
-    own.
+    A record naming `uv pip list --outdated` and `pip list --outdated` in one
+    sentence gives the `pip` entry a neighbour whose command carries its own
+    name. An anywhere-in-the-span rule would attribute the first to that entry,
+    which would then have to declare a form it never runs; keyed on the argv's
+    own first token, it leads with `pip` and sees only its own.
+
+    Both sides are built here rather than read out of a live record, so the
+    property survives the migration of whichever record happens to be that
+    shape today: the sentence is the one `deps/freshness` carried while its
+    fallback lived in prose, and the entry is that record's `pip` row.
     """
-    inv = _entry("deps/freshness", "pip")
+    inv = Invocation(
+        check="deps/freshness",
+        tool="pip",
+        argv=("pip", "list", "--outdated"),
+        record_quote="x" * 40,
+    )
     assert _lead_words(inv) == {"pip"}
-    paragraph = _prescribing_paragraph(inv.check, inv.record_quote)
+    paragraph = (
+        "`uv pip list --outdated` / `pip list --outdated`, both of which read "
+        "the installed environment rather than the lockfile."
+    )
     extracted = set()
     for lead in _lead_words(inv):
         extracted |= _command_forms(paragraph, lead)
+    assert extracted == {"pip list --outdated"}
     assert all(not form.startswith("uv ") for form in extracted), extracted
 
 
@@ -1256,9 +1270,6 @@ def test_a_transcribed_command_occurs_in_the_sentence_that_prescribes_it():
     `_route_anchoring` for what stopping at the first cost `deps/inventory`.
     """
     unanchored = {
-        # The record delegates: "Same tools and same precedence as
-        # `deps/licenses`", and the delegation is the prescription.
-        ("deps/transitive-licenses", "pip-licenses"),
         # The record writes `pip-audit -r <requirements>`; the fixture's own
         # file is what the placeholder resolves to.
         ("deps/vulnerabilities", "pip-audit"),
@@ -1335,7 +1346,7 @@ def test_folding_a_completion_into_the_argv_breaks_the_anchor():
     this property holds has nothing on the routed side to be held against.
     """
     completed = [i for i in INVOCATIONS if i.completion]
-    assert len(completed) == 9, len(completed)
+    assert len(completed) == 7, len(completed)
     for inv in completed:
         quote = _tokens(inv.record_quote)
         argv = inv.argv or next(a for _, a in inv.argv_by_partition if a)
@@ -1532,18 +1543,19 @@ def test_every_flag_the_record_names_occurs_in_a_declared_form():
     some declared form on its record.
 
     Pooled across every invocation sharing the record, because one paragraph
-    prescribes for several tools: `deps/freshness` writes `uv pip list
-    --outdated --python <path>` and `pip list --outdated` in one sentence, and
-    `--python` belongs to the first. Held against one tool's own forms, every
-    flag a neighbour's command carries fails - not because the record drifted,
-    but because the flag was never that tool's to declare.
+    prescribes for several tools: a sentence writing `uv pip list --outdated
+    --python <path>` beside `pip list --outdated` gives `--python` to the
+    first alone. Held against one tool's own forms, every flag a neighbour's
+    command carries fails - not because the record drifted, but because the
+    flag was never that tool's to declare.
 
     `_concrete` applies to the flag for the same reason it applies to a form, and
     not because the form carries a concrete value where the flag carries a
-    placeholder: `deps/freshness` writes the span as `--python <path>` and the
-    declared form as `--python <path-to-venv-python>`, two placeholders for the
-    same hole, so neither side can ever match the other as written. Dropping the
-    placeholder from both is what leaves the flag itself to match.
+    placeholder: a record writing that span as `--python <path>` while its
+    declared form reads `--python <path-to-venv-python>` has written two
+    placeholders for the same hole, so neither side can ever match the other as
+    written. Dropping the placeholder from both is what leaves the flag itself
+    to match.
 
     Read only over the records whose fallback lives in prose. A migrated record
     names no flag anywhere but in the route that declares it, so there is no
@@ -1711,12 +1723,15 @@ def test_an_entry_declaring_forms_declares_one_it_runs():
     property goes silent on the length, and this one is the only thing left
     failing - it never reads an argv, so nothing done to one quiets it.
 
-    The two entries named here declare a single `alternative` form truthfully:
-    the record's only named form is one the harness deliberately does not run,
-    and what it runs instead is the plain command the quote prescribes, which
-    the anchor guard holds. Asserted rather than allowed, so an entry that grows
-    a `runs` form fails here rather than keeping an exception it no longer
-    needs.
+    An entry named in `silenced` declares a single `alternative` form
+    truthfully: the record's only named form is one the harness deliberately
+    does not run, and what it runs instead is the plain command the quote
+    prescribes, which the anchor guard holds. That shape belongs to the
+    transcription rather than to the schema - a routed row derives a form from
+    every command route it carries, so the command it runs is declared `runs`
+    by construction and no routed row can be in this set. Asserted rather than
+    allowed, so an entry that grows a `runs` form fails here rather than
+    keeping an exception it no longer needs.
 
     Held over both enumeration paths: `forms` on a routed row is the same
     field, built the same way, from routes that can equally decline to mark
@@ -1724,9 +1739,6 @@ def test_an_entry_declaring_forms_declares_one_it_runs():
     table this file writes by hand.
     """
     silenced = {
-        # The record names `pip-licenses --format json` as the alternative; the
-        # harness runs the plain command the quote prescribes.
-        ("deps/licenses", "pip-licenses"),
         # The record names `pytest --randomly-seed=<n>` for reproducing one
         # ordering; the harness runs the suite as the record prescribes it.
         ("test/determinism", "pytest-randomly"),
@@ -1875,10 +1887,10 @@ def test_a_form_naming_a_lead_word_off_the_front_is_led_by_some_invocation():
     """A prescription no lead word leads must not vanish.
 
     The declaration property compares what the lead words extract, so a span no
-    lead word leads is absent from both sides of that equality and it passes.
-    `deps/freshness` writes `uv pip list --outdated` in the paragraph its `pip`
-    entry also quotes, and that span is the `uv` entry's form rather than the
-    `pip` entry's. What must never happen is a span naming a tool that no
+    lead word leads is absent from both sides of that equality and it passes. A
+    paragraph writing `uv pip list --outdated` in the sentence a `pip` entry
+    quotes is the benign case - that span is the `uv` entry's form rather than
+    the `pip` entry's. What must never happen is a span naming a tool that no
     invocation on that record leads: `uvx pydeps --show-cycles` would be a
     prescription with no declaration and no failure.
 
@@ -2410,13 +2422,11 @@ def test_an_in_env_tool_is_launched_through_the_partitions_own_environment():
     every other partition reaches the same environment through `--python`
     rather than through that manager's own runner.
 
-    Fetches `deps/hygiene`'s hand-written `deptry` entry: `launcher` is
-    agnostic of which table an `Invocation` came from, and this example
-    already exercises `in_env`, so widening the lookup buys nothing.
+    Fetches `deps/hygiene`'s `deptry` row, which its record now declares as a
+    route: `launcher` is agnostic of which table an `Invocation` came from, so
+    the example holds the same thing on either side of that row's migration.
     """
-    inv = next(
-        i for i in INVOCATIONS if (i.check, i.tool) == ("deps/hygiene", "deptry")
-    )
+    inv = _entry("deps/hygiene", "deptry")
     assert launcher(inv, "uv", granted=True) == ("uv", "run", "--with", "deptry")
     for partition in ("pip", "poetry", "pipenv", "pylock"):
         assert launcher(inv, partition, granted=True) == (
@@ -2435,12 +2445,11 @@ def test_a_venv_partition_is_launched_through_the_overlay_rather_than_by_name():
     hand - and installing it into the copy is the write `audit-core` bars, so
     neither a bare command name on `PATH` nor an install is the route.
 
-    Fetches the hand-written `deps/licenses` entry for the same reason the
-    `deptry` example above does: `launcher` does not distinguish the table.
+    Fetches the `deps/licenses` row for the same reason the `deptry` example
+    above does: `launcher` does not distinguish the table its argument came
+    from.
     """
-    inv = next(
-        i for i in INVOCATIONS if (i.check, i.tool) == ("deps/licenses", "pip-licenses")
-    )
+    inv = _entry("deps/licenses", "pip-licenses")
     for partition in ("pip", "pylock"):
         assert launcher(inv, partition, granted=True) == (
             "uv",
@@ -2477,12 +2486,10 @@ def test_no_audit_owned_tool_is_ever_installed_into_a_materialized_copy():
 
 
 def test_an_ungranted_run_never_launches_through_a_tree_it_does_not_have():
-    """Fetches the same hand-written `deptry` entry as the examples above;
-    `launcher` is agnostic of which table built the `Invocation` it is given.
+    """Fetches the same `deptry` row as the examples above; `launcher` is
+    agnostic of which table built the `Invocation` it is given.
     """
-    inv = next(
-        i for i in INVOCATIONS if (i.check, i.tool) == ("deps/hygiene", "deptry")
-    )
+    inv = _entry("deps/hygiene", "deptry")
     assert launcher(inv, "uv", granted=False)[0] == "uvx"
 
 
@@ -2607,17 +2614,24 @@ def test_the_partitions_needing_no_frozen_form_carry_their_resolution_in_a_file(
 
 
 def _entry(check: str, tool: str) -> Invocation:
-    """A hand-written row by name, for the tests below `own_runner` and
-    `argv_by_partition` and `supplied_by_partition`. Each caller fetches one
-    row it names, so the helper's population is not a scoping claim about
-    those fields - all three reach a routed row, the first two as route
+    """One row by name, over both enumeration paths.
+
+    Each caller fetches the single row it names, so the helper's population is
+    not a scoping claim about any field - `own_runner`, `argv_by_partition`
+    and `supplied_by_partition` all reach a routed row, the first two as route
     fields and the third through the `SUPPLIED` overlay, which is why the
     claim that used to stand here (that no route ever populates them) is
     gone rather than narrowed. That the overlay is empty today is a fact
     about its contents rather than about the path, so it is not what this
-    helper's callers rest on.
+    helper's callers rest on. Reading both populations is what keeps a caller
+    naming a row alive across that row's own migration: the pair is unique
+    across the two, which
+    `test_no_check_invokes_the_same_tool_twice` holds. A caller that needs
+    the transcription itself - `record_quote`, and the record prose it
+    anchors in - cannot use this helper, because a routed row carries no
+    quote to read.
     """
-    return next(i for i in INVOCATIONS if (i.check, i.tool) == (check, tool))
+    return next(i for i in every_invocation() if (i.check, i.tool) == (check, tool))
 
 
 def test_a_partition_the_record_prescribes_no_route_for_runs_nothing():
@@ -3142,14 +3156,15 @@ def test_a_granted_run_materializes_first_and_then_runs_in_the_environment(
     assert follow_up["command"][-len(expected) :] == expected
 
 
-def test_the_interpreter_the_freshness_record_names_is_transcribed():
+def test_the_interpreter_the_freshness_record_names_reaches_the_argv():
     """Unit-level: `--python` is the record's word, its value is the harness's.
 
     The flag reached the run as a suffix the harness appended before the record
     prescribed it, and a suffix is invisible to every guard that reads `argv`.
-    Transcribed, the flag travels with the command and only the path - the
-    record's `<path-to-venv-python>` - is left to the completion. `pip` is the
-    contrast: the record says it needs no such flag, so its entry carries none.
+    Carried in the argv the record's own route declares, the flag travels with
+    the command and only the path - the record's `<path-to-venv-python>` - is
+    left to the completion. `pip` is the contrast: the record says it needs no
+    such flag, so its row carries none.
     """
     uv_inv = _entry("deps/freshness", "uv")
     pip_inv = _entry("deps/freshness", "pip")
@@ -3171,7 +3186,7 @@ def test_an_inner_uv_command_is_told_which_interpreter_to_read(tmp_path, monkeyp
     --with uv uv pip list --outdated`, no `--no-project` involved), which is
     why both partitions are checked here rather than only the overlay one.
     The record names the interpreter for that reason, so what this asserts is
-    that the transcribed command and its completion still reach the run in that
+    that the record's command and its completion still reach the run in that
     shape, whichever partition's route puts the words in front of them.
     """
     for partition in ("uv", "pip"):
@@ -4097,6 +4112,36 @@ def test_a_routed_row_carries_the_rounds_completion_and_its_reason():
     )
     assert row.completion == ("src", "tests")
     assert "the record names none" in row.note
+
+
+def test_the_deps_rows_survive_their_records_migration():
+    """The five rows these records prescribe, held against what they ran before.
+
+    A migration that changes what runs is not a migration. The values are
+    written out rather than read from a baseline file because the point is to
+    fail when the record changes, not when a scratch file goes missing.
+    """
+    expected = {
+        ("deps/freshness", "uv"): (
+            ("uv", "pip", "list", "--outdated", "--python"),
+            True,
+            "stdout",
+        ),
+        ("deps/freshness", "pip"): (("pip", "list", "--outdated"), True, "stdout"),
+        ("deps/hygiene", "deptry"): (("deptry",), True, "stderr"),
+        ("deps/licenses", "pip-licenses"): (("pip-licenses",), True, "stdout"),
+        ("deps/transitive-licenses", "pip-licenses"): (
+            ("pip-licenses",),
+            True,
+            "stdout",
+        ),
+    }
+    rows = {(i.check, i.tool): i for i in routed_invocations()}
+    for key, (argv, in_env, stream) in expected.items():
+        row = rows[key]
+        assert row.argv == argv, key
+        assert row.in_env is in_env, key
+        assert row.findings_stream == stream, key
 
 
 def test_a_quote_belongs_to_a_transcription_and_only_to_one():
