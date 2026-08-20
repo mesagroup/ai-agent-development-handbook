@@ -14,6 +14,7 @@ be the same data for a routed row - the transcribed rows again, because widening
 it would add an assertion that cannot fail.
 """
 
+import ast
 import json
 import os
 import re
@@ -4167,3 +4168,36 @@ def test_an_ambiguous_group_is_refused_by_name(monkeypatch, routes, expected):
         pytest.raises(ValueError, match=expected),
     ):
         routed_invocations()
+
+
+def test_no_completion_hardcodes_a_name_the_fixture_spec_owns():
+    """A completion derives a seeded name rather than spelling it out.
+
+    The round's completions are the only place in this module that names paths
+    inside the fixture tree, and `python_fixture_spec` owns those names. A
+    token spelling one out reads identically to one deriving it - both produce
+    `src/fixture_app` today - so no assertion over the built value can tell
+    them apart, and the difference only appears the day the spec renames the
+    package: every derived site follows and a spelled-out one silently does
+    not.
+
+    So this reads the source of the `COMPLETIONS` literal rather than its
+    value. `arch/cycles`'s `pydeps` completion is the live instance: it was
+    `f"src/{PACKAGE}"` in the table this overlay replaced, became the literal
+    when the value was transcribed instead of the expression, and nothing
+    that compares built tokens could have caught it.
+    """
+    source = (REPO_ROOT / "scripts" / "run_python_fixture_lens.py").read_text()
+    tree = ast.parse(source)
+    literal = next(
+        node
+        for node in tree.body
+        if isinstance(node, ast.AnnAssign)
+        and isinstance(node.target, ast.Name)
+        and node.target.id == "COMPLETIONS"
+    )
+    block = ast.get_source_segment(source, literal)
+    assert PACKAGE not in block, (
+        f"a COMPLETIONS token spells out {PACKAGE!r} rather than deriving it "
+        "from PACKAGE, so it will not follow a rename of the seeded package"
+    )
