@@ -420,7 +420,11 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
     those two are the same YAML to `get` and different claims to a reader;
     `argv` and `argv_by_partition` are present only where `kind` is `command`,
     and every argv they name - `argv` itself, and each partition's entry
-    under `argv_by_partition` - is non-empty there; a `disposition` other than
+    under `argv_by_partition` - is non-empty wherever it is written; a
+    command route carries at least one of the two, but not necessarily
+    `argv` itself - it is absent exactly where a per-partition map says a
+    partition the map does not name has no command, rather than inheriting
+    one from a shared argv that does not exist; a `disposition` other than
     `runs` appears only where `kind` is `command`; `then`, a second command in
     sequence, is present only where `kind` is `command` and, where present, is
     a non-empty list of argv strings, because a route with no first command
@@ -546,10 +550,31 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
             package = tool
 
         raw_argv = entry.get("argv")
+        raw_per_partition = entry.get("argv_by_partition")
         if kind == "command":
-            argv = _str_list(raw_argv) or ()
-            if not argv:
-                errors.append(f"{loc}: a command route must carry a non-empty argv")
+            parsed_argv = _str_list(raw_argv)
+            if raw_argv is not None and parsed_argv is None:
+                errors.append(
+                    f"{loc}: argv must be a list of argv strings, got {raw_argv!r}"
+                )
+                argv = ()
+            elif parsed_argv == ():
+                errors.append(
+                    f"{loc}: argv is present and empty - an absent argv beside "
+                    "argv_by_partition says the partitions it does not name "
+                    "have no command, and an empty one says nothing at all"
+                )
+                argv = ()
+            elif parsed_argv is None and not raw_per_partition:
+                errors.append(
+                    f"{loc}: a command route carries no command at all - name "
+                    "the shared argv, or name one per partition where the "
+                    "record prescribes a different command for each and none "
+                    "for some"
+                )
+                argv = ()
+            else:
+                argv = parsed_argv or ()
         else:
             if raw_argv is not None:
                 errors.append(
