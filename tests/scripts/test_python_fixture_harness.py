@@ -4219,6 +4219,62 @@ def test_a_second_command_is_a_form_of_its_own(monkeypatch):
     assert row.then == ("t", "report")
 
 
+def test_a_routed_row_expands_a_per_manager_argv(monkeypatch):
+    """A route may carry both a shared argv and per-manager ones - the loader
+    requires the shared one on every command route - so an unnamed partition
+    takes the shared argv. A route cannot yet say that one manager has no
+    command at all, which is what #67 needs for `deps/inventory`'s PEP 751
+    partition.
+    """
+    with _records_replaced_by(
+        monkeypatch,
+        {
+            "x/y": _fake_record(
+                _fake_route(
+                    tool="cyclonedx-py",
+                    argv=("cyclonedx-py", "requirements"),
+                    argv_by_manager={"uv": ("uv", "export", "--frozen")},
+                    own_runner=("uv",),
+                )
+            )
+        },
+    ):
+        (row,) = routed_invocations()
+    assert row.argv == ()
+    assert dict(row.argv_by_partition)["uv"] == ("uv", "export", "--frozen")
+    assert dict(row.argv_by_partition)["pip"] == ("cyclonedx-py", "requirements")
+    assert row.own_runner == ("uv",)
+
+
+def test_own_runner_true_covers_every_partition(monkeypatch):
+    with _records_replaced_by(
+        monkeypatch,
+        {"x/y": _fake_record(_fake_route(argv=("npx", "cloc"), own_runner=True))},
+    ):
+        (row,) = routed_invocations()
+    assert row.own_runner == PARTITIONS
+    assert row.argv == ("npx", "cloc")
+
+
+def test_a_manager_that_is_not_a_partition_is_refused_by_name(monkeypatch):
+    """A python route's `argv_by_manager` keys are this lens's partition names.
+    A key that is not one threads into an `argv_by_partition` entry
+    `prescribed` never finds, so the command silently never runs.
+    """
+    with (
+        _records_replaced_by(
+            monkeypatch,
+            {
+                "x/y": _fake_record(
+                    _fake_route(argv=("t",), argv_by_manager={"pnpm": ("pnpm", "t")})
+                )
+            },
+        ),
+        pytest.raises(ValueError, match="not a partition"),
+    ):
+        routed_invocations()
+
+
 def test_no_completion_hardcodes_a_name_the_fixture_spec_owns():
     """A completion derives a seeded name rather than spelling it out.
 
