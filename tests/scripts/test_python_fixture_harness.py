@@ -4173,9 +4173,9 @@ def test_an_ambiguous_group_is_refused_by_name(monkeypatch, routes, expected):
 def test_no_completion_hardcodes_a_name_the_fixture_spec_owns():
     """A completion derives a seeded name rather than spelling it out.
 
-    The round's completions are the only place in this module that names paths
-    inside the fixture tree, and `python_fixture_spec` owns those names. A
-    token spelling one out reads identically to one deriving it - both produce
+    A completion names paths inside the fixture tree, and `python_fixture_spec`
+    owns those names. A token spelling one out reads identically to one
+    deriving it - both produce
     `src/fixture_app` today - so no assertion over the built value can tell
     them apart, and the difference only appears the day the spec renames the
     package: every derived site follows and a spelled-out one silently does
