@@ -1208,6 +1208,20 @@ def grant_tier(check: str, tool: str) -> str:
     return ""
 
 
+def _forms_for(route: object) -> tuple[tuple[str, str], ...]:
+    """The forms one command route contributes: its own, and its `then`'s.
+
+    A `then` contributing no form would leave the second command out of
+    `forms` while the row still ran it, and every property reading forms would
+    still pass. The follow-up takes the route's disposition because it is that
+    route's second half rather than a route of its own.
+    """
+    forms = ((" ".join(route.argv), route.disposition),)
+    if route.then:
+        forms += ((" ".join(route.then), route.disposition),)
+    return forms
+
+
 @cache
 def routed_invocations() -> tuple[Invocation, ...]:
     """Every row a migrated record prescribes, read from the record.
@@ -1231,6 +1245,13 @@ def routed_invocations() -> tuple[Invocation, ...]:
     prescribes no command at all, the reason is the record's own and comes from
     that route's `note`. A command that ran as written explains itself and
     carries none.
+
+    A row's `then` is the `runs` route's own - never a `superseded` or
+    `alternative` route's, even where one of those carries a `then` of its
+    own - because `then` is what the round executes after `argv`, and `argv`
+    is already the `runs` route's. `then` is also one of the row's `forms`:
+    the row runs it regardless, so a `then` left out of `forms` would be a
+    command the row runs with no guard ever seeing it declared.
 
     Raises:
         ValueError: If a group carries more than one `runs` command route, two
@@ -1305,10 +1326,11 @@ def routed_invocations() -> tuple[Invocation, ...]:
                     check=check_id,
                     tool=tool,
                     argv=argv,
-                    forms=tuple((" ".join(r.argv), r.disposition) for r in commands),
+                    forms=tuple(f for r in commands for f in _forms_for(r)),
                     findings_stream=streams.pop(),
                     in_env=in_env.pop(),
                     completion=supplied.tokens if supplied else (),
+                    then=tuple(runs[0].then) if runs else (),
                     note=note,
                 )
             )

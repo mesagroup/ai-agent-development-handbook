@@ -4096,6 +4096,9 @@ def _fake_route(**kw):
         "findings_stream": "stdout",
         "in_env": False,
         "note": "",
+        "then": (),
+        "own_runner": False,
+        "argv_by_manager": {},
     }
     field.update(kw)
     return SimpleNamespace(**field)
@@ -4168,6 +4171,52 @@ def test_an_ambiguous_group_is_refused_by_name(monkeypatch, routes, expected):
         pytest.raises(ValueError, match=expected),
     ):
         routed_invocations()
+
+
+def test_a_routed_row_carries_the_records_second_command(monkeypatch):
+    with _records_replaced_by(
+        monkeypatch,
+        {
+            "x/y": _fake_record(
+                _fake_route(
+                    tool="coverage.py",
+                    argv=("coverage", "run", "-m", "pytest"),
+                    then=("coverage", "report", "--show-missing"),
+                )
+            )
+        },
+    ):
+        (row,) = routed_invocations()
+    assert row.then == ("coverage", "report", "--show-missing")
+
+
+def test_a_second_command_is_a_form_of_its_own(monkeypatch):
+    """A `then` that contributed no form would drop the second command out of
+    `forms` while the row still ran it, and every property reading forms would
+    pass. It takes the route's disposition because it is that route's second
+    half rather than a route of its own.
+    """
+    with _records_replaced_by(
+        monkeypatch,
+        {
+            "x/y": _fake_record(
+                _fake_route(argv=("t", "run"), then=("t", "report")),
+                _fake_route(
+                    argv=("t", "old"),
+                    then=("t", "old-report"),
+                    disposition="superseded",
+                ),
+            )
+        },
+    ):
+        (row,) = routed_invocations()
+    assert row.forms == (
+        ("t run", "runs"),
+        ("t report", "runs"),
+        ("t old", "superseded"),
+        ("t old-report", "superseded"),
+    )
+    assert row.then == ("t", "report")
 
 
 def test_no_completion_hardcodes_a_name_the_fixture_spec_owns():
