@@ -74,6 +74,7 @@ import json
 import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
+from functools import cache
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -89,6 +90,7 @@ Run = dict[str, object]
 
 REQUIRED_RUN_KEYS = ("grant", "partition", "results")
 
+
 # What each (check, tool) pair reports its findings on, read from the harness's
 # own enumeration rather than copied here. A results entry never carries this
 # itself, so the enumeration is the only source, and a second copy of it here
@@ -96,10 +98,32 @@ REQUIRED_RUN_KEYS = ("grant", "partition", "results")
 # of its sources are read: a lookup built from `INVOCATIONS` alone leaves every
 # row of every migrated record unresolved, which the grader test module holds
 # against it.
-_FINDINGS_STREAM: dict[tuple[str, str], str] = {
-    (invocation.check, invocation.tool): invocation.findings_stream
-    for invocation in INVOCATIONS + routed_invocations()
-}
+@cache
+def _findings_stream_map() -> dict[tuple[str, str], str]:
+    """The stream lookup, built on first use rather than at import.
+
+    Built lazily for one reason: `routed_invocations` reads the record tree and
+    raises on a record whose routes contradict each other, and at module scope
+    that turns a contradictory record into an import error - `--help` included,
+    and every other function in this module with it. Lazily, the failure lands
+    on the caller that needed the lookup and names the record.
+
+    It is still a failure and not a sentinel, which is the boundary worth
+    stating because this module's own history argues the other way. The
+    sentinel below exists for a **stale results row**: a gitignored file naming
+    a (check, tool) pair the harness no longer runs, where aborting would lose
+    every other row in the same run over one dead entry. A contradictory
+    record is not that. The harness cannot say what it would run, so a grade
+    computed over it means nothing, and routing it to the sentinel would put
+    two incompatible causes behind one value - a dead results row and a broken
+    source record - which is exactly the ambiguity the sentinel was introduced
+    to avoid.
+    """
+    return {
+        (invocation.check, invocation.tool): invocation.findings_stream
+        for invocation in INVOCATIONS + routed_invocations()
+    }
+
 
 # Not a real stream name - `seed_signals` looks this key up on the entry
 # itself (`entry.get(sentinel, "")`) and an entry never sets it, so the read
@@ -153,7 +177,7 @@ def _findings_stream_for(entry: dict[str, object]) -> str:
     if "findings_stream" in entry:
         return str(entry["findings_stream"])
     key = (str(entry.get("check", "")), str(entry.get("tool", "")))
-    return _FINDINGS_STREAM.get(key, UNRESOLVED_FINDINGS_STREAM)
+    return _findings_stream_map().get(key, UNRESOLVED_FINDINGS_STREAM)
 
 
 def _entries_for(run: Run, check: str) -> list[dict[str, object]]:

@@ -50,8 +50,13 @@ def test_findings_stream_is_looked_up_when_the_entry_carries_none(grader):
 
     `run_python_fixture_lens.py` never writes the key into a row (confirmed
     against `fixtures/python/results/pip-none.json`), so `observations_for` has
-    to look the stream up from the harness's own `INVOCATIONS` table rather
-    than default to stdout - the default that reads a deptry run backwards.
+    to look the stream up from the harness's own enumeration rather than
+    default to stdout - the default that reads a deptry run backwards. The
+    entry this test uses is `deptry`, whose record still prescribes in prose,
+    so the lookup answers it out of `INVOCATIONS`; a migrated check's row is
+    answered out of its record's routes instead, which is why the lookup reads
+    both and `test_every_row_the_harness_can_produce_resolves_a_findings_stream`
+    holds that it does.
     """
     run = {
         "partition": "pip",
