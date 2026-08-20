@@ -750,3 +750,33 @@ def test_main_errors_when_the_directory_holds_no_runs(grader, tmp_path):
 def test_main_errors_when_the_directory_does_not_exist(grader, tmp_path):
     with pytest.raises(SystemExit):
         grader.main([str(tmp_path / "does-not-exist")])
+
+
+def test_every_row_the_harness_can_produce_resolves_a_findings_stream(grader):
+    """The stream lookup covers both of the harness's enumeration sources.
+
+    A results entry never carries its own stream, so an unresolved pair is
+    graded as an empty read - honest, surfaced by `render`, and correct for the
+    stale row the sentinel exists for. It is the wrong answer for a row the
+    harness produces on every run: `arch/complexity`'s `xenon` reports on
+    stderr, and a lookup that cannot resolve it reads nothing where the tool
+    wrote its whole report.
+
+    Built from `INVOCATIONS` alone this held vacuously, because every pair it
+    could be asked about came from the same table it was built from. The
+    records that declare their routes are enumerated elsewhere, so the two
+    sides can now disagree, and this is what says they do not.
+    """
+    from run_python_fixture_lens import INVOCATIONS, routed_invocations
+
+    unresolved = sorted(
+        (inv.check, inv.tool)
+        for inv in INVOCATIONS + routed_invocations()
+        if grader._findings_stream_for({"check": inv.check, "tool": inv.tool})
+        == grader.UNRESOLVED_FINDINGS_STREAM
+    )
+    assert not unresolved, (
+        f"{unresolved} are rows the harness enumerates and the grader cannot "
+        "resolve a findings stream for, so each would be read as an empty "
+        "stream on every run rather than on a stale one"
+    )
