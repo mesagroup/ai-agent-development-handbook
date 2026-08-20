@@ -720,15 +720,20 @@ Message: `harness: every property says which population it reads`. In the body, 
 
 ---
 
-### Task 5: Verify against the fixtures, not only against the suite
+### Task 5: Verify against the fixtures and against mutation, not only against the suite
 
 **Files:**
-- No source change expected. Any change this task forces is a finding and belongs in its own commit with the reason.
+- Test: `tests/scripts/test_python_fixture_harness.py`, for the one property step 2 adds
+- No other source change expected. Any change a mutation forces is a finding and belongs in its own commit with the reason.
 
 **Interfaces:**
-- Consumes: the seeded fixture trees under `fixtures/python/`, which are gitignored and live in the main checkout.
+- Consumes: the seeded fixture trees under `fixtures/python/`, which are gitignored and exist only in the main checkout.
 
-- [ ] **Step 1: Run the whole suite and the four gates**
+**There is no standing mutation table to re-run.** An earlier version of this task said there was; the mutation discipline in this repository is per-plan, so the mutations are named here. Each is a mutate, run, revert cycle, with the test that must fail named in advance. A mutation whose expected failure does not happen is the finding, not a step to move past.
+
+Run every mutation with `PYTHONDONTWRITEBYTECODE=1`. Several of these move a token without changing the file's length, and `.pyc` invalidation compares mtime and size, so a mutate-run-revert inside one second can leave the next run honouring the mutant's cached bytecode. That shows up as a failure on a byte-identical clean tree, or, in the direction that matters, as a green run over a mutation that should have failed.
+
+- [ ] **Step 1: The whole suite and the four gates**
 
 ```bash
 caffeinate uv run pytest tests/ -q
@@ -737,36 +742,69 @@ caffeinate uv run python scripts/render_handbook_traceability.py --check
 caffeinate uv run python scripts/render_python_fixture_expectations.py --check
 ```
 
-Expected: all green. The last one passes whatever this change does, because neither it nor `python_fixture_spec.py` imports the lens; report it as a gate that ran, never as evidence about this change.
+All four must pass. Report the last one as a gate that ran, never as evidence about this change: neither it nor `python_fixture_spec.py` imports the lens, so it renders identically whatever the enumeration does.
 
-- [ ] **Step 2: Run one migrated check against a real fixture**
+- [ ] **Step 2: Write the property the note rule never had**
 
-This is the only step that proves the enumeration reaches a running command rather than only a passing assertion.
+A routed row's `note` carries the record's own reason where the record prescribes no command. Nothing asserts that. `test_a_completed_argv_says_why_it_had_to_be_completed` covers the four rows carrying a completion and says nothing about the fourteen carrying a route's reason instead, so the branch that reads `routes[0].note` can be deleted with the suite green. That is the gap mutation 2 below exists to demonstrate, and this is the property that closes it.
 
-```bash
-caffeinate uv run python scripts/run_python_fixture_lens.py --partition uv --check arch/complexity --grant none
+```python
+def test_a_routed_row_prescribing_no_command_carries_the_records_reason():
+    """The artifact says why a row ran nothing, in the record's own words.
+
+    `note` is written into the results row, so a row prescribing no command
+    and carrying no reason degrades the round's output rather than only its
+    docstrings: a reader sees an empty explanation where the record has one.
+    The reason is the record's, not this module's, which is the whole of why
+    it is read rather than transcribed.
+    """
+    for row in routed_invocations():
+        if row.argv or row.completion:
+            continue
+        assert row.note, (row.check, row.tool)
 ```
 
-Expected: three rows, `ruff`, `radon` and `xenon`, each with the command the record prescribes plus its completion where it has one, and `xenon` classified off stderr. Paste the rows into the task report. A row reporting `no-evidence (not-permitted)` for all three is the grant doing its job, not a failure; re-run with the grant the row needs if the output is unreadable without it.
+Run it, confirm it passes, and confirm it is not vacuous by reporting how many rows reached the assertion.
 
-- [ ] **Step 3: Re-run the mutation table**
+- [ ] **Step 3: Run one migrated check against a real fixture**
 
-The harness's own mutation table lists the edits that must fail. Re-run it with bytecode writing off, because a mutate-run-revert inside one second can otherwise leave the next run honouring the mutant's cached bytecode:
+The only step that proves the enumeration reaches a running command rather than a passing assertion. Note the partition is positional, not a flag:
 
 ```bash
-PYTHONDONTWRITEBYTECODE=1 caffeinate uv run pytest tests/scripts/test_python_fixture_harness.py -q
+caffeinate uv run python scripts/run_python_fixture_lens.py uv --check arch/complexity --grant none
 ```
 
-For each mutation the table names against `scripts/run_python_fixture_lens.py`, apply it, confirm the suite fails, revert it. A mutation this change makes unreachable - one against a deleted entry - is recorded as such in the table with the reason, not deleted from it.
+Expected: three rows, `ruff`, `radon` and `xenon`, each carrying the command the record prescribes plus its completion where it has one, and `xenon` classified off stderr. Paste the rows into the task report. A `no-evidence (not-permitted)` row is the grant doing its job rather than a failure; re-run with the grant a row needs if the output is unreadable without it, and say which grant you used.
 
-- [ ] **Step 4: Add the mutation this change invites**
+Then run one check that prescribes no command, to see the other shape reach the artifact:
 
-The new silent failure is a routed row and a hand-written entry claiming the same `(check, tool)`. Verify it fails: add back one deleted entry, for instance `arch/dead-code`'s `vulture`, run the suite, confirm `test_no_migrated_check_has_a_hand_written_entry` fails by name, revert. Record the result in the task report and add the mutation to the table.
+```bash
+caffeinate uv run python scripts/run_python_fixture_lens.py uv --check arch/coupling --grant none
+```
 
-- [ ] **Step 5: Stale-prose pass**
+Expected: rows that did not run, each carrying the record's own reason in `note`. Paste them too. This is step 2's property observed end to end rather than asserted.
 
-Not scoped to the diff. `grep` for the names of everything removed - `record_quote` in prose, the oracle test names, `_ORACLE_DOMAINS`, any deleted helper - across `docs/`, `CLAUDE.md` and both modules' comments, and read the whole of any file that describes the harness's shape rather than only the changed hunks. `CLAUDE.md`'s "Check records" and "Tests" sections both describe this machinery and neither is in the diff.
+- [ ] **Step 4: The five mutations, each with its expected failure**
+
+For each: apply it, run the suite, confirm the named test fails, revert, confirm `git status --short` is clean of it.
+
+| # | Mutation, in `scripts/run_python_fixture_lens.py` | Must fail |
+|---|---|---|
+| 1 | In `routed_invocations`, drop the `route.lang != "python"` guard so `any` and `none` routes are selected too | `test_the_harness_runs_exactly_the_checks_the_expectations_declare` - `arch/size` gains rows the expectations do not grade |
+| 2 | Delete the `elif len(routes) == 1: note = routes[0].note` branch, leaving the reason empty | the property added in step 2 |
+| 3 | Group by route rather than by `(check, tool)`, so a tool with two command routes yields two rows | `test_no_check_invokes_the_same_tool_twice` - `arch/cycles` pydeps |
+| 4 | Take the group's `findings_stream` as the literal `"stdout"` rather than from the routes | `test_deptry_and_xenon_are_the_entries_that_report_on_stderr` - `arch/complexity` xenon |
+| 5 | Restore one deleted entry to `INVOCATIONS`, `arch/dead-code`'s `vulture`, so a row is claimed by both paths | `test_no_migrated_check_has_a_hand_written_entry` |
+
+Mutation 5 is the failure this change invites and the reason its property exists: a stale entry keeps a check running after its record stops being the source, so editing the record has no effect and nothing goes red.
+
+If any mutation leaves the suite green, stop and report it. That is a property this change needed and does not have, and it is worth more than finishing the task on time.
+
+- [ ] **Step 5: Record the mutations this change does not catch**
+
+Two mutations stay green by design and must be named rather than discovered later. Editing `arch/size`'s `cloc` argv, or `arch/coupling`'s `typescript@^5` pin, to contradict its own note leaves the suite green, because `lang: python` selection reaches neither. Confirm both are still green, so the claim is measured rather than repeated, and record them as the reach hole epic #44 owns.
 
 - [ ] **Step 6: Commit**
 
-Message: `harness: record what the fixtures and the mutation table say about the change`, with the filtered run's rows and the mutation results in the body. `Refs #63`.
+Message: `harness: what the fixtures and the mutations say about the change`. Body: the filtered runs' rows, the five mutation results, and the two that stay green by design. `Refs #63`.
+
