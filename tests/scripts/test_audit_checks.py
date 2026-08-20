@@ -791,13 +791,13 @@ def test_a_non_string_route_key_beside_a_string_one_reports_both(tmp_path):
             "kind: command\n    tool: t\n    package: [t]\n    argv: [t]",
         ),
         (
-            "argv_by_manager",
-            "kind: command\n    tool: t\n    argv: [t]\n    argv_by_manager: [x]",
+            "argv_by_partition",
+            "kind: command\n    tool: t\n    argv: [t]\n    argv_by_partition: [x]",
         ),
         (
-            "argv_by_manager",
+            "argv_by_partition",
             "kind: command\n    tool: t\n    argv: [t]\n"
-            "    argv_by_manager:\n      pnpm: not-a-list",
+            "    argv_by_partition:\n      pnpm: not-a-list",
         ),
         ("in_env", "kind: command\n    tool: t\n    argv: [t]\n    in_env: maybe"),
         (
@@ -813,8 +813,8 @@ def test_a_non_string_route_key_beside_a_string_one_reports_both(tmp_path):
 )
 def test_a_wrong_typed_route_field_is_rejected(tmp_path, field, route_body):
     """The review named eight validation branches in `_load_routes` with no
-    test of their own: `tool`, `package`, `argv_by_manager` (both its own
-    mapping type and a per-manager entry's list type), `in_env`,
+    test of their own: `tool`, `package`, `argv_by_partition` (both its own
+    mapping type and a per-partition entry's list type), `in_env`,
     `applies_when`, `alone_insufficient` and `note` each reject a
     wrong-typed value. Assert only that the field name appears in the
     message, not the message's full text.
@@ -828,37 +828,57 @@ def test_a_record_may_not_carry_both_schemas(tmp_path):
     assert any("routes" in e and "tooling" in e for e in errors), errors
 
 
-def test_argv_by_manager_maps_a_manager_to_a_command(tmp_path):
+def test_argv_by_partition_maps_a_partition_to_a_command(tmp_path):
     check = _one_route_record(
         tmp_path,
         "kind: command\n    tool: dependency-cruiser\n    argv: [depcruise]\n"
-        "    argv_by_manager:\n      pnpm: [pnpm, dlx, depcruise]",
+        "    argv_by_partition:\n      pnpm: [pnpm, dlx, depcruise]",
     )
-    assert check.routes[0].argv_by_manager == {"pnpm": ("pnpm", "dlx", "depcruise")}
+    assert check.routes[0].argv_by_partition == {"pnpm": ("pnpm", "dlx", "depcruise")}
 
 
-def test_argv_by_manager_needs_a_command_kind(tmp_path):
+def test_argv_by_partition_needs_a_command_kind(tmp_path):
     errors = _errors_for_route(
         tmp_path,
-        "kind: library\n    tool: grimp\n    argv_by_manager:\n      pnpm: [x]",
+        "kind: library\n    tool: grimp\n    argv_by_partition:\n      pnpm: [x]",
     )
-    assert any("argv_by_manager" in e for e in errors), errors
+    assert any("argv_by_partition" in e for e in errors), errors
 
 
-def test_an_argv_by_manager_entry_must_be_non_empty(tmp_path):
+def test_an_argv_by_partition_entry_must_be_non_empty(tmp_path):
     """`argv` on a command route is required to be non-empty, and a
-    per-manager argv is the command that replaces it on a target using that
-    manager. An empty list there declares a manager the route names and
-    supplies nothing to run for it, which is the same absence the rule on
-    `argv` exists to reject - and `_str_list` returns an empty tuple rather
-    than `None` for it, so the mapping's own type check passes it through.
+    per-partition argv is the command that replaces it on a target using
+    that partition. An empty list there declares a partition the route
+    names and supplies nothing to run for it, which is the same absence the
+    rule on `argv` exists to reject - and `_str_list` returns an empty tuple
+    rather than `None` for it, so the mapping's own type check passes it
+    through.
     """
     errors = _errors_for_route(
         tmp_path,
         "kind: command\n    tool: t\n    argv: [t]\n"
-        "    argv_by_manager:\n      pnpm: []",
+        "    argv_by_partition:\n      pnpm: []",
     )
-    assert any("argv_by_manager" in e and "pnpm" in e for e in errors), errors
+    assert any("argv_by_partition" in e and "pnpm" in e for e in errors), errors
+
+
+def test_the_per_partition_argv_key_is_argv_by_partition(tmp_path):
+    """The schema's word for the axis a language's targets split along.
+
+    A package manager where one distinguishes the case, a lock standard where
+    none does: a python route's keys are `uv`, `pip`, `poetry`, `pipenv` and
+    `pylock`, and only four of those name a manager. The old key is rejected as
+    an unknown field rather than silently ignored, which is what would leave a
+    renamed record prescribing one command for every partition.
+    """
+    errors = _errors_for_route(
+        tmp_path,
+        "kind: command\n    tool: t\n    argv: [t]\n"
+        "    argv_by_manager:\n      uv: [t, u]",
+    )
+    assert any("argv_by_manager" in e and "unknown route key" in e for e in errors), (
+        errors
+    )
 
 
 def test_a_route_carries_a_second_command_in_sequence(tmp_path):
@@ -900,32 +920,32 @@ def test_a_shared_argv_may_say_it_needs_no_runner(tmp_path):
     assert check.routes[0].own_runner is True
 
 
-def test_a_per_manager_argv_names_the_managers_needing_no_runner(tmp_path):
+def test_a_per_partition_argv_names_the_partitions_needing_no_runner(tmp_path):
     check = _one_route_record(
         tmp_path,
         "kind: command\n    tool: cyclonedx-py\n    argv: [cyclonedx-py, requirements]"
-        "\n    argv_by_manager:\n      uv: [uv, export, --frozen]"
+        "\n    argv_by_partition:\n      uv: [uv, export, --frozen]"
         "\n    own_runner: [uv]",
     )
     assert check.routes[0].own_runner == ("uv",)
 
 
-def test_own_runner_true_covers_a_routes_per_manager_commands_too(tmp_path):
+def test_own_runner_true_covers_a_routes_per_partition_commands_too(tmp_path):
     """`true` is a claim about every command the route prescribes.
 
-    It was briefly rejected beside `argv_by_manager`, on the reading that
-    naming commands per manager makes a blanket claim ambiguous. The record
-    set says otherwise: the four `dependency-cruiser` routes carry a
+    It was briefly rejected beside `argv_by_partition`, on the reading that
+    naming commands per partition makes a blanket claim ambiguous. The
+    record set says otherwise: the four `dependency-cruiser` routes carry a
     runner-led shared `argv` and runner-led `pnpm` and `yarn` overrides, so
     every command in them is complete as written, and a rule refusing `true`
-    there leaves the shared form - the one an unnamed manager runs - with no
-    way to say so at all. The list form stays for the partial case, so the
-    two shapes divide as all-of-them against these-named-ones.
+    there leaves the shared form - the one an unnamed partition runs - with
+    no way to say so at all. The list form stays for the partial case, so
+    the two shapes divide as all-of-them against these-named-ones.
     """
     check = _one_route_record(
         tmp_path,
         "kind: command\n    tool: t\n    argv: [t]"
-        "\n    argv_by_manager:\n      uv: [uv, export]\n    own_runner: true",
+        "\n    argv_by_partition:\n      uv: [uv, export]\n    own_runner: true",
     )
     assert check.routes[0].own_runner is True
 
@@ -935,12 +955,12 @@ def test_own_runner_as_an_empty_list_is_rejected(tmp_path):
 
     So it claims nothing while reading as a considered claim - the shape
     `own_runner: false` is rejected for, and the one a later edit produces by
-    deleting the last manager name from a list that had one.
+    deleting the last partition name from a list that had one.
     """
     errors = _errors_for_route(
         tmp_path,
         "kind: command\n    tool: t\n    argv: [t]"
-        "\n    argv_by_manager:\n      uv: [uv, export]\n    own_runner: []",
+        "\n    argv_by_partition:\n      uv: [uv, export]\n    own_runner: []",
     )
     assert any("claims nothing" in e for e in errors), errors
 
@@ -949,7 +969,8 @@ def test_own_runner_as_an_empty_list_is_rejected(tmp_path):
     "written",
     [
         "argv: [t, run]\n    then: [t, run]",
-        "argv: [t, run]\n    argv_by_manager:\n      uv: [t, alt]\n    then: [t, alt]",
+        "argv: [t, run]\n    argv_by_partition:\n      uv: [t, alt]\n"
+        "    then: [t, alt]",
     ],
 )
 def test_a_then_repeating_a_command_the_route_prescribes_is_rejected(tmp_path, written):
@@ -965,7 +986,9 @@ def test_a_then_repeating_a_command_the_route_prescribes_is_rejected(tmp_path, w
     assert any("written twice" in e for e in errors), errors
 
 
-def test_own_runner_naming_managers_without_per_manager_argvs_is_rejected(tmp_path):
+def test_own_runner_naming_partitions_without_per_partition_argvs_is_rejected(
+    tmp_path,
+):
     errors = _errors_for_route(
         tmp_path, "kind: command\n    tool: t\n    argv: [t]\n    own_runner: [uv]"
     )
@@ -974,11 +997,11 @@ def test_own_runner_naming_managers_without_per_manager_argvs_is_rejected(tmp_pa
     )
 
 
-def test_own_runner_naming_a_manager_the_route_does_not_carry_is_rejected(tmp_path):
+def test_own_runner_naming_a_partition_the_route_does_not_carry_is_rejected(tmp_path):
     errors = _errors_for_route(
         tmp_path,
         "kind: command\n    tool: t\n    argv: [t]"
-        "\n    argv_by_manager:\n      uv: [uv, export]\n    own_runner: [poetry]",
+        "\n    argv_by_partition:\n      uv: [uv, export]\n    own_runner: [poetry]",
     )
     assert any("poetry" in e for e in errors), errors
 

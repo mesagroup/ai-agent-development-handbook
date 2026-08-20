@@ -1433,13 +1433,14 @@ def test_an_invocation_names_a_check_that_exists_and_a_partition_that_does():
 
     Reads both paths. It once read `INVOCATIONS` alone, on the premise that
     `routed_invocations` set neither field - true when `argv_by_partition` and
-    `own_runner` had no route counterpart, false now that `argv_by_manager` and
-    `own_runner` are route fields the enumeration threads. A routed row's names
-    do come out subset-of-`PARTITIONS` today, but by construction through two
-    guards elsewhere: the enumeration raises on an `argv_by_manager` key that is
-    not a partition, and the loader rejects an `own_runner` naming a manager the
-    route does not carry. Holding it directly here costs one loop and does not
-    depend on either of those staying where it is.
+    `own_runner` had no route counterpart, false now that `argv_by_partition`
+    and `own_runner` are route fields the enumeration threads. A routed row's
+    names do come out subset-of-`PARTITIONS` today, but by construction
+    through two guards elsewhere: the enumeration raises on an
+    `argv_by_partition` key that is not a partition, and the loader rejects an
+    `own_runner` naming a partition the route does not carry. Holding it
+    directly here costs one loop and does not depend on either of those
+    staying where it is.
     """
     for inv in every_invocation():
         assert _record_path(inv.check).exists(), inv.check
@@ -1606,10 +1607,10 @@ def test_every_form_the_harness_runs_appears_in_an_argv():
     from, so the form's tokens were a leading subsequence of every carried
     command by construction. Two route fields broke both halves. A `then` on
     the `runs` route gives that row a second `runs` form, and an
-    `argv_by_manager` makes the row's `argv` empty while its forms still come
-    from the route's shared `argv` - so a manager override that no longer
-    matches the shared form is a form declared `runs` that no partition's
-    command carries, which is exactly what this property is for.
+    `argv_by_partition` makes the row's `argv` empty while its forms still
+    come from the route's shared `argv` - so a partition override that no
+    longer matches the shared form is a form declared `runs` that no
+    partition's command carries, which is exactly what this property is for.
     """
     for inv in every_invocation():
         commands = [c for c in (argv_for(inv, p) for p in PARTITIONS) if c]
@@ -2598,9 +2599,9 @@ def _entry(check: str, tool: str) -> Invocation:
     `argv_by_partition` and `supplied_by_partition`. Each caller fetches one
     row it names, so the helper's population is not a scoping claim about
     those fields - and two of the three are populated on the routed path now
-    that `own_runner` and `argv_by_manager` are route fields, which is why the
-    claim that used to stand here (that no route ever populates them) is gone
-    rather than narrowed.
+    that `own_runner` and `argv_by_partition` are route fields, which is why
+    the claim that used to stand here (that no route ever populates them) is
+    gone rather than narrowed.
     """
     return next(i for i in INVOCATIONS if (i.check, i.tool) == (check, tool))
 
@@ -4113,7 +4114,7 @@ def _fake_route(**kw):
         "note": "",
         "then": (),
         "own_runner": False,
-        "argv_by_manager": {},
+        "argv_by_partition": {},
     }
     field.update(kw)
     return SimpleNamespace(**field)
@@ -4234,12 +4235,12 @@ def test_a_second_command_is_a_form_of_its_own(monkeypatch):
     assert row.then == ("t", "report")
 
 
-def test_a_routed_row_expands_a_per_manager_argv(monkeypatch):
-    """A route may carry both a shared argv and per-manager ones - the loader
-    requires the shared one on every command route - so an unnamed partition
-    takes the shared argv. A route cannot yet say that one manager has no
-    command at all, which is what #67 needs for `deps/inventory`'s PEP 751
-    partition.
+def test_a_routed_row_expands_a_per_partition_argv(monkeypatch):
+    """A route may carry both a shared argv and per-partition ones - the
+    loader requires the shared one on every command route - so an unnamed
+    partition takes the shared argv. A route cannot yet say that one
+    partition has no command at all, which is what #67 needs for
+    `deps/inventory`'s PEP 751 partition.
     """
     with _records_replaced_by(
         monkeypatch,
@@ -4248,7 +4249,7 @@ def test_a_routed_row_expands_a_per_manager_argv(monkeypatch):
                 _fake_route(
                     tool="cyclonedx-py",
                     argv=("cyclonedx-py", "requirements"),
-                    argv_by_manager={"uv": ("uv", "export", "--frozen")},
+                    argv_by_partition={"uv": ("uv", "export", "--frozen")},
                     own_runner=("uv",),
                 )
             )
@@ -4274,12 +4275,12 @@ def test_own_runner_true_covers_every_partition(monkeypatch):
 def test_own_runner_true_covers_the_partitions_a_shared_argv_falls_back_to(monkeypatch):
     """The combination `true` means, and the claim no validator can check.
 
-    A route may carry a shared `argv` and override only some managers. `true`
-    there says every command the route prescribes is complete as written - the
-    overrides and the shared fallback alike - so it threads to every partition,
-    including the ones running the fallback. That is the semantics, pinned here
-    because nothing else in the suite exercised the pair and the enumeration's
-    behaviour on it would otherwise be incidental.
+    A route may carry a shared `argv` and override only some partitions.
+    `true` there says every command the route prescribes is complete as
+    written - the overrides and the shared fallback alike - so it threads to
+    every partition, including the ones running the fallback. That is the
+    semantics, pinned here because nothing else in the suite exercised the
+    pair and the enumeration's behaviour on it would otherwise be incidental.
 
     It is also the shape an author can get wrong with no error anywhere.
     Whether a command needs a runner in front of it is a fact about the
@@ -4288,7 +4289,7 @@ def test_own_runner_true_covers_the_partitions_a_shared_argv_falls_back_to(monke
     whose shared fallback is not - `cyclonedx-py requirements`, which needs
     fetching - claims the fallback is complete and every partition running it
     then goes unfetched. The list form is the correct spelling there, naming
-    the managers whose command really is complete. Recorded rather than
+    the partitions whose command really is complete. Recorded rather than
     guarded, because the alternative is inferring the claim from whether the
     first token looks like a runner, which is the mechanism this whole schema
     exists to replace.
@@ -4299,7 +4300,7 @@ def test_own_runner_true_covers_the_partitions_a_shared_argv_falls_back_to(monke
             "x/y": _fake_record(
                 _fake_route(
                     argv=("cyclonedx-py", "requirements"),
-                    argv_by_manager={"uv": ("uv", "export", "--frozen")},
+                    argv_by_partition={"uv": ("uv", "export", "--frozen")},
                     own_runner=True,
                 )
             )
@@ -4313,9 +4314,9 @@ def test_own_runner_true_covers_the_partitions_a_shared_argv_falls_back_to(monke
     assert set(carried) == set(PARTITIONS)
 
 
-def test_a_manager_that_is_not_a_partition_is_refused_by_name(monkeypatch):
-    """A python route's `argv_by_manager` keys are this lens's partition names.
-    A key that is not one threads into an `argv_by_partition` entry
+def test_a_key_that_is_not_a_partition_is_refused_by_name(monkeypatch):
+    """A python route's `argv_by_partition` keys are this lens's partition
+    names. A key that is not one threads into an `argv_by_partition` entry
     `prescribed` never finds, so the command silently never runs.
     """
     with (
@@ -4323,7 +4324,7 @@ def test_a_manager_that_is_not_a_partition_is_refused_by_name(monkeypatch):
             monkeypatch,
             {
                 "x/y": _fake_record(
-                    _fake_route(argv=("t",), argv_by_manager={"pnpm": ("pnpm", "t")})
+                    _fake_route(argv=("t",), argv_by_partition={"pnpm": ("pnpm", "t")})
                 )
             },
         ),
