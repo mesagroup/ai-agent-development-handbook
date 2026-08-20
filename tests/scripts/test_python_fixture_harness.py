@@ -47,12 +47,14 @@ from run_python_fixture_lens import (
     REASONS,
     REPO_ROOT,
     STATUSES,
+    SUPPLIED,
     SUPPLIED_REQUIREMENTS,
     TOOL_PACKAGES,
     VENV_BIN,
     VERSION_PROBE,
     Completion,
     Invocation,
+    Supplied,
     _fixture_env,
     _forms_for,
     _run,
@@ -2668,9 +2670,10 @@ def test_a_supplied_route_is_exactly_the_two_named_holes():
     them is visible as supplied rather than prescribed. One appearing here
     unnoticed is a correction made by the harness.
 
-    Reads `INVOCATIONS` only: `supplied_by_partition` is a hand-written-table
-    field with no route counterpart, so this is already the whole population
-    that could ever carry one.
+    Reads `INVOCATIONS` only: a routed row can carry a supplied route too, from
+    `SUPPLIED`, but that mapping ships empty, so today this is still the whole
+    population - and stays so until a record migrates and its entry moves from
+    this table to that one.
     """
     supplied = {
         (i.check, i.tool, p): steps
@@ -2704,7 +2707,8 @@ def test_a_supplied_partition_is_never_one_the_record_prescribes_a_route_for():
     one says the record had no route and this round proposed one.
 
     Reads `INVOCATIONS` only, for the same reason as the pinned set above:
-    `supplied_by_partition` never occurs on a routed row.
+    a routed row could carry a supplied route through `SUPPLIED`, but that
+    overlay ships empty, so no routed row does yet.
     """
     for inv in INVOCATIONS:
         for partition, steps in inv.supplied_by_partition:
@@ -4136,6 +4140,61 @@ def test_a_completion_with_no_tokens_or_no_reason_is_rejected():
         Completion(tokens=(), note="why")
     with pytest.raises(ValueError, match="repaired command as a clean run"):
         Completion(tokens=("src",), note="")
+
+
+def test_a_supplied_route_with_no_steps_is_rejected():
+    with pytest.raises(ValueError, match="no steps is not a route"):
+        Supplied(by_partition=(), note="why")
+
+
+def test_a_supplied_route_with_no_note_is_rejected():
+    with pytest.raises(ValueError, match="needs the reason the record has none"):
+        Supplied(by_partition=(("pylock", (("uvx", "t"),)),), note="")
+
+
+def test_a_supplied_route_step_with_no_tokens_is_rejected():
+    """`(("pylock", ((),)),)` is a step, not an absent one.
+
+    `Supplied` still holds one row of `by_partition`, so the no-steps guard
+    above never sees it, and an empty step would otherwise reach
+    `_run_supplied` and execute as an empty command - which reports as a tool
+    that failed rather than as the hole in the record this class exists to
+    name.
+    """
+    with pytest.raises(ValueError, match="empty command to execute"):
+        Supplied(by_partition=(("pylock", ((),)),), note="why")
+
+
+def test_a_migrated_record_reads_its_supplied_route_from_the_overlay(monkeypatch):
+    """The round's contribution stays round-owned after a record migrates.
+
+    `Supplied` validates its own shape - a steps tuple that is empty, a
+    missing note, a step with no tokens - so this fake record needs none of
+    that repeated here. What it does need is a route that leaves `pylock`
+    with no prescribed command: a shared `argv` covers every partition
+    including `pylock`, and `_check_supplied` rejects that as a partition
+    carrying both a prescribed route and a supplied one, so the fake route
+    below prescribes nothing at all rather than reusing `_fake_route()`'s
+    default `argv=("t",)`.
+    """
+    steps = (("uvx", "t", "sub", "pylock.toml"),)
+    # The overlay has to be set before `_records_replaced_by` is entered:
+    # `routed_invocations` is cached and the context manager clears that cache
+    # only on entry and exit, so setting the overlay after entry would build
+    # the row from a cache filled before `SUPPLIED` carried anything, and the
+    # assertions below would pass for a row that never read it.
+    monkeypatch.setitem(
+        SUPPLIED,
+        ("x/y", "t"),
+        Supplied(
+            by_partition=(("pylock", steps),),
+            note="the record names no route at all for a PEP 751 file",
+        ),
+    )
+    with _records_replaced_by(monkeypatch, {"x/y": _fake_record(_fake_route(argv=()))}):
+        (row,) = routed_invocations()
+    assert row.supplied("pylock") == steps
+    assert row.supplied_note
 
 
 @pytest.mark.parametrize(
