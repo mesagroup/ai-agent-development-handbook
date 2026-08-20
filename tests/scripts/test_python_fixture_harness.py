@@ -2601,10 +2601,12 @@ def _entry(check: str, tool: str) -> Invocation:
     """A hand-written row by name, for the tests below `own_runner` and
     `argv_by_partition` and `supplied_by_partition`. Each caller fetches one
     row it names, so the helper's population is not a scoping claim about
-    those fields - and two of the three are populated on the routed path now
-    that `own_runner` and `argv_by_partition` are route fields, which is why
-    the claim that used to stand here (that no route ever populates them) is
-    gone rather than narrowed.
+    those fields - all three reach a routed row, the first two as route
+    fields and the third through the `SUPPLIED` overlay, which is why the
+    claim that used to stand here (that no route ever populates them) is
+    gone rather than narrowed. That the overlay is empty today is a fact
+    about its contents rather than about the path, so it is not what this
+    helper's callers rest on.
     """
     return next(i for i in INVOCATIONS if (i.check, i.tool) == (check, tool))
 
