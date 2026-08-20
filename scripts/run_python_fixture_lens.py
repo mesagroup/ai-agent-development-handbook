@@ -1222,6 +1222,54 @@ def _forms_for(route: object) -> tuple[tuple[str, str], ...]:
     return forms
 
 
+def _argv_by_partition(
+    check: str, tool: str, route: object
+) -> tuple[tuple[str, tuple[str, ...]], ...]:
+    """One entry per partition, where the record narrows the command per manager.
+
+    Returns `()` where the route names no manager, which leaves the row's
+    shared `argv` as the one command every partition runs.
+
+    A route may carry a shared `argv` and per-manager ones at once - the loader
+    requires the shared one on every command route - and `Invocation` admits
+    one or the other, so a route carrying both expands here: the override
+    where the route names the manager, the shared argv everywhere else. That
+    makes an unnamed partition inherit rather than have none, which is a limit
+    rather than a choice: a route cannot yet say that one manager has no
+    command at all.
+
+    Raises:
+        ValueError: If the route names a manager that is not a partition of
+            this lens. It would thread into an entry `prescribed` never finds,
+            so the command would silently never run.
+    """
+    if not route.argv_by_manager:
+        return ()
+    unknown = sorted(set(route.argv_by_manager) - set(PARTITIONS))
+    if unknown:
+        raise ValueError(
+            f"{check}/{tool}: argv_by_manager names {unknown}, which is not a "
+            f"partition of this lens ({list(PARTITIONS)}); a python route's "
+            "manager keys are partition names, and one that is not would thread "
+            "into a command no partition ever runs"
+        )
+    return tuple(
+        (p, tuple(route.argv_by_manager.get(p, route.argv))) for p in PARTITIONS
+    )
+
+
+def _own_runner_partitions(route: object) -> tuple[str, ...]:
+    """The partitions whose prescribed command takes no launcher prefix.
+
+    `True` on a route carrying one argv is every partition, because that one
+    command is what every partition runs. A list names managers, which for a
+    python route are partition names.
+    """
+    if route.own_runner is True:
+        return PARTITIONS
+    return tuple(route.own_runner) if route.own_runner else ()
+
+
 @cache
 def routed_invocations() -> tuple[Invocation, ...]:
     """Every row a migrated record prescribes, read from the record.
@@ -1308,10 +1356,11 @@ def routed_invocations() -> tuple[Invocation, ...]:
                     "would depend on their order in the record"
                 )
             supplied = COMPLETIONS.get((check_id, tool))
-            argv = tuple(runs[0].argv) if runs else ()
+            per_partition = _argv_by_partition(check_id, tool, runs[0]) if runs else ()
+            argv = () if per_partition else (tuple(runs[0].argv) if runs else ())
             if supplied:
                 note = supplied.note
-            elif argv:
+            elif argv or per_partition:
                 note = ""
             elif len(routes) == 1:
                 note = routes[0].note
@@ -1326,6 +1375,8 @@ def routed_invocations() -> tuple[Invocation, ...]:
                     check=check_id,
                     tool=tool,
                     argv=argv,
+                    argv_by_partition=per_partition,
+                    own_runner=_own_runner_partitions(runs[0]) if runs else (),
                     forms=tuple(f for r in commands for f in _forms_for(r)),
                     findings_stream=streams.pop(),
                     in_env=in_env.pop(),
