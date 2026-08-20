@@ -4292,16 +4292,16 @@ def test_a_routed_row_expands_a_per_partition_argv(monkeypatch):
     a route that also carries a shared argv, like this one, still cannot
     single one partition out from the rest.
 
-    Asserts `row.forms` too, not only `row.argv` and `row.argv_by_partition`:
-    this is the one live test exercising a route that carries both a shared
-    `argv` and `argv_by_partition` at once, and no check record has that
-    shape yet for the 50-row baseline comparison to hold it against. When a
-    later task adds one, that record's expectations get generated from this
-    same code, so a wrong `forms` derivation for the mixed case would
-    self-certify rather than get caught - the only thing standing between
-    that and a real check is this assertion. A sibling test already pins
-    `_forms_for` for the no-shared-argv case, which is not a reason to drop
-    this one: it is the only test covering the mixed shape at all.
+    Asserts `row.forms` too, not only `row.argv` and `row.argv_by_partition`,
+    and that assertion is the point of the test rather than a decoration on
+    it. No check record carries the mixed shape, so the 50-row baseline
+    comparison has nothing to hold a `forms` derivation for it against. When
+    a record does arrive, its expectations are generated from this same code,
+    so a wrong derivation for the mixed case would self-certify rather than
+    fail. Other tests construct the mixed shape for what they are each
+    about - `own_runner`'s fallback partitions, in the sibling below - and
+    none of them reads `forms`, so this assertion is where a wrong mixed-case
+    derivation is caught and deleting it as redundant loses that.
     """
     with _records_replaced_by(
         monkeypatch,
