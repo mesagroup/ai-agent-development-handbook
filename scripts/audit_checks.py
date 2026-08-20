@@ -419,13 +419,13 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
     has none for a second to follow and an empty second command is the
     absence the field exists to prevent; `own_runner`, which says a command
     needs no launcher prefix in front of it, is present only where `kind` is
-    `command`, is never written `false` since an absent key already carries
-    that meaning, never `true` beside `argv_by_manager` since that names one
-    complete command while claiming every manager's command is complete, and
-    never a list of manager names unless `argv_by_manager` carries every name
-    listed - and, whichever form it takes, never true beside `in_env`, whose
-    materialized environment the suppressed prefix would otherwise never
-    reach.
+    `command`, is never written `false` or as an empty list since an absent
+    key already carries what both of those would mean, is `true` where every
+    command the route prescribes needs no prefix - its shared `argv` and each
+    manager's entry alike - and is otherwise a list of manager names, rejected
+    unless `argv_by_manager` carries every name listed. Whichever form it
+    takes, it is never written beside `in_env`, whose materialized environment
+    the suppressed prefix would otherwise never reach.
 
     The empty list is rejected rather than tolerated because `routes: []` and
     an absent `routes` key are indistinguishable to everything downstream:

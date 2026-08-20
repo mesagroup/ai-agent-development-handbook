@@ -72,8 +72,9 @@ Each rejection names the route and says what the shape would mean, in the style 
 |---|---|
 | `then` or `own_runner` on a non-`command` route | nothing to sequence after, and no launcher prefix to suppress |
 | `then` present but empty, or not a list of strings | an empty follow-up is the absence the field exists to prevent |
-| `own_runner: true` beside `argv_by_manager` | says every manager's command is complete while naming per-manager commands; which won would depend on reading the loader |
 | `own_runner: [<manager>]` with no `argv_by_manager` | names managers the route does not distinguish |
+| `own_runner: []` | loads to exactly what an absent key loads to, so it claims nothing while reading as a claim - and it is what deleting the last name from a list leaves behind |
+| `then` repeating a command the route already prescribes | the two halves of the sequence are one command written twice, so the route's declared forms carry the same string twice - the ambiguity a form list cannot hold |
 | a manager in `own_runner` absent from `argv_by_manager` | the suppression applies to no command |
 | `own_runner` beside `in_env: true` | an `in_env` route needs the launcher's prefix to reach the materialized environment, so suppressing it is not a command that runs as written, it is one that never arrives |
 | `own_runner` neither `true` nor a list of strings | `false` is rejected too: the field's absence already says the launcher applies, so writing it means a claim, and `false` is the same claim spelled as its own opposite |
