@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 import python_fixture_spec
-from audit_checks import SKILLS_DIR, load_checks
+from audit_checks import SKILLS_DIR, _routes_answering_ungranted, load_checks
 from python_fixture_spec import (
     DEPENDENCIES,
     DEPS_CHECKS,
@@ -609,16 +609,20 @@ def test_the_ungranted_answer_is_stated_exactly_where_the_grant_changes_it():
     holds in both states. Deriving the requirement rather than eyeballing it is
     what stops a new expectation quietly omitting the axis.
 
-    The derivation is written in the legacy schema's fields and is exact only
-    there. A record declaring `routes:` reaches it with `ungranted_note` unset
-    and a `tooling`/`needs` pair projected from its routes, so the branch it
-    takes is the untiered one whatever its routes say. That happens to be the
-    right answer for every routes record rather than by luck: the routes
-    counterpart of `ungranted_note` carries the sentinel and no prose, so no
-    routes record ever has a second answer to state and this field is correctly
-    empty on all of them. What the derivation would stop catching is a routes
-    record that did owe one - which the schema cannot express today, and the
-    reason to widen this rather than trust it is the schema gaining a way to.
+    Two of the three conditions are schema-neutral and the third is not. Every
+    Python tool carrying a tier reads the same off a projected `tooling`/`needs`
+    pair as off a declared one, because the projection keeps a tool under its
+    language and under its tier. What the two schemas say differently is
+    whether anything still answers: a record declaring `tooling:` says it in
+    `ungranted_note`, and a record declaring `routes:` says it by keeping an
+    untiered answering route - `answers_ungranted` takes only the sentinel, so
+    on that schema an ungranted answer is never prose to read. Reading the note
+    on both would take the untiered branch for every migrated record whatever
+    its routes said, which is wrong for exactly the records whose untiered
+    route carries no tool at all: those project no tool, so the pair a
+    note-only derivation reads is the one place the answer is invisible.
+    `deps/freshness` is that shape - `uv` and `pip` both tiered, and a
+    registry-comparison route that needs no grant and names no tool.
     """
     checks, errors = load_checks(SKILLS_DIR)
     assert not errors, errors
@@ -626,13 +630,11 @@ def test_the_ungranted_answer_is_stated_exactly_where_the_grant_changes_it():
         record = checks[expectation.check]
         python_tools = set(record.tooling.get("python", ()))
         tiered = {t for names in (record.needs or {}).values() for t in names}
-        # Always "" on a routes record, which is the untiered branch and, per
-        # the docstring above, the right answer there for a structural reason
-        # rather than an accident of the field being absent.
-        note = (record.ungranted_note or "").strip()
-        differs = (
-            bool(python_tools) and python_tools <= tiered and note not in ("", "none")
-        )
+        if record.routes:
+            answers = bool(_routes_answering_ungranted(record.routes).get("python", ()))
+        else:
+            answers = (record.ungranted_note or "").strip() not in ("", "none")
+        differs = bool(python_tools) and python_tools <= tiered and answers
         assert bool(expectation.ungranted) == differs, (expectation.check, differs)
 
 
