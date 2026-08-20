@@ -60,7 +60,7 @@ routes:
       aliases and project references as the declared boundaries instead of
       reaching for this tool.
     argv: [npx, "--package", "typescript@^5", "--package", dependency-cruiser, "--", depcruise]
-    argv_by_manager:
+    argv_by_partition:
       pnpm: [pnpm, "--package=typescript@^5", "--package=dependency-cruiser", dlx, depcruise]
       yarn: [yarn, dlx, "-p", "typescript@^5", "-p", dependency-cruiser, depcruise]
     needs: resolved-tree
