@@ -1179,6 +1179,21 @@ def test_a_completed_argv_says_why_it_had_to_be_completed():
         )
 
 
+def test_a_routed_row_prescribing_no_command_carries_the_records_reason():
+    """The artifact says why a row ran nothing, in the record's own words.
+
+    `note` is written into the results row, so a row prescribing no command
+    and carrying no reason degrades the round's output rather than only its
+    docstrings: a reader sees an empty explanation where the record has one.
+    The reason is the record's, not this module's, which is the whole of why
+    it is read rather than transcribed.
+    """
+    for row in routed_invocations():
+        if row.argv or row.completion:
+            continue
+        assert row.note, (row.check, row.tool)
+
+
 def test_a_quote_is_a_sentence_rather_than_a_fragment():
     """Short fragments collide, and a colliding quote fails for the wrong reason.
 
