@@ -4267,6 +4267,23 @@ def test_two_partitions_prescribing_the_same_command_declare_it_once():
     assert _forms_for("c/x", "t", route) == (("t s", "runs"),)
 
 
+def test_two_partitions_prescribing_argv_that_joins_the_same_are_one_form():
+    """Dedup is on the joined string, not the argv tuple.
+
+    `("t", "run part")` and `("t", "run", "part")` are distinct tuples that
+    both join to `"t run part"`. Deduplicating tuples would let both through
+    as separate forms, and `_check_forms` would then raise on the joined
+    duplicate - the dedup here has to anticipate that, not just match it.
+    """
+    route = _fake_route(
+        kind="command",
+        tool="t",
+        argv=(),
+        argv_by_partition={"uv": ("t", "run part"), "pip": ("t", "run", "part")},
+    )
+    assert _forms_for("c/x", "t", route) == (("t run part", "runs"),)
+
+
 def test_a_routed_row_expands_a_per_partition_argv(monkeypatch):
     """A route may carry both a shared argv and per-partition ones, and an
     unnamed partition then takes the shared argv. That combination is still
@@ -4274,6 +4291,17 @@ def test_a_routed_row_expands_a_per_partition_argv(monkeypatch):
     argv at all can now say a partition the map does not name has none, but
     a route that also carries a shared argv, like this one, still cannot
     single one partition out from the rest.
+
+    Asserts `row.forms` too, not only `row.argv` and `row.argv_by_partition`:
+    this is the one live test exercising a route that carries both a shared
+    `argv` and `argv_by_partition` at once, and no check record has that
+    shape yet for the 50-row baseline comparison to hold it against. When a
+    later task adds one, that record's expectations get generated from this
+    same code, so a wrong `forms` derivation for the mixed case would
+    self-certify rather than get caught - the only thing standing between
+    that and a real check is this assertion. A sibling test already pins
+    `_forms_for` for the no-shared-argv case, which is not a reason to drop
+    this one: it is the only test covering the mixed shape at all.
     """
     with _records_replaced_by(
         monkeypatch,
@@ -4293,6 +4321,10 @@ def test_a_routed_row_expands_a_per_partition_argv(monkeypatch):
     assert dict(row.argv_by_partition)["uv"] == ("uv", "export", "--frozen")
     assert dict(row.argv_by_partition)["pip"] == ("cyclonedx-py", "requirements")
     assert row.own_runner == ("uv",)
+    assert row.forms == (
+        ("cyclonedx-py requirements", "runs"),
+        ("uv export --frozen", "runs"),
+    )
 
 
 def test_own_runner_true_covers_every_partition(monkeypatch):
@@ -4347,6 +4379,38 @@ def test_own_runner_true_covers_the_partitions_a_shared_argv_falls_back_to(monke
     assert set(carried) == set(PARTITIONS)
 
 
+def test_own_runner_true_on_a_route_with_no_shared_argv_covers_its_own_partitions(
+    monkeypatch,
+):
+    """`true` on a route with no shared argv used to raise regardless of
+    which partitions it named.
+
+    `_own_runner_partitions` expanded `true` to every entry in `PARTITIONS`
+    unconditionally, and `Invocation._check_own_runner` raises for an
+    own_runner partition with nothing prescribed - which every partition
+    this route's map does not name legitimately has, once a route may omit
+    the shared argv at all. A record writing exactly this shape would load
+    cleanly and then raise at `routed_invocations()`. `true` now covers only
+    the partitions the route prescribes a command for, so this shape loads
+    and enumerates instead.
+    """
+    with _records_replaced_by(
+        monkeypatch,
+        {
+            "x/y": _fake_record(
+                _fake_route(
+                    tool="t",
+                    argv=(),
+                    argv_by_partition={"uv": ("t", "u"), "pip": ("t", "p")},
+                    own_runner=True,
+                )
+            )
+        },
+    ):
+        (row,) = routed_invocations()
+    assert row.own_runner == ("uv", "pip")
+
+
 def test_a_key_that_is_not_a_partition_is_refused_by_name(monkeypatch):
     """A python route's `argv_by_partition` keys are this lens's partition
     names. A key that is not one threads into an `argv_by_partition` entry
@@ -4358,6 +4422,36 @@ def test_a_key_that_is_not_a_partition_is_refused_by_name(monkeypatch):
             {
                 "x/y": _fake_record(
                     _fake_route(argv=("t",), argv_by_partition={"pnpm": ("pnpm", "t")})
+                )
+            },
+        ),
+        pytest.raises(ValueError, match="not a partition"),
+    ):
+        routed_invocations()
+
+
+def test_a_bad_key_on_a_superseded_only_route_is_refused_too(monkeypatch):
+    """`_partition_keys`'s raise must fire from `_forms_for` on its own,
+    not only by way of `_argv_by_partition`.
+
+    The test above goes through `_argv_by_partition`, which only runs for
+    the `runs` route. A record whose only python command route for a tool is
+    `superseded`, with no `runs` route alongside it, never reaches
+    `_argv_by_partition` at all - `_forms_for` is the only call that ever
+    checks this route's keys, which is why it is called for every command
+    route rather than only the `runs` one.
+    """
+    with (
+        _records_replaced_by(
+            monkeypatch,
+            {
+                "x/y": _fake_record(
+                    _fake_route(
+                        tool="t",
+                        argv=(),
+                        argv_by_partition={"pnpm": ("pnpm", "t")},
+                        disposition="superseded",
+                    )
                 )
             },
         ),

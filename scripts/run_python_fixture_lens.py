@@ -1242,20 +1242,28 @@ def _forms_for(check: str, tool: str, route: object) -> tuple[tuple[str, str], .
     duplicate, and one command is one form whatever number of partitions run
     it.
 
+    Deduplicated on the joined string, not the argv tuple: `_check_forms` is
+    the authority on what collides, and it dedups on the string a form
+    actually is. Two distinct tuples can join to the same string wherever a
+    token carries an embedded space - `("a", "b c")` and `("a", "b", "c")`
+    both join to `"a b c"` - and deduplicating the tuples instead would let
+    both through, only for `_check_forms` to then raise on the joined
+    duplicate it never had a chance to avoid contributing.
+
     The `then` takes the route's disposition because it is that route's second
     half rather than a route of its own, and it is a form because the row runs
     it - left out, it is a command the row runs that no guard sees declared.
     """
-    commands: list[tuple[str, ...]] = []
+    forms: list[str] = []
     if route.argv:
-        commands.append(tuple(route.argv))
+        forms.append(" ".join(route.argv))
     for partition in _partition_keys(check, tool, route):
-        argv = tuple(route.argv_by_partition[partition])
-        if argv not in commands:
-            commands.append(argv)
+        joined = " ".join(route.argv_by_partition[partition])
+        if joined not in forms:
+            forms.append(joined)
     if route.then:
-        commands.append(tuple(route.then))
-    return tuple((" ".join(argv), route.disposition) for argv in commands)
+        forms.append(" ".join(route.then))
+    return tuple((form, route.disposition) for form in forms)
 
 
 def _argv_by_partition(
@@ -1302,12 +1310,20 @@ def _argv_by_partition(
     )
 
 
-def _own_runner_partitions(route: object) -> tuple[str, ...]:
+def _own_runner_partitions(check: str, tool: str, route: object) -> tuple[str, ...]:
     """The partitions whose prescribed command takes no launcher prefix.
 
-    `True` is every partition, because it claims every command the route
-    prescribes is complete as written - the shared argv, and each partition's
-    override. A list names partitions, and claims it of those alone.
+    `True` claims every command the route prescribes is complete as written,
+    and what that covers depends on whether the route has a shared `argv` to
+    fall back to. Where it does, every partition runs a command - its own
+    override, or the shared argv - so `True` covers all of `PARTITIONS`.
+    Where it does not, the route prescribes a command only for the
+    partitions its map names, so `True` is a claim about those alone; naming
+    an unnamed partition too would claim completeness for a command that
+    does not exist, which is exactly what `Invocation._check_own_runner`
+    rejects, so this stops short of the claim rather than making it and
+    relying on that guard to catch it. A list names partitions directly, and
+    claims it of those alone either way.
 
     Neither claim is checkable here, or by the loader: whether a command needs
     a runner in front of it is a fact about the command. So `True` on a route
@@ -1319,7 +1335,9 @@ def _own_runner_partitions(route: object) -> tuple[str, ...]:
     record makes and the reader checks.
     """
     if route.own_runner is True:
-        return PARTITIONS
+        if route.argv:
+            return PARTITIONS
+        return _partition_keys(check, tool, route)
     return tuple(route.own_runner) if route.own_runner else ()
 
 
@@ -1429,7 +1447,9 @@ def routed_invocations() -> tuple[Invocation, ...]:
                     tool=tool,
                     argv=argv,
                     argv_by_partition=per_partition,
-                    own_runner=_own_runner_partitions(runs[0]) if runs else (),
+                    own_runner=(
+                        _own_runner_partitions(check_id, tool, runs[0]) if runs else ()
+                    ),
                     forms=tuple(
                         f for r in commands for f in _forms_for(check_id, tool, r)
                     ),
