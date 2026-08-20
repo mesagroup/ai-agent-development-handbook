@@ -1600,15 +1600,18 @@ def test_every_form_the_harness_runs_appears_in_an_argv():
     two-command route through the quote, which a scrambled `then` fails wherever
     that command's tokens are the form's.
 
-    Left reading `INVOCATIONS` alone on purpose - bucket 1, not by omission.
-    A routed row's one `runs`-disposition form, where it has one, is built
-    from that same route's own `argv` (`routed_invocations` sets both `argv`
-    and `forms` from the identical `Route` object), and `argv_for` only ever
-    appends to it - so the form's tokens are always a leading subsequence of
-    every partition's carried command. There is no second copy for this to
-    fail against.
+    Reads both paths, and the reason it once read `INVOCATIONS` alone is worth
+    keeping as a record of how the premise failed. It rested on a routed row
+    having one `runs` form built from the same `Route` the row's `argv` came
+    from, so the form's tokens were a leading subsequence of every carried
+    command by construction. Two route fields broke both halves. A `then` on
+    the `runs` route gives that row a second `runs` form, and an
+    `argv_by_manager` makes the row's `argv` empty while its forms still come
+    from the route's shared `argv` - so a manager override that no longer
+    matches the shared form is a form declared `runs` that no partition's
+    command carries, which is exactly what this property is for.
     """
-    for inv in INVOCATIONS:
+    for inv in every_invocation():
         commands = [c for c in (argv_for(inv, p) for p in PARTITIONS) if c]
         if inv.then:
             commands.append(inv.then)
@@ -2592,9 +2595,12 @@ def test_the_partitions_needing_no_frozen_form_carry_their_resolution_in_a_file(
 
 def _entry(check: str, tool: str) -> Invocation:
     """A hand-written row by name, for the tests below `own_runner` and
-    `argv_by_partition` and `supplied_by_partition` - fields no migrated
-    record's route ever populates, so reading `INVOCATIONS` here is the whole
-    population those fields could ever come from.
+    `argv_by_partition` and `supplied_by_partition`. Each caller fetches one
+    row it names, so the helper's population is not a scoping claim about
+    those fields - and two of the three are populated on the routed path now
+    that `own_runner` and `argv_by_manager` are route fields, which is why the
+    claim that used to stand here (that no route ever populates them) is gone
+    rather than narrowed.
     """
     return next(i for i in INVOCATIONS if (i.check, i.tool) == (check, tool))
 
