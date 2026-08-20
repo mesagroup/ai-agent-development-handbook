@@ -861,6 +861,121 @@ def test_an_argv_by_manager_entry_must_be_non_empty(tmp_path):
     assert any("argv_by_manager" in e and "pnpm" in e for e in errors), errors
 
 
+def test_a_route_carries_a_second_command_in_sequence(tmp_path):
+    check = _one_route_record(
+        tmp_path,
+        "kind: command\n    tool: coverage.py\n    argv: [coverage, run, -m, pytest]"
+        "\n    then: [coverage, report, --show-missing]",
+    )
+    assert check.routes[0].then == ("coverage", "report", "--show-missing")
+
+
+def test_a_route_carries_no_second_command_by_default(tmp_path):
+    check = _one_route_record(tmp_path, "kind: command\n    tool: t\n    argv: [t]")
+    assert check.routes[0].then == ()
+    assert check.routes[0].own_runner is False
+
+
+@pytest.mark.parametrize("kind", ["library", "procedure", "subject"])
+def test_a_second_command_on_a_non_command_kind_is_rejected(tmp_path, kind):
+    errors = _errors_for_route(
+        tmp_path, f"kind: {kind}\n    tool: t\n    then: [t, --report]"
+    )
+    assert any("then" in e and kind in e for e in errors), errors
+
+
+@pytest.mark.parametrize("written", ["then: []", "then: t --report"])
+def test_a_second_command_that_is_not_a_non_empty_list_is_rejected(tmp_path, written):
+    errors = _errors_for_route(
+        tmp_path, f"kind: command\n    tool: t\n    argv: [t]\n    {written}"
+    )
+    assert any("then" in e for e in errors), errors
+
+
+def test_a_shared_argv_may_say_it_needs_no_runner(tmp_path):
+    check = _one_route_record(
+        tmp_path,
+        "kind: command\n    tool: cloc\n    argv: [npx, cloc]\n    own_runner: true",
+    )
+    assert check.routes[0].own_runner is True
+
+
+def test_a_per_manager_argv_names_the_managers_needing_no_runner(tmp_path):
+    check = _one_route_record(
+        tmp_path,
+        "kind: command\n    tool: cyclonedx-py\n    argv: [cyclonedx-py, requirements]"
+        "\n    argv_by_manager:\n      uv: [uv, export, --frozen]"
+        "\n    own_runner: [uv]",
+    )
+    assert check.routes[0].own_runner == ("uv",)
+
+
+def test_own_runner_true_beside_per_manager_argvs_is_rejected(tmp_path):
+    errors = _errors_for_route(
+        tmp_path,
+        "kind: command\n    tool: t\n    argv: [t]"
+        "\n    argv_by_manager:\n      uv: [uv, export]\n    own_runner: true",
+    )
+    assert any("own_runner" in e for e in errors), errors
+
+
+def test_own_runner_naming_managers_without_per_manager_argvs_is_rejected(tmp_path):
+    errors = _errors_for_route(
+        tmp_path, "kind: command\n    tool: t\n    argv: [t]\n    own_runner: [uv]"
+    )
+    assert any("own_runner" in e for e in errors), errors
+
+
+def test_own_runner_naming_a_manager_the_route_does_not_carry_is_rejected(tmp_path):
+    errors = _errors_for_route(
+        tmp_path,
+        "kind: command\n    tool: t\n    argv: [t]"
+        "\n    argv_by_manager:\n      uv: [uv, export]\n    own_runner: [poetry]",
+    )
+    assert any("poetry" in e for e in errors), errors
+
+
+@pytest.mark.parametrize("kind", ["library", "procedure", "subject"])
+def test_own_runner_on_a_non_command_kind_is_rejected(tmp_path, kind):
+    errors = _errors_for_route(
+        tmp_path, f"kind: {kind}\n    tool: t\n    own_runner: true"
+    )
+    assert any("own_runner" in e and kind in e for e in errors), errors
+
+
+def test_own_runner_beside_in_env_is_rejected(tmp_path):
+    """An `in_env` route needs the launcher's prefix to reach the materialized
+    environment, so suppressing the prefix there is not a command that runs as
+    written - it is one that never arrives. `Invocation` rejects the same pair
+    from the other side.
+    """
+    errors = _errors_for_route(
+        tmp_path,
+        "kind: command\n    tool: t\n    argv: [t]\n    in_env: true"
+        "\n    own_runner: true",
+    )
+    assert any("own_runner" in e and "in_env" in e for e in errors), errors
+
+
+def test_own_runner_written_false_is_rejected(tmp_path):
+    """The absence of the key already says the launcher applies, so writing the
+    field is a claim - and `false` is that claim spelled as its own opposite,
+    which reads to the next author as a considered decision rather than as a
+    key that should not be there.
+    """
+    errors = _errors_for_route(
+        tmp_path, "kind: command\n    tool: t\n    argv: [t]\n    own_runner: false"
+    )
+    assert any("own_runner" in e for e in errors), errors
+
+
+def test_own_runner_that_is_neither_true_nor_a_list_is_rejected(tmp_path):
+    errors = _errors_for_route(
+        tmp_path, "kind: command\n    tool: t\n    argv: [t]\n    own_runner: 1"
+    )
+    assert any("own_runner" in e for e in errors), errors
+
+
 def test_a_route_defaults_to_the_any_language(tmp_path):
     """No test above names `lang:` on a route, and every one of them must
     still load clean - so the default has to be a value nothing in

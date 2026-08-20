@@ -211,6 +211,8 @@ ROUTE_FIELDS = frozenset(
         "applies_when",
         "alone_insufficient",
         "note",
+        "then",
+        "own_runner",
     }
 )
 FIELDS = frozenset(
@@ -247,6 +249,22 @@ class Route:
     artifact from a tool that is the check's subject rather than its
     instrument - three different reasons a route might prescribe no command,
     each needing its own field to be checked rather than read as prose.
+
+    `then` holds a second command the record prescribes in sequence, where it
+    does: `coverage run -m pytest` followed by `coverage report
+    --show-missing` is one route, not two, and dropping the half that prints
+    the report would leave the route looking like a tool that produced
+    nothing. `own_runner` says the prescribed command is complete as written,
+    so whatever launcher a lens would put in front of it puts nothing: `True`
+    where the route's one argv needs no runner, or the managers whose
+    `argv_by_manager` command needs none.
+
+    Both fields are unused by any record in this tree. Their first users are
+    `test/coverage-reach` (`then`) and `deps/inventory` (`own_runner`), which
+    migrate in #67 - they are the two records stage 4 could not migrate at
+    all, which is why the schema moved first. Nine `arch` routes are already
+    runner-led (`npx --package typescript@^5 ...`, `npx cloc`) and say
+    nothing, because no lens runs a `lang: typescript` route today.
     """
 
     lang: str
@@ -262,6 +280,8 @@ class Route:
     applies_when: str | None
     alone_insufficient: str | None
     note: str | None
+    then: tuple[str, ...]
+    own_runner: bool | tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -379,7 +399,19 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
     `argv` and `argv_by_manager` are present only where `kind` is `command`,
     and every argv they name - `argv` itself, and each manager's entry
     under `argv_by_manager` - is non-empty there; a `disposition` other than
-    `runs` appears only where `kind` is `command`.
+    `runs` appears only where `kind` is `command`; `then`, a second command in
+    sequence, is present only where `kind` is `command` and, where present, is
+    a non-empty list of argv strings, because a route with no first command
+    has none for a second to follow and an empty second command is the
+    absence the field exists to prevent; `own_runner`, which says a command
+    needs no launcher prefix in front of it, is present only where `kind` is
+    `command`, is never written `false` since an absent key already carries
+    that meaning, never `true` beside `argv_by_manager` since that names one
+    complete command while claiming every manager's command is complete, and
+    never a list of manager names unless `argv_by_manager` carries every name
+    listed - and, whichever form it takes, never true beside `in_env`, whose
+    materialized environment the suppressed prefix would otherwise never
+    reach.
 
     The empty list is rejected rather than tolerated because `routes: []` and
     an absent `routes` key are indistinguishable to everything downstream:
@@ -540,6 +572,84 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
             errors.append(f"{loc}: in_env must be a boolean, got {in_env!r}")
             in_env = bool(in_env)
 
+        raw_then = entry.get("then")
+        then: tuple[str, ...] = ()
+        if raw_then is not None:
+            if kind != "command":
+                errors.append(
+                    f"{loc}: then is only valid on a command route, not {kind!r} - "
+                    "there is no first command for a second to follow"
+                )
+            else:
+                names = _str_list(raw_then)
+                if names is None:
+                    errors.append(f"{loc}: then must be a list of argv strings")
+                elif not names:
+                    errors.append(
+                        f"{loc}: then is empty - a route prescribing a second "
+                        "command carries it, and an empty one is the absence the "
+                        "field exists to prevent"
+                    )
+                else:
+                    then = names
+
+        raw_own_runner = entry.get("own_runner")
+        own_runner: bool | tuple[str, ...] = False
+        if raw_own_runner is not None:
+            if kind != "command":
+                errors.append(
+                    f"{loc}: own_runner is only valid on a command route, not "
+                    f"{kind!r} - a route prescribing no command has no launcher "
+                    "prefix to suppress"
+                )
+            elif raw_own_runner is True:
+                if argv_by_manager:
+                    errors.append(
+                        f"{loc}: own_runner is true beside argv_by_manager, which "
+                        "says every manager's command is complete while naming "
+                        "commands per manager; name the managers whose command "
+                        "needs no runner instead"
+                    )
+                else:
+                    own_runner = True
+            elif raw_own_runner is False:
+                errors.append(
+                    f"{loc}: own_runner is false - an absent key already says the "
+                    "launcher applies, so writing the field is a claim, and false "
+                    "is that claim spelled as its own opposite. Drop the key"
+                )
+            else:
+                names = _str_list(raw_own_runner)
+                if names is None:
+                    errors.append(
+                        f"{loc}: own_runner must be true or a list of manager "
+                        f"names, got {raw_own_runner!r}"
+                    )
+                elif not argv_by_manager:
+                    errors.append(
+                        f"{loc}: own_runner names {list(names)} and the route "
+                        "carries no argv_by_manager, so it names managers this "
+                        "route does not distinguish; write true where the one "
+                        "argv needs no runner"
+                    )
+                else:
+                    unknown = [n for n in names if n not in argv_by_manager]
+                    if unknown:
+                        errors.append(
+                            f"{loc}: own_runner names {unknown}, which "
+                            "argv_by_manager does not carry, so the suppressed "
+                            "prefix applies to no command"
+                        )
+                    else:
+                        own_runner = names
+            if own_runner and in_env:
+                errors.append(
+                    f"{loc}: own_runner beside in_env - an in_env route needs the "
+                    "launcher's prefix to reach the materialized environment, so "
+                    "suppressing it is not a command that runs as written, it is "
+                    "one that never arrives"
+                )
+
         applies_when = entry.get("applies_when")
         if applies_when is not None and not isinstance(applies_when, str):
             errors.append(f"{loc}: applies_when must be a string, got {applies_when!r}")
@@ -573,6 +683,8 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
                 applies_when=applies_when,
                 alone_insufficient=alone_insufficient,
                 note=note,
+                then=then,
+                own_runner=own_runner,
             )
         )
 
