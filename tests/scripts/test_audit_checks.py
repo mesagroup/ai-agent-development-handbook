@@ -2312,7 +2312,10 @@ def test_every_tooling_record_offers_a_typescript_lens():
     projected `python:` entry would vanish, and two guards in
     `test_python_fixture_harness.py` carry it: the per-tool split naming the
     checks whose records offer `ruff`, and the three-way equality between
-    the records carrying a `python:` entry, `INVOCATIONS` and `EXPECTATIONS`.
+    the records carrying a `python:` entry, the checks the harness runs and
+    `EXPECTATIONS`. The harness's side of that equality is both of its
+    enumeration sources, so for `arch/complexity-gate` it is the record's own
+    routes rather than a transcription that carries the entry.
     """
     checks, errors = ac.load_checks(ac.SKILLS_DIR)
     assert errors == []
