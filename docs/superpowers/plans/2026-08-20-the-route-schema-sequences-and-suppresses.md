@@ -277,6 +277,8 @@ Insert after the `in_env` block - `own_runner`'s rejection needs both `argv_by_m
 
 Pass both at the construction site: `then=then,` and `own_runner=own_runner,`.
 
+**Abandoned after Task 4's review, and left here as what was planned.** The `own_runner is True` branch above rejects the field beside `argv_by_manager`. Four of the five routes in the tree that would carry this flag have runner-led per-manager overrides, so that rule refuses the field to its own users and leaves the shared argv - what an unnamed manager runs - unable to say it is complete. `true` became a claim about every command the route prescribes; the spec's own section records the reversal and what refuted it.
+
 - [ ] **Step 5: Extend the `_load_routes` docstring**
 
 The docstring enumerates what the loader checks. Add a sentence naming both new fields and their rejections, in its existing voice; it is prose about the code, so state the structural reason rather than the current count.
