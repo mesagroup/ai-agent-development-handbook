@@ -1,13 +1,22 @@
 """Run every `python:` tooling entry against the seeded fixtures (#45).
 
-The table below holds **each check record's prescribed invocation verbatim**,
-keyed by the (check, tool) pair, with the record's own sentence quoted beside
-it. That is the mechanism rather than the decoration: somebody running these by
-hand repairs a broken command as they go and the repair never reaches the
-record, whereas here the deviation needed to make a tool work is a diff against
-the transcription. So `argv` is what the record says, `completion` is what had
-to be added for the command to run at all, and `note` says why - and the set of
-entries carrying a completion is a finding list before any tool has spoken.
+A row is one check record's prescribed way of running one tool, keyed by the
+(check, tool) pair, and the rows come from two places. A record that declares
+its commands as `routes:` data is read directly, by `routed_invocations`. A
+record whose fallback still lives in prose is **transcribed verbatim** into the
+table below, with the record's own sentence quoted beside it. `invocations_for`
+returns both, and the properties in the test module say which population each
+of them reads.
+
+Either way the point is the same, and it is the mechanism rather than the
+decoration: somebody running these by hand repairs a broken command as they go
+and the repair never reaches the record, whereas here the deviation needed to
+make a tool work is a diff against what the record prescribes. So `argv` is
+what the record says, `completion` is what had to be added for the command to
+run at all, and `note` says why - and the set of rows carrying a completion is
+a finding list before any tool has spoken. What changes between the two
+populations is only where `argv` is read from, which is why a transcribed row
+carries `record_quote` to anchor it and a routed row has nothing to anchor.
 
 A route the record does not prescribe at all is a third thing, and it is held
 apart from both: `supplied_by_partition` carries a command **this round
@@ -25,7 +34,7 @@ second copy of a fact the records already state is a copy free to drift:
 * which checks a partition runs, read out of `expectations_for`, so the harness
   cannot run a set the published record does not grade;
 * which tools exist at all, read out of every record's `tooling.python`, which
-  is what the exact-set guard in the tests compares the table against.
+  is what the exact-set guard in the tests compares both populations against.
 
 `classify` maps one observation into the engine's vocabulary and never leaves
 it. **A non-zero exit is not a tool failure by itself - for a tool proven
@@ -234,7 +243,7 @@ FROZEN_FORM = {
 # What reports each tool's own version, appended after `launcher`'s prefix the
 # same way `argv` is - so a `uvx`-fetched tool answers with the version `uvx`
 # actually resolved, not a version transcribed once and left to drift. Every
-# tool `INVOCATIONS` names has an entry, `None` where it does not, and `None` is
+# tool either population names has an entry, `None` where it does not, and it is
 # only legal beside a reason in `NO_VERSION_ROUTE`: the same shape as
 # `ungranted_note`'s `none` sentinel, and for the same reason - an omitted entry
 # must never read as a silent default.
@@ -299,8 +308,8 @@ VERSION_PROBE: dict[str, tuple[str, ...] | None] = {
     ),
 }
 
-# Empty on purpose rather than absent: every tool `INVOCATIONS` names turned out
-# to have a working route, verified by hand against the installed package and
+# Empty on purpose rather than absent: every tool the harness enumerates, from
+# the table or from a record's routes, turned out to have a working route, verified by hand against the installed package and
 # against the actual command `launcher` resolves for it (not just that some
 # `--version` or `importlib.metadata` form exists in isolation) - so there is
 # nothing here to explain. The dict stays because `probe_versions` reads it, and
@@ -2094,7 +2103,10 @@ def main(argv: list[str] | None = None) -> int:
         than an error here: the round exists to record what came back.
     """
     parser = argparse.ArgumentParser(
-        description="Run the transcribed python: invocations against one fixture."
+        description=(
+            "Run each check record's prescribed python: tooling against one "
+            "seeded fixture partition."
+        )
     )
     parser.add_argument("partition", choices=list(PARTITIONS))
     parser.add_argument("--grant", choices=list(GRANTS), default="target-execution")
