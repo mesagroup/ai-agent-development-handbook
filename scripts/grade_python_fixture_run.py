@@ -19,11 +19,16 @@ never a fail.
 A results entry never carries its own `findings_stream`: `run_python_fixture_lens.py`
 uses the field internally to classify a row and never writes it into the row
 dict (confirmed against `fixtures/python/results/pip-none.json`, a real written
-run). So `observations_for` looks the stream up from the harness's own
-`INVOCATIONS` table rather than defaulting to stdout - the default that scores
-deptry, which writes its whole report to stderr, as having found nothing.
+run). So `observations_for` looks the stream up from the harness's own enumeration
+rather than defaulting to stdout - the default that scores deptry, which writes
+its whole report to stderr, as having found nothing. The enumeration is both of
+the harness's sources, `INVOCATIONS` for the checks whose fallback lives in
+prose and the routes read from the records that declare them, because a lookup
+built from one of the two resolves nothing for every row of the other. Reading
+only the table would leave every migrated check's row unresolved on every run,
+which is not the rare staleness the sentinel below exists for.
 
-That lookup can fail on a (check, tool) pair `INVOCATIONS` does not carry, and
+That lookup can fail on a (check, tool) pair the enumeration does not carry, and
 this is the second thing a naive grader would get wrong: defaulting to stdout
 there would silently misread the row, but raising loses every other row in
 the same run over one stale entry. `fe2b0e42` (#45) is a real instance rather
@@ -74,7 +79,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from python_fixture_spec import SEED_MARKERS, Expectation, expectations_for
-from run_python_fixture_lens import INVOCATIONS
+from run_python_fixture_lens import INVOCATIONS, routed_invocations
 
 # One results JSON, exactly as the harness wrote it. A plain dict rather than a
 # dataclass or a TypedDict instance: `grade_rows` is exercised directly against
@@ -85,19 +90,22 @@ Run = dict[str, object]
 REQUIRED_RUN_KEYS = ("grant", "partition", "results")
 
 # What each (check, tool) pair reports its findings on, read from the harness's
-# own `Invocation` table rather than copied here. A results entry never carries
-# this itself, so the table is the only source, and a second copy of it here
-# would be free to drift from the one the harness actually runs against.
+# own enumeration rather than copied here. A results entry never carries this
+# itself, so the enumeration is the only source, and a second copy of it here
+# would be free to drift from the one the harness actually runs against. Both
+# of its sources are read: a lookup built from `INVOCATIONS` alone leaves every
+# row of every migrated record unresolved, which the grader test module holds
+# against it.
 _FINDINGS_STREAM: dict[tuple[str, str], str] = {
     (invocation.check, invocation.tool): invocation.findings_stream
-    for invocation in INVOCATIONS
+    for invocation in INVOCATIONS + routed_invocations()
 }
 
 # Not a real stream name - `seed_signals` looks this key up on the entry
 # itself (`entry.get(sentinel, "")`) and an entry never sets it, so the read
 # always comes back empty rather than falling through to stdout. Stands in
-# for a (check, tool) pair `INVOCATIONS` no longer carries, so a stale results
-# row can still be graded and rendered instead of aborting the whole run.
+# for a (check, tool) pair the enumeration no longer carries, so a stale
+# results row can still be graded and rendered instead of aborting the run.
 UNRESOLVED_FINDINGS_STREAM = "unresolved"
 
 
@@ -127,12 +135,13 @@ def _findings_stream_for(entry: dict[str, object]) -> str:
     The entry's own `findings_stream` where a caller has already set one - the
     tests that pin `seed_signals` directly do this, and neither carries a
     `check`/`tool` pair a lookup could resolve. Otherwise, the stream the
-    harness's own `INVOCATIONS` table says this (check, tool) pair uses.
+    harness's own enumeration says this (check, tool) pair uses - both of its
+    sources, the hand-written table and the routes read from the records.
 
     Returns `UNRESOLVED_FINDINGS_STREAM` rather than raising on an unknown
     pair. A results entry naming a (check, tool) the harness never
     transcribed is not a fact this module can answer for, but it is also not
-    a caller error: a stale results file naming a tool `INVOCATIONS` used to
+    a caller error: a stale results file naming a tool the enumeration used to
     carry for this check and no longer does (`fe2b0e42`, #45, is a real
     instance) is exactly the kind of drift `fixtures/` being gitignored
     invites, the same way an orphan row's check does. Defaulting to stdout
