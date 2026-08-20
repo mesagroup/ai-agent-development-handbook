@@ -608,8 +608,9 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
                             f"{loc}: argv_by_partition[{partition!r}] is empty - a "
                             "command route carries a command for every partition "
                             "it names, and an empty one declares that partition "
-                            "answered by nothing at all, which is the absence "
-                            "the non-empty argv rule already rejects"
+                            "answered by nothing at all, which is the same "
+                            "absence a written-but-empty shared argv is rejected "
+                            "for"
                         )
                         continue
                     argv_by_partition[partition] = names
