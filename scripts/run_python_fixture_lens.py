@@ -690,7 +690,7 @@ COMPLETIONS: dict[tuple[str, str], Completion] = {
         ),
     ),
     ("arch/cycles", "pydeps"): Completion(
-        tokens=("src/fixture_app",),
+        tokens=(f"src/{PACKAGE}",),
         note="pydeps takes the package to graph and the record names none",
     ),
     ("arch/dead-code", "vulture"): Completion(
