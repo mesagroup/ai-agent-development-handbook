@@ -704,7 +704,59 @@ def test_an_argv_on_a_non_command_kind_is_rejected(tmp_path, kind):
 
 def test_a_command_route_must_carry_an_argv(tmp_path):
     errors = _errors_for_route(tmp_path, "kind: command\n    tool: pydeps")
-    assert any("argv" in e for e in errors), errors
+    assert any("no command at all" in e for e in errors), errors
+
+
+def test_a_command_route_may_name_per_partition_commands_and_no_shared_argv(tmp_path):
+    """`deps/inventory` prescribes a subcommand per dependency file and none for PEP 751.
+
+    Read as default-plus-overrides, a shared argv makes an unnamed partition
+    inherit rather than have none, and there is no command to inherit that
+    would be true: `cyclonedx-py requirements` on a tree with no requirements
+    file runs and answers about nothing.
+    """
+    errors = _errors_for_route(
+        tmp_path,
+        "kind: command\n    tool: t\n"
+        "    argv_by_partition:\n      uv: [t, u]\n      pip: [t, p]",
+    )
+    assert errors == []
+
+
+def test_a_command_route_carrying_neither_argv_nor_per_partition_commands_is_rejected(
+    tmp_path,
+):
+    """The relaxation is about where the command lives, not about having one."""
+    errors = _errors_for_route(tmp_path, "kind: command\n    tool: t")
+    assert any("no command at all" in e for e in errors), errors
+
+
+def test_an_argv_that_is_not_a_list_of_strings_is_rejected(tmp_path):
+    """`_str_list` returns `None` for a value that is not a list of strings,
+    the same as for an absent key, so a bare string written beside
+    `argv_by_partition` would otherwise pass as an absent shared argv rather
+    than as the mistake it is.
+    """
+    errors = _errors_for_route(
+        tmp_path,
+        "kind: command\n    tool: t\n    argv: deptry\n"
+        "    argv_by_partition:\n      uv: [t, u]",
+    )
+    assert any("argv must be a list of argv strings" in e for e in errors), errors
+
+
+def test_an_empty_argv_beside_per_partition_commands_is_rejected(tmp_path):
+    """`_str_list([]) or ()` and `_str_list(None) or ()` both evaluate to
+    `()`, but only the absent key is the deliberate omission that lets a
+    partition the map does not name have no command; a written empty list
+    says nothing and is rejected on its own terms.
+    """
+    errors = _errors_for_route(
+        tmp_path,
+        "kind: command\n    tool: t\n    argv: []\n"
+        "    argv_by_partition:\n      uv: [t, u]",
+    )
+    assert any("argv is present and empty" in e for e in errors), errors
 
 
 @pytest.mark.parametrize("disposition", ["alternative", "superseded", "forbidden"])

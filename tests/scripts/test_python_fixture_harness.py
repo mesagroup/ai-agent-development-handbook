@@ -54,6 +54,7 @@ from run_python_fixture_lens import (
     Completion,
     Invocation,
     _fixture_env,
+    _forms_for,
     _run,
     argv_for,
     classify,
@@ -4235,12 +4236,44 @@ def test_a_second_command_is_a_form_of_its_own(monkeypatch):
     assert row.then == ("t", "report")
 
 
+def test_a_route_with_no_shared_argv_takes_its_forms_from_the_per_partition_commands():
+    """Otherwise the row declares the empty string as a form.
+
+    `Invocation._check_forms` raises on it, so the failure is loud rather than
+    silent - which is the only reason this is a design decision and not a
+    defect waiting for the first record to carry the shape. Each per-partition
+    command is a command the row runs, so each is a form; a form no command
+    carries and a command no form declares are the two halves the guards hold
+    against each other, and a form derived from the shared argv alone would
+    leave every per-partition command in the second category.
+    """
+    route = _fake_route(
+        kind="command",
+        tool="t",
+        argv=(),
+        argv_by_partition={"uv": ("t", "u"), "pip": ("t", "p")},
+    )
+    assert _forms_for("c/x", "t", route) == (("t u", "runs"), ("t p", "runs"))
+
+
+def test_two_partitions_prescribing_the_same_command_declare_it_once():
+    """`_check_forms` raises on a duplicate form, and one command is one form."""
+    route = _fake_route(
+        kind="command",
+        tool="t",
+        argv=(),
+        argv_by_partition={"uv": ("t", "s"), "pip": ("t", "s")},
+    )
+    assert _forms_for("c/x", "t", route) == (("t s", "runs"),)
+
+
 def test_a_routed_row_expands_a_per_partition_argv(monkeypatch):
-    """A route may carry both a shared argv and per-partition ones - the
-    loader requires the shared one on every command route - so an unnamed
-    partition takes the shared argv. A route cannot yet say that one
-    partition has no command at all, which is what #67 needs for
-    `deps/inventory`'s PEP 751 partition.
+    """A route may carry both a shared argv and per-partition ones, and an
+    unnamed partition then takes the shared argv. That combination is still
+    the one shape #67 leaves unexpressed after this: a route with no shared
+    argv at all can now say a partition the map does not name has none, but
+    a route that also carries a shared argv, like this one, still cannot
+    single one partition out from the rest.
     """
     with _records_replaced_by(
         monkeypatch,

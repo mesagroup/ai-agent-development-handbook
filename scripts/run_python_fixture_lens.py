@@ -1208,18 +1208,54 @@ def grant_tier(check: str, tool: str) -> str:
     return ""
 
 
-def _forms_for(route: object) -> tuple[tuple[str, str], ...]:
-    """The forms one command route contributes: its own, and its `then`'s.
+def _partition_keys(check: str, tool: str, route: object) -> tuple[str, ...]:
+    """The route's per-partition keys, checked against this lens's partitions.
 
-    A `then` contributing no form would leave the second command out of
-    `forms` while the row still ran it, and every property reading forms would
-    still pass. The follow-up takes the route's disposition because it is that
-    route's second half rather than a route of its own.
+    Held for every command route rather than only the `runs` one, because a
+    form is derived from every command route: a key outside `PARTITIONS` on a
+    `superseded` route would contribute a form no partition could ever run,
+    which reads as a record whose prescription the harness ignores.
+
+    Raises:
+        ValueError: If the route names a key that is not a partition of
+            this lens. It would thread into an entry `prescribed` never finds,
+            so the command would silently never run.
     """
-    forms = ((" ".join(route.argv), route.disposition),)
+    unknown = sorted(set(route.argv_by_partition) - set(PARTITIONS))
+    if unknown:
+        raise ValueError(
+            f"{check}/{tool}: argv_by_partition names {unknown}, which is not a "
+            f"partition of this lens ({list(PARTITIONS)}); a python route's keys "
+            "are partition names, and one that is not would thread into a "
+            "command no partition ever runs"
+        )
+    return tuple(route.argv_by_partition)
+
+
+def _forms_for(check: str, tool: str, route: object) -> tuple[tuple[str, str], ...]:
+    """Every distinct command this route prescribes, as a form.
+
+    Its shared `argv` where it has one, each per-partition command, and its
+    `then`. A route with no shared argv would otherwise contribute the empty
+    string, which `Invocation._check_forms` raises on. Two partitions
+    prescribing the same command contribute one form: `_check_forms` rejects a
+    duplicate, and one command is one form whatever number of partitions run
+    it.
+
+    The `then` takes the route's disposition because it is that route's second
+    half rather than a route of its own, and it is a form because the row runs
+    it - left out, it is a command the row runs that no guard sees declared.
+    """
+    commands: list[tuple[str, ...]] = []
+    if route.argv:
+        commands.append(tuple(route.argv))
+    for partition in _partition_keys(check, tool, route):
+        argv = tuple(route.argv_by_partition[partition])
+        if argv not in commands:
+            commands.append(argv)
     if route.then:
-        forms += ((" ".join(route.then), route.disposition),)
-    return forms
+        commands.append(tuple(route.then))
+    return tuple((" ".join(argv), route.disposition) for argv in commands)
 
 
 def _argv_by_partition(
@@ -1230,29 +1266,37 @@ def _argv_by_partition(
     Returns `()` where the route names no partition, which leaves the row's
     shared `argv` as the one command every partition runs.
 
-    A route may carry a shared `argv` and per-partition ones at once - the
-    loader requires the shared one on every command route - and `Invocation`
-    admits one or the other, so a route carrying both expands here: the
-    override where the route names the partition, the shared argv everywhere
-    else. That makes an unnamed partition inherit rather than have none,
-    which is a limit rather than a choice: a route cannot yet say that one
-    partition has no command at all.
+    A route may carry a shared `argv` and per-partition ones at once, and
+    `Invocation` admits one or the other, so a route carrying both expands
+    here: the override where the route names the partition, the shared argv
+    everywhere else - `.get(partition, route.argv)` falls back to the shared
+    command for a partition the map does not name. Where the route carries no
+    shared `argv`, that fallback is `()`, so a partition the map does not name
+    has no command at all rather than inheriting one; the loader now permits
+    an absent shared `argv` beside a present `argv_by_partition` for exactly
+    this.
+
+    What still has no spelling is the opposite shape: a route that carries a
+    non-empty shared `argv` and needs one particular partition to have none of
+    its own. Naming that partition in the map only offers it a different
+    command, never withholds one, because the fallback for every other
+    partition is the shared argv itself, and the loader rejects an empty
+    per-partition entry outright. No record in the tree is that shape, and it
+    gets no spelling until one is.
 
     Raises:
         ValueError: If the route names a key that is not a partition of
-            this lens. It would thread into an entry `prescribed` never finds,
-            so the command would silently never run.
+            this lens, via `_partition_keys`. This function runs only for the
+            `runs` route, so a bad key on a `superseded` or `alternative`
+            route would otherwise reach `forms` unchecked and declare a form
+            no partition could run; `_forms_for` calls `_partition_keys` for
+            every command route for that reason, and this call keeps this
+            function's own check reachable too rather than only reachable
+            through that other caller.
     """
     if not route.argv_by_partition:
         return ()
-    unknown = sorted(set(route.argv_by_partition) - set(PARTITIONS))
-    if unknown:
-        raise ValueError(
-            f"{check}/{tool}: argv_by_partition names {unknown}, which is not a "
-            f"partition of this lens ({list(PARTITIONS)}); a python route's "
-            "argv_by_partition keys are partition names, and one that is not "
-            "would thread into a command no partition ever runs"
-        )
+    _partition_keys(check, tool, route)
     return tuple(
         (p, tuple(route.argv_by_partition.get(p, route.argv))) for p in PARTITIONS
     )
@@ -1386,7 +1430,9 @@ def routed_invocations() -> tuple[Invocation, ...]:
                     argv=argv,
                     argv_by_partition=per_partition,
                     own_runner=_own_runner_partitions(runs[0]) if runs else (),
-                    forms=tuple(f for r in commands for f in _forms_for(r)),
+                    forms=tuple(
+                        f for r in commands for f in _forms_for(check_id, tool, r)
+                    ),
                     findings_stream=streams.pop(),
                     in_env=in_env.pop(),
                     completion=supplied.tokens if supplied else (),
