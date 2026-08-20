@@ -923,7 +923,9 @@ def test_own_runner_naming_managers_without_per_manager_argvs_is_rejected(tmp_pa
     errors = _errors_for_route(
         tmp_path, "kind: command\n    tool: t\n    argv: [t]\n    own_runner: [uv]"
     )
-    assert any("own_runner" in e for e in errors), errors
+    assert any("own_runner" in e and "does not distinguish" in e for e in errors), (
+        errors
+    )
 
 
 def test_own_runner_naming_a_manager_the_route_does_not_carry_is_rejected(tmp_path):
@@ -966,7 +968,7 @@ def test_own_runner_written_false_is_rejected(tmp_path):
     errors = _errors_for_route(
         tmp_path, "kind: command\n    tool: t\n    argv: [t]\n    own_runner: false"
     )
-    assert any("own_runner" in e for e in errors), errors
+    assert any("own_runner" in e and "its own opposite" in e for e in errors), errors
 
 
 def test_own_runner_that_is_neither_true_nor_a_list_is_rejected(tmp_path):
