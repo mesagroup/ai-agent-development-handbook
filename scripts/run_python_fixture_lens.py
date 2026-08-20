@@ -430,12 +430,17 @@ class Invocation:
             environment rather than through a one-shot runner.
         findings_stream: Which stream this tool writes its report to, and so
             which one `classify` reads to tell a tool that answered from one
-            that failed. `stdout` for all but deptry, which writes its whole
-            report to stderr and leaves stdout empty - measured, and the reason
-            this is a field rather than an assumption: read on stdout, a deptry
-            run that finds every planted seed grades as a tool failure and one
-            that finds nothing grades clean, which is the classification exactly
-            inverted on the entry the fixture was seeded for.
+            that failed. `stdout` is the default and a record says otherwise on
+            the route, which two do: deptry writes its whole report to stderr
+            and leaves stdout empty, and xenon reports its breach there with
+            stdout empty too. Both are measured, and they are the reason this is
+            a field rather than an assumption: read on stdout, a deptry run that
+            finds every planted seed grades as a tool failure and one that finds
+            nothing grades clean, which is the classification exactly inverted
+            on the entry the fixture was seeded for. The count is not stated
+            here because it is a fact about the records rather than about this
+            field - `grep findings_stream` over the check tree is the answer,
+            and a third record adding one must not have to find this sentence.
         record_quote: The record's own **prescribing sentence** for this route,
             occurring exactly once in the record, taken by reading it. This is
             what the verbatim guard compares, so it is the half that fails when
