@@ -543,11 +543,18 @@ class Invocation:
     def _check_supplied(self) -> None:
         """The four ways a supplied route would stop being distinguishable.
 
-        These are about the relationship between a supplied route and the
-        rest of this row - a partition carrying two routes, an entry with no
-        note, one beside `in_env` - not about the route's own shape, which
-        `Supplied` validates before this dataclass ever sees the fields it
-        hands over.
+        A partition carrying two routes, a partition named twice, an entry
+        with no note, and a supplied route beside `in_env`. Two of those four
+        are properties of `supplied_by_partition` alone and `Supplied` rejects
+        them too, which is deliberate rather than a split nobody finished: the
+        two populations reach a row by different doors. A hand-written
+        `INVOCATIONS` entry constructs an `Invocation` directly and never
+        builds a `Supplied` at all, so a check that only lived there would
+        leave the whole table unguarded, and an overlay entry reaches this
+        method only once its fields have been copied onto a row, so a check
+        that only lived here would name the row rather than the literal the
+        mistake is in. Neither copy is removable; what would be a defect is
+        the two disagreeing about which shapes they reject.
         """
         if self.supplied_by_partition and not self.supplied_note:
             raise ValueError(
@@ -726,13 +733,15 @@ class Supplied:
     migrated record's supplied route lives where its completion does rather
     than in the record that, by definition, does not prescribe it.
 
-    Validates only its own shape - a steps tuple that is empty, a missing
-    note, or a step with no tokens. The relationship between a supplied route
-    and the rest of its row - a partition carrying both a prescribed route
-    and a supplied one, or a supplied route beside `in_env` - is
-    `Invocation._check_supplied`'s to catch, once this object's fields have
-    been copied onto a row; duplicating either check here would mean the two
-    could disagree about the same shape.
+    Validates the shape of what it holds: a steps tuple that is empty, a
+    partition named twice, a missing note, or a step with no tokens. Three of
+    those four `Invocation._check_supplied` rejects as well, and the overlap is
+    the point - a hand-written table entry builds no `Supplied`, so that method
+    is the only guard those rows ever meet, while an entry written here fails
+    at the literal that carries the mistake rather than at the row it is later
+    copied onto. What that method holds alone is the relationship to the rest
+    of the row, which nothing here can see: a partition carrying both a
+    prescribed route and a supplied one, and a supplied route beside `in_env`.
     """
 
     by_partition: tuple[tuple[str, tuple[tuple[str, ...], ...]], ...]
@@ -745,6 +754,12 @@ class Supplied:
             raise ValueError(
                 "a supplied route needs the reason the record has none; "
                 "unexplained, it reads as a command the record prescribed"
+            )
+        named = [partition for partition, _ in self.by_partition]
+        if len(named) != len(set(named)):
+            raise ValueError(
+                f"names a partition twice in a supplied route ({named}), so "
+                "one of the two never runs"
             )
         for partition, steps in self.by_partition:
             for step in steps:

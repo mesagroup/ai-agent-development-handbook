@@ -1432,7 +1432,12 @@ def test_an_invocation_names_a_check_that_exists_and_a_partition_that_does():
     `own_runner` is the one where a typo costs nothing visible: `prescribed`
     falls back to a shared `argv` for any string, so an unknown partition passes
     the field's own validation and then suppresses a prefix for a partition that
-    never runs.
+    never runs. `supplied_by_partition` fails the same silent way and from one
+    more direction now that a routed row can carry one: `run_partition` looks a
+    supplied route up by the partition it is running, so a misspelt name is a
+    route nobody runs and no status reports missing, and neither `Supplied` nor
+    `_check_supplied` compares those names against `PARTITIONS` - each is
+    checking a shape rather than a vocabulary.
 
     Reads both paths. It once read `INVOCATIONS` alone, on the premise that
     `routed_invocations` set neither field - true when `argv_by_partition` and
@@ -1447,7 +1452,11 @@ def test_an_invocation_names_a_check_that_exists_and_a_partition_that_does():
     """
     for inv in every_invocation():
         assert _record_path(inv.check).exists(), inv.check
-        named = {p for p, _ in inv.argv_by_partition} | set(inv.own_runner)
+        named = (
+            {p for p, _ in inv.argv_by_partition}
+            | set(inv.own_runner)
+            | {p for p, _ in inv.supplied_by_partition}
+        )
         assert not named - set(PARTITIONS), (inv.check, sorted(named))
 
 
@@ -4165,6 +4174,26 @@ def test_a_supplied_route_step_with_no_tokens_is_rejected():
     """
     with pytest.raises(ValueError, match="empty command to execute"):
         Supplied(by_partition=(("pylock", ((),)),), note="why")
+
+
+def test_a_supplied_route_naming_a_partition_twice_is_rejected_at_the_literal():
+    """`Invocation` rejects this too, and both rejections are load-bearing.
+
+    A hand-written table entry builds no `Supplied`, so the copy on
+    `_check_supplied` is the only guard those rows ever meet. An entry written
+    in the overlay fails here instead, at the literal carrying the mistake
+    rather than at the row it is later copied onto, which is the difference
+    between a message naming a file somebody is editing and one naming a
+    check id.
+    """
+    with pytest.raises(ValueError, match="names a partition twice"):
+        Supplied(
+            by_partition=(
+                ("pylock", (("uvx", "t"),)),
+                ("pylock", (("uvx", "u"),)),
+            ),
+            note="why",
+        )
 
 
 def test_a_migrated_record_reads_its_supplied_route_from_the_overlay(monkeypatch):
