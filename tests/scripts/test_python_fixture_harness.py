@@ -1,9 +1,17 @@
 """Tests for scripts/run_python_fixture_lens.py (#45).
 
-The harness holds each check record's prescribed invocation verbatim, so the
-tests here are mostly guards on that transcription rather than on behaviour: an
+The harness reads a row from one of two places, and that split is what most of
+these tests are about. A record declaring its commands as `routes:` data is read
+directly, so there is no transcription to guard: the record is what runs. A
+record whose fallback still lives in prose is transcribed into the harness's own
+table, and the guards on that transcription are the bulk of this file - an
 invocation that had to be edited to run is the finding the round exists to
 produce, and it only shows up as one if the transcription is held to the record.
+
+So a property here reads one of three things, and says which: the transcribed
+rows, every row the harness runs, or - where the two sides of a comparison would
+be the same data for a routed row - the transcribed rows again, because widening
+it would add an assertion that cannot fail.
 """
 
 import json
