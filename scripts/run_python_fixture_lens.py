@@ -25,7 +25,11 @@ the results. They are SBOM and vulnerability routes for dependency files the
 record names no subcommand or mode for, so each is a candidate answer to a named
 hole rather than a correction to the record - and keeping it out of `record_argv`
 is what stops a later pass reading "the harness ran this" as "the record said
-this".
+this". Both live in the hand-written table below today, but that is not where a
+supplied route has to stay: `SUPPLIED`, keyed `(check, tool)` beside
+`COMPLETIONS`, is what a record that migrates out of the table reads its
+supplied route from instead, so a routed row can carry one too without the
+record ever prescribing it.
 
 Three fields are derived from the records rather than transcribed, because a
 second copy of a fact the records already state is a copy free to drift:
@@ -537,7 +541,14 @@ class Invocation:
         self._check_forms()
 
     def _check_supplied(self) -> None:
-        """The four ways a supplied route would stop being distinguishable."""
+        """The four ways a supplied route would stop being distinguishable.
+
+        These are about the relationship between a supplied route and the
+        rest of this row - a partition carrying two routes, an entry with no
+        note, one beside `in_env` - not about the route's own shape, which
+        `Supplied` validates before this dataclass ever sees the fields it
+        hands over.
+        """
         if self.supplied_by_partition and not self.supplied_note:
             raise ValueError(
                 f"{self.check}/{self.tool}: a supplied route needs a note saying what "
@@ -703,6 +714,53 @@ COMPLETIONS: dict[tuple[str, str], Completion] = {
         ),
     ),
 }
+
+
+@dataclass(frozen=True)
+class Supplied:
+    """A route this round contributed where the record prescribes none.
+
+    Round-owned for the reason `Completion` is: the record naming no route for
+    a partition is a hole in the record, and this is the candidate answer this
+    round tests against it. Keyed `(check, tool)` beside `COMPLETIONS`, so a
+    migrated record's supplied route lives where its completion does rather
+    than in the record that, by definition, does not prescribe it.
+
+    Validates only its own shape - a steps tuple that is empty, a missing
+    note, or a step with no tokens. The relationship between a supplied route
+    and the rest of its row - a partition carrying both a prescribed route
+    and a supplied one, or a supplied route beside `in_env` - is
+    `Invocation._check_supplied`'s to catch, once this object's fields have
+    been copied onto a row; duplicating either check here would mean the two
+    could disagree about the same shape.
+    """
+
+    by_partition: tuple[tuple[str, tuple[tuple[str, ...], ...]], ...]
+    note: str
+
+    def __post_init__(self) -> None:
+        if not self.by_partition:
+            raise ValueError("a supplied route with no steps is not a route")
+        if not self.note:
+            raise ValueError(
+                "a supplied route needs the reason the record has none; "
+                "unexplained, it reads as a command the record prescribed"
+            )
+        for partition, steps in self.by_partition:
+            for step in steps:
+                if not step:
+                    raise ValueError(
+                        f"{partition}: a supplied route step with no tokens "
+                        "would hand the runner an empty command to execute, "
+                        "which reports as a tool that failed rather than as "
+                        "the hole in the record it actually is"
+                    )
+
+
+# The round's own contributions, for a partition a migrated record prescribes
+# no route for. Ships empty: nothing here yet has migrated out of `INVOCATIONS`
+# below, so there is nothing for a routed row to read.
+SUPPLIED: dict[tuple[str, str], Supplied] = {}
 
 
 # The transcription. One entry per (check, tool) pair, because a tool answering
@@ -1365,6 +1423,12 @@ def routed_invocations() -> tuple[Invocation, ...]:
     that route's `note`. A command that ran as written explains itself and
     carries none.
 
+    A row's supplied route comes from `SUPPLIED`, never from a route - a
+    record declaring one would be prescribing it, which is the distinction the
+    overlay exists to preserve. It carries its own `supplied_note`, so those
+    two reasons a row's `note` can be round-owned stay a completion and
+    nothing else; a supplied route is not a third one.
+
     A row's `then` is the `runs` route's own - never a `superseded` or
     `alternative` route's, even where one of those carries a `then` of its
     own - because `then` is what the round executes after `argv`, and `argv`
@@ -1427,6 +1491,7 @@ def routed_invocations() -> tuple[Invocation, ...]:
                     "would depend on their order in the record"
                 )
             supplied = COMPLETIONS.get((check_id, tool))
+            contributed = SUPPLIED.get((check_id, tool))
             per_partition = _argv_by_partition(check_id, tool, runs[0]) if runs else ()
             argv = () if per_partition else (tuple(runs[0].argv) if runs else ())
             if supplied:
@@ -1458,6 +1523,10 @@ def routed_invocations() -> tuple[Invocation, ...]:
                     completion=supplied.tokens if supplied else (),
                     then=tuple(runs[0].then) if runs else (),
                     note=note,
+                    supplied_by_partition=(
+                        contributed.by_partition if contributed else ()
+                    ),
+                    supplied_note=contributed.note if contributed else "",
                 )
             )
     return tuple(rows)
