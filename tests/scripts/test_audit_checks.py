@@ -910,13 +910,59 @@ def test_a_per_manager_argv_names_the_managers_needing_no_runner(tmp_path):
     assert check.routes[0].own_runner == ("uv",)
 
 
-def test_own_runner_true_beside_per_manager_argvs_is_rejected(tmp_path):
-    errors = _errors_for_route(
+def test_own_runner_true_covers_a_routes_per_manager_commands_too(tmp_path):
+    """`true` is a claim about every command the route prescribes.
+
+    It was briefly rejected beside `argv_by_manager`, on the reading that
+    naming commands per manager makes a blanket claim ambiguous. The record
+    set says otherwise: the four `dependency-cruiser` routes carry a
+    runner-led shared `argv` and runner-led `pnpm` and `yarn` overrides, so
+    every command in them is complete as written, and a rule refusing `true`
+    there leaves the shared form - the one an unnamed manager runs - with no
+    way to say so at all. The list form stays for the partial case, so the
+    two shapes divide as all-of-them against these-named-ones.
+    """
+    check = _one_route_record(
         tmp_path,
         "kind: command\n    tool: t\n    argv: [t]"
         "\n    argv_by_manager:\n      uv: [uv, export]\n    own_runner: true",
     )
-    assert any("own_runner" in e for e in errors), errors
+    assert check.routes[0].own_runner is True
+
+
+def test_own_runner_as_an_empty_list_is_rejected(tmp_path):
+    """An empty list loads to exactly what an absent key loads to.
+
+    So it claims nothing while reading as a considered claim - the shape
+    `own_runner: false` is rejected for, and the one a later edit produces by
+    deleting the last manager name from a list that had one.
+    """
+    errors = _errors_for_route(
+        tmp_path,
+        "kind: command\n    tool: t\n    argv: [t]"
+        "\n    argv_by_manager:\n      uv: [uv, export]\n    own_runner: []",
+    )
+    assert any("claims nothing" in e for e in errors), errors
+
+
+@pytest.mark.parametrize(
+    "written",
+    [
+        "argv: [t, run]\n    then: [t, run]",
+        "argv: [t, run]\n    argv_by_manager:\n      uv: [t, alt]\n    then: [t, alt]",
+    ],
+)
+def test_a_then_repeating_a_command_the_route_prescribes_is_rejected(tmp_path, written):
+    """Two halves of one sequence cannot be the same command.
+
+    A consumer building the route's declared forms takes one from the argv and
+    one from the `then`, so a repeat declares the same form twice - and a form
+    declared twice is the ambiguity a form list cannot carry. Rejected here
+    rather than left to the consumer, because there the whole enumeration
+    raises and every routed row goes with it.
+    """
+    errors = _errors_for_route(tmp_path, f"kind: command\n    tool: t\n    {written}")
+    assert any("written twice" in e for e in errors), errors
 
 
 def test_own_runner_naming_managers_without_per_manager_argvs_is_rejected(tmp_path):

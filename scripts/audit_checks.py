@@ -256,15 +256,29 @@ class Route:
     the report would leave the route looking like a tool that produced
     nothing. `own_runner` says the prescribed command is complete as written,
     so whatever launcher a lens would put in front of it puts nothing: `True`
-    where the route's one argv needs no runner, or the managers whose
-    `argv_by_manager` command needs none.
+    where every command the route prescribes needs no runner, shared argv and
+    per-manager overrides alike, or the managers whose override needs none
+    where the rest of the route's commands do.
 
     Both fields are unused by any record in this tree. Their first users are
     `test/coverage-reach` (`then`) and `deps/inventory` (`own_runner`), which
     migrate in #67 - they are the two records stage 4 could not migrate at
-    all, which is why the schema moved first. Nine `arch` routes are already
-    runner-led (`npx --package typescript@^5 ...`, `npx cloc`) and say
-    nothing, because no lens runs a `lang: typescript` route today.
+    all, which is why the schema moved first.
+
+    Nine routes in this tree already carry a runner-led shared argv, and five
+    of them are candidates to annotate: the `dependency-cruiser` route of
+    `arch/coupling`, `arch/cycles`, `arch/layering` and
+    `arch/over-decomposition`, each `npx --package typescript@^5 ...`, plus
+    `arch/size`'s `npx cloc`. The other four are the `dlx depcruise` routes
+    those same records declare `disposition: forbidden`, which no lens runs
+    and so none needs the flag. None of the five says anything today, because
+    no lens runs a `lang: typescript` route and `arch/size` offers no python
+    tooling - a silence that is unobserved rather than correct.
+
+    The residual shape neither form expresses: a route whose shared argv needs
+    no runner while one manager's override does. `True` over-claims it and a
+    manager list cannot name the shared command. No route in the tree is that
+    shape, so it stays unexpressed rather than given a third spelling.
     """
 
     lang: str
@@ -590,6 +604,15 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
                         "command carries it, and an empty one is the absence the "
                         "field exists to prevent"
                     )
+                elif names == argv or names in argv_by_manager.values():
+                    errors.append(
+                        f"{loc}: then repeats a command this route already "
+                        "prescribes, so the two halves of the sequence are one "
+                        "command written twice. A consumer building the route's "
+                        "declared forms gets the same string from both halves, "
+                        "and a form declared twice is the ambiguity a form list "
+                        "cannot carry"
+                    )
                 else:
                     then = names
 
@@ -603,15 +626,7 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
                     "prefix to suppress"
                 )
             elif raw_own_runner is True:
-                if argv_by_manager:
-                    errors.append(
-                        f"{loc}: own_runner is true beside argv_by_manager, which "
-                        "says every manager's command is complete while naming "
-                        "commands per manager; name the managers whose command "
-                        "needs no runner instead"
-                    )
-                else:
-                    own_runner = True
+                own_runner = True
             elif raw_own_runner is False:
                 errors.append(
                     f"{loc}: own_runner is false - an absent key already says the "
@@ -624,6 +639,14 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
                     errors.append(
                         f"{loc}: own_runner must be true or a list of manager "
                         f"names, got {raw_own_runner!r}"
+                    )
+                elif not names:
+                    errors.append(
+                        f"{loc}: own_runner is an empty list, which loads to "
+                        "exactly what an absent key loads to and so claims "
+                        "nothing; write true where every command this route "
+                        "prescribes is complete, name the managers whose command "
+                        "is, or drop the key"
                     )
                 elif not argv_by_manager:
                     errors.append(
