@@ -141,10 +141,10 @@ The `CLAUDE.md` sentence enumerating the route fields and the `audit/SKILL.md` l
 - [ ] **Step 9: Confirm nothing is half-renamed**
 
 ```bash
-grep -rn "argv_by_manager" --exclude-dir=.git . | grep -v "^./docs/superpowers/"
+grep -rn "argv_by_manager" --exclude-dir=.git --exclude-dir=superpowers .
 ```
 
-Expected: no output.
+Expected: exactly two lines, both in the Step 2 regression test, which has to feed the loader that literal key to prove it is rejected. Any third line is a spot the rename missed. This step asked for no output when it was written, and Step 2 of the same task makes that unsatisfiable: a test that the old key is rejected contains the old key by construction. The filter is `--exclude-dir=superpowers` for the reason Step 1 gives.
 
 ---
 
