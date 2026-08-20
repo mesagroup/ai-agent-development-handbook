@@ -1400,9 +1400,15 @@ def test_a_two_command_route_runs_them_in_the_records_order():
     `then` should be held by it rather than fail an arithmetic claim about how
     many there are.
 
-    Reads `INVOCATIONS` only: no route field carries a second, ordered
-    command, so `routed_invocations()` never sets `then` and the guard has
-    nothing on the other side to widen onto.
+    Reads `INVOCATIONS` only, and the reason is the routed row's shape rather
+    than the schema's: a route now carries a `then`, and `routed_invocations`
+    sets it. What a routed row does not carry is a transcription for the order
+    to be held against. Its `argv` and its `then` are two fields of one route,
+    read in that order, so "the record writes them in this order" is true of it
+    by construction and an assertion saying so would restate the enumeration
+    rather than check it. The claim has a subject only where a hand-written
+    entry transcribes a sentence into two tuples, because only there can the
+    two be reversed against what the record actually says.
     """
     for inv in INVOCATIONS:
         if not inv.then:
@@ -1425,14 +1431,17 @@ def test_an_invocation_names_a_check_that_exists_and_a_partition_that_does():
     the field's own validation and then suppresses a prefix for a partition that
     never runs.
 
-    Left reading `INVOCATIONS` alone on purpose - bucket 1, not by omission.
-    A routed row's `check` is a key of `_records()`, so its path exists by
-    construction, and `routed_invocations()` never sets `argv_by_partition` or
-    `own_runner` at all - both are hand-written-table fields with no route
-    counterpart - so `named` is always empty for a routed row. Neither half
-    of this can fail there no matter what the record says.
+    Reads both paths. It once read `INVOCATIONS` alone, on the premise that
+    `routed_invocations` set neither field - true when `argv_by_partition` and
+    `own_runner` had no route counterpart, false now that `argv_by_manager` and
+    `own_runner` are route fields the enumeration threads. A routed row's names
+    do come out subset-of-`PARTITIONS` today, but by construction through two
+    guards elsewhere: the enumeration raises on an `argv_by_manager` key that is
+    not a partition, and the loader rejects an `own_runner` naming a manager the
+    route does not carry. Holding it directly here costs one loop and does not
+    depend on either of those staying where it is.
     """
-    for inv in INVOCATIONS:
+    for inv in every_invocation():
         assert _record_path(inv.check).exists(), inv.check
         named = {p for p, _ in inv.argv_by_partition} | set(inv.own_runner)
         assert not named - set(PARTITIONS), (inv.check, sorted(named))
