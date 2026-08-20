@@ -279,6 +279,14 @@ class Route:
     no runner while one manager's override does. `True` over-claims it and a
     manager list cannot name the shared command. No route in the tree is that
     shape, so it stays unexpressed rather than given a third spelling.
+
+    Neither form is verifiable here, which is worth knowing before writing
+    either. Whether a command needs a runner in front of it is a fact about
+    the command, so the loader checks only that a named manager exists. `True`
+    on a route whose overrides are runner-led while its shared argv is not
+    claims the fallback is complete as well, and every partition running the
+    fallback then goes unfetched with no error raised. Write the list form
+    there. `deps/inventory` is exactly that shape and takes `[uv]`.
     """
 
     lang: str
