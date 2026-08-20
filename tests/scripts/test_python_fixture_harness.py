@@ -4271,6 +4271,48 @@ def test_own_runner_true_covers_every_partition(monkeypatch):
     assert row.argv == ("npx", "cloc")
 
 
+def test_own_runner_true_covers_the_partitions_a_shared_argv_falls_back_to(monkeypatch):
+    """The combination `true` means, and the claim no validator can check.
+
+    A route may carry a shared `argv` and override only some managers. `true`
+    there says every command the route prescribes is complete as written - the
+    overrides and the shared fallback alike - so it threads to every partition,
+    including the ones running the fallback. That is the semantics, pinned here
+    because nothing else in the suite exercised the pair and the enumeration's
+    behaviour on it would otherwise be incidental.
+
+    It is also the shape an author can get wrong with no error anywhere.
+    Whether a command needs a runner in front of it is a fact about the
+    command, not about the schema, so neither form of this field is verifiable
+    by the loader or here: `true` on a route whose overrides are runner-led and
+    whose shared fallback is not - `cyclonedx-py requirements`, which needs
+    fetching - claims the fallback is complete and every partition running it
+    then goes unfetched. The list form is the correct spelling there, naming
+    the managers whose command really is complete. Recorded rather than
+    guarded, because the alternative is inferring the claim from whether the
+    first token looks like a runner, which is the mechanism this whole schema
+    exists to replace.
+    """
+    with _records_replaced_by(
+        monkeypatch,
+        {
+            "x/y": _fake_record(
+                _fake_route(
+                    argv=("cyclonedx-py", "requirements"),
+                    argv_by_manager={"uv": ("uv", "export", "--frozen")},
+                    own_runner=True,
+                )
+            )
+        },
+    ):
+        (row,) = routed_invocations()
+    assert row.own_runner == PARTITIONS
+    carried = dict(row.argv_by_partition)
+    assert carried["uv"] == ("uv", "export", "--frozen")
+    assert carried["pip"] == ("cyclonedx-py", "requirements")
+    assert set(carried) == set(PARTITIONS)
+
+
 def test_a_manager_that_is_not_a_partition_is_refused_by_name(monkeypatch):
     """A python route's `argv_by_manager` keys are this lens's partition names.
     A key that is not one threads into an `argv_by_partition` entry

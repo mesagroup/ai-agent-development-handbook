@@ -1261,9 +1261,19 @@ def _argv_by_partition(
 def _own_runner_partitions(route: object) -> tuple[str, ...]:
     """The partitions whose prescribed command takes no launcher prefix.
 
-    `True` on a route carrying one argv is every partition, because that one
-    command is what every partition runs. A list names managers, which for a
-    python route are partition names.
+    `True` is every partition, because it claims every command the route
+    prescribes is complete as written - the shared argv, and each manager's
+    override. A list names managers, which for a python route are partition
+    names, and claims it of those alone.
+
+    Neither claim is checkable here, or by the loader: whether a command needs
+    a runner in front of it is a fact about the command. So `True` on a route
+    whose overrides are runner-led while its shared argv is not marks the
+    fallback partitions self-running and they go unfetched, with no error
+    anywhere. The list form is what such a route wants. The alternative -
+    deciding it from whether the argv's first token looks like a runner - is
+    the inference this schema exists to replace, so this stays a claim the
+    record makes and the reader checks.
     """
     if route.own_runner is True:
         return PARTITIONS
