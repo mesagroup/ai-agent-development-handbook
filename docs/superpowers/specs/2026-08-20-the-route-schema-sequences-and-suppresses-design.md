@@ -27,20 +27,24 @@ That separation is a decision, not an accident of sequencing. The alternative - 
 
 The cost of the separation is a field with no in-tree user, which is `arch/over-abstraction`'s unexercised-configurability finding pointed straight at this change. That check's own `alone_insufficient` answers it: "a planned, documented extension point - one implementer, or one config value, today - is a suppression, not a finding, recorded with its reason." The reason goes in the field docstrings, naming the first users and the issue that migrates them.
 
-## `own_runner` has nine candidate users today, which decides its shape
+## `own_runner` has five candidate users today, which decides its shape
 
-`own_runner` looked like a one-record field. Computed over every route in the tree, **nine shared-`argv` routes are already runner-led**: `arch/coupling`, `arch/cycles`, `arch/layering` and `arch/over-decomposition` each carry `npx --package typescript@^5 --package dependency-cruiser ...` and a `dlx depcruise` form, and `arch/size` carries `npx cloc`. Every one of those argvs is complete as written, in exactly this field's sense, and none says so.
+`own_runner` looked like a one-record field. Computed over every route in the tree, **nine routes carry a runner-led shared `argv`, and five of them are candidates to annotate**: the `dependency-cruiser` route of `arch/coupling`, `arch/cycles`, `arch/layering` and `arch/over-decomposition`, each `npx --package typescript@^5 --package dependency-cruiser ...`, plus `arch/size`'s `npx cloc`. The other four are those same records' `dlx depcruise` routes, which they declare `disposition: forbidden` - a route named only to warn against is never run, so it needs no claim about what would go in front of it. Every one of the five argvs is complete as written, in exactly this field's sense, and none says so.
 
-Nothing observes the silence: the Python lens selects `lang: python` only, and `arch/size` carries no python tooling. So it is a silence that happens to be harmless rather than a correct absence, and a TypeScript launcher would mis-prefix all nine.
+Nothing observes the silence: the Python lens selects `lang: python` only, and `arch/size` carries no python tooling. So it is a silence that happens to be harmless rather than a correct absence, and a TypeScript launcher would mis-prefix all five.
 
 So the field takes two shapes:
 
-- `own_runner: true` on a route carrying a shared `argv` - the nine above, and any future route whose command runs as written on every manager.
-- `own_runner: [<manager>, ...]` on a route carrying `argv_by_manager` - `deps/inventory`'s `uv`, naming which managers' commands are complete.
+- `own_runner: true` - every command the route prescribes is complete as written, its shared `argv` and its per-manager overrides alike. The five above, four of which carry runner-led `pnpm` and `yarn` overrides beside their runner-led shared argv.
+- `own_runner: [<manager>, ...]` - only the named managers' overrides are complete - `deps/inventory`'s `uv`, where the other three subcommands are fetched normally.
 
-Rejected: a single list-only shape, which cannot say the nine; and deriving the flag from whether the argv's first token is the route's tool, which would be correct on all nine and on `deps/inventory` today and is still the wrong mechanism - inferring a claim from the shape of a string is what this epic exists to delete.
+Rejected: a single list-only shape, which cannot say the five; and deriving the flag from whether the argv's first token is the route's tool, which would be correct on all five and on `deps/inventory` today and is still the wrong mechanism - inferring a claim from the shape of a string is what this epic exists to delete.
 
-**This unit does not annotate the nine.** Doing so reopens a merged pilot's eleven records to add a flag whose effect nothing can measure until a TypeScript harness exists. Recorded as a gap this leaves open rather than one it closes.
+**Corrected during implementation, and the correction is the interesting part.** This section first said `true` belonged to a route carrying a shared `argv` and was *rejected* beside `argv_by_manager`, on the reading that a blanket claim beside per-manager commands is ambiguous. The record set refutes it: four of the five candidates carry `pnpm` and `yarn` overrides that are runner-led too, so that rule refused `true` on them and left a manager list able to name only `pnpm` and `yarn` - while the shared `npx` form, which is what an unnamed manager runs, had no way to say it was complete at all. A validator that forbids the field's own users from using it reintroduces exactly the silence the field exists to delete, so the rule went and `true` became a claim about every command the route prescribes.
+
+One shape neither spelling reaches: a route whose shared `argv` needs no runner while one manager's override does. `true` over-claims it and a list cannot name the shared command. No route in the tree is that shape, so it stays unexpressed rather than acquiring a third spelling for nobody.
+
+**This unit does not annotate the five.** Doing so reopens a merged pilot's eleven records to add a flag whose effect nothing can measure until a TypeScript harness exists. Recorded as a gap this leaves open rather than one it closes.
 
 ## `then` contributes a form
 
