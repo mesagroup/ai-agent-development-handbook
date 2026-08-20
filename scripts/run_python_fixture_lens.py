@@ -1225,36 +1225,36 @@ def _forms_for(route: object) -> tuple[tuple[str, str], ...]:
 def _argv_by_partition(
     check: str, tool: str, route: object
 ) -> tuple[tuple[str, tuple[str, ...]], ...]:
-    """One entry per partition, where the record narrows the command per manager.
+    """One entry per partition, where the record narrows the command per partition.
 
-    Returns `()` where the route names no manager, which leaves the row's
+    Returns `()` where the route names no partition, which leaves the row's
     shared `argv` as the one command every partition runs.
 
-    A route may carry a shared `argv` and per-manager ones at once - the loader
-    requires the shared one on every command route - and `Invocation` admits
-    one or the other, so a route carrying both expands here: the override
-    where the route names the manager, the shared argv everywhere else. That
-    makes an unnamed partition inherit rather than have none, which is a limit
-    rather than a choice: a route cannot yet say that one manager has no
-    command at all.
+    A route may carry a shared `argv` and per-partition ones at once - the
+    loader requires the shared one on every command route - and `Invocation`
+    admits one or the other, so a route carrying both expands here: the
+    override where the route names the partition, the shared argv everywhere
+    else. That makes an unnamed partition inherit rather than have none,
+    which is a limit rather than a choice: a route cannot yet say that one
+    partition has no command at all.
 
     Raises:
-        ValueError: If the route names a manager that is not a partition of
+        ValueError: If the route names a key that is not a partition of
             this lens. It would thread into an entry `prescribed` never finds,
             so the command would silently never run.
     """
-    if not route.argv_by_manager:
+    if not route.argv_by_partition:
         return ()
-    unknown = sorted(set(route.argv_by_manager) - set(PARTITIONS))
+    unknown = sorted(set(route.argv_by_partition) - set(PARTITIONS))
     if unknown:
         raise ValueError(
-            f"{check}/{tool}: argv_by_manager names {unknown}, which is not a "
+            f"{check}/{tool}: argv_by_partition names {unknown}, which is not a "
             f"partition of this lens ({list(PARTITIONS)}); a python route's "
-            "manager keys are partition names, and one that is not would thread "
-            "into a command no partition ever runs"
+            "argv_by_partition keys are partition names, and one that is not "
+            "would thread into a command no partition ever runs"
         )
     return tuple(
-        (p, tuple(route.argv_by_manager.get(p, route.argv))) for p in PARTITIONS
+        (p, tuple(route.argv_by_partition.get(p, route.argv))) for p in PARTITIONS
     )
 
 
@@ -1262,9 +1262,8 @@ def _own_runner_partitions(route: object) -> tuple[str, ...]:
     """The partitions whose prescribed command takes no launcher prefix.
 
     `True` is every partition, because it claims every command the route
-    prescribes is complete as written - the shared argv, and each manager's
-    override. A list names managers, which for a python route are partition
-    names, and claims it of those alone.
+    prescribes is complete as written - the shared argv, and each partition's
+    override. A list names partitions, and claims it of those alone.
 
     Neither claim is checkable here, or by the loader: whether a command needs
     a runner in front of it is a fact about the command. So `True` on a route

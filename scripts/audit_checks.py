@@ -203,7 +203,7 @@ ROUTE_FIELDS = frozenset(
         "tool",
         "package",
         "argv",
-        "argv_by_manager",
+        "argv_by_partition",
         "disposition",
         "needs",
         "in_env",
@@ -257,7 +257,7 @@ class Route:
     nothing. `own_runner` says the prescribed command is complete as written,
     so whatever launcher a lens would put in front of it puts nothing: `True`
     where every command the route prescribes needs no runner, shared argv and
-    per-manager overrides alike, or the managers whose override needs none
+    per-partition overrides alike, or the partitions whose override needs none
     where the rest of the route's commands do.
 
     Both fields are unused by any record in this tree. Their first users are
@@ -276,13 +276,13 @@ class Route:
     tooling - a silence that is unobserved rather than correct.
 
     The residual shape neither form expresses: a route whose shared argv needs
-    no runner while one manager's override does. `True` over-claims it and a
-    manager list cannot name the shared command. No route in the tree is that
-    shape, so it stays unexpressed rather than given a third spelling.
+    no runner while one partition's override does. `True` over-claims it and a
+    partition list cannot name the shared command. No route in the tree is
+    that shape, so it stays unexpressed rather than given a third spelling.
 
     Neither form is verifiable here, which is worth knowing before writing
     either. Whether a command needs a runner in front of it is a fact about
-    the command, so the loader checks only that a named manager exists. `True`
+    the command, so the loader checks only that a named partition exists. `True`
     on a route whose overrides are runner-led while its shared argv is not
     claims the fallback is complete as well, and every partition running the
     fallback then goes unfetched with no error raised. Write the list form
@@ -294,7 +294,7 @@ class Route:
     tool: str | None
     package: str | None
     argv: tuple[str, ...]
-    argv_by_manager: dict[str, tuple[str, ...]]
+    argv_by_partition: dict[str, tuple[str, ...]]
     disposition: str
     needs: str | None
     in_env: bool
@@ -418,9 +418,9 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
     unless `kind` is `procedure`; `package` defaults to `tool` when the key
     is absent and is rejected when the key is written with no value, because
     those two are the same YAML to `get` and different claims to a reader;
-    `argv` and `argv_by_manager` are present only where `kind` is `command`,
-    and every argv they name - `argv` itself, and each manager's entry
-    under `argv_by_manager` - is non-empty there; a `disposition` other than
+    `argv` and `argv_by_partition` are present only where `kind` is `command`,
+    and every argv they name - `argv` itself, and each partition's entry
+    under `argv_by_partition` - is non-empty there; a `disposition` other than
     `runs` appears only where `kind` is `command`; `then`, a second command in
     sequence, is present only where `kind` is `command` and, where present, is
     a non-empty list of argv strings, because a route with no first command
@@ -430,10 +430,10 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
     `command`, is never written `false` or as an empty list since an absent
     key already carries what both of those would mean, is `true` where every
     command the route prescribes needs no prefix - its shared `argv` and each
-    manager's entry alike - and is otherwise a list of manager names, rejected
-    unless `argv_by_manager` carries every name listed. Whichever form it
-    takes, it is never written beside `in_env`, whose materialized environment
-    the suppressed prefix would otherwise never reach.
+    partition's entry alike - and is otherwise a list of partition names,
+    rejected unless `argv_by_partition` carries every name listed. Whichever
+    form it takes, it is never written beside `in_env`, whose materialized
+    environment the suppressed prefix would otherwise never reach.
 
     The empty list is rejected rather than tolerated because `routes: []` and
     an absent `routes` key are indistinguishable to everything downstream:
@@ -557,37 +557,37 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
                 )
             argv = ()
 
-        raw_argv_by_manager = entry.get("argv_by_manager")
-        argv_by_manager: dict[str, tuple[str, ...]] = {}
-        if raw_argv_by_manager is not None:
+        raw_argv_by_partition = entry.get("argv_by_partition")
+        argv_by_partition: dict[str, tuple[str, ...]] = {}
+        if raw_argv_by_partition is not None:
             if kind != "command":
                 errors.append(
-                    f"{loc}: argv_by_manager is only valid on a command route, "
+                    f"{loc}: argv_by_partition is only valid on a command route, "
                     f"not {kind!r}"
                 )
-            elif not isinstance(raw_argv_by_manager, dict):
+            elif not isinstance(raw_argv_by_partition, dict):
                 errors.append(
-                    f"{loc}: argv_by_manager must be a mapping of manager to argv"
+                    f"{loc}: argv_by_partition must be a mapping of partition to argv"
                 )
             else:
-                for manager, manager_argv in raw_argv_by_manager.items():
-                    names = _str_list(manager_argv)
-                    if not isinstance(manager, str) or names is None:
+                for partition, partition_argv in raw_argv_by_partition.items():
+                    names = _str_list(partition_argv)
+                    if not isinstance(partition, str) or names is None:
                         errors.append(
-                            f"{loc}: argv_by_manager[{manager!r}] must be a list "
-                            "of argv strings"
+                            f"{loc}: argv_by_partition[{partition!r}] must be a "
+                            "list of argv strings"
                         )
                         continue
                     if not names:
                         errors.append(
-                            f"{loc}: argv_by_manager[{manager!r}] is empty - a "
-                            "command route carries a command for every manager "
-                            "it names, and an empty one declares that manager "
+                            f"{loc}: argv_by_partition[{partition!r}] is empty - a "
+                            "command route carries a command for every partition "
+                            "it names, and an empty one declares that partition "
                             "answered by nothing at all, which is the absence "
                             "the non-empty argv rule already rejects"
                         )
                         continue
-                    argv_by_manager[manager] = names
+                    argv_by_partition[partition] = names
 
         in_env = entry.get("in_env", False)
         if not isinstance(in_env, bool):
@@ -612,7 +612,7 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
                         "command carries it, and an empty one is the absence the "
                         "field exists to prevent"
                     )
-                elif names == argv or names in argv_by_manager.values():
+                elif names == argv or names in argv_by_partition.values():
                     errors.append(
                         f"{loc}: then repeats a command this route already "
                         "prescribes, so the two halves of the sequence are one "
@@ -645,7 +645,7 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
                 names = _str_list(raw_own_runner)
                 if names is None:
                     errors.append(
-                        f"{loc}: own_runner must be true or a list of manager "
+                        f"{loc}: own_runner must be true or a list of partition "
                         f"names, got {raw_own_runner!r}"
                     )
                 elif not names:
@@ -653,22 +653,22 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
                         f"{loc}: own_runner is an empty list, which loads to "
                         "exactly what an absent key loads to and so claims "
                         "nothing; write true where every command this route "
-                        "prescribes is complete, name the managers whose command "
-                        "is, or drop the key"
+                        "prescribes is complete, name the partitions whose "
+                        "command is, or drop the key"
                     )
-                elif not argv_by_manager:
+                elif not argv_by_partition:
                     errors.append(
                         f"{loc}: own_runner names {list(names)} and the route "
-                        "carries no argv_by_manager, so it names managers this "
-                        "route does not distinguish; write true where the one "
-                        "argv needs no runner"
+                        "carries no argv_by_partition, so it names partitions "
+                        "this route does not distinguish; write true where the "
+                        "one argv needs no runner"
                     )
                 else:
-                    unknown = [n for n in names if n not in argv_by_manager]
+                    unknown = [n for n in names if n not in argv_by_partition]
                     if unknown:
                         errors.append(
                             f"{loc}: own_runner names {unknown}, which "
-                            "argv_by_manager does not carry, so the suppressed "
+                            "argv_by_partition does not carry, so the suppressed "
                             "prefix applies to no command"
                         )
                     else:
@@ -706,7 +706,7 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
                 tool=tool,
                 package=package,
                 argv=argv,
-                argv_by_manager=argv_by_manager,
+                argv_by_partition=argv_by_partition,
                 disposition=disposition,
                 needs=needs,
                 in_env=in_env,
