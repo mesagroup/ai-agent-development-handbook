@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - The field names are exactly `then` and `own_runner`, in both files. The route field's name matches the `Invocation` field it threads into, deliberately: one vocabulary across the two modules, and the validator checks the repetition rather than trusting it.
-- **No record file changes.** Nothing under `.agents/skills/` is edited by any task. `git status --short` at the end of every task shows no path under that tree.
+- **No check record changes.** No file under `.agents/skills/<domain>-audit/checks/` is edited by any task, and Tasks 1 to 3 edit nothing under `.agents/skills/` at all. Task 4 Step 6 edits `.agents/skills/audit/SKILL.md`, which is a skill instruction rather than a check record; that step was added by amendment after this constraint was written, and the constraint is scoped to records rather than relaxed.
 - `own_runner` on a route is `True` or a tuple of manager names. `False` is rejected rather than accepted as a default spelled out: the field's absence already says the launcher applies.
 - Every new loader rejection appends to `errors` and never raises: `load_checks` is called from the traceability gate and promises to collect problems.
 - Every new enumeration ambiguity raises `ValueError` naming the check, the tool and what is ambiguous, in the style of the five raises already there.
@@ -624,10 +624,10 @@ The second renderer is a gate that ran, not evidence about this change: neither 
 - [ ] **Step 4: Confirm no record changed**
 
 ```bash
-git diff --name-only origin/main...HEAD -- .agents/skills/
+git diff --name-only origin/main...HEAD -- '.agents/skills/*/checks/'
 ```
 
-Expected: empty. A path here contradicts the plan's global constraint.
+Expected: empty. The check records are what this unit must not touch. The broader `-- .agents/skills/` form returns `audit/SKILL.md` once Step 6 has run, which is that step's deliverable rather than a violation - run the narrow form, and read the broad one as the record of which skill instructions changed.
 
 - [ ] **Step 5: Extend `CLAUDE.md`'s route-field enumeration, in its own commit**
 
