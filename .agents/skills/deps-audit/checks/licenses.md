@@ -69,9 +69,10 @@ routes:
       `license` per package, so
       `npm sbom --package-lock-only --sbom-format cyclonedx` - the command
       `deps/inventory` already prescribes - returns SPDX ids for the whole
-      resolved graph off a read-only clone with no tree and no network. Run against a real npm target it populated the licence
-      field for **944 of 945 components**, every copyleft entry among them, in
-      about a second. Prefer it there, and treat the `@cyclonedx/cdxgen` route
+      resolved graph off a read-only clone with no tree and no network. Run
+      against a real npm target it populated the licence field for
+      **944 of 945 components**, every copyleft entry among them, in about a
+      second. Prefer it there, and treat the `@cyclonedx/cdxgen` route
       below as the fallback for the partitions it cannot serve.
   - lang: typescript
     kind: command

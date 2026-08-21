@@ -5,13 +5,13 @@ locality: global
 evidence: >-
   What the check compares per package is the pin, or the version actually
   installed, against the latest release, plus whether the pinned release is
-  yanked; an unpinned direct dependency is read off the manifest rather than
-  compared against anything. On a workspace the coverage of that comparison
-  is part of the evidence: an answer covering the root manifest alone says
-  nothing about the manifests it never looked at, and that is per-command
-  rather than per-manager - `pnpm audit` and `pnpm licenses list` are both
-  recursive by default on the same tree - so check each command you run
-  rather than assuming the manager's default.
+  yanked; an unpinned direct dependency is what the lockfile scan reports
+  rather than a comparison against anything. On a workspace the coverage of
+  that comparison is part of the evidence: an answer covering the root
+  manifest alone says nothing about the manifests it never looked at, and
+  that is per-command rather than per-manager - `pnpm audit` and
+  `pnpm licenses list` are both recursive by default on the same tree - so
+  check each command you run rather than assuming the manager's default.
 handbook:
   - security-supply-chain/depend-only-on-what-you-can-account-for-a
 routes:
@@ -23,9 +23,13 @@ routes:
     needs: resolved-tree
     note: >-
       Reads the installed environment rather than the lockfile, so it needs
-      the tree resolved. Name the interpreter explicitly on the `uv` route, as
-      `uv pip list --outdated --python <path-to-venv-python>`; the argv stops
-      at the flag because the path is the caller's to resolve.
+      the tree resolved.
+    alone_insufficient: >-
+      The argv ends at a bare `--python` and is not a complete invocation.
+      Name the interpreter explicitly on the `uv` route, as
+      `uv pip list --outdated --python <path-to-venv-python>`; the path is the
+      caller's to resolve, which is why the argv stops where the placeholder
+      starts.
   - lang: python
     kind: command
     tool: uv
