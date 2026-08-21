@@ -675,13 +675,18 @@ class Expectation:
     record's `ungranted_note` already says what. Where the note is the `none`
     sentinel the ungranted answer is `no-evidence (not-permitted)` and needs no
     restating here; where some Python tool needs no grant at all, `claim`
-    already holds in both states. A record declaring `routes:` never sets this
-    field, and that is structural rather than a set of entries nobody got to:
-    the routes counterpart of `ungranted_note` carries the sentinel and no prose
-    of its own, so a Python language whose every answering route needs the grant
-    answers `no-evidence (not-permitted)` and an untiered route left in that
-    language is itself what still runs - neither leaves a second answer for an
-    entry to state. Without
+    already holds in both states. Which schema a record declares does not decide
+    whether the grant moves its answer: what decides it is whether every Python
+    tool the record offers carries a tier, and whether the record still says
+    something answers without one. The two schemas say that second thing in
+    different places - `ungranted_note` on one, an untiered answering route on
+    the other, which is commonly a route carrying no tool at all and so
+    invisible in the projected `tooling`/`needs` pair - and the test that
+    derives this field reads whichever place the record's own schema uses.
+    So a routes record does set this field, and `deps/freshness` and
+    `deps/hygiene` do. Reconciling this paragraph against the entries by
+    stripping the axis from those is the move to avoid: it flips the derivation
+    the other way and regrades every ungranted deps run. Without
     this field a correct ungranted run of `deps/hygiene` - which reports DEP001
     where the granted run reports DEP003 - would be graded against the granted
     answer and recorded as a tool defect.
@@ -773,9 +778,12 @@ EXPECTATIONS = (
         "exact",
         "deptry finds no dependency specification at all and raises "
         "DependencySpecificationNotFoundError. A Pipfile is not a format it reads, so "
-        "this partition has no hygiene lens on any grant - which is a finding about "
-        "the family rather than about the fixture, and is why this partition gets its "
-        "own entry rather than being folded into the one the other partitions share",
+        "this partition has no hygiene lens the harness can run on any grant: deptry "
+        "is the only command the record offers for Python, and the manifest-and-"
+        "lockfile read it also offers is a reading procedure rather than a command "
+        "this round executes. That is a finding about the family rather than about the "
+        "fixture, and is why this partition gets its own entry rather than being "
+        "folded into the one the other partitions share",
         (),
         "the same, and for the same reason: the format is unreadable to deptry with "
         "the tree or without it, so this is the one entry here the grant cannot move",
