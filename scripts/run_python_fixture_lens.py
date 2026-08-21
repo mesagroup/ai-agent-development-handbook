@@ -805,79 +805,28 @@ class Supplied:
 
 
 # The round's own contributions, for a partition a migrated record prescribes
-# no route for. Ships empty: every record migrated so far prescribes one shared
-# command per tool, which every partition runs, so no routed row has a hole for
-# a supplied route to fill. The two rows that do carry one - `deps/inventory`'s
-# PEP 751 partition and `deps/vulnerabilities`' uv one - are still transcribed
-# below, where the entry itself holds the route.
-SUPPLIED: dict[tuple[str, str], Supplied] = {}
-
-
-# The transcription. One entry per (check, tool) pair, because a tool answering
-# several checks needs a different invocation for each: ruff selects `C901` for
-# `arch/complexity`, the `S` ruleset for the four `security` checks and the `D`
-# ruleset for `docs/docstring-coverage`, and collapsing those into one entry
-# would test one rule selection and report it as evidence about every check that
-# names the tool.
-INVOCATIONS: tuple[Invocation, ...] = (
-    # --- deps ---------------------------------------------------------------
-    Invocation(
-        check="deps/inventory",
-        tool="cyclonedx-py",
-        argv_by_partition=(
-            ("uv", ("uv", "export", "--format=cyclonedx1.5", "--frozen")),
-            ("pip", ("cyclonedx-py", "requirements")),
-            ("poetry", ("cyclonedx-py", "poetry")),
-            ("pipenv", ("cyclonedx-py", "pipenv")),
-            ("pylock", ()),
-        ),
-        own_runner=("uv",),
-        supplied_by_partition=(
+# no route for. Both entries are that shape: `deps/inventory` names no
+# subcommand for a PEP 751 lock file, and `deps/vulnerabilities` names no mode
+# for a uv tree, so on those two partitions the records' own routes run
+# nothing. Each stays here rather than moving into the record beside the routes
+# it answers, for the reason a completion does: a record declaring a supplied
+# route would be prescribing it, and the whole point is that it never renders
+# as `record_argv`.
+SUPPLIED: dict[tuple[str, str], Supplied] = {
+    ("deps/inventory", "cyclonedx-py"): Supplied(
+        by_partition=(
             ("pylock", (("uvx", "cyclonedx-py", "requirements", "pylock.toml"),)),
         ),
         note=(
-            "the record prescribes the subcommand 'matching the partition's own "
-            "dependency file', so the command is per partition rather than shared - "
-            "and on a uv-locked tree what it names is the native export instead, a "
-            "command of another tool entirely, which is why that row names its own "
-            "runner. It names no route for a PEP 751 file, which is why that row "
-            "carries no prescribed command"
-        ),
-        supplied_note=(
             "the record's first named hole: it names no route at all for a PEP 751 "
             "file, and this step points the requirements subcommand at one, so it is "
             "a candidate this round tests rather than a correction it has made. It "
             "never reaches record_argv, which stays the record's own command per "
             "partition, and the record prescribes none on this one"
         ),
-        record_quote=(
-            "`cyclonedx-py`'s `requirements`, `poetry` or `pipenv` subcommand, "
-            "matching the partition's own dependency file, or the tool's native SBOM "
-            "export. `cyclonedx-py` has no uv subcommand, so on a uv-locked partition "
-            "the native export is `uv export --format=cyclonedx1.5 --frozen`: it "
-            "produces a well-formed CycloneDX 1.5 document (6 components, "
-            "`specVersion` 1.5, no `licenses` field)."
-        ),
-        forms=(
-            ("cyclonedx-py environment", "alternative"),
-            ("cyclonedx-py poetry", "runs"),
-            ("uv export --format=cyclonedx1.5 --frozen", "runs"),
-        ),
     ),
-    Invocation(
-        check="deps/vulnerabilities",
-        tool="pip-audit",
-        argv_by_partition=(
-            ("uv", ()),
-            (
-                "pip",
-                ("pip-audit", "-r", "requirements.txt", "--no-deps", "--disable-pip"),
-            ),
-            ("poetry", ()),
-            ("pipenv", ()),
-            ("pylock", ("pip-audit", "--locked", ".")),
-        ),
-        supplied_by_partition=(
+    ("deps/vulnerabilities", "pip-audit"): Supplied(
+        by_partition=(
             (
                 "uv",
                 (
@@ -894,7 +843,7 @@ INVOCATIONS: tuple[Invocation, ...] = (
                 ),
             ),
         ),
-        supplied_note=(
+        note=(
             "the record's second named hole: it names no mode for a uv tree, so a "
             "uv-locked partition has no vulnerability lens on a read-only clone. The "
             "candidate is an export written to a file - pip-audit's `-r` takes a path "
@@ -907,48 +856,17 @@ INVOCATIONS: tuple[Invocation, ...] = (
             "--frozen` reads a uv.lock and those partitions carry none by "
             "construction - so there is no equivalent route to supply them"
         ),
-        note=(
-            "the record makes the mode a function of what the partition locks with, "
-            "and names no mode at all for a uv, poetry or pipenv tree: `--locked` "
-            "reads PEP 751 and nothing else, `-r` needs a requirements file, and a "
-            "bare `pip-audit` audits the environment it was launched from, which the "
-            "record says not to do. `<requirements>` is a placeholder resolved to this "
-            "fixture's own file"
-        ),
-        record_quote=(
-            "`pip-audit --locked .` reads a PEP 751 lock file (`pylock.*.toml`) and "
-            "the project's `pyproject.toml`, and nothing else: it does not read "
-            "`uv.lock`, `poetry.lock`, `Pipfile.lock` or a requirements file, so a "
-            "target locked with uv or poetry alone is not served by `--locked` and is "
-            "the ordinary case rather than the exotic one. Where the partition has a "
-            "requirements file, `pip-audit -r <requirements>` parses it and provisions "
-            "its own throwaway virtualenv to resolve it, so it needs network rather "
-            "than the target's tree."
-        ),
-        forms=(
-            ("pip-audit --locked .", "runs"),
-            # `superseded` is what the record says: it names this form and then
-            # narrows it with the `--no-deps --disable-pip` pair below. The uv
-            # supplied route above runs the un-narrowed form verbatim all the
-            # same, and nothing tests that a disposition does not understate what
-            # runs - see `forms` in `Invocation`'s docstring.
-            ("pip-audit -r <requirements>", "superseded"),
-            ("pip-audit -r <requirements> --no-deps --disable-pip", "runs"),
-        ),
     ),
-    Invocation(
-        check="deps/vulnerabilities",
-        tool="safety",
-        record_quote=(
-            "It also requires authentication and is unusable in an unauthenticated "
-            "audit whatever else is true, which is a separate reason from its tier."
-        ),
-        note=(
-            "the record names safety as the alternative and prescribes no command, "
-            "and says it cannot run unauthenticated whatever else is true"
-        ),
-        forms=(),
-    ),
+}
+
+
+# The transcription. One entry per (check, tool) pair, because a tool answering
+# several checks needs a different invocation for each: ruff selects `C901` for
+# `arch/complexity`, the `S` ruleset for the four `security` checks and the `D`
+# ruleset for `docs/docstring-coverage`, and collapsing those into one entry
+# would test one rule selection and report it as evidence about every check that
+# names the tool.
+INVOCATIONS: tuple[Invocation, ...] = (
     # --- docs ---------------------------------------------------------------
     Invocation(
         check="docs/docstring-coverage",

@@ -1214,9 +1214,18 @@ def test_a_routed_row_prescribing_no_command_carries_the_records_reason():
     docstrings: a reader sees an empty explanation where the record has one.
     The reason is the record's, not this module's, which is the whole of why
     it is read rather than transcribed.
+
+    A per-partition command is a command for this property's purposes, which is
+    why `argv_by_partition` is skipped beside `argv`: such a row prescribes a
+    command on the partitions its map names, and `routed_invocations` leaves
+    its `note` empty for the same reason it does on a shared argv - a command
+    that ran as written explains itself. What the record says about the
+    partitions the map does not name stays on the route, which is where a
+    reader of the record finds it; a row-level note would be a second copy of
+    it keyed on the row rather than on the partition it is about.
     """
     for row in routed_invocations():
-        if row.argv or row.completion:
+        if row.argv or row.argv_by_partition or row.completion:
             continue
         assert row.note, (row.check, row.tool)
 
@@ -1262,32 +1271,23 @@ def test_a_transcribed_command_occurs_in_the_sentence_that_prescribes_it():
     anchor to hold the command against, and the assertion cannot fail no
     matter what the record says.
 
-    The entries that genuinely cannot satisfy it are named rather than excused
-    by a loophole in the rule, and each is here because the record writes a
-    placeholder or delegates instead of naming a command - never because the
-    record names no command at all, which is a record to correct.
+    Every entry left in the transcription satisfies it, so the rule carries no
+    exception list. The one it used to carry was for a record writing a
+    placeholder rather than a filename - `deps/vulnerabilities` prescribing
+    `pip-audit -r <requirements>` - and that entry now reads its command from
+    its record, where a placeholder is the record's own and no quote here is
+    holding a copy of it. An entry that cannot be anchored is a record that
+    writes a placeholder or delegates instead of naming a command, never one
+    that names no command at all, which is a record to correct; the exception
+    comes back with the entry that needs it rather than staying as a tolerance
+    nothing exercises.
 
     Held for every partition's route, not for the first one that exists: see
     `_route_anchoring` for what stopping at the first cost `deps/inventory`.
     """
-    unanchored = {
-        # The record writes `pip-audit -r <requirements>`; the fixture's own
-        # file is what the placeholder resolves to.
-        ("deps/vulnerabilities", "pip-audit"),
-    }
-    seen = set()
     for inv in INVOCATIONS:
         for partition, argv, anchored in _route_anchoring(inv):
-            if (inv.check, inv.tool) in unanchored:
-                # Asserted, not merely recorded: an entry that has *become*
-                # anchored still counts as exercising its exception, so without
-                # this the exception outlives the defect it was written for and
-                # removing it depends on somebody noticing.
-                assert not anchored, (inv.check, inv.tool, partition, argv)
-                seen.add((inv.check, inv.tool))
-            else:
-                assert anchored, (inv.check, inv.tool, partition, argv)
-    assert seen == unanchored, "an exception nothing exercises is a stale exception"
+            assert anchored, (inv.check, inv.tool, partition, argv)
 
 
 def test_every_partitions_route_is_held_against_the_quote():
@@ -2294,9 +2294,11 @@ def test_every_invoked_tool_resolves_to_a_package_that_can_be_fetched():
         if argv_for(inv, FULL_PARTITION):
             packages = packages_for(inv.tool)
             assert packages and all(packages), inv.tool
-    assert launcher(
-        next(i for i in INVOCATIONS if i.tool == "cyclonedx-py"), "pip", granted=False
-    ) == ("uvx", "--from", "cyclonedx-bom")
+    assert launcher(_entry("deps/inventory", "cyclonedx-py"), "pip", granted=False) == (
+        "uvx",
+        "--from",
+        "cyclonedx-bom",
+    )
 
 
 def test_a_route_naming_its_own_runner_takes_no_prefix():
@@ -2696,14 +2698,16 @@ def test_a_supplied_route_is_exactly_the_two_named_holes():
     them is visible as supplied rather than prescribed. One appearing here
     unnoticed is a correction made by the harness.
 
-    Reads `INVOCATIONS` only: a routed row can carry a supplied route too, from
-    `SUPPLIED`, but that mapping ships empty, so today this is still the whole
-    population - and stays so until a record migrates and its entry moves from
-    this table to that one.
+    Reads both populations, because both can carry one: a hand-written entry
+    holds its supplied route in its own literal and a routed row takes it from
+    `SUPPLIED`, and a set pinned over one path would go on passing while the
+    other grew a route nobody named. Both of these arrive through `SUPPLIED`
+    today, which is a fact about where the two records that leave holes have
+    got to rather than about the paths.
     """
     supplied = {
         (i.check, i.tool, p): steps
-        for i in INVOCATIONS
+        for i in every_invocation()
         for p, steps in i.supplied_by_partition
     }
     assert supplied == {
@@ -2732,11 +2736,12 @@ def test_a_supplied_partition_is_never_one_the_record_prescribes_a_route_for():
     results readable: an empty prescribed command beside a populated supplied
     one says the record had no route and this round proposed one.
 
-    Reads `INVOCATIONS` only, for the same reason as the pinned set above:
-    a routed row could carry a supplied route through `SUPPLIED`, but that
-    overlay ships empty, so no routed row does yet.
+    Reads both populations, for the same reason as the pinned set above: a
+    supplied route reaches a row from a literal here or from `SUPPLIED`, and
+    the relationship it has to hold against the rest of the row is the same
+    either way.
     """
-    for inv in INVOCATIONS:
+    for inv in every_invocation():
         for partition, steps in inv.supplied_by_partition:
             assert steps, (inv.check, partition)
             assert inv.prescribed(partition) == (), (inv.check, partition)
@@ -4143,6 +4148,47 @@ def test_the_deps_rows_survive_their_records_migration():
         assert row.argv == argv, key
         assert row.in_env is in_env, key
         assert row.findings_stream == stream, key
+
+
+def test_the_per_partition_deps_rows_survive_their_records_migration():
+    """All five partitions present, the ones the record prescribes nothing for empty.
+
+    `prescribed()` falls back to the shared `argv` when the row carries no
+    per-partition map at all, so a row that lost its map would answer these
+    assertions with the shared command rather than with nothing - which is why
+    the empty `argv` is asserted beside them.
+    """
+    rows = {(i.check, i.tool): i for i in routed_invocations()}
+    inv = rows[("deps/inventory", "cyclonedx-py")]
+    assert inv.argv == ()
+    assert inv.argv_by_partition == (
+        ("uv", ("uv", "export", "--format=cyclonedx1.5", "--frozen")),
+        ("pip", ("cyclonedx-py", "requirements")),
+        ("poetry", ("cyclonedx-py", "poetry")),
+        ("pipenv", ("cyclonedx-py", "pipenv")),
+        ("pylock", ()),
+    )
+    assert inv.own_runner == ("uv",)
+    assert inv.supplied("pylock") == (
+        ("uvx", "cyclonedx-py", "requirements", "pylock.toml"),
+    )
+    vuln = rows[("deps/vulnerabilities", "pip-audit")]
+    assert vuln.argv == ()
+    assert vuln.prescribed("pip") == (
+        "pip-audit",
+        "-r",
+        "requirements.txt",
+        "--no-deps",
+        "--disable-pip",
+    )
+    assert vuln.prescribed("pylock") == ("pip-audit", "--locked", ".")
+    assert [p for p in PARTITIONS if not vuln.prescribed(p)] == [
+        "uv",
+        "poetry",
+        "pipenv",
+    ]
+    assert vuln.supplied("uv")[0][:3] == ("uv", "export", "--frozen")
+    assert rows[("deps/vulnerabilities", "safety")].argv == ()
 
 
 def test_a_quote_belongs_to_a_transcription_and_only_to_one():
