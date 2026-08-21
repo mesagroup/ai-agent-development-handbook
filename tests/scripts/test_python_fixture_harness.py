@@ -265,12 +265,15 @@ def _prescribing_paragraph(check: str, quote: str) -> str:
 def _route_anchoring(inv: Invocation) -> list[tuple[str, tuple[str, ...], bool]]:
     """Whether each partition's prescribed command traces through the quote.
 
-    Every route rather than the first one found. `deps/inventory` prescribes four
-    commands - a subcommand per dependency file and uv's native export - and a
-    rule stopping at the first held one of them while the other three anchored by
-    luck. Which one was enforced also moved when the uv route was promoted out of
+    Every route rather than the first one found. The case it was written for was
+    `deps/inventory`, which prescribes four commands - a subcommand per
+    dependency file and uv's native export - where a rule stopping at the first
+    held one of them while the other three anchored by luck. Which one was
+    enforced also moved when the uv route was promoted out of
     `supplied_by_partition`, so the entry's coverage narrowed with no test
-    changing, which is the shape this file exists to make impossible.
+    changing, which is the shape this file exists to make impossible. That
+    record has since migrated and no transcribed entry carries four commands
+    today, so the rule is held on the entry built below rather than on the tree.
 
     Separated from the property so the stopping-early defect can be tested on an
     entry built to carry it, the tree by then having none.
@@ -486,8 +489,10 @@ def _prescribed_commands(inv: Invocation) -> list[tuple[str, tuple[str, ...]]]:
     per-partition list would report one command as five routes in every failure
     message an entry with a shared argv produces.
 
-    A supplied route is not here. It is authored in this table rather than
-    transcribed from a record, so it answers to no declaration the record makes:
+    A supplied route is not here. It is authored round-side rather than
+    transcribed from a record - in the `SUPPLIED` overlay for a migrated record,
+    in this table for one still transcribed - so it answers to no declaration
+    the record makes:
     `deps/vulnerabilities` declares `pip-audit -r <requirements>` `superseded`
     truthfully while the uv partition's supplied route runs that form. Excluding
     it is what keeps that from reading as a contradiction, rather than what stops
@@ -591,8 +596,9 @@ def test_flag_spans_are_pooled_across_the_paragraph():
 def test_a_placeholder_token_is_dropped_before_matching_an_argv():
     """A record writes what the caller supplies; an argv writes what it supplied.
 
-    This is what lets the coverage property watch `deps/vulnerabilities`, whose
-    placeholder had to switch off the anchor guard entirely.
+    This is what lets the coverage property watch a form whose placeholder had
+    once bought its entry an exception from the anchor guard, `<requirements>`
+    on `deps/vulnerabilities` being the case it was written for.
     """
     assert _concrete(_tokens("pip-audit -r <requirements> --no-deps")) == [
         "pip-audit",
@@ -1293,11 +1299,13 @@ def test_a_transcribed_command_occurs_in_the_sentence_that_prescribes_it():
 def test_every_partitions_route_is_held_against_the_quote():
     """Stopping at the first route leaves the rest anchored by luck.
 
-    `deps/inventory` is the live case: four prescribed commands, one of which was
+    `deps/inventory` was the case: four prescribed commands, one of which was
     enforced, and which one moved when the uv route was promoted into
-    `argv_by_partition`. Built here rather than asserted about the tree, because
-    every route in the tree anchors today, so the tree cannot distinguish a rule
-    that checks all of them from one that checks the first.
+    `argv_by_partition`. It has since migrated, so it is no longer even a
+    transcribed entry - which changes nothing here, because this was always
+    built rather than asserted about the tree: every route in the tree anchors
+    today, so the tree cannot distinguish a rule that checks all of them from
+    one that checks the first.
     """
     inv = Invocation(
         check="deps/inventory",
@@ -1592,11 +1600,13 @@ def test_every_form_the_harness_runs_appears_in_an_argv():
     The declaration property compares sets of spans, so it passes on a form
     declared `runs` beside an argv that has stopped matching it, and the flag
     property never reads a disposition at all. This one holds the two together,
-    which is what catches `deps/vulnerabilities`: its placeholder put it in the
-    anchor guard's `unanchored` set, so the guard that would have noticed a flag
-    pair being added to the prescribed form was switched off for exactly that
-    entry. Dropping the placeholder token instead of excusing the entry is what
-    lets this one watch it.
+    The entry that first needed it was `deps/vulnerabilities`, whose
+    placeholder had put it in an exception set the anchor guard then carried, so
+    the guard that would have noticed a flag pair being added to the prescribed
+    form was switched off for exactly that entry. Dropping the placeholder token
+    instead of excusing the entry is what let this property watch it, and the
+    exception set went with the entry when that record migrated - so what this
+    holds now is the general rule the exception used to carve out of.
 
     `then` counts as a command of its own: `coverage run -m pytest` and `coverage
     report --show-missing` are one route the record splits in two, and reading
@@ -1619,9 +1629,12 @@ def test_every_form_the_harness_runs_appears_in_an_argv():
     command satisfies by completion alone, so it is the only one this exempts.
 
     The guard that traces a transcribed command through the record's sentence
-    reads every partition's route, but it never reads `then`, and it asserts the
-    *absence* of an anchor for the entries it excepts. A form declared on an
-    entry it excepts gets its order from here or from nowhere. A form reachable
+    reads every partition's route, but it never reads `then`, and where it
+    excepts an entry it asserts the *absence* of an anchor rather than skipping
+    it. It excepts none today - the set emptied when the record that needed it
+    migrated - so this property is the only order check on every form, and it
+    is the one that has to keep working when an exception comes back with the
+    next entry that needs one. A form reachable
     only through `then` is held twice over: here, and by the property tracing a
     two-command route through the quote, which a scrambled `then` fails wherever
     that command's tokens are the form's.
@@ -2624,7 +2637,7 @@ def _entry(check: str, tool: str) -> Invocation:
     and `supplied_by_partition` all reach a routed row, the first two as route
     fields and the third through the `SUPPLIED` overlay, which is why the
     claim that used to stand here (that no route ever populates them) is
-    gone rather than narrowed. That the overlay is empty today is a fact
+    gone rather than narrowed. How many entries the overlay holds is a fact
     about its contents rather than about the path, so it is not what this
     helper's callers rest on. Reading both populations is what keeps a caller
     naming a row alive across that row's own migration: the pair is unique
@@ -4189,6 +4202,16 @@ def test_the_per_partition_deps_rows_survive_their_records_migration():
     ]
     assert vuln.supplied("uv")[0][:3] == ("uv", "export", "--frozen")
     assert rows[("deps/vulnerabilities", "safety")].argv == ()
+    # `in_env` and the findings stream are pinned here for the same reason the
+    # shared-argv rows above pin them: both decide how a row is run and read
+    # rather than what it runs, so a route gaining `in_env: true` would launch
+    # every one of these commands through the partition's own environment
+    # instead of a one-shot runner, and a route naming stderr would move which
+    # stream `classify` grades - each with every argv above still matching and
+    # the whole suite green.
+    for row in (inv, vuln, rows[("deps/vulnerabilities", "safety")]):
+        assert row.in_env is False, (row.check, row.tool)
+        assert row.findings_stream == "stdout", (row.check, row.tool)
 
 
 def test_a_quote_belongs_to_a_transcription_and_only_to_one():
