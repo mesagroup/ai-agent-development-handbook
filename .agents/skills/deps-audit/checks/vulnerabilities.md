@@ -44,7 +44,14 @@ routes:
       answers it. Run `pip-audit` with no arguments and it audits whatever
       environment it was launched from, which on a foreign target is the
       audit environment rather than the subject - not evidence about the
-      target at all, so don't.
+      target at all, so don't. The python lens smoke run reports `no-evidence`
+      for this check on the pip and uv partitions, and the reason is a host
+      fault rather than anything about this command: `ensurepip` aborts with
+      `SIGABRT` whenever `pip-audit -r` has to provision its own virtualenv,
+      with and without `--no-deps`. Provisioning is the step this pair removes,
+      so the pair itself is unexercised there rather than tested and found
+      wanting - which is why the observation belongs beside the command it is
+      about rather than beside the un-narrowed form below.
   - lang: python
     kind: command
     tool: pip-audit
@@ -56,11 +63,7 @@ routes:
       throwaway virtualenv to resolve it, so it needs network rather than the
       target's tree. Superseded by the narrowed form above rather than
       offered beside it, which is why the placeholder is safe here and the
-      command that runs names the file. The python lens smoke run's published
-      observation for this route reports `no-evidence` because `ensurepip`
-      aborts with `SIGABRT` while `pip-audit` provisions that virtualenv, a
-      step the `--no-deps`/`--disable-pip` pair removes, so the pair itself
-      is unexercised there rather than tested and found wanting.
+      command that runs names the file.
   - lang: python
     kind: procedure
     tool: safety
