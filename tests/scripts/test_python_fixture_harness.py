@@ -356,12 +356,13 @@ def test_the_prose_fallback_scope_is_not_empty_and_holds_no_migrated_record():
     record left in the set, where a property looks for prose the record no
     longer has and fails for a reason that is not drift.
 
-    Both halves read the declared schema rather than a domain prefix. `arch` is
-    the only domain migrated as this is written, so `not c.startswith("arch/")`
-    would pass here for the same reason and would go on passing once another
-    domain migrates - at which point it would no longer be a statement about
-    migrated records at all, and the watched set it computes would quietly
-    start including records that had stopped carrying prose.
+    Both halves read the declared schema rather than a domain prefix. A prefix
+    test passes for as long as the domains it names are exactly the migrated
+    ones, and migration runs domain by domain and record by record within one,
+    so it stops being a statement about migrated records without failing once -
+    the watched set it computes would quietly start including records that had
+    stopped carrying prose, and a half-migrated domain breaks it in both
+    directions at once.
     """
     assert _LOAD_ERRORS == []
     assert PROSE_FALLBACK_CHECKS

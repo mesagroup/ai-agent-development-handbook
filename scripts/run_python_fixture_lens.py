@@ -431,9 +431,9 @@ class Invocation:
         findings_stream: Which stream this tool writes its report to, and so
             which one `classify` reads to tell a tool that answered from one
             that failed. `stdout` is the default and a record says otherwise on
-            the route, which two do: deptry writes its whole report to stderr
-            and leaves stdout empty, and xenon reports its breach there with
-            stdout empty too. Both are measured, and they are the reason this is
+            the route, which deptry and xenon each do: deptry writes its whole
+            report to stderr and leaves stdout empty, and xenon reports its
+            breach there with stdout empty too. Both are measured, and they are the reason this is
             a field rather than an assumption: read on stdout, a deptry run that
             finds every planted seed grades as a tool failure and one that finds
             nothing grades clean, which is the classification exactly inverted
