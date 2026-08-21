@@ -683,10 +683,13 @@ class Expectation:
     the other, which is commonly a route carrying no tool at all and so
     invisible in the projected `tooling`/`needs` pair - and the test that
     derives this field reads whichever place the record's own schema uses.
-    So a routes record does set this field, and `deps/freshness` and
-    `deps/hygiene` do. Reconciling this paragraph against the entries by
-    stripping the axis from those is the move to avoid: it flips the derivation
-    the other way and regrades every ungranted deps run. Without
+    So whether this field is set is decided by a record's tools and its
+    answering routes and never by which schema it declares, which is why the
+    paragraph names no record here: the set that carries the axis moves with
+    every migration, and a list of it would read as exhaustive one task later.
+    Reconciling this paragraph against the entries by stripping the axis from a
+    routes record is the move to avoid: it flips the derivation the other way
+    and regrades every ungranted run of that check. Without
     this field a correct ungranted run of `deps/hygiene` - which reports DEP001
     where the granted run reports DEP003 - would be graded against the granted
     answer and recorded as a tool defect.
