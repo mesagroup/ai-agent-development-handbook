@@ -2327,8 +2327,6 @@ LEGACY_TOOLING_RECORDS = frozenset(
         "data-protection/residency-pinning",
         "data-protection/retention-limits",
         "data-protection/stored-artifact-pii",
-        "deps/inventory",
-        "deps/vulnerabilities",
         "docs/coverage",
         "docs/cross-referencing",
         "docs/docstring-coverage",
