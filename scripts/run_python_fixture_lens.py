@@ -851,10 +851,10 @@ SUPPLIED: dict[tuple[str, str], Supplied] = {
             "record mentions `uv export --frozen` only to say what a fully resolved "
             "requirements file contains, and prescribes no export-then-audit route for "
             "a uv tree, so the route as a whole is this round's. Supplied for uv "
-            "alone: the same export is "
-            "what a poetry or pipenv partition has no lockfile for - `uv export "
-            "--frozen` reads a uv.lock and those partitions carry none by "
-            "construction - so there is no equivalent route to supply them"
+            "alone: the same export is what a poetry or pipenv partition has no "
+            "lockfile for - `uv export --frozen` reads a uv.lock and those "
+            "partitions carry none by construction - so there is no equivalent "
+            "route to supply them"
         ),
     ),
 }

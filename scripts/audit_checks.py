@@ -260,18 +260,20 @@ class Route:
     per-partition overrides alike, or the partitions whose override needs none
     where the rest of the route's commands do.
 
-    Both fields are unused by any record in this tree. Their first users are
-    `test/coverage-reach` (`then`) and `deps/inventory` (`own_runner`), which
-    migrate in #67 - they are the two records stage 4 could not migrate at
-    all, which is why the schema moved first.
+    `own_runner` has a user and `then` does not yet: `deps/inventory` carries
+    the first, and `test/coverage-reach` brings the first `then` when it
+    migrates. They are the two records stage 4 could not migrate at all, which
+    is why the schema moved before they did.
 
-    Nine routes in this tree already carry a runner-led shared argv, and five
-    of them are candidates to annotate: the `dependency-cruiser` route of
-    `arch/coupling`, `arch/cycles`, `arch/layering` and
-    `arch/over-decomposition`, each `npx --package typescript@^5 ...`, plus
-    `arch/size`'s `npx cloc`. The other four are the `dlx depcruise` routes
-    those same records declare `disposition: forbidden`, which no lens runs
-    and so none needs the flag. None of the five says anything today, because
+    A runner-led shared argv - one a fetcher leads, where the fetched name is
+    not the route's tool - is the shape that wants the flag, and the candidates
+    to annotate are the `dependency-cruiser` route of `arch/coupling`,
+    `arch/cycles`, `arch/layering` and `arch/over-decomposition`, each `npx
+    --package typescript@^5 ...`, plus `arch/size`'s `npx cloc`. Every other
+    runner-led shared argv in the tree sits on a `disposition: forbidden`
+    route - the `dlx depcruise` those same four records warn against, and
+    `deps/inventory`'s `dlx cyclonedx-npm` - which no lens runs, so none of
+    them needs the flag. None of the candidates says anything today, because
     no lens runs a `lang: typescript` route and `arch/size` offers no python
     tooling - a silence that is unobserved rather than correct.
 
@@ -286,7 +288,12 @@ class Route:
     on a route whose overrides are runner-led while its shared argv is not
     claims the fallback is complete as well, and every partition running the
     fallback then goes unfetched with no error raised. Write the list form
-    there. `deps/inventory` is exactly that shape and takes `[uv]`.
+    there. `deps/inventory` takes the list form for a different reason worth
+    knowing beside that one: it carries no shared argv at all, and exactly one
+    of its per-partition commands - the uv partition's `uv export`, a command
+    of another tool entirely - is complete as written, while the rest are
+    `cyclonedx-py` subcommands a runner has to fetch. `True` would claim those
+    three need no fetching either.
     """
 
     lang: str
