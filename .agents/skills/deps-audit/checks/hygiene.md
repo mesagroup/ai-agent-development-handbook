@@ -23,12 +23,15 @@ routes:
       environment. Measured on a seeded partition, `deptry .` exits 1 with an
       empty stdout and its whole DEP002/DEP001 report on stderr, so a caller
       reading stdout, or treating the non-zero exit as the tool having failed,
-      loses a real finding rather than an absence of one. The scan root is an
-      operand the record names none for. Without the tree `deptry` is correct
+      loses a real finding rather than an absence of one. Without the tree
+      `deptry` is correct
       where a distribution name equals its import name and misreports in both
       directions at once where they diverge, emitting a declared-but-unused
       finding for the distribution and a missing-dependency finding for the
       import it could not resolve.
+    alone_insufficient: >-
+      `deptry` takes a scan root and the record names none, so the argv is not
+      a complete invocation on its own.
     applies_when: >-
       The partition is not pipenv-only. `deptry` has no reader for `Pipfile`
       or `Pipfile.lock` at all: pointed at a pipenv-only project it raises
