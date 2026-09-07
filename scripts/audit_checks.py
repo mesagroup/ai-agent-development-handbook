@@ -3,8 +3,8 @@
 `.agents/skills/<domain>-audit/checks/<check>.md` holds one record per
 auditable check: the machine-checkable attributes in YAML frontmatter, the
 judgment prose in the body. The `*-audit` skills load a subset of these at
-run time - a domain's checks, sliced by locality - instead of eight
-`SKILL.md` files each carrying the same five per-check attributes inline.
+run time - a domain's checks, sliced by locality - instead of one
+`SKILL.md` per domain carrying every per-check attribute inline.
 
 A domain's records live inside that domain's own skill, not in a shared
 tree under `audit-core`. Each skill then stands alone - a repo adopting

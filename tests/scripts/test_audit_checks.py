@@ -565,7 +565,7 @@ def test_the_notes_are_not_all_sentinels():
         c.id for c in checks.values() if _languages_rescued_by_an_untiered_route(c)
     ]
     claims = sorted(prose + routed)
-    assert len(claims) >= 15, f"only {len(claims)} records answer anything: {claims}"
+    assert len(claims) >= 16, f"only {len(claims)} records answer anything: {claims}"
 
 
 def test_a_language_with_no_tools_is_not_fully_tiered(tmp_path):
