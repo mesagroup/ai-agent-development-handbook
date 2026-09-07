@@ -58,10 +58,16 @@ routes:
       `kind: command` route would have to invent one: `cosmic-ray` drives a
       session from a TOML config, and that config is the input, so writing one
       to make the tool run would manufacture the input rather than transcribe
-      the record. `in_env` is set even though this route prescribes nothing to
-      run: the version probe calls the launcher for every tool regardless of
-      `argv`, and without the flag the probe resolves a bare one-shot runner
-      with the tool never installed, on every partition and grant.
+      the record. `in_env` is set because it is true of the tool - driving a
+      session re-runs the target's suite in the target's own environment, as
+      `mutmut` does - and not because this route needs it: with no argv there
+      is no command for a launcher to prefix, and the only thing the flag
+      still reaches is the version probe, which resolves `cosmic-ray`'s own
+      console script and obtains the tool with the flag or without it. So do
+      not read the flag here as saying the tool is unreachable when the grant
+      is withheld. That reasoning does hold for the pytest plugins, whose
+      probes import the package rather than running a script of their own, and
+      it is theirs rather than a general property of `in_env`.
   - lang: typescript
     kind: procedure
     tool: "@stryker-mutator/core"
