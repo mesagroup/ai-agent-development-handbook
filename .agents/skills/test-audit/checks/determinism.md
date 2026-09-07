@@ -27,10 +27,9 @@ routes:
     in_env: true
     needs: target-execution
     note: >-
-      Re-run a failing order with `pytest --randomly-seed=<n>`, where `<n>` is
-      the seed the run being reproduced reported. Offered rather than run,
-      because there is no failing order to re-run until the route above has
-      produced one.
+      Re-run a failing order with `pytest --randomly-seed=<n>`. Offered rather
+      than run, because there is no failing order to re-run until the route
+      above has produced one.
   - lang: python
     kind: procedure
     tool: pytest-rerunfailures
