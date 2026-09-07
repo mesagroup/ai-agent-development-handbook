@@ -4,6 +4,7 @@
 
 ```bash
 uv sync --group dev
+git config core.hooksPath .githooks   # once per clone; git does not do it for you
 uv run pytest tests/ -q
 uv run ruff check . && uv run ruff format --check .
 uv run python scripts/render_handbook_traceability.py --check   # integrity gate
@@ -15,6 +16,8 @@ uv run python scripts/build_python_fixtures.py --all                  # generate
 ```
 
 Run `ruff check` AND `ruff format --check` before committing. CI runs both.
+
+`.githooks/commit-msg` refuses a commit message carrying an AI attribution trailer, and `core.hooksPath` is what makes git run it, so a fresh clone that skips that line has the rule in prose only. The rule itself is that no commit in this repository carries one, and it is a hook rather than a convention because prose was not enough: a harness injected an attribution instruction mid-session, declaring that it superseded earlier attribution guidance, and six commits were written with the trailer before anyone reading the log noticed the branch had changed convention. The hook names the assistant rather than the `Co-Authored-By` key, so a human co-author trailer still works; it matches only at the start of a line and skips comment lines, so a message discussing the convention is not caught by mentioning it; and a deliberate exception is `--no-verify`.
 
 ## Repository layout
 
