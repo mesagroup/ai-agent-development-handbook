@@ -264,8 +264,9 @@ class Route:
     so which records carry either moves as the migration runs and `grep
     own_runner` and `grep "then:"` over the check tree is the way to ask.
     `deps/inventory` and `test/coverage-reach` are the records the two fields
-    were written for, and the schema moved ahead of them because neither could
-    be migrated without it.
+    were written for - the schema moved ahead of them because neither could be
+    migrated without it - and each now declares its own: `own_runner: [uv]` on
+    the first, `then` on the second.
 
     A runner-led shared argv - one a fetcher leads, where the fetched name is
     not the route's tool - is the shape that wants the flag, and the candidates
