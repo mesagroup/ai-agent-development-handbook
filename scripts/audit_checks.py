@@ -456,8 +456,8 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
     command the route prescribes needs no prefix - its shared `argv` and each
     partition's entry alike, or, on a route carrying no shared `argv`, the
     entries its map names, those being every command it prescribes - and is
-    otherwise a list of partition names,
-    rejected unless `argv_by_partition` carries every name listed. Whichever
+    otherwise a list of partition names, rejected unless `argv_by_partition`
+    carries every name listed. Whichever
     form it takes, it is never written beside `in_env`, whose materialized
     environment the suppressed prefix would otherwise never reach.
 
@@ -573,6 +573,17 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
 
         raw_argv = entry.get("argv")
         raw_per_partition = entry.get("argv_by_partition")
+        if "argv" in entry and raw_argv is None:
+            errors.append(
+                f"{loc}: argv is empty - YAML reads `null`, `~` and a bare "
+                "key as nothing, so this key declares no command and is not "
+                "the absent key either. That distinction is load-bearing on a "
+                "command route, where an absent argv beside argv_by_partition "
+                "says the partitions the map does not name have no command at "
+                "all: write the argv, or drop the key to make that claim on "
+                "purpose. On any other kind the key is rejected whatever it "
+                "holds, so dropping it is the only fix"
+            )
         if kind == "command":
             parsed_argv = _str_list(raw_argv)
             if raw_argv is not None and parsed_argv is None:

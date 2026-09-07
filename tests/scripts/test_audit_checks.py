@@ -775,6 +775,37 @@ def test_an_empty_argv_beside_per_partition_commands_is_rejected(tmp_path):
     assert any("argv is present and empty" in e for e in errors), errors
 
 
+@pytest.mark.parametrize("spelling", ["argv:", "argv: ~", "argv: null"])
+def test_an_argv_written_with_no_value_is_not_the_absent_key(tmp_path, spelling):
+    """The three YAML spellings of nothing, which are not the absent key.
+
+    The sibling above rejects `argv: []` because a written empty list says
+    nothing. These three say nothing in exactly the same way and `entry.get`
+    cannot tell them from a key that was never written - and on a command
+    route the absent key is the one shape here that carries a claim, that the
+    partitions `argv_by_partition` does not name have no command at all. So
+    an author who meant to write a command and left the value off would have
+    had that read as the opposite claim, silently.
+
+    Parametrized over the three rather than tested once, because they reach
+    the loader as the same `None` by three different routes through the YAML
+    parser and a rule keyed on any one of them is a rule the other two walk
+    past. `package` has carried this guard since before routes existed and
+    its message names the same three; this closes the gap for `argv`, which
+    opened when the shared argv became optional beside a per-partition map.
+
+    Held on a command route because that is where the confusion inverts a
+    claim, and asserted only on the message so the same rule covers the
+    other kinds, where the key is rejected whatever it holds.
+    """
+    errors = _errors_for_route(
+        tmp_path,
+        f"kind: command\n    tool: t\n    {spelling}\n"
+        "    argv_by_partition:\n      uv: [t, u]",
+    )
+    assert any("argv is empty" in e for e in errors), errors
+
+
 @pytest.mark.parametrize("disposition", ["alternative", "superseded", "forbidden"])
 def test_a_non_running_disposition_needs_a_command(tmp_path, disposition):
     errors = _errors_for_route(

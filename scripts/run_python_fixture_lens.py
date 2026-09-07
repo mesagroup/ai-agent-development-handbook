@@ -156,11 +156,11 @@ GRANTS = ("none", "target-execution")
 # so a route whose command runs the target's suite has to bring one, whichever
 # population supplies the row: `coverage run -m pytest` and `mutmut run` are
 # both read from their records rather than transcribed here, and both die on
-# `No module named pytest`
-# otherwise, which reads as a tool that failed rather than as a package nobody
-# installed - a failure this harness would have invented, on an entry the record
-# had right. The pytest plugins need no entry because each depends on pytest
-# already, so naming the plugin brings the runner with it.
+# `No module named pytest` otherwise, which reads as a tool that failed rather
+# than as a package nobody installed - a failure this harness would have
+# invented, on an entry the record had right. The pytest plugins need no entry
+# because each depends on pytest already, so naming the plugin brings the runner
+# with it.
 TOOL_PACKAGES = {
     "coverage.py": ("coverage", "pytest"),
     "cyclonedx-py": ("cyclonedx-bom",),
@@ -803,15 +803,18 @@ class Supplied:
     than in the record that, by definition, does not prescribe it.
 
     Validates the shape of what it holds: a steps tuple that is empty, a
-    partition named twice, a missing note, or a step with no tokens. Three of
-    those four `Invocation._check_supplied` rejects as well, and the overlap is
-    the point - it is where a hand-written entry would be caught, building no
-    `Supplied` at all, while an entry written here fails at the literal that
-    carries the mistake rather than at the row it is later copied onto. No
-    hand-written entry carries a supplied route today, so that half of the
-    overlap is currently unexercised rather than unnecessary. What that method holds alone is the relationship to the rest
-    of the row, which nothing here can see: a partition carrying both a
+    partition named twice, a missing note, or a step with no tokens. Which
+    door catches which matters more than the overlap's size, so: `Supplied`
+    rejects all four, and `Invocation._check_supplied` rejects two of them, a
+    partition named twice and a missing note. An empty `by_partition` and a
+    step with no tokens reach an `Invocation` unrejected, which is safe only
+    because every supplied route in the tree is written here first - a
+    hand-written entry passing `supplied_by_partition` directly would meet
+    neither check. `_check_supplied` holds two shapes this class cannot see at
+    all, being about the rest of the row: a partition carrying both a
     prescribed route and a supplied one, and a supplied route beside `in_env`.
+    Failing here rather than there is the better failure where both fire, at
+    the literal carrying the mistake rather than at the row it is copied onto.
     """
 
     by_partition: tuple[tuple[str, tuple[tuple[str, ...], ...]], ...]
