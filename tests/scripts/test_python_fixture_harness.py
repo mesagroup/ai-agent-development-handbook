@@ -136,9 +136,12 @@ def _is_subsequence(needle: list[str], haystack: list[str]) -> bool:
     """Whether every token of `needle` occurs in `haystack`, in order.
 
     In order but not adjacent, because a record writes a placeholder where the
-    caller supplies a value: `pytest --cov=<pkg> --cov-branch` prescribes the
-    command whose transcription drops `--cov=<pkg>` from the middle, and a
-    contiguity test would fail on a correct entry.
+    caller supplies a value: a transcription of `pytest --cov=<pkg> --cov-branch`
+    drops `--cov=<pkg>` from the middle, and a contiguity test would fail on that
+    correct entry. Non-contiguity stays load-bearing for the anchor guards
+    whatever forms the tree carries, because those trace a record's raw tokens
+    through the record's own sentence, where the prose between two tokens of a
+    command is exactly what a contiguity test would reject.
 
     Token equality goes through `_matches` rather than `==`, but every caller
     passes unmarked tokens, so today that reduces to `==` on every comparison this
@@ -224,7 +227,7 @@ def _concrete(tokens: list[str]) -> list[str]:
 
     Where the placeholder is glued to a flag the token is *truncated* rather than
     dropped, keeping the `<` as the mark `_matches` reads: `--cov=<pkg>` becomes
-    `--cov=<`, which the seeded `--cov=fixture_pkg` satisfies. Dropping the whole
+    `--cov=<`, which any `--cov=` token carrying a package name satisfies. Dropping the whole
     token instead reopens the drift this file exists to catch - a paragraph that
     grows `--cov-config=<file>` would reduce to nothing at all, `all([])` is
     vacuously true, and a newly prescribed flag nothing transcribes would pass
@@ -1683,12 +1686,16 @@ def test_every_form_the_harness_runs_appears_in_an_argv():
 
     Order is held among the tokens the record writes in full, and presence only
     for a token whose tail the caller supplies. That split is what keeps the
-    relaxation to the single token that needs it: a completion is appended at the
-    end of the command while the record writes the token it supplies inside the
-    form, so an ordered test over the whole form fails on `pytest --cov=<pkg>
-    --cov-branch --cov-report=term-missing`, whose `--cov=` arrives last. Measured
-    over every form declared `runs`, that is the only token in the table any
-    command satisfies by completion alone, so it is the only one this exempts.
+    relaxation to the tokens that need it: a completion is appended at the end of
+    the command while a record can write the token it supplies inside the form,
+    so an ordered test over the whole form fails on a form like `pytest
+    --cov=<pkg> --cov-branch --cov-report=term-missing`, whose `--cov=` arrives
+    last. Which forms need the relaxation follows from the schema a record
+    declares: a routed row's forms are derived from its route's `argv`, and a
+    route leaves such a placeholder in `alone_insufficient` rather than in the
+    argv, so a routed row contributes no form that needs it. A transcribed entry
+    still can, which is why the `supplied` half of the assertion below stays
+    rather than being deleted as the branch nothing currently takes.
 
     The guard that traces a transcribed command through the record's sentence
     reads every partition's route, but it never reads `then`, and where it
@@ -1697,9 +1704,12 @@ def test_every_form_the_harness_runs_appears_in_an_argv():
     migrated - so this property is the only order check on every form, and it
     is the one that has to keep working when an exception comes back with the
     next entry that needs one. A form reachable
-    only through `then` is held twice over: here, and by the property tracing a
-    two-command route through the quote, which a scrambled `then` fails wherever
-    that command's tokens are the form's.
+    only through `then` is held here. The property tracing a two-command route
+    through the quote reads `INVOCATIONS` only, for the reason its own docstring
+    gives - a routed row's `argv` and `then` are two fields of one route, so
+    their order is true of it by construction and there is no transcription to
+    hold it against - so that one covers such a form only where a hand-written
+    entry transcribes the sentence into two tuples.
 
     Reads both paths, and the reason it once read `INVOCATIONS` alone is worth
     keeping as a record of how the premise failed. It rested on a routed row

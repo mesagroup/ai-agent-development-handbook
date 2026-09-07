@@ -153,8 +153,10 @@ GRANTS = ("none", "target-execution")
 # of a distribution published as `cyclonedx-bom` - naming the distribution makes
 # the resolution direct instead of leaving the runner to guess from an alias.
 # And **the fixture declares no pytest**,
-# so a route whose transcribed command runs the target's suite has to bring one:
-# `coverage run -m pytest` and `mutmut run` both die on `No module named pytest`
+# so a route whose command runs the target's suite has to bring one, whichever
+# population supplies the row: `coverage run -m pytest` and `mutmut run` are
+# both read from their records rather than transcribed here, and both die on
+# `No module named pytest`
 # otherwise, which reads as a tool that failed rather than as a package nobody
 # installed - a failure this harness would have invented, on an entry the record
 # had right. The pytest plugins need no entry because each depends on pytest
