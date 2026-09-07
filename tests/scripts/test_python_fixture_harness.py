@@ -1690,12 +1690,15 @@ def test_every_form_the_harness_runs_appears_in_an_argv():
     report --show-missing` are one route the record splits in two, and reading
     the argv alone would report the half that prints the report as a form nothing
     runs. Each command comes from `argv_for`, so it carries the entry's
-    completion as well - the form `pytest --cov=<pkg> ...` is satisfied by the
-    `--cov=` the completion supplies, and reading the prescribed argv alone would
-    have to drop that token instead, which is what makes a flag with a glued
-    placeholder invisible. Reading two fields of the table is not the folding the
-    provenance guard forbids: that one forbids a completion hiding inside the
-    `argv` field, where nothing could tell it from what the record prescribed.
+    completion as well, which is what lets a form declare a flag whose value the
+    completion supplies: reading the prescribed argv alone would have to drop
+    that token instead, and a flag with a glued placeholder would go invisible.
+    No form in the tree needs that today - see the paragraph below on what still
+    takes the `supplied` branch - so this reads as the mechanism it is rather
+    than as an entry to go and look at. Reading two fields of the table is not
+    the folding the provenance guard forbids: that one forbids a completion
+    hiding inside the `argv` field, where nothing could tell it from what the
+    record prescribed.
 
     Order is held among the tokens the record writes in full, and presence only
     for a token whose tail the caller supplies. That split is what keeps the
@@ -1703,15 +1706,26 @@ def test_every_form_the_harness_runs_appears_in_an_argv():
     the command while a record can write the token it supplies inside the form,
     so an ordered test over the whole form fails on a form like `pytest
     --cov=<pkg> --cov-branch --cov-report=term-missing`, whose `--cov=` arrives
-    last. Only a transcribed entry needs the relaxation, and that is enforced
-    below rather than assumed: the loader does not forbid a glued placeholder
-    in a route's `argv`, and one is written in the tree today - the Stryker
-    one-shot route's `@stryker-mutator/<runner>-runner`, which reaches no row
-    here only because `routed_invocations` reads `lang: python` alone. The
-    convention a migrated record follows is to leave such a placeholder in
-    `alone_insufficient`, where no form derives from it; the assertion holds
-    the rows this property reads to it, so the `supplied` half stays as the
-    branch a transcribed entry takes and not as a branch nothing can reach.
+    last. Which forms can need the relaxation is enforced below rather than
+    assumed. The loader permits a glued placeholder in a route's `argv` - one is
+    written in the tree, the Stryker one-shot route's
+    `@stryker-mutator/<runner>-runner` - so a route staying out of the
+    `supplied` branch is a convention and not a schema fact, and the assertion
+    holds the rows this property reads to it. Do not read that route as the
+    thing the assertion is guarding against: it is `lang: typescript`, so
+    `routed_invocations` never builds a row from it, and it is `alternative`, so
+    the disposition guard above would skip its form even on a python route. The
+    convention the assertion holds a python route to is to leave such a
+    placeholder in `alone_insufficient`, which derives no form.
+
+    So no form on either path takes the `supplied` branch today, and it stays
+    because a transcribed entry can take one: a record writes the token it
+    supplies inside the form, and `_concrete` keeps a glued placeholder as a
+    prefix while dropping a standalone one - which is why `bandit -r <pkg>` does
+    not take it and `pytest --randomly-seed=<n>` would, were its disposition not
+    `alternative`. Deleting the branch would leave the relaxation unavailable to
+    the next entry of that shape, and it is the transcription that still has
+    entries of any shape.
 
     The guard that traces a transcribed command through the record's sentence
     reads every partition's route, but it never reads `then`, and where it
