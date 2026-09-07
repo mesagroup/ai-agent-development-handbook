@@ -260,10 +260,12 @@ class Route:
     per-partition overrides alike, or the partitions whose override needs none
     where the rest of the route's commands do.
 
-    `own_runner` has a user and `then` does not yet: `deps/inventory` carries
-    the first, and `test/coverage-reach` brings the first `then` when it
-    migrates. They are the two records stage 4 could not migrate at all, which
-    is why the schema moved before they did.
+    Each of the two is a record's own declaration rather than anything derived,
+    so which records carry either moves as the migration runs and `grep
+    own_runner` and `grep "then:"` over the check tree is the way to ask.
+    `deps/inventory` and `test/coverage-reach` are the records the two fields
+    were written for, and the schema moved ahead of them because neither could
+    be migrated without it.
 
     A runner-led shared argv - one a fetcher leads, where the fetched name is
     not the route's tool - is the shape that wants the flag, and the candidates

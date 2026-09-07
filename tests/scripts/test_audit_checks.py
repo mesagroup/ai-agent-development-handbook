@@ -2364,10 +2364,8 @@ LEGACY_TOOLING_RECORDS = frozenset(
         "security/sensitive-data",
         "security/unsafe-io",
         "test/assertion-strength",
-        "test/coverage-reach",
         "test/determinism",
         "test/isolation",
-        "test/mutation",
         "test/new-code-coverage",
         "test/property-based-gap",
     }

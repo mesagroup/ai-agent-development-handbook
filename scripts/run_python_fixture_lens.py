@@ -752,6 +752,13 @@ COMPLETIONS: dict[tuple[str, str], Completion] = {
             "root is a gap in the record"
         ),
     ),
+    ("test/coverage-reach", "pytest-cov"): Completion(
+        tokens=(f"--cov={PACKAGE}",),
+        note=(
+            "`<pkg>` is a placeholder the record leaves to the caller; the seeded "
+            "package is " + PACKAGE
+        ),
+    ),
 }
 
 
@@ -963,41 +970,6 @@ INVOCATIONS: tuple[Invocation, ...] = (
     ),
     # --- test ---------------------------------------------------------------
     Invocation(
-        check="test/coverage-reach",
-        tool="pytest-cov",
-        argv=("pytest", "--cov-branch", "--cov-report=term-missing"),
-        completion=(f"--cov={PACKAGE}",),
-        in_env=True,
-        note=(
-            "`<pkg>` is a placeholder the record leaves to the caller; the seeded "
-            "package is " + PACKAGE
-        ),
-        record_quote=(
-            "`pytest --cov=<pkg> --cov-branch --cov-report=term-missing` (or `coverage "
-            "run -m pytest` + `coverage report --show-missing`)."
-        ),
-        forms=(("pytest --cov=<pkg> --cov-branch --cov-report=term-missing", "runs"),),
-    ),
-    Invocation(
-        check="test/coverage-reach",
-        tool="coverage.py",
-        argv=("coverage", "run", "-m", "pytest"),
-        then=("coverage", "report", "--show-missing"),
-        in_env=True,
-        record_quote=(
-            "`pytest --cov=<pkg> --cov-branch --cov-report=term-missing` (or `coverage "
-            "run -m pytest` + `coverage report --show-missing`)."
-        ),
-        note=(
-            "the record prescribes two commands in sequence for this route, so the "
-            "second is held in `then` rather than dropped"
-        ),
-        forms=(
-            ("coverage report --show-missing", "runs"),
-            ("coverage run -m pytest", "runs"),
-        ),
-    ),
-    Invocation(
         check="test/determinism",
         tool="pytest-randomly",
         argv=("pytest",),
@@ -1046,36 +1018,6 @@ INVOCATIONS: tuple[Invocation, ...] = (
         ),
         record_quote="`pytest --durations=25` for the slowest tests; check unit tests for real I/O.",
         forms=(("pytest --durations=25", "runs"),),
-    ),
-    Invocation(
-        check="test/mutation",
-        tool="mutmut",
-        argv=("mutmut", "run"),
-        in_env=True,
-        record_quote="**Python** - `mutmut run` or `cosmic-ray`.",
-        forms=(
-            ("mutmut results", "alternative"),
-            ("mutmut run", "runs"),
-        ),
-    ),
-    Invocation(
-        check="test/mutation",
-        tool="cosmic-ray",
-        in_env=True,
-        record_quote=(
-            "Run `mutmut` / `cosmic-ray` on the highest-risk modules to measure "
-            "whether tests kill injected faults (the truest test-effectiveness signal, "
-            "but slow) - enable via argument or ask the user; default off for a quick "
-            "pass, recommend on for a scorer/parser-heavy core."
-        ),
-        note=(
-            "the record names the tool and no subcommand, so there is no command here "
-            "to run: cosmic-ray drives a session from a TOML config, and writing one "
-            "would manufacture the input rather than transcribe the record. Left "
-            "empty rather than run bare, which would report a record with no runnable "
-            "command as a tool that failed"
-        ),
-        forms=(),
     ),
     Invocation(
         check="test/property-based-gap",
