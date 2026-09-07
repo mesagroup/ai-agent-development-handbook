@@ -38,6 +38,16 @@ Rejected: a separate field naming the partitions with no command, which states i
 
 One shape stays unexpressed, stated here rather than given a spelling for nobody: a route with a shared `argv` **and** one partition that must have no command. No record in the tree is that shape. `deps/hygiene`'s pipenv case is not it - `deptry` there is a command that runs and raises, which the record says and the harness records.
 
+## A second shape stays unexpressed: a tool the record refuses with no command line to refuse
+
+Found while migrating `test/coverage-reach`, and recorded here because the decision was taken during the migration rather than ahead of it. The record forbids reaching for `c8` around a Vitest command, and backs the prohibition with measurement: `c8` there reported 96.35% statements and 69.56% branches over three files where the provider-based measurement of the same tree reported 8.05% and 5.86% over 339, which the record calls a false clean worse than `no-evidence`. It also keeps `c8`'s plain form as the measurement for a runner whose tests run in the process it wrapped. So one tool, two routes, opposite dispositions.
+
+The schema cannot carry that. `disposition: forbidden` is valid only on a `kind: command` route, because a route prescribing no command has nothing for a consumer to run instead of, and the record writes no `c8` command line for either case - not the wrapping it refuses, and not the plain form it keeps. Writing an argv to earn the label would invent a command, which migration-is-not-correction forbids. The three requirements cannot all hold, and the two kept are the loader's rule and the no-invented-argv constraint.
+
+So the two `c8` routes are `kind: procedure`, separated by `applies_when`, both tiered, with the prohibition as the bolded first sentence of the refusing route's note and that route written first. Nothing is lost to a reader. What is absent is a field a consumer can filter on: a record can say "here is a command, never run it" and cannot say "here is a tool, never reach for it in this situation" as anything but prose. `test/mutation`'s bare-name hazard is the same shape and is stated the same way.
+
+Rejected: relaxing the loader's rule so a procedure route may carry a disposition. Every non-command route in the tree carries the default today, so the field conveys nothing there and would start conveying something in one record only. That is a schema change, and this unit's schema change was decided and landed before any record migrated, deliberately.
+
 ## `argv_by_manager` is renamed to `argv_by_partition`
 
 A python route's keys have to be the fixture lens's partition names, because `_argv_by_partition` raises on a key outside `PARTITIONS` rather than threading a command that silently never runs. Four of those five names are package managers and `pylock` is a lockfile standard, so the field's name is wrong on the key this unit has to write. #66 filed the mismatch as an open question to answer before these records were written.
