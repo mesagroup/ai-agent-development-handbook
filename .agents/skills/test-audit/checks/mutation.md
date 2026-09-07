@@ -4,12 +4,13 @@ domain: test
 locality: local
 optin: true
 evidence: >-
-  Every route here re-runs the target's own suite once per injected mutant, so
-  this check needs the `target-execution` grant, and it is the most expensive
-  tool in this family to run - many suite executions rather than one. Without
-  the grant it is `no-evidence (not-permitted)`. Where the grant exists, scope
-  the run to the highest-risk module rather than the whole suite; a full-suite
-  mutation run multiplies an already-slow tool by every module in the tree.
+  Every tool these routes name re-runs the target's own suite once per injected
+  mutant, so this check needs the `target-execution` grant, and it is the most
+  expensive tool in this family to run - many suite executions rather than one.
+  Without the grant it is `no-evidence (not-permitted)`. Where the grant exists,
+  scope the run to the highest-risk module rather than the whole suite; a
+  full-suite mutation run multiplies an already-slow tool by every module in the
+  tree.
 handbook:
   - implementation-disciplines/tdd-b
 answers_ungranted: none
