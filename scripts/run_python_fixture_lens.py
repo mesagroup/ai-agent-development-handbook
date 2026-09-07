@@ -254,11 +254,12 @@ FROZEN_FORM = {
 # `ungranted_note`'s `none` sentinel, and for the same reason - an omitted entry
 # must never read as a silent default.
 #
-# `grimp` and `hypothesis` carry no `argv` anywhere in `INVOCATIONS`: the record
-# asks for each as a library rather than a command, so neither's own console
+# `grimp` and `hypothesis` carry no `argv` on any row, in either population: no
+# record prescribes a command line for either, naming the tool as something the
+# check computes over or inspects rather than invokes, so neither's own console
 # entry point (`hypothesis` needs `click`, which nothing here installs; `grimp`
-# has no console entry point at all) is what the family actually runs. Their
-# probes read the installed distribution's own metadata instead, and the
+# has no console entry point at all) is what the family actually runs.
+# Their probes read the installed distribution's own metadata instead, and the
 # `--with <pkg>` is safe to bake into the probe itself only because both tools
 # are `in_env=False` everywhere they occur: `launcher` then returns bare
 # `("uvx",)` on every partition and every grant, so there is no in-environment
@@ -761,6 +762,15 @@ COMPLETIONS: dict[tuple[str, str], Completion] = {
             "package is " + PACKAGE
         ),
     ),
+    ("test/isolation", "pytest-timeout"): Completion(
+        tokens=(f"--timeout={ISOLATION_TIMEOUT_SECONDS}",),
+        note=(
+            "the record prescribes `--durations=25`, which is core pytest and never "
+            "exercises pytest-timeout, the tool the record names; the timeout comes "
+            "from the fixture's own ISOLATION_TIMEOUT_SECONDS, which the expectation "
+            "is written against"
+        ),
+    ),
 }
 
 
@@ -969,71 +979,6 @@ INVOCATIONS: tuple[Invocation, ...] = (
                 forms=(("semgrep --config p/python", "runs"),),
             ),
         )
-    ),
-    # --- test ---------------------------------------------------------------
-    Invocation(
-        check="test/determinism",
-        tool="pytest-randomly",
-        argv=("pytest",),
-        in_env=True,
-        record_quote=(
-            "`pytest-randomly` randomizes the order as soon as it is installed, so "
-            "the command is `pytest` itself; re-run a failing order with `pytest "
-            "--randomly-seed=<n>`."
-        ),
-        forms=(("pytest --randomly-seed=<n>", "alternative"),),
-    ),
-    Invocation(
-        check="test/determinism",
-        tool="pytest-rerunfailures",
-        # `in_env=True` because this is a pytest plugin like `pytest-randomly` and
-        # `pytest-timeout`, resolved into the materialized environment rather than
-        # fetched standalone - true of the tool whether or not this entry ever
-        # runs a command. It has no effect on the check itself: `argv` is empty,
-        # so the row loop never reaches `launcher`. It does matter to
-        # `probe_versions`, which calls `launcher` for every tool regardless of
-        # `argv` - without it, the version probe would resolve a bare `uvx`
-        # interpreter with the plugin never installed, on every partition and
-        # grant.
-        in_env=True,
-        record_quote=(
-            "and, for suspected flakies, repeat runs; flag order-dependence and "
-            "non-determinism."
-        ),
-        note=(
-            "the record asks for repeat runs and names no flag, so this plugin's own "
-            "`--reruns` is nowhere in the prescription"
-        ),
-        forms=(),
-    ),
-    Invocation(
-        check="test/isolation",
-        tool="pytest-timeout",
-        argv=("pytest", "--durations=25"),
-        completion=(f"--timeout={ISOLATION_TIMEOUT_SECONDS}",),
-        in_env=True,
-        note=(
-            "the record prescribes `--durations=25`, which is core pytest and never "
-            "exercises pytest-timeout, the tool the record names; the timeout comes "
-            "from the fixture's own ISOLATION_TIMEOUT_SECONDS, which the expectation "
-            "is written against"
-        ),
-        record_quote="`pytest --durations=25` for the slowest tests; check unit tests for real I/O.",
-        forms=(("pytest --durations=25", "runs"),),
-    ),
-    Invocation(
-        check="test/property-based-gap",
-        tool="hypothesis",
-        record_quote=(
-            "the gap is found by reading the pure functions and the tests covering "
-            "them, and judging where a property would say more than a handful of "
-            "examples."
-        ),
-        note=(
-            "a library imported inside the partition's own tests rather than a runner, "
-            "so the record prescribes a reading pass and no command"
-        ),
-        forms=(),
     ),
 )
 
