@@ -41,10 +41,10 @@ routes:
     applies_when: >-
       The partition's own runner is Jest.
     note: >-
-      Run the partition's own runner in run mode and read the duration it
-      reports per test: the partition's own `jest` test command, which is the
-      command the partition declares rather than one written here, so there is
-      no argv to declare and a `kind: command` route would have to invent one.
+      The partition's own `jest` test command, in run mode, with the duration
+      read per test as on the Vitest route above. That command is the one the
+      partition declares rather than one written here, so there is no argv to
+      declare and a `kind: command` route would have to invent one.
   - lang: any
     kind: procedure
     note: >-
