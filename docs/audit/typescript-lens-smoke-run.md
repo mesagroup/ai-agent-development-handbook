@@ -12,7 +12,7 @@ The target is a real internal Next.js application: 381 TypeScript files, 57,551 
 
 Both grant states were run against each target, as two `git clone`s in a scratch directory, never the target itself:
 
-- **no grant** - a read-only clone with no `node_modules`, which is what every `ungranted_note` makes a claim about.
+- **no grant** - a read-only clone with no `node_modules`, which is the state a record's ungranted claim is about: what the check can still answer when nothing is installed.
 - **`target-execution`** (which implies `resolved-tree`) - the same clone with `npm ci --ignore-scripts`, which resolved 810 packages cleanly, so no escalation to install hooks was needed.
 
 `git status --porcelain` at the target was **empty before and after**. Where a tool needed something the target did not have (a coverage provider, ESLint, Stryker), it was installed into the audit's own copy or an audit-owned directory, never into the target.
