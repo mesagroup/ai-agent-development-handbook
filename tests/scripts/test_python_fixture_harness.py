@@ -243,23 +243,31 @@ def _concrete(tokens: list[str]) -> list[str]:
     return out
 
 
-def _prescribing_paragraph(check: str, quote: str) -> str:
-    """The source line the record's prescribing sentence sits in.
+def _prescribing_paragraph_in(check: str, text: str, quote: str) -> str:
+    """The line of `text` the prescribing sentence sits in.
 
     Markdown here is never hard-wrapped, so one paragraph is one line and the
     quote's line is the whole prescribing paragraph. Anchoring on the quote
     rather than on the `**Python**` review-lens line is what covers the records
     carrying a python: entry and no such line at all.
+
+    Takes the text rather than reading a record, so a property about how a
+    section parses can be held on a section written in the test while every
+    caller that means a record keeps reading one through the wrapper below.
+    `check` is carried for the failure message alone.
     """
-    lines = [
-        line for line in _record_path(check).read_text().splitlines() if quote in line
-    ]
+    lines = [line for line in text.splitlines() if quote in line]
     if len(lines) != 1:
         raise AssertionError(
             f"{check}: its quote occurs in {len(lines)} source lines, so which "
             "paragraph prescribes it is not decidable"
         )
     return lines[0]
+
+
+def _prescribing_paragraph(check: str, quote: str) -> str:
+    """The source line the record's prescribing sentence sits in."""
+    return _prescribing_paragraph_in(check, _record_path(check).read_text(), quote)
 
 
 def _route_anchoring(inv: Invocation) -> list[tuple[str, tuple[str, ...], bool]]:
@@ -288,8 +296,8 @@ def _route_anchoring(inv: Invocation) -> list[tuple[str, tuple[str, ...], bool]]
     return out
 
 
-def _fallback_paragraphs(check: str) -> list[tuple[str, str]]:
-    """Every paragraph of the record's `## Tooling fallback`, with its lens label.
+def _fallback_paragraphs_in(check: str, text: str) -> list[tuple[str, str]]:
+    """Every paragraph of a `## Tooling fallback` section, with its lens label.
 
     The label is what makes a paragraph this lens's business: records prefix each
     review lens with `**<Label>** - `, so a span under another language's label is
@@ -301,8 +309,11 @@ def _fallback_paragraphs(check: str) -> list[tuple[str, str]]:
     A record with no such section raises rather than returning nothing: the
     containment property would then watch no paragraph on it and report the same
     silence as a record whose every paragraph is clean.
+
+    Takes the text for the reason `_prescribing_paragraph_in` does, and `check`
+    is likewise carried for the failure message alone.
     """
-    lines = _record_path(check).read_text().splitlines()
+    lines = text.splitlines()
     start = next(
         (n for n, line in enumerate(lines) if line.startswith("## Tooling fallback")),
         None,
@@ -323,6 +334,11 @@ def _fallback_paragraphs(check: str) -> list[tuple[str, str]]:
         label = re.match(r"\*\*([^*]+)\*\* - ", line.strip())
         out.append((label.group(1) if label else "", line))
     return out
+
+
+def _fallback_paragraphs(check: str) -> list[tuple[str, str]]:
+    """Every paragraph of the record's `## Tooling fallback`, with its label."""
+    return _fallback_paragraphs_in(check, _record_path(check).read_text())
 
 
 _LOADED_CHECKS, _LOAD_ERRORS = load_checks(SKILLS_DIR)
@@ -400,18 +416,19 @@ def _is_sibling_lens(label: str) -> bool:
     set bought and this keeps.
 
     A label naming a condition rather than a language is never a sibling lens.
-    `test/coverage-reach`'s `Both` labels a paragraph that binds every command
-    above it, and `With none of them installed` held the Python fallback for
-    exactly the case where no tool is present; skipping either would unwatch a
-    paragraph a correction is likely to land in. The second spelling occurs only
-    on records that have migrated, so a condition label reaching this function
-    is a legacy record's.
+    `Both` labels a paragraph binding every command above it, and `With none of
+    them installed` labelled a Python fallback for exactly the case where no
+    tool is present; skipping either would unwatch a paragraph a correction is
+    likely to land in. Which of those spellings is still in the tree is a fact
+    about the records rather than about this function, and
+    `test_a_sibling_lens_is_recognised_in_every_spelling_the_family_writes`
+    asserts the exception directly rather than resting on one being there.
     """
     return any(language in label for language in SIBLING_LENS_LANGUAGES)
 
 
-def _watched_paragraphs(check: str, quote: str) -> list[str]:
-    """Every paragraph of `## Tooling fallback` a Python prescription can land in.
+def _watched_paragraphs_in(check: str, text: str, quote: str) -> list[str]:
+    """Every paragraph of a `## Tooling fallback` a Python prescription can land in.
 
     The flag property reads this rather than the quoted line alone. A correction
     that appends a whole *paragraph* carrying only a flag - "Append
@@ -425,13 +442,20 @@ def _watched_paragraphs(check: str, quote: str) -> list[str]:
     rest. A record whose prescription sits under a sibling lens's label is a
     documented limit of this file, and it must not become a paragraph this
     property silently stops reading as well.
+
+    Takes the text for the reason the two helpers it composes do.
     """
-    quoted = _prescribing_paragraph(check, quote)
+    quoted = _prescribing_paragraph_in(check, text, quote)
     return [quoted] + [
         paragraph
-        for label, paragraph in _fallback_paragraphs(check)
+        for label, paragraph in _fallback_paragraphs_in(check, text)
         if paragraph != quoted and not _is_sibling_lens(label)
     ]
+
+
+def _watched_paragraphs(check: str, quote: str) -> list[str]:
+    """Every paragraph of the record's section a Python prescription can land in."""
+    return _watched_paragraphs_in(check, _record_path(check).read_text(), quote)
 
 
 def _unaccounted_flags(paragraphs: list[str], pooled: list[str]) -> set[str]:
@@ -611,10 +635,10 @@ def test_a_placeholder_glued_to_a_flag_keeps_the_flag_as_a_prefix():
     """`--cov=<pkg>` is the same phenomenon, and dropping it goes too far.
 
     A record writes the value the caller supplies inside the flag, so no command
-    can carry that token as written. Left whole, `test/coverage-reach`'s
-    prescribed form reads as one the harness does not run. Dropped whole, the
-    flag stops being held at all, which is worse: it is the drift shape these
-    properties exist to catch.
+    can carry that token as written. Left whole, a form carrying `--cov=<pkg>`
+    reads as one the harness does not run. Dropped whole, the flag stops being
+    held at all, which is worse: it is the drift shape these properties exist to
+    catch.
     """
     assert _concrete(_tokens("pytest --cov=<pkg> --cov-branch")) == [
         "pytest",
@@ -685,11 +709,37 @@ def test_a_lead_word_stays_one_word_so_a_neighbours_command_is_not_pulled_in():
     assert all(not form.startswith("uv ") for form in extracted), extracted
 
 
+_THREE_LABEL_SECTION = """## Tooling fallback
+
+**Python** - run `demo-tool --flag` over the package.
+
+**Both** - the grant every command above needs.
+
+**TypeScript** - run `demo-ts --flag` over the same tree.
+"""
+_THREE_LABEL_QUOTE = "run `demo-tool --flag` over the package."
+
+
 def test_the_prescribing_paragraph_is_the_line_holding_the_quote():
-    quote = "`pytest --cov=<pkg> --cov-branch --cov-report=term-missing` (or `coverage run -m pytest` + `coverage report --show-missing`)."
-    paragraph = _prescribing_paragraph("test/coverage-reach", quote)
-    assert quote in paragraph
+    """The quote's own line is the whole paragraph, one line and no more.
+
+    Held on a section written here rather than on a record, because a record
+    carrying the shape this needs is a record some later stage migrates, and
+    then this fails for a reason that is not the rule breaking. The precedent
+    is `test_a_command_form_is_attributed_by_its_own_lead_word` in this file,
+    which builds both sides as literals with the same reason in its docstring.
+
+    What the literal costs is that this one example no longer comes from the
+    tree. What still pays it is the file-reading wrapper: every property scoped
+    by `PROSE_FALLBACK_CHECKS` calls it over every record whose fallback lives
+    in prose, so nothing stops reading the tree - only the example moved.
+    """
+    paragraph = _prescribing_paragraph_in(
+        "demo/thing", _THREE_LABEL_SECTION, _THREE_LABEL_QUOTE
+    )
+    assert _THREE_LABEL_QUOTE in paragraph
     assert paragraph.count("\n") == 0
+    assert paragraph.startswith("**Python** - ")
 
 
 def test_a_sibling_lens_is_recognised_in_every_spelling_the_family_writes():
@@ -728,24 +778,36 @@ def test_a_flag_only_a_second_paragraph_carries_is_unaccounted():
 def test_the_watched_paragraphs_are_the_python_side_of_the_section():
     """Every paragraph a Python correction can land in, and no sibling lens's.
 
-    `test/coverage-reach` carries all three cases: the `**Python**` paragraph
-    its quote sits in, a `**Both**` paragraph labelled for a condition rather
-    than a language and so watched, and a `**TypeScript**` paragraph that is
-    another lens's prescription.
+    The section carries all three cases at once: the `**Python**` paragraph the
+    quote sits in, a `**Both**` paragraph labelled for a condition rather than a
+    language and so watched, and a `**TypeScript**` paragraph that is another
+    lens's prescription.
 
-    On a record whose fallback lives in prose, because the helper reads that
-    section and a migrated record has none.
+    Written here rather than read off a record for the reason the test above
+    gives: a record carrying all three is a record a later stage migrates, and
+    re-pointing this at the next one buys one stage of green. The cost and what
+    still pays it are the same - the file-reading wrapper stays exercised over
+    every record in `PROSE_FALLBACK_CHECKS`, and only the three-label example
+    is a literal.
     """
-    quote = "`pytest --cov=<pkg> --cov-branch --cov-report=term-missing` (or `coverage run -m pytest` + `coverage report --show-missing`)."
-    watched = _watched_paragraphs("test/coverage-reach", quote)
+    watched = _watched_paragraphs_in(
+        "demo/thing", _THREE_LABEL_SECTION, _THREE_LABEL_QUOTE
+    )
     labels = {
         label
-        for label, paragraph in _fallback_paragraphs("test/coverage-reach")
+        for label, paragraph in _fallback_paragraphs_in(
+            "demo/thing", _THREE_LABEL_SECTION
+        )
         if paragraph in watched
     }
     assert "Both" in labels
     assert "TypeScript" not in labels
-    assert _prescribing_paragraph("test/coverage-reach", quote) in watched
+    assert (
+        _prescribing_paragraph_in(
+            "demo/thing", _THREE_LABEL_SECTION, _THREE_LABEL_QUOTE
+        )
+        in watched
+    )
 
 
 def test_a_token_the_record_writes_concretely_is_not_a_completion():
@@ -1355,7 +1417,7 @@ def test_folding_a_completion_into_the_argv_breaks_the_anchor():
     this property holds has nothing on the routed side to be held against.
     """
     completed = [i for i in INVOCATIONS if i.completion]
-    assert len(completed) == 7, len(completed)
+    assert len(completed) == 6, len(completed)
     for inv in completed:
         quote = _tokens(inv.record_quote)
         argv = inv.argv or next(a for _, a in inv.argv_by_partition if a)
@@ -1909,16 +1971,16 @@ def test_a_form_naming_a_lead_word_off_the_front_is_led_by_some_invocation():
     prescription with no declaration and no failure.
 
     Keyed on the entry's lead words rather than on its tool name, because the tool
-    name is not always a word any command carries. Four entries are named for a
-    plugin or a distribution the prescribed command never mentions -
-    `test/coverage-reach`'s `pytest-cov` and `coverage.py`, `test/determinism`'s
-    `pytest-randomly`, `test/isolation`'s `pytest-timeout` - and a rule looking for
-    that name off the front of a span fires on none of their paragraphs, so those
-    four got none of this protection while the docstring promised it to them.
-    `_lead_words` already carries the runner the record actually writes, so keying
-    here on the same set is what makes the promise hold for every entry: it is the
-    `coverage run -m pytest` span in `test/coverage-reach`'s paragraph that the
-    tool-name rule passed over and this one now reads.
+    name is not always a word any command carries. An entry named for a plugin or
+    a distribution the prescribed command never mentions - `test/determinism`'s
+    `pytest-randomly` and `test/isolation`'s `pytest-timeout` are two - has no
+    span starting with its tool name at all, so a rule looking for that name off
+    the front of a span fires on none of its paragraphs and the entry gets none of
+    this protection while the docstring promises it. `_lead_words` already carries
+    the runner the record actually writes, so keying here on the same set is what
+    makes the promise hold for every entry: a span led by that runner rather than
+    by the tool's own name is what the tool-name rule passed over and this one
+    reads.
 
     Read only over the records whose fallback lives in prose. A migrated record
     has no paragraph for an unled span to sit in, because there is no prose
@@ -2356,20 +2418,17 @@ def test_a_route_that_runs_the_suite_brings_a_runner_the_fixture_does_not_declar
     `No module named pytest`, which the classifier would read as a tool that
     failed - a failure this harness invented, on an entry the record had right.
 
-    Fetches `test/coverage-reach`'s hand-written `coverage.py` entry by name
-    rather than reading the union: `launcher` treats every `Invocation` alike
-    regardless of which table built it, and no migrated check names this
-    tool, so there is nothing to gain by widening the lookup.
+    Fetches the `coverage.py` row through `_entry`, which reads both
+    populations: `launcher` treats every `Invocation` alike regardless of which
+    table built it, and the row naming this tool is a routed one, so a lookup
+    pinned to `INVOCATIONS` would raise before asserting anything rather than
+    narrowing the property to a population this launcher does not distinguish.
     """
     assert packages_for("coverage.py") == ("coverage", "pytest")
     assert packages_for("mutmut") == ("mutmut", "pytest")
     assert packages_for("bandit") == ("bandit",)
 
-    coverage = next(
-        i
-        for i in INVOCATIONS
-        if (i.check, i.tool) == ("test/coverage-reach", "coverage.py")
-    )
+    coverage = _entry("test/coverage-reach", "coverage.py")
     assert launcher(coverage, "uv", granted=True) == (
         "uv",
         "run",
@@ -4212,6 +4271,28 @@ def test_the_per_partition_deps_rows_survive_their_records_migration():
     for row in (inv, vuln, rows[("deps/vulnerabilities", "safety")]):
         assert row.in_env is False, (row.check, row.tool)
         assert row.findings_stream == "stdout", (row.check, row.tool)
+
+
+def test_the_coverage_and_mutation_rows_survive_their_records_migration():
+    """The `then`'s order is the record's, and the row that runs nothing keeps in_env.
+
+    Written out rather than read from a baseline file for the reason the deps
+    rows above are: the point is to fail when the record changes, not when a
+    scratch file goes missing.
+    """
+    rows = {(i.check, i.tool): i for i in routed_invocations()}
+    cov = rows[("test/coverage-reach", "coverage.py")]
+    assert cov.argv == ("coverage", "run", "-m", "pytest")
+    assert cov.then == ("coverage", "report", "--show-missing")
+    pcov = rows[("test/coverage-reach", "pytest-cov")]
+    assert pcov.argv == ("pytest", "--cov-branch", "--cov-report=term-missing")
+    assert pcov.completion == (f"--cov={PACKAGE}",)
+    assert rows[("test/mutation", "mutmut")].argv == ("mutmut", "run")
+    cosmic = rows[("test/mutation", "cosmic-ray")]
+    assert cosmic.argv == ()
+    assert cosmic.in_env is True
+    for row in (cov, pcov, rows[("test/mutation", "mutmut")]):
+        assert row.in_env is True, (row.check, row.tool)
 
 
 def test_a_quote_belongs_to_a_transcription_and_only_to_one():

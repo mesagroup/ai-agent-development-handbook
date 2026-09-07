@@ -291,8 +291,8 @@ def _observation_tuple(entries: Sequence[dict[str, object]]) -> tuple[Observatio
 def grade_row(expectation: Expectation, run: Run) -> Row:
     """One expectation, paired with every observation this run made of it.
 
-    A route whose reporting half runs as a second command (`then`, currently
-    only `test/coverage-reach`'s `coverage.py` route) is a known blind spot
+    A route whose reporting half runs as a second command (`then`, which
+    `test/coverage-reach`'s `coverage.py` route declares) is a known blind spot
     rather than something worked around: `seed_signals` reads only an entry's
     own top-level `stdout`/`stderr`, and the second command's output sits
     nested under `entry["then"]` instead, invisible to a mechanical count here.
