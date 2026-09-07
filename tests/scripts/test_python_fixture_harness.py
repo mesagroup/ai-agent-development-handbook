@@ -207,6 +207,38 @@ def _lead_words(inv: Invocation) -> set[str]:
     return {a[0] for a in argvs} | {inv.tool}
 
 
+def _unled_spans(
+    inv: Invocation, paragraph: str, siblings: list[Invocation]
+) -> set[str]:
+    """The spans naming one of this entry's runners that no entry on the record leads.
+
+    The rule the property below holds over the tree, and the example test beside
+    it holds over a paragraph written by hand. One definition rather than two,
+    because the failing branch has no instance among the records still
+    transcribed: a rule whose finding half is exercised only by a copy of itself
+    is a rule nothing checks.
+
+    `siblings` is every entry on the same record, this one included. It decides
+    what counts as led, so passing a narrower list makes a span look unled that
+    another entry accounts for - which is the benign shape, a neighbour's command
+    carrying this entry's tool name further along it.
+    """
+    led = {
+        form.split()[0]
+        for other in siblings
+        for lead in _lead_words(other)
+        for form in _command_forms(paragraph, lead)
+    }
+    leads = _lead_words(inv)
+    return {
+        span
+        for span in _spans(paragraph)
+        if len(span.split()) > 1
+        and any(lead in span.split()[1:] for lead in leads)
+        and span.split()[0] not in led
+    }
+
+
 def _flag_spans(paragraph: str) -> set[str]:
     """Every span the paragraph writes as a bare flag.
 
@@ -1174,6 +1206,33 @@ def test_no_migrated_check_has_a_hand_written_entry():
     )
 
 
+def test_the_hand_written_table_holds_only_the_domains_that_have_not_migrated():
+    """What is left in `INVOCATIONS`, named and counted, after this issue.
+
+    The set is the claim: these five records still declare `tooling:` and a
+    `## Tooling fallback` section, so the table is still where their commands
+    are written, and every other record the harness runs reads its own routes.
+    Naming them means the next migration deletes this test's own subject
+    rather than editing a number, which is the point of naming rather than
+    counting.
+
+    The count sits beside the set for a reason the set cannot carry: it is a
+    ratchet, not a description. A second entry for one of these five checks
+    would keep the set equal while adding a prescription the enumeration runs
+    twice, and its sibling above holds only the other direction - an entry for
+    a record that has migrated. Between them a row can be neither stale nor
+    unnamed and still be a duplicate, and that is the gap this number closes.
+    """
+    assert {i.check for i in INVOCATIONS} == {
+        "docs/docstring-coverage",
+        "security/crypto",
+        "security/dangerous-calls",
+        "security/injection",
+        "security/unsafe-io",
+    }
+    assert len(INVOCATIONS) == 15
+
+
 def test_the_harness_runs_exactly_the_checks_the_expectations_declare():
     """Three views of one set, held equal, over both enumeration paths.
 
@@ -2040,12 +2099,10 @@ def test_a_form_naming_a_lead_word_off_the_front_is_led_by_some_invocation():
     """A prescription no lead word leads must not vanish.
 
     The declaration property compares what the lead words extract, so a span no
-    lead word leads is absent from both sides of that equality and it passes. A
-    paragraph writing `uv pip list --outdated` in the sentence a `pip` entry
-    quotes is the benign case - that span is the `uv` entry's form rather than
-    the `pip` entry's. What must never happen is a span naming a tool that no
-    invocation on that record leads: `uvx pydeps --show-cycles` would be a
-    prescription with no declaration and no failure.
+    lead word leads is absent from both sides of that equality and it passes.
+    What must never happen is a span naming a tool that no invocation on that
+    record leads: a paragraph writing `uvx pydeps --show-cycles` beside the
+    plain command would be a prescription with no declaration and no failure.
 
     Keyed on the entry's lead words rather than on its tool name, because the tool
     name is not always a word any command carries. An entry named for the thing
@@ -2059,15 +2116,19 @@ def test_a_form_naming_a_lead_word_off_the_front_is_led_by_some_invocation():
     by the tool's own name is what the tool-name rule passed over and this one
     reads.
 
-    Whether any entry in scope has that shape is a fact about which records are
-    still transcribed rather than about the rule, so measure it before reading a
-    green run here as the shape being covered. The entries with it are the ones
-    whose tool is not the first word of any command they prescribe, and no entry
-    in scope was one when this paragraph was written - measured over
-    `INVOCATIONS` narrowed by `PROSE_FALLBACK_CHECKS`, the same scope the loop
-    below reads. `_lead_words` is read the same way whichever entries the table
-    holds, so an entry of that shape arriving needs no change here; it simply
-    starts exercising a keying the property already has.
+    **The finding half of this rule has no instance among the records still
+    transcribed, and that is measured rather than assumed.** Every entry in
+    scope reaches the assertion below - the loop reads each one's paragraph and
+    holds `_unled_spans` against it - and every one of those sets is empty,
+    because no entry in scope has a lead word other than its own tool name and
+    no paragraph in scope writes a runner in front of the tool. That is a fact
+    about which records are still transcribed rather than about the rule, so it
+    is not a reason to relax the rule and it is a reason not to read a green run
+    here as the shape being covered. What covers the shape is
+    `test_an_unled_span_is_found_and_a_neighbours_command_is_not`, which holds
+    the same `_unled_spans` against a paragraph written there - both directions,
+    the finding and the benign one - so the rule keeps a subject that this
+    file's own scope no longer supplies.
 
     Read only over the records whose fallback lives in prose. A migrated record
     has no paragraph for an unled span to sit in, because there is no prose
@@ -2078,22 +2139,77 @@ def test_a_form_naming_a_lead_word_off_the_front_is_led_by_some_invocation():
     Whether that route names the tool truthfully is a question this property
     never reached, migrated or not.
     """
+    watched = 0
     for inv in INVOCATIONS:
         if inv.check not in PROSE_FALLBACK_CHECKS:
             continue
         paragraph = _prescribing_paragraph(inv.check, inv.record_quote)
-        led = {
-            form.split()[0]
-            for other in INVOCATIONS
-            if other.check == inv.check
-            for lead in _lead_words(other)
-            for form in _command_forms(paragraph, lead)
-        }
-        leads = _lead_words(inv)
-        for span in _spans(paragraph):
-            words = span.split()
-            if len(words) > 1 and any(lead in words[1:] for lead in leads):
-                assert words[0] in led, (inv.check, inv.tool, span)
+        siblings = [other for other in INVOCATIONS if other.check == inv.check]
+        watched += 1
+        unled = _unled_spans(inv, paragraph, siblings)
+        assert not unled, (
+            f"{inv.check}/{inv.tool}: {sorted(unled)} names a runner this entry "
+            "leads with and starts with a word no entry on the record leads, so "
+            "it is a prescription the declaration property cannot see"
+        )
+    assert watched, (
+        "no entry was read, so this property held nothing - every record in "
+        "`PROSE_FALLBACK_CHECKS` has left `INVOCATIONS`, and the rule itself "
+        "now lives only in the example test beside this one"
+    )
+
+
+def test_an_unled_span_is_found_and_a_neighbours_command_is_not():
+    """Both halves of `_unled_spans`, on paragraphs written here.
+
+    Built here rather than read off a record for the reason the property above
+    measures: no record still transcribed has a span the finding half reads, so
+    holding it against the tree exercises the empty case only. The precedent is
+    `test_a_lead_word_stays_one_word_so_a_neighbours_command_is_not_pulled_in`
+    in this file, which builds both sides as literals with the same reason.
+
+    The finding case is the one `arch/cycles`' prose invited: a one-shot runner
+    written in front of the tool, where the record declares no entry that leads
+    with the runner. The benign case is the one `deps/freshness` carried while
+    its fallback lived in prose - a neighbour's command carrying this entry's
+    tool name further along it - and it is benign only because the neighbour is
+    among the siblings, which is what the third argument decides. Dropping the
+    neighbour from that list turns the same paragraph into a finding, which is
+    the assertion that says the two cases differ by the data and not by the
+    rule.
+    """
+    pydeps = Invocation(
+        check="arch/cycles",
+        tool="pydeps",
+        argv=("pydeps", "--show-cycles"),
+        record_quote="x" * 40,
+    )
+    unled_paragraph = (
+        "run `pydeps --show-cycles` over the package, or "
+        "`uvx pydeps --show-cycles` where it is not installed."
+    )
+    assert _unled_spans(pydeps, unled_paragraph, [pydeps]) == {
+        "uvx pydeps --show-cycles"
+    }
+
+    pip = Invocation(
+        check="deps/freshness",
+        tool="pip",
+        argv=("pip", "list", "--outdated"),
+        record_quote="x" * 40,
+    )
+    uv = Invocation(
+        check="deps/freshness",
+        tool="uv",
+        argv=("uv", "pip", "list", "--outdated"),
+        record_quote="x" * 40,
+    )
+    neighbour_paragraph = (
+        "`uv pip list --outdated` / `pip list --outdated`, both of which read "
+        "the installed environment rather than the lockfile."
+    )
+    assert _unled_spans(pip, neighbour_paragraph, [pip, uv]) == set()
+    assert _unled_spans(pip, neighbour_paragraph, [pip]) == {"uv pip list --outdated"}
 
 
 # --- scoping and grant states --------------------------------------------------
