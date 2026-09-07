@@ -471,25 +471,41 @@ def test_the_notes_are_not_all_sentinels():
     `ungranted_note: none` does not. The two populations cannot overlap: the
     loader rejects a record carrying both schemas.
 
-    The sum moves as migration proceeds, in both directions, and is never
-    itself the thing to check against a remembered number - the paragraphs
-    below make the case for why. One move worth keeping straight because it
-    looks like a loss and is not: `arch/complexity-gate` was in the
-    population the floor was first set against and is in neither population
-    now. It lost no claim. Both sentences of its note became structure - the
-    reading of the linter configuration and the CI workflow files became an
-    untiered route, and "the classified tools are the gate's subject rather
-    than its instrument" became `kind: subject` on all five of them. It
-    leaves the population because it was never really silenced: the legacy
-    schema had no way to say a tool is the check's subject rather than its
-    instrument, so tiering ESLint under `typescript` made that language read
-    as fully tiered, the loader demanded a note, and the record spent that
-    note explaining why its own frontmatter was misleading. The note was an
-    artifact of a missing field, not a claim, and `kind: subject` retires it.
-    The records still carrying prose notes were read for the same shape and
-    none has it - every one is a within-language rescue, a tiered scanner
-    beside a reading pass in the same language that still answers - so this
-    was an exception of exactly one record rather than the leading edge of a
+    The prose half is empty, and it is empty structurally rather than by
+    chance, so read the paragraphs below about a two-population sum as
+    describing a mechanism with one live half. No record carries an
+    `ungranted_note` in any form - not prose and not the sentinel - and no
+    record still on the legacy schema has a fully tiered language, so the
+    loader's requirement fires on nothing and there is no shape a legacy
+    record could be in today that would put it in this half. That is not a
+    reason to stop counting it: the records still declaring `tooling` include
+    several that declare `needs`, and one of those gaining a tier on its last
+    untiered tool would demand a note and refill this half without any
+    migration happening at all. What it does mean is that a floor resting on
+    the sum is, at this moment, a floor on the routed half, and that anything
+    below arguing from the two halves moving against each other is describing
+    what the guard is built to survive rather than what it is currently
+    watching.
+
+    The sum moves as migration proceeds and is never itself the thing to
+    check against a remembered number - the paragraphs below make the case
+    for why. One move worth keeping straight because it looks like a loss
+    and is not: `arch/complexity-gate` was in the population the floor was
+    first set against and is in neither population now. It lost no claim.
+    Both sentences of its note became structure - the reading of the linter
+    configuration and the CI workflow files became an untiered route, and
+    "the classified tools are the gate's subject rather than its instrument"
+    became `kind: subject` on all five of them. It leaves the population
+    because it was never really silenced: the legacy schema had no way to
+    say a tool is the check's subject rather than its instrument, so tiering
+    ESLint under `typescript` made that language read as fully tiered, the
+    loader demanded a note, and the record spent that note explaining why
+    its own frontmatter was misleading. The note was an artifact of a
+    missing field, not a claim, and `kind: subject` retires it. The records
+    still carrying prose notes were read for the same shape and none has
+    it - every one is a within-language rescue, a tiered scanner beside a
+    reading pass in the same language that still answers - so this was an
+    exception of exactly one record rather than the leading edge of a
     pattern. Should a second record ever leave the population this way, that
     is the pattern arriving and the floor is the wrong instrument for it.
 

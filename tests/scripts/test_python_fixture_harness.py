@@ -682,8 +682,12 @@ def test_a_form_led_by_a_runner_is_found_through_the_argvs_own_first_word():
     the paragraph half cannot be read off a record once that record migrates,
     and re-pointing this at whichever record is still transcribed buys one
     stage of green. The sentence is the one `test/determinism` carried while
-    its fallback lived in prose, and the entry is that record's
-    `pytest-randomly` row as the table held it.
+    its fallback lived in prose, and the entry carries that record's
+    `pytest-randomly` argv and tool - which is all `_lead_words` reads, so
+    the row's other fields are left off rather than transcribed. The
+    `record_quote` filler is this module's convention for a synthetic entry,
+    40 characters because that is the floor the transcription property holds a
+    real quote to; nothing here reads it.
     """
     inv = Invocation(
         check="test/determinism",
@@ -1596,6 +1600,15 @@ def test_the_placeholder_a_record_writes_never_reaches_a_command():
     through `COMPLETIONS`, keyed on `(check, tool)` rather than on which table
     the row belongs to, so a migrated check can carry a bare placeholder in a
     completion exactly as a hand-written one could.
+
+    What it cannot reach is a route no row is built from. `routed_invocations`
+    takes `lang: python` routes naming a tool, so a placeholder in a
+    `lang: any` or `lang: typescript` route's argv is invisible here -
+    `test/new-code-coverage`'s `<report>` is the live one. That is not a gap
+    to close with a wider rule: several typescript routes prescribe a
+    placeholder the caller fills, by the record's own prescription, so a rule
+    reading every route's argv would fail on records that are right. The
+    reach is the rows the harness runs, and it grows when a lens does.
     """
     for inv in every_invocation():
         for partition in PARTITIONS:
@@ -2296,10 +2309,14 @@ def test_deptry_and_xenon_are_the_entries_that_report_on_stderr():
 def _tools_that_can_run_a_command() -> set[str]:
     """Every tool either enumeration path could actually hand `classify` an exit code.
 
-    A tool named only in an entry with no `argv`, no `argv_by_partition` and no
-    `supplied_by_partition` never runs a command at all - `grimp`, `safety`,
-    `cosmic-ray`, `hypothesis` - so it never reaches `classify` and has nothing
-    to state a non-zero-exit meaning about.
+    A tool named only in entries with no `argv`, no `argv_by_partition` and no
+    `supplied_by_partition` never runs a command at all, so it never reaches
+    `classify` and has nothing to state a non-zero-exit meaning about. It is
+    the tool rather than the row that has to qualify: `ruff` and `radon` each
+    name a route that runs nothing and another that runs a command, so they
+    are not in this class. `grep tool: .agents/skills/*/checks/*.md` beside
+    the routes' `argv` is how to ask which tools are, rather than a list here
+    that a migration moves.
     """
     everything = every_invocation()
     return {

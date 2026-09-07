@@ -258,8 +258,8 @@ FROZEN_FORM = {
 # record prescribes a command line for either, naming the tool as something the
 # check computes over or inspects rather than invokes, so neither's own console
 # entry point (`hypothesis` needs `click`, which nothing here installs; `grimp`
-# has no console entry point at all) is what the family actually runs.
-# Their probes read the installed distribution's own metadata instead, and the
+# has no console entry point at all) is what the family actually runs. Their
+# probes read the installed distribution's own metadata instead, and the
 # `--with <pkg>` is safe to bake into the probe itself only because both tools
 # are `in_env=False` everywhere they occur: `launcher` then returns bare
 # `("uvx",)` on every partition and every grant, so there is no in-environment
@@ -453,14 +453,22 @@ class Invocation:
             there if it is anchored off the sentence that names the command,
             which is why the guard also holds the transcribed tokens against it.
 
-            Where the record prescribes no command the quote is instead the
-            sentence that says what it prescribes instead, and `note` says so.
-            Two shapes read as oversights and are not. A quote spanning two
-            adjacent sentences is one whose entry runs a command the record
-            splits across both, so quoting either alone would leave half the
-            prescription unwatched. And a quote naming no command at all is one
-            whose record prescribes by delegating to another check's fallback
-            section, which makes the delegation the prescription.
+            A quote spanning two adjacent sentences reads as an oversight and
+            is not: its entry runs a command the record splits across both, so
+            quoting either alone would leave half the prescription unwatched.
+
+            Two further shapes are documented here as unreachable rather than
+            as permitted, because both were live at this branch's base and the
+            migration took the last instance of each. A quote that is the
+            sentence saying what a record prescribes *instead* of a command
+            belonged to an entry prescribing none; a quote naming no command at
+            all belonged to a record that prescribed by delegating to a
+            sibling's fallback section. Every remaining transcribed row
+            prescribes a command and quotes a sentence naming it, and the
+            routed side cannot supply an instance either, for the reason the
+            next paragraph gives. So a quote of either shape arriving here is a
+            transcription nobody has read against its record, not a case this
+            field already handles.
 
             Empty on a row built from a record's `routes`, where there is no
             transcription to anchor: the prescription is read from the record
