@@ -4,12 +4,16 @@ domain: deps
 locality: global
 optin: true
 evidence: >-
-  No route this record offers - `requirements`, `pipenv`, or the uv export -
-  populates a licence field on any component, on any partition where it runs.
-  `deps/licenses` is the only source of licence evidence in this family: do
-  not read an empty or absent licence field on an SBOM component as a
-  permissive or unlicensed finding, and do not expect this check to surface
-  one.
+  None of the file-parsing Python routes named here - `requirements`,
+  `pipenv`, or the uv export - populates a licence field on any component, on
+  any partition where it runs, so do not read an empty or absent licence
+  field on an SBOM those produce as a permissive or unlicensed finding. That
+  is a claim about those three forms rather than about this record: the
+  `npm sbom` route below does populate licences, which is why `deps/licenses`
+  prescribes the same command, and whether `cyclonedx-py environment`
+  does is measured nowhere in this repository. Licence *findings* are
+  `deps/licenses`' and `deps/transitive-licenses`' to make, whatever produced
+  the document.
 handbook: []
 handbook_note: >-
   The handbook's dependency-accounting clause is satisfied by pinning direct
