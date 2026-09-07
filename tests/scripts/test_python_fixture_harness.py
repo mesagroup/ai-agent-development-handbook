@@ -419,13 +419,13 @@ def _is_sibling_lens(label: str) -> bool:
     set bought and this keeps.
 
     A label naming a condition rather than a language is never a sibling lens.
-    `Both` labels a paragraph binding every command above it, and `With none of
-    them installed` labelled a Python fallback for exactly the case where no
-    tool is present; skipping either would unwatch a paragraph a correction is
-    likely to land in. Which of those spellings is still in the tree is a fact
-    about the records rather than about this function, and
+    `Both` labelled a paragraph binding every command above it, and `With none
+    of them installed` a Python fallback for exactly the case where no tool is
+    present; skipping either would unwatch a paragraph a correction is likely
+    to land in. Which of those spellings any record still carries is a fact
+    about the records rather than about this function, so
     `test_a_sibling_lens_is_recognised_in_every_spelling_the_family_writes`
-    asserts the exception directly rather than resting on one being there.
+    holds both of them directly rather than resting on one being there.
     """
     return any(language in label for language in SIBLING_LENS_LANGUAGES)
 
@@ -760,7 +760,7 @@ def test_a_sibling_lens_is_recognised_in_every_spelling_the_family_writes():
         "TypeScript rules and greps for this check",
     ):
         assert _is_sibling_lens(spelling), spelling
-    for held in ("Python", "With none of them installed", "Rust", ""):
+    for held in ("Python", "Both", "With none of them installed", "Rust", ""):
         assert not _is_sibling_lens(held), held
 
 
@@ -1482,14 +1482,12 @@ def test_a_token_the_record_prescribes_never_hides_in_the_completion():
 def test_a_two_command_route_runs_them_in_the_records_order():
     """Held against the record rather than against a pinned tuple.
 
-    Every entry carrying a `then`, which is the one route the family prescribes
-    in two commands. A count is not asserted here: the property is that each
-    such entry's order traces through its own quote, and an entry growing a
-    `then` should be held by it rather than fail an arithmetic claim about how
-    many there are.
+    Each entry carrying a `then`, whose order traces through its own quote. A
+    count is not asserted: an entry growing a `then` should be held by this
+    rather than fail an arithmetic claim about how many there are.
 
     Reads `INVOCATIONS` only, and the reason is the routed row's shape rather
-    than the schema's: a route now carries a `then`, and `routed_invocations`
+    than the schema's: a route carries a `then`, and `routed_invocations`
     sets it. What a routed row does not carry is a transcription for the order
     to be held against. Its `argv` and its `then` are two fields of one route,
     read in that order, so "the record writes them in this order" is true of it
@@ -1497,7 +1495,22 @@ def test_a_two_command_route_runs_them_in_the_records_order():
     rather than check it. The claim has a subject only where a hand-written
     entry transcribes a sentence into two tuples, because only there can the
     two be reversed against what the record actually says.
+
+    So the loop below holds nothing today, and that is stated rather than left
+    to be discovered: no hand-written entry carries a `then`, the one row that
+    did having moved to the routed side. It stays as the guard for a
+    transcribed entry that grows one while the table still holds entries at
+    all. What the emptiness must not be allowed to mean is that the shape left
+    the tree, so the premise is asserted instead of the population: a `then`
+    deleted from the record it was written for would empty both sides at once
+    and this would still pass, which is the vacuity the loop alone cannot
+    refuse.
     """
+    assert [i for i in routed_invocations() if i.then], (
+        "no route carries a `then`, so the two-command shape this holds has "
+        "left the tree rather than moved to the routed side, and the loop "
+        "below would pass by having nothing to read on either path"
+    )
     for inv in INVOCATIONS:
         if not inv.then:
             continue
@@ -1690,12 +1703,15 @@ def test_every_form_the_harness_runs_appears_in_an_argv():
     the command while a record can write the token it supplies inside the form,
     so an ordered test over the whole form fails on a form like `pytest
     --cov=<pkg> --cov-branch --cov-report=term-missing`, whose `--cov=` arrives
-    last. Which forms need the relaxation follows from the schema a record
-    declares: a routed row's forms are derived from its route's `argv`, and a
-    route leaves such a placeholder in `alone_insufficient` rather than in the
-    argv, so a routed row contributes no form that needs it. A transcribed entry
-    still can, which is why the `supplied` half of the assertion below stays
-    rather than being deleted as the branch nothing currently takes.
+    last. Only a transcribed entry needs the relaxation, and that is enforced
+    below rather than assumed: the loader does not forbid a glued placeholder
+    in a route's `argv`, and one is written in the tree today - the Stryker
+    one-shot route's `@stryker-mutator/<runner>-runner`, which reaches no row
+    here only because `routed_invocations` reads `lang: python` alone. The
+    convention a migrated record follows is to leave such a placeholder in
+    `alone_insufficient`, where no form derives from it; the assertion holds
+    the rows this property reads to it, so the `supplied` half stays as the
+    branch a transcribed entry takes and not as a branch nothing can reach.
 
     The guard that traces a transcribed command through the record's sentence
     reads every partition's route, but it never reads `then`, and where it
@@ -1722,6 +1738,7 @@ def test_every_form_the_harness_runs_appears_in_an_argv():
     longer matches the shared form is a form declared `runs` that no
     partition's command carries, which is exactly what this property is for.
     """
+    routed = {(i.check, i.tool) for i in routed_invocations()}
     for inv in every_invocation():
         commands = [c for c in (argv_for(inv, p) for p in PARTITIONS) if c]
         if inv.then:
@@ -1736,6 +1753,13 @@ def test_every_form_the_harness_runs_appears_in_an_argv():
             assert wanted, (inv.check, inv.tool, form)
             ordered = [w for w in wanted if not _marked(w)]
             supplied = [w for w in wanted if _marked(w)]
+            assert not supplied or (inv.check, inv.tool) not in routed, (
+                f"{inv.check}/{inv.tool}: the routed form {form!r} carries a "
+                "token whose tail the caller supplies, so the relaxation this "
+                "property grants a transcription has reached a route. Leave "
+                "the placeholder in `alone_insufficient`, which derives no "
+                "form, rather than in the argv the forms come from"
+            )
             assert any(
                 _is_subsequence(ordered, tokens)
                 and all(any(_matches(w, token) for token in tokens) for w in supplied)
