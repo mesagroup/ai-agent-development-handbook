@@ -2116,19 +2116,19 @@ def test_a_form_naming_a_lead_word_off_the_front_is_led_by_some_invocation():
     by the tool's own name is what the tool-name rule passed over and this one
     reads.
 
-    **The finding half of this rule has no instance among the records still
-    transcribed, and that is measured rather than assumed.** Every entry in
-    scope reaches the assertion below - the loop reads each one's paragraph and
-    holds `_unled_spans` against it - and every one of those sets is empty,
-    because no entry in scope has a lead word other than its own tool name and
-    no paragraph in scope writes a runner in front of the tool. That is a fact
-    about which records are still transcribed rather than about the rule, so it
-    is not a reason to relax the rule and it is a reason not to read a green run
-    here as the shape being covered. What covers the shape is
+    **Measured at zero when this was written, and the measurement is the point
+    rather than the reason.** Every entry in scope reaches the assertion below -
+    the loop reads each one's paragraph and holds `_unled_spans` against it,
+    which is what `watched` counts - and every set it produced was empty. Why
+    the records still transcribed happen to be written that way is not a claim
+    worth making here: it is a fact about which records have migrated, it moves
+    when the next one does, and nothing guards it. What follows from it is only
+    this - do not read a green run here as the finding half being exercised.
+    That half is covered by
     `test_an_unled_span_is_found_and_a_neighbours_command_is_not`, which holds
-    the same `_unled_spans` against a paragraph written there - both directions,
-    the finding and the benign one - so the rule keeps a subject that this
-    file's own scope no longer supplies.
+    the same `_unled_spans` against paragraphs written there, both the finding
+    and the benign direction, so the rule keeps a subject this file's own scope
+    no longer supplies.
 
     Read only over the records whose fallback lives in prose. A migrated record
     has no paragraph for an unled span to sit in, because there is no prose
