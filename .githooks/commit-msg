@@ -1,0 +1,37 @@
+#!/bin/sh
+# Refuse a commit message carrying an AI attribution trailer.
+#
+# This repository's history carries none, and CLAUDE.md states the rule, but a
+# rule in prose is one an agent can be reconfigured out of: a harness that
+# injects its own attribution instruction mid-session overrides the prose and
+# nothing notices until the commits are written. Six commits on one branch were
+# written that way before the inconsistency was spotted by a reviewer reading
+# the log. This is that rule where a wrong answer costs one blocked commit
+# instead of a history rewrite.
+#
+# Scoped to AI attribution on purpose. A human co-author trailer is ordinary
+# and must keep working, so the patterns name the assistant rather than the
+# trailer key.
+#
+# Only line-initial matches count, and comment lines are ignored, so a message
+# that *discusses* the convention is not caught by mentioning it mid-sentence.
+# To land one deliberately: git commit --no-verify
+
+set -eu
+
+msg_file="$1"
+[ -f "$msg_file" ] || exit 0
+
+offending=$(
+    grep -v '^#' "$msg_file" |
+    grep -n -i -E '^(co-authored-by:[[:space:]]*claude|claude-session:|.{0,4}generated with \[?claude)' || true
+)
+
+if [ -n "$offending" ]; then
+    printf '%s\n' "commit-msg: this message carries an AI attribution trailer:" >&2
+    printf '%s\n' "$offending" | sed 's/^/    /' >&2
+    printf '%s\n' "" >&2
+    printf '%s\n' "This repository's commits carry none - see the rule in CLAUDE.md." >&2
+    printf '%s\n' "Drop the line, or pass --no-verify if you mean it." >&2
+    exit 1
+fi
