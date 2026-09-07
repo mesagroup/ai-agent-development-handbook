@@ -25,11 +25,11 @@ the results. They are SBOM and vulnerability routes for dependency files the
 record names no subcommand or mode for, so each is a candidate answer to a named
 hole rather than a correction to the record - and keeping it out of `record_argv`
 is what stops a later pass reading "the harness ran this" as "the record said
-this". Both live in the hand-written table below today, but that is not where a
-supplied route has to stay: `SUPPLIED`, keyed `(check, tool)` beside
-`COMPLETIONS`, is what a record that migrates out of the table reads its
-supplied route from instead, so a routed row can carry one too without the
-record ever prescribing it.
+this". Both records that leave such a hole have migrated, so both supplied
+routes now live in `SUPPLIED`, keyed `(check, tool)` beside `COMPLETIONS` - a
+routed row carries one without the record ever prescribing it, which is the
+whole reason the overlay exists. The hand-written table can still hold one, and
+holds none.
 
 Three fields are derived from the records rather than transcribed, because a
 second copy of a fact the records already state is a copy free to drift:
@@ -343,22 +343,25 @@ NO_VERSION_ROUTE: dict[str, str] = {}
 #   it would make the value a claim about the fixture set rather than about the
 #   record, which is the one thing a disposition never is.
 #
-# There is no value for a form a record names in order to warn against, and the
-# reason is disposition precedence rather than anything structural. Records do
-# warn against multi-token forms, and the extractor reads those spans as forms:
-# `arch/cycles` names `pydeps --show-cycles` and then says that form alone has no
-# textual output channel at all, and `deps/inventory` says it has no route
-# through `cyclonedx-py poetry` for a PEP 621 manifest. Each still carries the
-# disposition describing what the record does with it - the first is `superseded`,
-# because the record narrows the same command; the second is `runs`, because the
-# harness runs it on the partition whose manifest it does read. A warning is a
-# reason a record gives, and every form here has some other disposition that
-# already answers what the record names it for, so nothing reaches `forbidden`
-# today. A record writing "never run `foo --bar`", where the harness neither runs
-# that form nor narrows it, would give the value a user immediately. A value with
-# no user is ceremony that reads as coverage, so this tuple holds exactly the
-# values some declared form carries, and a test in the suite fails when it stops
-# doing so.
+# There is no value here for a form a record names in order to warn against, and
+# the reason is this module's own scope rather than the family's. Six records do
+# declare `disposition: forbidden`, and every one of those routes is
+# `lang: typescript`, which this selection never reaches - `routed_invocations`
+# says so where it raises on the value, and that is the statement to trust over
+# any count kept here.
+#
+# What a warning looks like where the value is not reached: records warn against
+# multi-token forms, `arch/cycles` naming `pydeps --show-cycles` and saying that
+# form alone has no textual output channel at all, and `deps/inventory` saying it
+# has no route through `cyclonedx-py poetry` for a PEP 621 manifest. Each still
+# carries the disposition describing what the record does with it - the first
+# `superseded`, because the record narrows the same command; the second `runs`,
+# because the harness runs it on the partition whose manifest it does read. Both
+# records declare their routes now, so those two forms are derived by `_forms_for`
+# and the prose extractor sees neither; they are examples of what a record does
+# with a warning, not of where this module gets one from. A value with no user is
+# ceremony that reads as coverage, so this tuple holds exactly the values some
+# declared form carries, and a test in the suite fails when it stops doing so.
 #
 # Naming them is the point: without a disposition, a form the harness does not
 # run is indistinguishable from a form nobody noticed, which is how `--show-dot`
@@ -380,7 +383,9 @@ class Invocation:
         argv_by_partition: Where the record prescribes a different command per
             partition - `cyclonedx-py`'s subcommand "matching the partition's
             own dependency file", `pip-audit`'s mode - the command for each,
-            still verbatim, as `(partition, argv)` pairs. A partition paired
+            as `(partition, argv)` pairs. Derived from the route's
+            `argv_by_partition` for every row that carries one today; a
+            hand-written entry would transcribe them, and none does. A partition paired
             with `()` is one this entry has no prescribed command for; where the
             round contributed a route for it anyway, that route is in
             `supplied_by_partition` rather than here. Pairs rather than a mapping
@@ -568,11 +573,16 @@ class Invocation:
         two populations reach a row by different doors. A hand-written
         `INVOCATIONS` entry constructs an `Invocation` directly and never
         builds a `Supplied` at all, so a check that only lived there would
-        leave the whole table unguarded, and an overlay entry reaches this
-        method only once its fields have been copied onto a row, so a check
-        that only lived here would name the row rather than the literal the
-        mistake is in. Neither copy is removable; what would be a defect is
-        the two disagreeing about which shapes they reject.
+        leave that door unguarded, and an overlay entry reaches this method
+        only once its fields have been copied onto a row, so a check that only
+        lived here would name the row rather than the literal the mistake is
+        in. Every supplied route in the tree comes through the overlay today -
+        both records that leave a hole have migrated - so this method is
+        currently the second guard on all of them rather than the only guard
+        on any. That is a fact about the records, not about the door: the
+        constructor is public to the table and the table can still carry one.
+        What would be a defect is the two disagreeing about which shapes they
+        reject.
         """
         if self.supplied_by_partition and not self.supplied_note:
             raise ValueError(
@@ -795,10 +805,11 @@ class Supplied:
     Validates the shape of what it holds: a steps tuple that is empty, a
     partition named twice, a missing note, or a step with no tokens. Three of
     those four `Invocation._check_supplied` rejects as well, and the overlap is
-    the point - a hand-written table entry builds no `Supplied`, so that method
-    is the only guard those rows ever meet, while an entry written here fails
-    at the literal that carries the mistake rather than at the row it is later
-    copied onto. What that method holds alone is the relationship to the rest
+    the point - it is where a hand-written entry would be caught, building no
+    `Supplied` at all, while an entry written here fails at the literal that
+    carries the mistake rather than at the row it is later copied onto. No
+    hand-written entry carries a supplied route today, so that half of the
+    overlap is currently unexercised rather than unnecessary. What that method holds alone is the relationship to the rest
     of the row, which nothing here can see: a partition carrying both a
     prescribed route and a supplied one, and a supplied route beside `in_env`.
     """

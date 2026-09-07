@@ -268,16 +268,26 @@ class Route:
     migrated without it - and each now declares its own: `own_runner: [uv]` on
     the first, `then` on the second.
 
-    A runner-led shared argv - one a fetcher leads, where the fetched name is
-    not the route's tool - is the shape that wants the flag, and the candidates
-    to annotate are the `dependency-cruiser` route of `arch/coupling`,
-    `arch/cycles`, `arch/layering` and `arch/over-decomposition`, each `npx
-    --package typescript@^5 ...`, plus `arch/size`'s `npx cloc`. Every other
-    runner-led shared argv in the tree sits on a `disposition: forbidden`
-    route - the `dlx depcruise` those same four records warn against, and
-    `deps/inventory`'s `dlx cyclonedx-npm` - which no lens runs, so none of
-    them needs the flag. None of the candidates says anything today, because
-    no lens runs a `lang: typescript` route and `arch/size` offers no python
+    A runner-led shared argv is the shape that wants the flag, and the test is
+    the argv's own first token: a fetcher there - `npx` or a `dlx` - means the
+    command already carries whatever a lens would put in front of it. Not
+    "where the fetched name is not the route's tool", which sounds like the same
+    rule and selects a different set: `--package dependency-cruiser` and
+    `--package @stryker-mutator/core` each name the route's own tool, and
+    `pytest --cov-branch` and every `npm`/`pnpm`/`yarn` subcommand lead with a
+    word that is not their tool while needing a runner like anything else. Ask
+    what leads the command, not what it fetches.
+
+    Which routes have that shape moves with the migration and `grep` is the way
+    to ask, for the reason the paragraph above gives. The one thing worth
+    stating structurally is the split: a fetcher-led shared argv sits either on
+    a route some lens may run, which wants the flag, or on a
+    `disposition: forbidden` one, which no lens runs and so needs nothing - the
+    `dlx depcruise` the four `dependency-cruiser` records warn against and
+    `deps/inventory`'s `dlx cyclonedx-npm` are the second kind. Nothing enforces
+    that split; a `forbidden` route is simply never a candidate. And none of the
+    candidates says anything today whatever their number, because every one is a
+    `lang: typescript` route bar `arch/size`'s `npx cloc`, which offers no python
     tooling - a silence that is unobserved rather than correct.
 
     The residual shape neither form expresses: a route whose shared argv needs
