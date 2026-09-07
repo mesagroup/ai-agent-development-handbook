@@ -111,7 +111,11 @@ routes:
       written off a check that answers in full. Treat a retired-endpoint
       failure as something to observe, not to predict: where it does fail,
       that is `no-evidence (tool-unavailable)` and never a finding about the
-      target.
+      target. Reach for this route only where the inventory records pnpm as
+      the partition's own package manager, and run it directly: `pnpm audit`
+      is pnpm's subcommand rather than a package, so no one-shot runner can
+      fetch it, and pointed at a partition pnpm did not lock it reads a
+      lockfile that is not there.
   - lang: typescript
     kind: command
     tool: yarn npm audit

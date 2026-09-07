@@ -21,7 +21,11 @@ routes:
     note: >-
       Reads resolved package metadata, so it needs the dependencies
       materialized - an installed environment - and answers nothing on a
-      read-only clone.
+      read-only clone. No style it offers emits SPDX identifiers, in this form
+      or the `--format json` one below, so mapping the names it reports onto
+      the SPDX ids `evidence` asks for stays the reader's own step. That is a
+      fact about the tool rather than about either form, and it is stated on
+      both because an agent taking the default route reads only this one.
   - lang: python
     kind: command
     tool: pip-licenses

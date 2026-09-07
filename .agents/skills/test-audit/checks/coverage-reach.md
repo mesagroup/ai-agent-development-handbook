@@ -49,11 +49,17 @@ routes:
       `[tool.coverage.run]`'s `source` and `omit`, and
       `[tool.coverage.report]`'s `exclude_lines`, in `pyproject.toml` (`[run]`
       and `[report]` respectively in `.coveragerc`), name the code no coverage
-      number will ever account for. A branch threshold the project set for
-      itself is readable in the same place and says what it asked of itself.
-      The reach measurement itself runs the suite and does not survive a
-      withheld grant; this reading does, which is why it is what a withheld
-      grant leaves.
+      number will ever account for. What the project asked of itself is
+      `[tool.coverage.report]`'s `fail_under`, and read it for what it is: a
+      floor on the total, not on branches, so a project that set it without
+      also setting `branch = true` in `[tool.coverage.run]` has a threshold
+      that never looked at a branch. That pair is the finding, and coverage.py
+      offers no branch-only floor to look for instead - unlike the TypeScript
+      side, where `coverage.thresholds.branches` and
+      `coverageThreshold.global.branches` are branch thresholds outright. The
+      reach measurement itself runs the suite and does not survive a withheld
+      grant; this reading does, which is why it is what a withheld grant
+      leaves.
   - lang: typescript
     kind: command
     tool: vitest

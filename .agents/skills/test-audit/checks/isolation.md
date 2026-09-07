@@ -18,7 +18,14 @@ routes:
     in_env: true
     needs: target-execution
     note: >-
-      `pytest --durations=25` for the slowest tests.
+      `pytest --durations=25` for the slowest tests. The route pairs that
+      command with `pytest-timeout`, and the pairing is a convenience rather
+      than a claim that one exercises the other: `--durations` is core pytest
+      and runs whether or not the plugin is installed, while the plugin's own
+      flag is `--timeout`, which this record does not prescribe. So the
+      durations table is the evidence here and the plugin is what a caller
+      reaches for to turn a slow test into a failing one - name the timeout
+      yourself if you want that, because nothing above names it for you.
   - lang: typescript
     kind: command
     tool: vitest
