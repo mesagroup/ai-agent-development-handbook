@@ -58,11 +58,10 @@ routes:
       `kind: command` route would have to invent one: `cosmic-ray` drives a
       session from a TOML config, and that config is the input, so writing one
       to make the tool run would manufacture the input rather than transcribe
-      the record. `in_env` is set even
-      though this route prescribes nothing to run: the version probe calls the
-      launcher for every tool regardless of `argv`, and without the flag the
-      probe resolves a bare one-shot runner with the tool never installed, on
-      every partition and grant.
+      the record. `in_env` is set even though this route prescribes nothing to
+      run: the version probe calls the launcher for every tool regardless of
+      `argv`, and without the flag the probe resolves a bare one-shot runner
+      with the tool never installed, on every partition and grant.
   - lang: typescript
     kind: procedure
     tool: "@stryker-mutator/core"
