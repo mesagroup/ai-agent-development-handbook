@@ -18,7 +18,7 @@ Five partitions, each declaring the same logical dependency set (`jinja2` 3.1.2,
 
 Both grant states ran against every partition:
 
-- **`none`** - a read-only clone with no environment resolved, which is what every `ungranted_note` makes a claim about.
+- **`none`** - a read-only clone with no environment resolved, which is the state a record's ungranted claim is about: what the check can still answer when nothing is installed.
 - **`target-execution`** (which implies `resolved-tree`) - the same clone materialized through the partition's own manager (`uv sync --frozen`, `pip install -r` into a `uv venv --seed`, `poetry install`, `pipenv sync`, `uv pip install -r pylock.toml`).
 
 `git status --porcelain` was empty at every one of the five fixture trees before and after the full matrix. Materialization happened in a scratch copy outside the fixture root; a package a check needed for itself (a coverage provider, an ESLint-equivalent) went into a copy the check owns, never into the shared materialized tree.
