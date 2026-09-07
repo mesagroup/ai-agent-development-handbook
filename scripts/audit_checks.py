@@ -454,7 +454,9 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
     `command`, is never written `false` or as an empty list since an absent
     key already carries what both of those would mean, is `true` where every
     command the route prescribes needs no prefix - its shared `argv` and each
-    partition's entry alike - and is otherwise a list of partition names,
+    partition's entry alike, or, on a route carrying no shared `argv`, the
+    entries its map names, those being every command it prescribes - and is
+    otherwise a list of partition names,
     rejected unless `argv_by_partition` carries every name listed. Whichever
     form it takes, it is never written beside `in_env`, whose materialized
     environment the suppressed prefix would otherwise never reach.
