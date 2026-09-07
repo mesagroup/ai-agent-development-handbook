@@ -880,7 +880,7 @@ EXPECTATIONS = (
         "at pylock.toml does not refuse either - it reads the TOML as requirement lines "
         "and emits a document that fails its own 1.6 schema validation, exiting "
         "non-zero having written nothing usable. A family finding, and the sharpest one "
-        "this partition exists to produce: the record's Python fallback names no route "
+        "this partition exists to produce: this record's own Python routes name none "
         "for the lock format PEP 751 standardises, and the nearest tool produces "
         "garbage rather than an error a caller could distinguish from a tool that found "
         "nothing. Scoped to this record's own routes on purpose - the format is "
@@ -959,12 +959,12 @@ EXPECTATIONS = (
         "arch/over-decomposition",
         _FULL,
         "exact",
-        "the record's Python fallback triggers on modules whose functions only forward "
+        "the record's Python route triggers on modules whose functions only forward "
         f"to another module, and the fixture has exactly two: {PACKAGE}.domain.model.load "
         f"forwards to {PACKAGE}.infra.store.read, and {PACKAGE}.infra.store.load_via_domain "
         f"forwards to {PACKAGE}.domain.model.load. The package is {_SRC_FILE_COUNT} files "
         "under src/, which supplies the long tail of one-symbol modules the same "
-        "fallback names. Both are Minor on the record's own band, and neither becomes a "
+        "route names. Both are Minor on the record's own band, and neither becomes a "
         "finding without the read the record requires before a count counts - so the "
         "expected observation is the pair, not a verdict on them",
         ("pass-through",),
@@ -973,11 +973,11 @@ EXPECTATIONS = (
         "arch/over-abstraction",
         _FULL,
         "exact",
-        "three triggers from the record's Python fallback, which says one call site is "
+        "three triggers from the record's Python routes, which say one call site is "
         f"the trigger for a single-function module: {PACKAGE}.deadcode.never_referenced "
         f"has zero call sites and {PACKAGE}.invariant.clamp has one. The third is "
         "clamp's low and high parameters, each bound to a single distinct value across "
-        "that one call site, which the same fallback calls an unexercised knob. All "
+        "that one call site, which the same routes call an unexercised knob. All "
         "Minor, and as with over-decomposition the record requires a read before a "
         "count becomes a finding",
         ("single-caller",),

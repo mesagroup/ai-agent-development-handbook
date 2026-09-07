@@ -1175,11 +1175,13 @@ def test_a_silent_clean_tool_is_ok_rather_than_a_tool_failure():
 
 
 def test_the_deps_checks_are_all_represented():
-    """None of `DEPS_CHECKS` has migrated, but the claim is about the harness.
+    """Every one of `DEPS_CHECKS` has migrated, and the claim is about the harness.
 
-    Read over the union rather than `INVOCATIONS` alone: a `deps/` check that
-    migrates keeps its row in `routed_invocations()` instead, and a property
-    still reading only the hand-written table would report it as dropped.
+    Read over the union rather than `INVOCATIONS` alone, which is what makes
+    that survivable: a `deps/` check that migrates keeps its row in
+    `routed_invocations()` instead, and a property still reading only the
+    hand-written table would report all six as dropped. The claim is that the
+    harness runs them, not which path it finds them on.
     """
     assert set(DEPS_CHECKS) <= {i.check for i in every_invocation()}
 
@@ -1976,30 +1978,34 @@ def test_every_disposition_in_the_vocabulary_is_used():
 
     No other property here reads the vocabulary as a whole: each reads the
     disposition on a form it already has. So a value could sit in `DISPOSITIONS`
-    with no user, and `forbidden` did. What keeps it unused is disposition
-    precedence rather than anything structural: records do warn against
-    multi-token forms and the extractor reads those spans as forms - `arch/cycles`
-    warns against `pydeps --show-cycles`, declared `superseded` because the record
-    narrows the same command, and `deps/inventory` says it has no route through
-    `cyclonedx-py poetry`, declared `runs` because the harness runs that form on
-    the partition whose manifest it does read. A form the harness runs is `runs`
-    and a form the record narrows is `superseded`, so every warning in the family
-    today is already answered by one of those. A record writing "never run `foo
-    --bar`", a form neither run nor narrowed, would give `forbidden` a user
-    immediately. Written as an equality rather than a subset in either direction,
-    because the two failures are different findings: an unused value is ceremony,
-    and a used value missing from the tuple is already rejected by `Invocation`.
+    with no user, and `forbidden` did. What keeps `forbidden` out of this module
+    is not that no record declares one - six do - but that every one of them is
+    on a `lang: typescript` route, and this module's selection is python-only.
+    `routed_invocations` says the same where it raises on the value, and that is
+    the statement to trust: this vocabulary is the lens's own, not the loader's.
 
-    Read over both enumeration paths, and not because either population
-    currently needs the other to keep a value used - the hand-written table
-    carries `superseded` forms of its own, so an equality over it alone holds
-    today. It is because a value's users migrate. Every record that declares
-    its routes moves its forms out of this table and into the enumeration, so
-    an equality read over one population is a claim that stops being about the
-    same thing under it: the day the last hand-written user of a value
-    migrates, the version reading `INVOCATIONS` alone starts failing on a
-    vocabulary that is still in use. Reading the union is what makes this
-    property survive the stage that moves the rest of the records.
+    Records do warn against multi-token forms, and where the record is still
+    transcribed the prose extractor reads those spans as forms. `arch/cycles`
+    warns against `pydeps --show-cycles`, declared `superseded` because the
+    record narrows the same command, and `deps/inventory` says it has no route
+    through `cyclonedx-py poetry`, declared `runs` because the harness runs that
+    form on the partition whose manifest it does read. Both records are routed
+    now, so those two forms come from `_forms_for` over their routes and the
+    extractor never sees either - they are examples of what a record does with a
+    warning, not of how this module reads one. Written as an equality rather
+    than a subset in either direction, because the two failures are different
+    findings: an unused value is ceremony, and a used value missing from the
+    tuple is already rejected by `Invocation`.
+
+    Read over both enumeration paths, and the union is load-bearing now rather
+    than as insurance. Measured: the hand-written table's forms carry `runs` and
+    nothing else, so an equality over `INVOCATIONS` alone would **fail**,
+    missing `alternative` and `superseded` - both of which survive only on the
+    routed side. The reason is the one this property was written for, arrived
+    at: a value's users migrate, every record that declares its routes moves its
+    forms out of this table, and the day the last hand-written user of a value
+    goes the version reading one population starts failing on a vocabulary still
+    in use. That day has passed for two of the three values.
     """
     assert {d for inv in every_invocation() for _, d in inv.forms} == set(DISPOSITIONS)
 
@@ -2521,11 +2527,13 @@ def test_no_prescribed_command_is_never_classified_as_a_tool_failure(
     the row would read as a tool that failed rather than as a record with
     nothing runnable in it.
 
-    Held over both enumeration paths: `run_partition` runs the same union
-    `invocations_for` scopes to, and a routed row can prescribe a reading pass
-    too - `arch/complexity-gate`'s `kind: subject` routes are one today - so
-    the classification this test pins has to hold for them as well, not only
-    for the hand-written entries that prescribe a reading pass of their own.
+    Held over both enumeration paths because `run_partition` runs the same union
+    `invocations_for` scopes to, and read that way rather than over the routed
+    side alone even though every row it finds is routed today: measured, all 18
+    rows prescribing no command come from records that declare their routes, and
+    no hand-written entry is one - all 15 carry an argv. A hand-written entry of
+    this shape is a thing the table can still express, so narrowing the property
+    to where its subjects happen to live would make the narrowing the claim.
     """
     reading = [i for i in every_invocation() if not i.argv and not i.argv_by_partition]
     assert reading, "some records prescribe a reading pass rather than a command"
@@ -2920,15 +2928,19 @@ def test_a_partition_the_record_prescribes_no_route_for_runs_nothing():
     """`pip-audit` has no mode for a uv, poetry or pipenv tree, and that is the finding.
 
     Filling one in - a bare `pip-audit` from inside the environment - is the
-    repair the transcription exists to make visible, so the entry names those
+    repair the record's silence exists to make visible, so the row names those
     partitions with an empty command instead.
 
-    The whole mapping is pinned, and every partition is named in it, because
-    both ways of losing a route look like the record having none: emptying a
-    row says the record prescribes nothing where it prescribes something, and
-    dropping a partition out of the table says the same by omission. The
-    per-partition routing *is* this entry's finding, so there is nothing left
-    to catch either.
+    The whole mapping is pinned rather than only the two partitions the record
+    prescribes for, because an empty command and an absent one are the same
+    answer read two ways: the row says "no command here", and a reader who sees
+    only the two populated entries cannot tell that from "nobody looked". The
+    row is derived now - `_argv_by_partition` iterates `PARTITIONS`, so all five
+    are always named and no partition can drop out by omission - which retires
+    one of the two ways this used to be lost and leaves the other. What the
+    pinning still catches is a route arriving for one of those three, or leaving
+    one of these two, which is a change in what the record prescribes and
+    belongs in the record's own diff rather than showing up as a quieter run.
     """
     inv = _entry("deps/vulnerabilities", "pip-audit")
     assert inv.argv_by_partition == (
@@ -4611,14 +4623,19 @@ def test_a_supplied_route_step_with_no_tokens_is_rejected():
 
 
 def test_a_supplied_route_naming_a_partition_twice_is_rejected_at_the_literal():
-    """`Invocation` rejects this too, and both rejections are load-bearing.
+    """`Invocation` rejects this too, and the two rejections catch it at different moments.
 
-    A hand-written table entry builds no `Supplied`, so the copy on
-    `_check_supplied` is the only guard those rows ever meet. An entry written
-    in the overlay fails here instead, at the literal carrying the mistake
-    rather than at the row it is later copied onto, which is the difference
-    between a message naming a file somebody is editing and one naming a
-    check id.
+    Every supplied route in the tree now arrives through `SUPPLIED`, so every
+    one reaches `Invocation` with `Supplied` having already validated it - the
+    copy on `_check_supplied` is a second guard rather than a first. Keeping it
+    is a claim about the constructor rather than about the population: a
+    hand-written entry can still pass `supplied_by_partition` directly, and none
+    does only because both records that had one have migrated.
+
+    What this test holds is the earlier of the two. An entry written in the
+    overlay fails here, at the literal carrying the mistake rather than at the
+    row it is later copied onto, which is the difference between a message
+    naming a file somebody is editing and one naming a check id.
     """
     with pytest.raises(ValueError, match="names a partition twice"):
         Supplied(
