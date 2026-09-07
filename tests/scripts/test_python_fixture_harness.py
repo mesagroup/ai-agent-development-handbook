@@ -29,6 +29,7 @@ from python_fixture_spec import (
     DEPS_CHECKS,
     EXPECTATIONS,
     FULL_PARTITION,
+    ISOLATION_TIMEOUT_SECONDS,
     PACKAGE,
     PARTITIONS,
     expectations_for,
@@ -669,13 +670,34 @@ def test_a_truncated_flag_is_satisfied_by_a_value_and_by_nothing_else():
 def test_a_form_led_by_a_runner_is_found_through_the_argvs_own_first_word():
     """The extraction the tool-name rule cannot reach.
 
-    Four entries prescribed a command led by something other than the tool being
-    checked and so declared no form at all, which is indistinguishable from a
-    record that prescribes nothing.
+    An entry whose prescribed command is led by something other than the tool
+    being checked declares no form at all under a rule keyed on the tool's own
+    name, and an entry declaring no form is indistinguishable from a record
+    that prescribes nothing. A pytest plugin is that shape by construction: the
+    thing installed and the thing invoked are different names, and the record
+    writes the invocation.
+
+    Both sides are built here rather than read out of a live record, for the
+    reason the property below gives: a routed row carries no `record_quote`, so
+    the paragraph half cannot be read off a record once that record migrates,
+    and re-pointing this at whichever record is still transcribed buys one
+    stage of green. The sentence is the one `test/determinism` carried while
+    its fallback lived in prose, and the entry is that record's
+    `pytest-randomly` row as the table held it.
     """
-    inv = _entry("test/determinism", "pytest-randomly")
+    inv = Invocation(
+        check="test/determinism",
+        tool="pytest-randomly",
+        argv=("pytest",),
+        in_env=True,
+        record_quote="x" * 40,
+    )
     assert _lead_words(inv) == {"pytest", "pytest-randomly"}
-    paragraph = _prescribing_paragraph(inv.check, inv.record_quote)
+    paragraph = (
+        "`pytest-randomly` randomizes the order as soon as it is installed, so "
+        "the command is `pytest` itself; re-run a failing order with `pytest "
+        "--randomly-seed=<n>`."
+    )
     assert _command_forms(paragraph, "pytest-randomly") == set()
     assert _command_forms(paragraph, "pytest") == {"pytest --randomly-seed=<n>"}
 
@@ -1420,7 +1442,7 @@ def test_folding_a_completion_into_the_argv_breaks_the_anchor():
     this property holds has nothing on the routed side to be held against.
     """
     completed = [i for i in INVOCATIONS if i.completion]
-    assert len(completed) == 6, len(completed)
+    assert len(completed) == 5, len(completed)
     for inv in completed:
         quote = _tokens(inv.record_quote)
         argv = inv.argv or next(a for _, a in inv.argv_by_partition if a)
@@ -1840,47 +1862,41 @@ def test_an_entry_declaring_forms_declares_one_it_runs():
     An entry whose declared forms include none marked `runs` has switched the
     coverage property off for itself entirely. The property above catches that
     only while some command still equals a form the record declares, and whether
-    it does depends on the entry. On `test/isolation`, whose single form is
-    `pytest --durations=25` and whose argv is that form token for token,
-    flipping the disposition fails both properties at once. Drop
-    `--durations=25` as well and the argv equals no declared form, the equality
-    property goes silent on the length, and this one is the only thing left
-    failing - it never reads an argv, so nothing done to one quiets it.
+    it does depends on the entry. Where an entry's single form is its argv token
+    for token, flipping that form's disposition fails both properties at once;
+    drop a token from the argv as well and the argv equals no declared form, the
+    equality property goes silent on the length, and this one is the only thing
+    left failing - it never reads an argv, so nothing done to one quiets it.
 
-    An entry named in `silenced` declares a single `alternative` form
-    truthfully: the record's only named form is one the harness deliberately
-    does not run, and what it runs instead is the plain command the quote
-    prescribes, which the anchor guard holds. That shape belongs to the
-    transcription rather than to the schema - a routed row derives a form from
-    every command route it carries, so the command it runs is declared `runs`
-    by construction and no routed row can be in this set. Asserted rather than
-    allowed, so an entry that grows a `runs` form fails here rather than
-    keeping an exception it no longer needs.
+    Held with no exception set at all, which is strictly stronger than the one
+    exception that used to stand here: any entry declaring forms and none it
+    runs fails. That exception belonged to the transcription rather than to the
+    schema. A transcribed entry can truthfully declare a single `alternative`
+    form and no other - the record's only *named* form being one the harness
+    deliberately does not run, with the plain command it runs instead carried by
+    the anchor guard rather than declared as a form of its own. A routed row
+    cannot take that shape: `_forms_for` derives a form from every command route
+    the row carries, and the route whose argv the row runs is the `runs` one by
+    construction. So only a transcribed entry of that shape brings the exception
+    back, and re-adding it then means naming the entry and asserting that it is
+    exercised, because an exception nothing exercises reads as coverage.
 
     Held over both enumeration paths: `forms` on a routed row is the same
     field, built the same way, from routes that can equally decline to mark
     any of them `runs` - the guard has to hold there too, not only on the
     table this file writes by hand.
     """
-    silenced = {
-        # The record names `pytest --randomly-seed=<n>` for reproducing one
-        # ordering; the harness runs the suite as the record prescribes it.
-        ("test/determinism", "pytest-randomly"),
-    }
-    seen = set()
-    for inv in every_invocation():
-        if not inv.forms:
-            continue
+    declaring = [inv for inv in every_invocation() if inv.forms]
+    assert declaring, (
+        "no entry declares a form at all, so this property holds nothing - the "
+        "form vocabulary has moved and this guard needs re-pointing"
+    )
+    for inv in declaring:
         runs = [form for form, disposition in inv.forms if disposition == "runs"]
-        if (inv.check, inv.tool) in silenced:
-            assert not runs, (inv.check, inv.tool, runs)
-            seen.add((inv.check, inv.tool))
-        else:
-            assert runs, (
-                f"{inv.check}/{inv.tool}: declares {len(inv.forms)} forms and none "
-                "it runs, so the coverage property holds nothing on it"
-            )
-    assert seen == silenced, "an exception nothing exercises is a stale exception"
+        assert runs, (
+            f"{inv.check}/{inv.tool}: declares {len(inv.forms)} forms and none "
+            "it runs, so the coverage property holds nothing on it"
+        )
 
 
 def test_every_disposition_in_the_vocabulary_is_used():
@@ -2019,16 +2035,26 @@ def test_a_form_naming_a_lead_word_off_the_front_is_led_by_some_invocation():
     prescription with no declaration and no failure.
 
     Keyed on the entry's lead words rather than on its tool name, because the tool
-    name is not always a word any command carries. An entry named for a plugin or
-    a distribution the prescribed command never mentions - `test/determinism`'s
-    `pytest-randomly` and `test/isolation`'s `pytest-timeout` are two - has no
-    span starting with its tool name at all, so a rule looking for that name off
-    the front of a span fires on none of its paragraphs and the entry gets none of
-    this protection while the docstring promises it. `_lead_words` already carries
-    the runner the record actually writes, so keying here on the same set is what
+    name is not always a word any command carries. An entry named for the thing
+    installed while the record prescribes the thing invoked - a plugin, or a
+    distribution whose console script goes by another name - has no span starting
+    with its tool name at all, so a rule looking for that name off the front of a
+    span fires on none of its paragraphs and the entry gets none of this
+    protection while the docstring promises it. `_lead_words` already carries the
+    runner the record actually writes, so keying here on the same set is what
     makes the promise hold for every entry: a span led by that runner rather than
     by the tool's own name is what the tool-name rule passed over and this one
     reads.
+
+    Whether any entry in scope has that shape is a fact about which records are
+    still transcribed rather than about the rule, so measure it before reading a
+    green run here as the shape being covered. The entries with it are the ones
+    whose tool is not the first word of any command they prescribe, and no entry
+    in scope was one when this paragraph was written - measured over
+    `INVOCATIONS` narrowed by `PROSE_FALLBACK_CHECKS`, the same scope the loop
+    below reads. `_lead_words` is read the same way whichever entries the table
+    holds, so an entry of that shape arriving needs no change here; it simply
+    starts exercising a keying the property already has.
 
     Read only over the records whose fallback lives in prose. A migrated record
     has no paragraph for an unled span to sit in, because there is no prose
@@ -4341,6 +4367,37 @@ def test_the_coverage_and_mutation_rows_survive_their_records_migration():
     assert cosmic.in_env is True
     for row in (cov, pcov, rows[("test/mutation", "mutmut")]):
         assert row.in_env is True, (row.check, row.tool)
+
+
+def test_the_remaining_test_rows_survive_their_records_migration():
+    """Four rows, and the two records that produce none still produce none.
+
+    Written out rather than read from a baseline file for the reason the rows
+    above are: the point is to fail when the record changes, not when a scratch
+    file goes missing.
+
+    The two checks asserted absent are absent for two different reasons, and
+    naming them together is what makes the pair readable as one property rather
+    than as an accident. `test/assertion-strength` offers a route naming no
+    tool, and `routed_invocations` builds a row per `(check, tool)`, so there is
+    no pair for it to key one by. `test/new-code-coverage` names a tool on a
+    `lang: any` route, which that selection excludes because a row it built
+    there would be graded by no expectation.
+    """
+    routed = routed_invocations()
+    rows = {(i.check, i.tool): i for i in routed}
+    assert rows[("test/determinism", "pytest-randomly")].argv == ("pytest",)
+    rerun = rows[("test/determinism", "pytest-rerunfailures")]
+    assert rerun.argv == ()
+    assert rerun.in_env is True
+    iso = rows[("test/isolation", "pytest-timeout")]
+    assert iso.argv == ("pytest", "--durations=25")
+    assert iso.completion == (f"--timeout={ISOLATION_TIMEOUT_SECONDS}",)
+    assert rows[("test/property-based-gap", "hypothesis")].argv == ()
+    assert not {i.check for i in routed} & {
+        "test/assertion-strength",
+        "test/new-code-coverage",
+    }
 
 
 def test_a_quote_belongs_to_a_transcription_and_only_to_one():

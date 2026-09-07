@@ -2363,11 +2363,6 @@ LEGACY_TOOLING_RECORDS = frozenset(
         "security/secrets-in-code",
         "security/sensitive-data",
         "security/unsafe-io",
-        "test/assertion-strength",
-        "test/determinism",
-        "test/isolation",
-        "test/new-code-coverage",
-        "test/property-based-gap",
     }
 )
 
@@ -2391,21 +2386,57 @@ def test_the_records_still_on_the_old_schema_are_the_ones_named():
 
 
 def test_every_tool_less_check_states_a_reading_procedure():
-    """lidia-tech/lidia-agents#567 item 5: a record may omit `tooling:` when its detection is
-    reading rather than running something - but it must then say so under
-    `## Tooling fallback`, or the executing agent has nothing to run and
-    nothing told to read. If this fails, add the section to the named
-    record - do not weaken the assertion.
+    """lidia-tech/lidia-agents#567 item 5: a check with nothing to run must say what to read
+    instead, or the executing agent has nothing to run and nothing told to
+    read. If this fails, write the prose or the note the named record is
+    missing - do not weaken either assertion.
+
+    One property read on each schema's own terms. A record declaring
+    `tooling:` says it in `## Tooling fallback`, the only place it has. A
+    record declaring `routes:` may not carry that section at all - the loader
+    rejects one beside routes - and says it per route instead, in the `note`
+    of a route naming no tool, which is the shape a route takes when there is
+    nothing for the harness to run. Scoping the first half by the declared
+    schema is what stops this reading as a demand for a section the routes
+    schema replaced; the second half is the same requirement where the routes
+    schema puts it, so the narrowing drops nothing.
+
+    The routed half reads every route naming no tool rather than only the
+    routes of a record whose projected `tooling` is empty, and that is wider
+    than the prose half on purpose. On the legacy schema a record with one
+    tool and one reading axis had nowhere to write the second, so the section
+    was all-or-nothing per record; on the routes schema each axis is its own
+    route and each one can be silent on its own.
     """
     checks, errors = ac.load_checks(ac.SKILLS_DIR)
     assert errors == []
-    missing = sorted(
+    prose_scope = [
         check_id
         for check_id, check in checks.items()
-        if not check.tooling and "\n## Tooling fallback" not in check.path.read_text()
+        if ac.fallback_lives_in_prose(check) and not check.tooling
+    ]
+    routed_scope = [
+        check_id
+        for check_id, check in checks.items()
+        if any(route.tool is None for route in check.routes)
+    ]
+    assert prose_scope and routed_scope, (sorted(prose_scope), sorted(routed_scope))
+    missing = sorted(
+        check_id
+        for check_id in prose_scope
+        if "\n## Tooling fallback" not in checks[check_id].path.read_text()
     )
     assert missing == [], (
         f"these checks declare no tooling and state no fallback: {missing}"
+    )
+    silent = sorted(
+        f"{check_id}: routes[{i}]"
+        for check_id, check in checks.items()
+        for i, route in enumerate(check.routes)
+        if route.tool is None and not (route.note or "").strip()
+    )
+    assert silent == [], (
+        f"these routes name no tool and no reading pass either: {silent}"
     )
 
 
