@@ -1316,6 +1316,27 @@ def test_every_invoked_tool_has_a_version_route_or_a_stated_absence():
     assert set(VERSION_PROBE) == invoked
 
 
+def _tools_owing_a_stated_reason(probes: dict, stated: dict) -> tuple[set, set]:
+    """The two ways a `None` probe and its stated reason can fail to match up.
+
+    Returns the tools whose probe is `None` with no usable reason beside it, and
+    the tools named as having no route while carrying a real probe. Both are
+    drift, in opposite directions, and neither has an instance in the live
+    tables - `NO_VERSION_ROUTE` is empty and no `VERSION_PROBE` value is
+    `None`, so a property holding this over the tables alone iterates nothing.
+    That is why the rule is a function: the property below reads the live
+    tables and the example test beside it reads literals, so the rule keeps a
+    subject the tables do not currently supply.
+    """
+    unexplained = {
+        tool
+        for tool, argv in probes.items()
+        if argv is None and not (stated.get(tool) or "").strip()
+    }
+    stale = {tool for tool in stated if probes.get(tool) is not None}
+    return unexplained, stale
+
+
 def test_a_tool_with_no_version_route_says_so_by_name():
     """`None` is a positive claim, so it travels with a reason - never silently.
 
@@ -1323,16 +1344,39 @@ def test_a_tool_with_no_version_route_says_so_by_name():
     rule: a name in `NO_VERSION_ROUTE` for a tool that *does* carry a probe would
     be a stale reason nothing reads, which is the same kind of drift a leftover
     `ungranted_note` would be.
+
+    Both tables are empty of the shape this reads - measured, not assumed:
+    `NO_VERSION_ROUTE` is `{}` and every `VERSION_PROBE` value is a real argv.
+    So this holds the rule over a population of nothing and passes, which is
+    the failure this file has twice had to repair elsewhere. The rule itself is
+    exercised by `test_a_missing_probe_and_a_stale_reason_are_both_drift`
+    below, over literals; what this one contributes is that the live tables
+    have not grown an instance nobody explained.
     """
-    for tool, argv in VERSION_PROBE.items():
-        if argv is None:
-            assert tool in NO_VERSION_ROUTE, (
-                f"{tool} has no version probe and no stated reason"
-            )
-            assert NO_VERSION_ROUTE[tool].strip()
-    no_route = {tool for tool, argv in VERSION_PROBE.items() if argv is None}
-    assert set(NO_VERSION_ROUTE) <= no_route, (
-        "NO_VERSION_ROUTE names a tool that carries a real probe"
+    unexplained, stale = _tools_owing_a_stated_reason(VERSION_PROBE, NO_VERSION_ROUTE)
+    assert not unexplained, (
+        f"{sorted(unexplained)} have no version probe and no stated reason"
+    )
+    assert not stale, (
+        f"NO_VERSION_ROUTE names {sorted(stale)}, which carry a real probe"
+    )
+
+
+def test_a_missing_probe_and_a_stale_reason_are_both_drift():
+    """The rule above, on tables written here, because the live ones hold neither.
+
+    Four cases, and the pairs are what make the rule more than a spelling of
+    `set(stated) <= {t for t, a in probes.items() if a is None}`: a `None`
+    probe whose reason is present but blank is as silent as one with no reason
+    at all, which is why the live property strips before believing it.
+    """
+    explained = {"t": None}
+    assert _tools_owing_a_stated_reason(explained, {"t": "why"}) == (set(), set())
+    assert _tools_owing_a_stated_reason(explained, {}) == ({"t"}, set())
+    assert _tools_owing_a_stated_reason(explained, {"t": "   "}) == ({"t"}, set())
+    assert _tools_owing_a_stated_reason({"t": ("t", "--version")}, {"t": "why"}) == (
+        set(),
+        {"t"},
     )
 
 

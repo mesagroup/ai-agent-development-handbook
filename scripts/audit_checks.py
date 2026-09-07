@@ -573,17 +573,20 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
 
         raw_argv = entry.get("argv")
         raw_per_partition = entry.get("argv_by_partition")
-        if "argv" in entry and raw_argv is None:
-            errors.append(
-                f"{loc}: argv is empty - YAML reads `null`, `~` and a bare "
-                "key as nothing, so this key declares no command and is not "
-                "the absent key either. That distinction is load-bearing on a "
-                "command route, where an absent argv beside argv_by_partition "
-                "says the partitions the map does not name have no command at "
-                "all: write the argv, or drop the key to make that claim on "
-                "purpose. On any other kind the key is rejected whatever it "
-                "holds, so dropping it is the only fix"
-            )
+        for empty_key in ("argv", "argv_by_partition", "then", "own_runner"):
+            if empty_key in entry and entry[empty_key] is None:
+                errors.append(
+                    f"{loc}: {empty_key} is empty - YAML reads `null`, `~` and "
+                    "a bare key as nothing, so the key declares nothing and is "
+                    "not the absent key either. Every one of these four is read "
+                    "with a `get`, so a value left off arrives as an absent key "
+                    "and takes whatever an absent key means - which for `argv` "
+                    "beside `argv_by_partition` is the claim that the "
+                    "partitions the map does not name have no command at all, "
+                    "and for `own_runner` is that the launcher applies. Write "
+                    "the value, or drop the key to make its absence the claim "
+                    "on purpose"
+                )
         if kind == "command":
             parsed_argv = _str_list(raw_argv)
             if raw_argv is not None and parsed_argv is None:

@@ -775,6 +775,24 @@ def test_an_empty_argv_beside_per_partition_commands_is_rejected(tmp_path):
     assert any("argv is present and empty" in e for e in errors), errors
 
 
+@pytest.mark.parametrize("key", ["argv_by_partition", "then", "own_runner"])
+def test_the_other_get_read_keys_reject_a_value_left_off_too(tmp_path, key):
+    """The same rule on the three siblings, held so the guard cannot narrow.
+
+    None of these three inverts a claim the way `argv` does, which is why the
+    sibling below is the one with the long reason. They are here because the
+    guard is written as a loop over four keys, and a loop is exactly the shape
+    that quietly loses a member: dropping one from the tuple would leave a key
+    reading a bare value as an absent one with nothing going red. Held on a
+    route that is otherwise valid, so the only thing failing is the key under
+    test.
+    """
+    errors = _errors_for_route(
+        tmp_path, f"kind: command\n    tool: t\n    argv: [t]\n    {key}:"
+    )
+    assert any(f"{key} is empty" in e for e in errors), errors
+
+
 @pytest.mark.parametrize("spelling", ["argv:", "argv: ~", "argv: null"])
 def test_an_argv_written_with_no_value_is_not_the_absent_key(tmp_path, spelling):
     """The three YAML spellings of nothing, which are not the absent key.
