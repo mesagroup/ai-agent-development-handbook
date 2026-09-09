@@ -661,7 +661,8 @@ def _errors_for_both_schemas(tmp_path):
 
 def test_a_route_carries_its_kind_and_command(tmp_path):
     check = _one_route_record(
-        tmp_path, "kind: command\n    tool: pydeps\n    argv: [pydeps, --show-cycles]"
+        tmp_path,
+        "kind: command\n    tool: pydeps\n    registry: pypi\n    argv: [pydeps, --show-cycles]",
     )
     route = check.routes[0]
     assert (route.kind, route.tool, route.argv) == (
@@ -676,7 +677,8 @@ def test_a_route_carries_its_kind_and_command(tmp_path):
 
 def test_a_package_defaults_to_the_tool_name(tmp_path):
     check = _one_route_record(
-        tmp_path, "kind: command\n    tool: pydeps\n    argv: [pydeps]"
+        tmp_path,
+        "kind: command\n    tool: pydeps\n    registry: pypi\n    argv: [pydeps]",
     )
     assert check.routes[0].package == "pydeps"
 
@@ -702,7 +704,8 @@ def test_a_package_written_with_no_value_is_rejected(tmp_path):
 def test_a_package_is_written_only_where_it_differs(tmp_path):
     check = _one_route_record(
         tmp_path,
-        "kind: command\n    tool: import-linter\n    package: import-linter\n    argv: [lint-imports]",
+        "kind: command\n    tool: import-linter\n    package: import-linter"
+        "\n    registry: pypi\n    argv: [lint-imports]",
     )
     assert (check.routes[0].package, check.routes[0].argv) == (
         "import-linter",
@@ -733,7 +736,7 @@ def test_a_command_route_may_name_per_partition_commands_and_no_shared_argv(tmp_
     """
     errors = _errors_for_route(
         tmp_path,
-        "kind: command\n    tool: t\n"
+        "kind: command\n    tool: t\n    registry: pypi\n"
         "    argv_by_partition:\n      uv: [t, u]\n      pip: [t, p]",
     )
     assert errors == []
@@ -948,7 +951,7 @@ def test_a_record_may_not_carry_both_schemas(tmp_path):
 def test_argv_by_partition_maps_a_partition_to_a_command(tmp_path):
     check = _one_route_record(
         tmp_path,
-        "kind: command\n    tool: dependency-cruiser\n    argv: [depcruise]\n"
+        "kind: command\n    tool: dependency-cruiser\n    registry: npm\n    argv: [depcruise]\n"
         "    argv_by_partition:\n      pnpm: [pnpm, dlx, depcruise]",
     )
     assert check.routes[0].argv_by_partition == {"pnpm": ("pnpm", "dlx", "depcruise")}
@@ -1001,14 +1004,16 @@ def test_the_per_partition_argv_key_is_argv_by_partition(tmp_path):
 def test_a_route_carries_a_second_command_in_sequence(tmp_path):
     check = _one_route_record(
         tmp_path,
-        "kind: command\n    tool: coverage.py\n    argv: [coverage, run, -m, pytest]"
+        "kind: command\n    tool: coverage.py\n    registry: pypi\n    argv: [coverage, run, -m, pytest]"
         "\n    then: [coverage, report, --show-missing]",
     )
     assert check.routes[0].then == ("coverage", "report", "--show-missing")
 
 
 def test_a_route_carries_no_second_command_by_default(tmp_path):
-    check = _one_route_record(tmp_path, "kind: command\n    tool: t\n    argv: [t]")
+    check = _one_route_record(
+        tmp_path, "kind: command\n    tool: t\n    registry: pypi\n    argv: [t]"
+    )
     assert check.routes[0].then == ()
     assert check.routes[0].own_runner is False
 
@@ -1040,7 +1045,7 @@ def test_a_shared_argv_may_say_it_needs_no_runner(tmp_path):
 def test_a_per_partition_argv_names_the_partitions_needing_no_runner(tmp_path):
     check = _one_route_record(
         tmp_path,
-        "kind: command\n    tool: cyclonedx-py\n    argv: [cyclonedx-py, requirements]"
+        "kind: command\n    tool: cyclonedx-py\n    registry: pypi\n    argv: [cyclonedx-py, requirements]"
         "\n    argv_by_partition:\n      uv: [uv, export, --frozen]"
         "\n    own_runner: [uv]",
     )
@@ -1170,7 +1175,9 @@ def test_a_route_defaults_to_the_any_language(tmp_path):
     `ROUTE_LANGS` treats as an error. `any` is that value, and it is also
     the one the projection in `_project_tooling` gives special handling.
     """
-    check = _one_route_record(tmp_path, "kind: command\n    tool: t\n    argv: [t]")
+    check = _one_route_record(
+        tmp_path, "kind: command\n    tool: t\n    registry: pypi\n    argv: [t]"
+    )
     assert check.routes[0].lang == "any"
 
 
@@ -1223,6 +1230,7 @@ handbook_note: Fixture record for route tests.
 routes:
   - kind: command
     tool: pydeps
+    registry: pypi
     argv: [pydeps]
   - kind: command
     tool: grimp
@@ -2980,7 +2988,13 @@ def test_an_untiered_universal_route_naming_a_tool_answers_for_every_language(
                 "argv": ["t"],
                 "needs": "resolved-tree",
             },
-            {"lang": "any", "kind": "command", "tool": "u", "argv": ["u"]},
+            {
+                "lang": "any",
+                "kind": "command",
+                "tool": "u",
+                "registry": "pypi",
+                "argv": ["u"],
+            },
         ],
     )
     assert ac._languages_whose_tools_all_need_a_grant(check.routes) == ()
