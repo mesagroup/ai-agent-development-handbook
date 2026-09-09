@@ -3005,3 +3005,53 @@ def test_a_language_naming_no_tool_at_all_makes_no_claim_about_grants(tmp_path):
     )
     assert ac._languages_whose_tools_all_need_a_grant(check.routes) == ()
     assert ac._silenced_languages(check.routes) == ()
+
+
+def test_a_per_partition_dlx_form_always_has_a_shared_argv_beside_it():
+    """`audit/SKILL.md`'s route for Yarn classic depends on this being true.
+
+    `dlx` is a Yarn 2+ command and Yarn classic's CLI index documents no
+    one-shot form at all, so the runner paragraph's rule is that a
+    `yarn`-keyed `dlx` entry is Yarn Modern's form and the route's shared
+    `argv` - an npm-registry runner reaching the same registry - is what a
+    classic partition runs instead.
+
+    That rule holds only while every such route has a shared `argv` to fall
+    back to, and nothing else in the tree holds it. The per-partition entry is
+    data the loader validates for shape, not for whether a manager owns the
+    command it names, so a record dropping its shared argv would leave a Yarn
+    classic partition with a command that manager does not have and no
+    alternative - reported as `no-evidence (tool-unavailable)` for a tool that
+    was obtainable the whole time, which is the failure #42 removed.
+
+    Scoped to per-partition entries on purpose. A *shared* argv leading with
+    `dlx` is a different thing and must not be caught here: the
+    `disposition: forbidden` routes of the graph records carry a bare
+    `dlx depcruise`, and `deps/inventory` a bare `dlx cyclonedx-npm`, to warn
+    against a dependency-confusion placeholder. Those are named in order never
+    to be run, so they need no fallback.
+    """
+    checks, errors = ac.load_checks(ac.SKILLS_DIR)
+    assert errors == []
+    covered, offenders = [], []
+    for check in checks.values():
+        for position, route in enumerate(check.routes):
+            named = sorted(
+                partition
+                for partition, argv in dict(route.argv_by_partition or {}).items()
+                if "dlx" in argv
+            )
+            if not named:
+                continue
+            covered.append((check.id, route.tool))
+            if not route.argv:
+                offenders.append((check.id, route.tool, position, named))
+    assert offenders == [], (
+        "these routes prescribe a dlx form for a partition and no shared argv "
+        f"for a manager that has no dlx: {offenders}"
+    )
+    assert covered, (
+        "no route carries a per-partition dlx form, so this guard has no "
+        "subject - if the forms were removed deliberately, remove this too "
+        "rather than leaving it passing over nothing"
+    )
