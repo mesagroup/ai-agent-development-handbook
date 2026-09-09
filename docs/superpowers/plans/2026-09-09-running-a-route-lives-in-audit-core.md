@@ -2,7 +2,7 @@
 
 Issue #70. Design: [../specs/2026-09-09-running-a-route-lives-in-audit-core-design.md](../specs/2026-09-09-running-a-route-lives-in-audit-core-design.md).
 
-Three commits, in the order that keeps the suite green at every step: the engine gains the section, the sweep gives up its copy, then the obligations ledger records both. The middle commit alone would leave the sweep pointing at a section that does not exist; the third alone would fail `tests/test_sweep_obligations.py` on anchors that are not there yet.
+In the order that keeps the suite green at every step: the engine gains the section, the sweep gives up its copy, the nine domain skills point at it, then the obligations ledger records all of it. The second step alone would leave the sweep pointing at a section that does not exist; the last alone would fail `tests/test_sweep_obligations.py` on anchors that are not there yet. No count of commits, because review findings add commits and a plan that named one would be wrong by the end of the first pass.
 
 ## 1. `audit-core/SKILL.md` gains `## Running a route`
 
@@ -20,6 +20,8 @@ Step 1's detection-tooling sentence gains a pointer to the section. The anchor `
 Keeps its first sentence: which schema a record declares, that the migration is partial, and that either can appear. Replaces the contract that followed with a pointer to `audit-core`'s section and one sentence on why the brief does not restate it. The relative link form is the one the file already uses for a sibling skill (`../audit-core/SKILL.md`); an absolute GitHub URL is for `docs/` targets, which the plugin does not ship.
 
 The detection-tooling bullet is not touched, for the reason the design gives, and neither is any other line of the file.
+
+Each of the nine `<domain>-audit/SKILL.md` files gains one clause in the deferral it already carries, naming the section among what `audit-core` owns. A pointer rather than a copy: the enumeration in that sentence predates the section, and it is the sentence that sends a direct run into the file.
 
 ## 3. `docs/audit/sweep-obligations.md` records the new obligations
 
