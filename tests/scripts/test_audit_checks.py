@@ -1042,6 +1042,159 @@ def test_a_shared_argv_may_say_it_needs_no_runner(tmp_path):
     assert check.routes[0].own_runner is True
 
 
+def test_a_registry_names_where_the_tool_is_fetched_from(tmp_path):
+    check = _one_route_record(
+        tmp_path,
+        "lang: any\n    kind: command\n    tool: diff-cover"
+        "\n    registry: pypi\n    argv: [diff-cover]",
+    )
+    assert check.routes[0].registry == "pypi"
+
+
+@pytest.mark.parametrize("kind", ["library", "procedure", "subject"])
+def test_a_registry_on_a_non_command_kind_is_rejected(tmp_path, kind):
+    """Only a command route prescribes something a runner goes in front of."""
+    errors = _errors_for_route(
+        tmp_path, f"kind: {kind}\n    tool: t\n    registry: pypi"
+    )
+    assert any("registry" in e and kind in e for e in errors), errors
+
+
+def test_a_registry_outside_the_vocabulary_is_rejected(tmp_path):
+    """An unrecognised registry reads to a consumer as no registry at all.
+
+    Which is the failure the field exists to prevent, so a typo or a registry
+    nobody has decided to support has to be an error rather than a value that
+    silently falls back to the partition's runner.
+    """
+    errors = _errors_for_route(
+        tmp_path,
+        "lang: any\n    kind: command\n    tool: t\n    registry: crates"
+        "\n    argv: [t]",
+    )
+    assert any("registry" in e and "crates" in e for e in errors), errors
+
+
+def test_a_registry_beside_own_runner_true_is_rejected(tmp_path):
+    """`own_runner: true` says nothing is fetched, so a registry names nowhere.
+
+    The mirror of the loader's existing refusal of `own_runner` beside
+    `in_env`: there the suppressed prefix never arrives, here the named
+    registry is never reached.
+    """
+    errors = _errors_for_route(
+        tmp_path,
+        "lang: any\n    kind: command\n    tool: wc\n    registry: npm"
+        "\n    argv: [wc, -l]\n    own_runner: true",
+    )
+    assert any("registry" in e and "own_runner" in e for e in errors), errors
+
+
+def test_a_registry_contradicting_its_lang_is_rejected(tmp_path):
+    """A `lang: python` route on npm is a wrong `lang` or a typo, never both true.
+
+    Accepting the disagreement would let the field mean whichever of the two a
+    consumer happened to read first, which is worse than not having it: a
+    record can then declare a registry and still be fetched from the other one.
+    """
+    errors = _errors_for_route(
+        tmp_path,
+        "lang: python\n    kind: command\n    tool: t\n    registry: npm"
+        "\n    argv: [t]",
+    )
+    assert any("registry" in e and "lang" in e for e in errors), errors
+
+
+def test_a_universal_command_route_without_a_registry_is_rejected(tmp_path):
+    """Neither `any` nor `none` implies one, so nothing else in the record says."""
+    errors = _errors_for_route(
+        tmp_path, "lang: any\n    kind: command\n    tool: t\n    argv: [t]"
+    )
+    assert any("registry" in e and "any" in e for e in errors), errors
+
+
+def test_the_requirement_does_not_exempt_a_defaulted_lang(tmp_path):
+    """`lang` defaults to `any`, and a consumer cannot tell that from a declared one.
+
+    So the rule reads the value rather than whether it was written. This is the
+    one ergonomic cost of the field: a command route that omits `lang` has to
+    name a registry, where before it loaded clean on the default alone.
+    """
+    errors = _errors_for_route(tmp_path, "kind: command\n    tool: t\n    argv: [t]")
+    assert any("registry" in e for e in errors), errors
+
+
+def test_a_language_specific_route_needs_no_registry(tmp_path):
+    """The requirement is scoped to where the registry is underivable."""
+    check = _one_route_record(
+        tmp_path, "lang: python\n    kind: command\n    tool: t\n    argv: [t]"
+    )
+    assert check.routes[0].registry is None
+    assert ac.registry_for(check.routes[0]) == "pypi"
+
+
+def test_registry_for_reads_the_route_then_the_lang_then_nothing(tmp_path):
+    """The three outcomes, because a caller must not conflate the last two.
+
+    `None` means put no runner in front; a derived value means put this one
+    there. A caller treating `None` as "use the default" fetches a package
+    named after a coreutils binary, which is exactly the `wc` route.
+    """
+    declared = _one_route_record(
+        tmp_path,
+        "lang: any\n    kind: command\n    tool: cloc\n    registry: npm"
+        "\n    argv: [cloc]",
+    )
+    assert ac.registry_for(declared.routes[0]) == "npm"
+
+    complete = _one_route_record(
+        tmp_path,
+        "lang: any\n    kind: command\n    tool: wc\n    argv: [wc, -l]"
+        "\n    own_runner: true",
+    )
+    assert ac.registry_for(complete.routes[0]) is None
+
+    nothing_to_run = _one_route_record(
+        tmp_path, "lang: python\n    kind: procedure\n    tool: t"
+    )
+    assert ac.registry_for(nothing_to_run.routes[0]) is None
+
+
+def test_the_registry_requirement_is_not_vacuous():
+    """The rule fires on routes that exist, and the count is the guard.
+
+    A rule whose population leaves the tree stops being tested by the record
+    set, and this one is easy to empty by accident: give both universal
+    command routes an `own_runner` and the requirement never fires again,
+    while every test above still passes on its synthetic records.
+    """
+    checks, errors = ac.load_checks(ac.SKILLS_DIR)
+    assert errors == [], errors
+    required = [
+        (check.id, index)
+        for check in checks.values()
+        for index, route in enumerate(check.routes or ())
+        if route.kind == "command"
+        and route.lang in ac.UNIVERSAL_ROUTE_LANGS
+        and route.own_runner is not True
+    ]
+    assert len(required) == 2, (
+        f"the registry requirement fires on {sorted(required)}; the tree carried "
+        "two such routes when the rule was written - `arch/size`'s `cloc` and "
+        "`test/new-code-coverage`'s `diff-cover`. A change here means a universal "
+        "command route arrived or left, and either way the rule and this floor "
+        "want re-reading rather than the number being edited to match"
+    )
+    assert all(
+        route.registry is not None
+        for check in checks.values()
+        for route in (check.routes or ())
+        if route.kind == "command"
+        and route.lang in ac.UNIVERSAL_ROUTE_LANGS
+        and route.own_runner is not True
+    )
+
+
 def test_a_per_partition_argv_names_the_partitions_needing_no_runner(tmp_path):
     check = _one_route_record(
         tmp_path,
