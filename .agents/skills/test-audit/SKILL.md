@@ -5,7 +5,7 @@ description: "Audit a project's automated tests: line/branch coverage and its ga
 
 # Test Audit (coverage, TDD adherence, test quality)
 
-A domain specialization of **[audit-core](../audit-core/SKILL.md)** - read that first; it owns the loop (scope → parallel evidence → findings matrix → plan → subagent-driven fixes → review → PR) and the cross-cutting rules. The checks are records in [`checks/`](checks/) beside this file; load the ones your slice needs, not the directory. This skill supplies the testing lens for **deterministic, code-level tests**.
+A domain specialization of **[audit-core](../audit-core/SKILL.md)** - read that first; it owns the loop (scope → parallel evidence → findings matrix → plan → subagent-driven fixes → review → PR), the `## Running a route` contract that turns this skill's records into commands, and the cross-cutting rules. The checks are records in [`checks/`](checks/) beside this file; load the ones your slice needs, not the directory. This skill supplies the testing lens for **deterministic, code-level tests**.
 
 **Core principle:** a test suite's value is not its coverage percentage - it is whether it *fails when the code breaks*. A high number produced by tests that assert nothing, mock the thing under test, or never exercise the hard branches is a false safety net that is worse than an honest low number. The audit measures both reach (coverage) and strength (does a test actually catch a regression), and treats a confident-but-weak suite as a finding.
 

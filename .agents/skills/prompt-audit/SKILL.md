@@ -5,7 +5,7 @@ description: "Audit the static authoring quality of a project's system prompts a
 
 # Prompt Audit (system prompts & Agent SOPs)
 
-A domain specialization of **[audit-core](../audit-core/SKILL.md)** - read that first; it owns the loop (scope → parallel evidence → findings matrix → plan → subagent-driven fixes → review → PR) and the cross-cutting rules. The checks are records in [`checks/`](checks/) beside this file; load the ones your slice needs, not the directory. This skill supplies the **static authoring-quality** lens for prompts and SOPs.
+A domain specialization of **[audit-core](../audit-core/SKILL.md)** - read that first; it owns the loop (scope → parallel evidence → findings matrix → plan → subagent-driven fixes → review → PR), the `## Running a route` contract that turns this skill's records into commands, and the cross-cutting rules. The checks are records in [`checks/`](checks/) beside this file; load the ones your slice needs, not the directory. This skill supplies the **static authoring-quality** lens for prompts and SOPs.
 
 The split from its closest sibling is deliberate and mirrors `test-audit` vs `eval-audit`: **`eval-audit`** owns *behavioral, model-level* prompt quality (does the prompt hold under adversarial input, has it drifted from the current tools/code, is the behavior actually measured); **this skill** owns *how well the prompt is written on the page* (is it well-formed, clear, consistent, and not overloaded). The two cross-link rather than overlap: a prompt can be immaculately structured and still behave badly, and vice versa, so a real prompt change usually wants both passes.
 

@@ -5,7 +5,7 @@ description: "Audit a project's third-party dependency surface: license compatib
 
 # Dependency Audit (licenses + supply chain)
 
-A domain specialization of **[audit-core](../audit-core/SKILL.md)** - read that first; it owns the loop (scope → parallel evidence → findings matrix → plan → subagent-driven fixes → review → PR) and the cross-cutting rules. The checks are records in [`checks/`](checks/) beside this file; load the ones your slice needs, not the directory. This skill supplies the dependency lens. It owns the whole *third-party* surface; first-party code security belongs to `security-audit`, which cross-links the CVE overlap here.
+A domain specialization of **[audit-core](../audit-core/SKILL.md)** - read that first; it owns the loop (scope → parallel evidence → findings matrix → plan → subagent-driven fixes → review → PR), the `## Running a route` contract that turns this skill's records into commands, and the cross-cutting rules. The checks are records in [`checks/`](checks/) beside this file; load the ones your slice needs, not the directory. This skill supplies the dependency lens. It owns the whole *third-party* surface; first-party code security belongs to `security-audit`, which cross-links the CVE overlap here.
 
 **Core principle:** the license verdict here is relative, not absolute - whether a copyleft dependency is a problem at all is judged against *this* project's own license and distribution model, not a universal rule. Most of the risk arrives transitively: a CVE or a copyleft license several levels down in the resolved graph binds the project exactly as much as one in a direct dependency, so the resolved graph, not the declared one, is ground truth.
 

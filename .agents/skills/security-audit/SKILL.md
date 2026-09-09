@@ -5,7 +5,7 @@ description: "Audit a project's first-party code for security weaknesses: danger
 
 # Security Audit (first-party code)
 
-A domain specialization of **[audit-core](../audit-core/SKILL.md)** - read that first; it owns the loop (scope → parallel evidence → findings matrix → plan → subagent-driven fixes → review → PR) and the cross-cutting rules. The checks are records in [`checks/`](checks/) beside this file; load the ones your slice needs, not the directory. This skill supplies the security lens for **first-party code**.
+A domain specialization of **[audit-core](../audit-core/SKILL.md)** - read that first; it owns the loop (scope → parallel evidence → findings matrix → plan → subagent-driven fixes → review → PR), the `## Running a route` contract that turns this skill's records into commands, and the cross-cutting rules. The checks are records in [`checks/`](checks/) beside this file; load the ones your slice needs, not the directory. This skill supplies the security lens for **first-party code**.
 
 **Core principle:** find the places where untrusted input meets a dangerous operation, and where a secret could leak. A finding is only real when you can name the source of untrusted data and the sink it reaches; a scanner hit with no reachable attacker path is noise, and a real dataflow the scanner missed is the finding that matters. Verify both directions against the actual code.
 
