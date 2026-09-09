@@ -62,7 +62,7 @@ So it is corrected, which is what the criterion wants, for a reason the criterio
 - **`deps-audit/checks/vulnerabilities.md`**: the `evidence:` block points at the vocabulary.
 - **`scripts/run_python_fixture_lens.py`** and **`tests/scripts/test_python_fixture_harness.py`**: the comment and the pin's docstring say why the lens's three are three, without resting on the engine's count.
 - **`docs/audit/sweep-obligations.md`**: the row anchored on `carries a reason, because the three ways a check can fail to run` gets a full new anchor, since that sentence changes and its test forbids trimming an anchor to whatever survived. New rows for the obligations the change adds.
-- **A new guard** that the reason names in `audit-core` and in `audit/SKILL.md` are the same set, and that the lens's `REASONS` is that set minus the one it cannot produce. Three copies of one vocabulary in two languages is exactly the consistency property CLAUDE.md says to move into the validator.
+- **A new guard** that the reason names in `audit-core` and in `audit/SKILL.md` are the same set, and that the lens's `REASONS` is that set minus the one it cannot produce. Three copies of one vocabulary in two languages is exactly the consistency property CLAUDE.md says to move into the validator - and a fourth copy, `data-protection-audit`'s paraphrase, is outside its reach, because a sentence that enumerates the reasons without naming them has nothing for a parser to find. The guard holds the copies that spell the names; the reading pass stays load-bearing for the rest, which is how that one was found.
 
 ## This branch conflicts with both open PRs
 

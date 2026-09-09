@@ -114,8 +114,9 @@ VENV_BIN = ".venv/bin"
 
 # The engine's status scale, and the reasons an observation of a command can
 # establish. Neither tuple grows here: a fourth status would collapse a
-# distinction the engine draws on purpose, and a fourth reason arriving in this
-# file would be a value the pass that grades it has no row for. Both are pinned
+# distinction the engine draws on purpose, and a reason arriving here that no
+# run of this file can produce would be a member nothing ever exercises. Both
+# are pinned
 # by literal equality in the tests so that a member added to either arrives
 # visibly - the round exists to test the family against this vocabulary rather
 # than to extend it.

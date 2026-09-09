@@ -29,7 +29,7 @@ Its `evidence:` block asks the auditor to distinguish "a retired endpoint and a 
 
 The row anchored on `carries a reason, because the three ways a check can fail to run` no longer matches. It gets a full new anchor rather than a trimmed one, which the test's own docstring forbids. Then a row per obligation the change adds, with the disposition each earns: the sweep restates the reason vocabulary in its fan-out brief, so the reason itself is `restated`; the growth rule governs whoever edits the engine rather than a run, so it is judged on its own.
 
-## 6. A guard for three copies of one vocabulary
+## 6. A guard for the copies of the vocabulary that name it
 
 One test: the reason names in `audit-core`'s vocabulary sentence and in `audit/SKILL.md`'s rendering sentence are the same set, and `run_python_fixture_lens.REASONS` is that set minus `not-prescribed`. Parsed from the prose rather than hardcoded twice, so the guard cannot pass by agreeing with itself. Mutation-checked by adding a reason to one file only.
 
