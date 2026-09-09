@@ -101,12 +101,21 @@ declared, and repeating it under `needs` too would reopen the drift
 `_project_tooling` and `_project_needs`), so the call sites in
 `run_python_fixture_lens.py`, `test_python_fixture_harness.py` and
 `test_python_fixture_spec.py` that predate `routes` still read the same
-shape without change. The shape is all the projection carries: the tools
-and their tiers, and no ungranted claim, so whether a withheld grant
-silences a language is read from the routes through
-`_silenced_languages` and never off the projected pair - `_project_tooling`
-keeps a `kind: subject` route's tool under its language, which is how a
-language nothing there was answering reads as fully tiered. A record
+shape without change - `test_python_fixture_spec.py` now reads it on the
+legacy branch only, and `run_python_fixture_lens.py`'s `grant_tier` reads
+the prescribed route instead. The shape is all the projection carries: the
+tools and their tiers, and no ungranted claim, so the questions about
+grants are read from the routes and never off the projected pair. Whether a
+withheld grant silences a language goes through `_silenced_languages`;
+whether any *tool* still answers there goes through
+`_languages_whose_tools_all_need_a_grant`. The pair over-reports tiering in
+two structurally different ways, which is why neither is derived from it:
+`_project_tooling` keeps a `kind: subject` route's tool under its language,
+which is how a language nothing there was answering reads as fully tiered;
+and `_project_needs` collapses a record's routes onto their tools, so a
+tool carrying one tiered route and one untiered route reads as simply
+tiered - `deps/inventory`'s `cyclonedx-py` is that shape, and reading the
+pair for it withheld a whole row over one tiered `alternative` route. A record
 declaring `routes` may not also carry a `## Tooling fallback` section: on
 this schema the routes are the fallback, and a section beside them would be
 a second copy nothing holds against the first, unread by the properties

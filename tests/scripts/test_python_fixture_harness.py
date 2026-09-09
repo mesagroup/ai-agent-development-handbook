@@ -19,11 +19,19 @@ import json
 import os
 import re
 from contextlib import contextmanager
+from dataclasses import fields
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from audit_checks import SKILLS_DIR, fallback_lives_in_prose, load_checks
+from audit_checks import (
+    SKILLS_DIR,
+    Route,
+    _project_needs,
+    _project_tooling,
+    fallback_lives_in_prose,
+    load_checks,
+)
 from build_python_fixtures import PINNED_MANAGERS
 from python_fixture_spec import (
     DEPS_CHECKS,
@@ -2289,24 +2297,91 @@ def test_the_scope_of_a_partition_is_the_expectations_own_scope():
 
 
 def test_the_grant_tier_is_read_from_the_record_rather_than_transcribed():
-    """Held over both enumeration paths.
+    """Held over both enumeration paths, and read per route on a migrated one.
 
-    `grant_tier` reads `checks[check].needs` regardless of which table its
-    caller's row came from, and on a migrated record that mapping is itself
-    derived from the same routes `routed_invocations()` reads - so a bug in
-    that projection, specific to a migrated record, is invisible to a sweep
-    that never asks `grant_tier` about one.
+    This property used to assert `grant_tier` equalled the projected
+    `checks[check].needs` reading for every row, on the argument that a bug in
+    the projection specific to a migrated record would otherwise go unasked.
+    The projection turned out to be the bug: it collapses a record's routes
+    onto their tools, so one tiered `alternative` route tiers the tool and
+    `run_partition` then withholds the whole row. `deps/inventory` is the
+    instance - `cyclonedx-py` prescribes file-parsing subcommands that read a
+    lockfile and, as an `alternative`, `environment`, which reads the
+    installed environment and is correctly tiered for it. Under the old
+    reading that check reported `no-evidence (not-permitted)` at
+    `--grant none` having run nothing it could have run.
+
+    So the two readings are asserted to agree everywhere except where a tool's
+    routes tier unevenly, and that exception is named rather than tolerated:
+    it is the whole reason `grant_tier` reads the prescribed route.
     """
     checks, errors = load_checks(SKILLS_DIR)
     assert not errors, errors
     assert grant_tier("deps/hygiene", "deptry") == "resolved-tree"
     assert grant_tier("test/coverage-reach", "pytest-cov") == "target-execution"
     assert grant_tier("security/crypto", "bandit") == ""
+    # The row whose prescribed command answers from a clone while another of
+    # the same tool's routes needs the tree.
+    assert grant_tier("deps/inventory", "cyclonedx-py") == ""
+    assert checks["deps/inventory"].needs == {"resolved-tree": ("cyclonedx-py",)}
+    disagreed = []
     for inv in every_invocation():
         tiers = {
             tier for tier, tools in checks[inv.check].needs.items() if inv.tool in tools
         }
-        assert grant_tier(inv.check, inv.tool) == (tiers.pop() if tiers else "")
+        projected = tiers.pop() if tiers else ""
+        if grant_tier(inv.check, inv.tool) != projected:
+            disagreed.append((inv.check, inv.tool))
+    assert sorted(set(disagreed)) == [("deps/inventory", "cyclonedx-py")], disagreed
+
+
+def _projected_record(*routes):
+    """A fake record carrying the pair the loader would project from its routes.
+
+    `_fake_record` gives a namespace only `routes`, which is all
+    `routed_invocations` reads. `grant_tier` also reads the projected
+    `tooling`/`needs`, and the whole point of the rule under test is that the
+    two can disagree - so projecting them here with the loader's own functions
+    rather than writing them by hand is what keeps the disagreement real
+    instead of arranged.
+    """
+    return SimpleNamespace(
+        routes=routes,
+        tooling=_project_tooling(routes),
+        needs=_project_needs(routes),
+    )
+
+
+def test_the_tier_gating_a_row_is_the_prescribed_routes_not_the_tools(monkeypatch):
+    """Stated on a constructed record, so the rule survives its instance.
+
+    The tree pins `deps/inventory` in the property above, which fails if the
+    rule regresses and also if a second record quietly grows the shape. This
+    one fails only if the rule itself goes, and it is the one that says what
+    the rule is: the tier that decides whether a row may run is carried by the
+    route whose command the row runs, and a tier on a sibling route of the
+    same tool is not a claim about it.
+    """
+    prescribed_from_a_clone = _projected_record(
+        _fake_route(argv=("t", "file")),
+        _fake_route(
+            argv=("t", "environment"),
+            disposition="alternative",
+            needs="resolved-tree",
+        ),
+    )
+    # The projection says the tool needs the tree, because one route does.
+    assert prescribed_from_a_clone.needs == {"resolved-tree": ("t",)}
+    with _records_replaced_by(monkeypatch, {"x/y": prescribed_from_a_clone}):
+        assert grant_tier("x/y", "t") == ""
+
+    # The converse: tier the route the row runs, and the row is gated.
+    prescribed_needs_the_tree = _projected_record(
+        _fake_route(argv=("t", "file"), needs="target-execution"),
+        _fake_route(argv=("t", "environment"), disposition="alternative"),
+    )
+    with _records_replaced_by(monkeypatch, {"x/y": prescribed_needs_the_tree}):
+        assert grant_tier("x/y", "t") == "target-execution"
 
 
 def test_an_unknown_check_or_tool_is_rejected_by_name():
@@ -4617,14 +4692,35 @@ def _fake_route(**kw):
         "disposition": "runs",
         "findings_stream": "stdout",
         "in_env": False,
+        "needs": None,
         "applies_when": None,
+        "alone_insufficient": None,
         "note": "",
         "then": (),
         "own_runner": False,
         "argv_by_partition": {},
     }
     field.update(kw)
+    # `package` defaults to `tool` in the loader, so it has to follow an
+    # overridden tool here too - a fixed default would silently describe a
+    # different installable from the one the route names.
+    field.setdefault("package", field["tool"])
     return SimpleNamespace(**field)
+
+
+def test_the_fake_route_carries_every_field_the_real_one_does():
+    """`_fake_route` duck-types `Route`, and nothing else holds the two together.
+
+    Every field the enumeration or `grant_tier` reads has had to be added here
+    by hand as those readers grew - `applies_when` and `needs` both arrived
+    that way, each surfacing as an `AttributeError` in whichever test happened
+    to construct a route without it. The failure is a missing attribute rather
+    than a wrong answer, so it is loud; what it is not is early, and a fake
+    carrying a field the dataclass has dropped is the quiet direction. Compare
+    the two field sets instead, so adding a field to `Route` fails here with
+    its name rather than in an unrelated test.
+    """
+    assert set(_fake_route().__dict__) == {f.name for f in fields(Route)}
 
 
 @contextmanager
@@ -4756,18 +4852,28 @@ def test_a_migrated_record_reads_its_supplied_route_from_the_overlay(monkeypatch
     ],
 )
 def test_an_ambiguous_group_is_refused_by_name(monkeypatch, routes, expected):
-    """Each raise names the group and what is ambiguous about it.
+    """Each raise names the group and what is wrong with it.
 
-    Every one of these resolves silently to whichever route came first if the
-    guard is removed, and these shapes are ones the record set does not
-    currently contain - so the message is the only thing a future reader gets,
-    and it is read here rather than assumed.
+    The first four are ambiguity: each resolves silently to whichever route
+    came first if the guard is removed, and each is a shape the record set
+    does not currently contain - so the message is the only thing a future
+    reader gets, and it is read here rather than assumed. That absence needs
+    no test holding it, and stating why is the point: a record growing one of
+    those shapes makes `routed_invocations` raise, and the enumeration is read
+    by enough of this file that the suite goes red rather than quietly
+    disagreeing with this sentence.
 
-    That last claim needs no test holding it, and stating why is the point: a
-    record growing one of these shapes makes `routed_invocations` raise, and
-    the enumeration is read by enough of this file that the suite goes red
-    rather than quietly disagreeing with this sentence. The shapes stay absent
-    loudly, which is the only kind of absence worth asserting.
+    The last case is not ambiguity, and its shape is **not** absent. A group
+    prescribing no command and declaring more than one route is in the tree
+    three times, all `lang: typescript`, held by identity in
+    `test_the_multi_route_no_command_groups_are_the_three_the_rule_was_written_for`
+    - and it does not raise, because `_reason_for_no_command` composes those
+    routes' notes rather than choosing between them. This case is the
+    note-less variant: several prescribed routes with no note anywhere among
+    them, where there is nothing to compose and nothing to attribute the
+    absence to either. Removing that guard would not resolve to the first
+    route; it would put a row in the artifact saying it ran nothing and not
+    why.
     """
     with (
         _records_replaced_by(monkeypatch, {"x/y": _fake_record(*routes)}),

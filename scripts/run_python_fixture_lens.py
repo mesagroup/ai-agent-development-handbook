@@ -1034,16 +1034,37 @@ def tools_named_in_records() -> set[str]:
 
 
 def grant_tier(check: str, tool: str) -> str:
-    """What this tool needs present in the target before it answers.
+    """What the command this row runs needs present before it answers.
 
-    Derived from the record's own `needs` rather than transcribed beside the
+    Derived from the record's own tier rather than transcribed beside the
     invocation: a copy of a tier the record already states is a copy free to
     drift, and the drift would be invisible - a tool run under the wrong grant
     still produces output.
 
+    **On a migrated record the tier is the prescribed route's, not the tool's.**
+    `run_partition` gates one thing on this - whether the row's command may run
+    at all - and the command it would run is the `disposition: runs` route's.
+    `record.needs` cannot answer that, because `_project_needs` collapses a
+    record's routes onto their tools: `deps/inventory` prescribes
+    `cyclonedx-py` subcommands that read a dependency file and, as an
+    `alternative`, `cyclonedx-py environment`, which reads the installed
+    environment and carries `resolved-tree` for it. Reading the projected pair
+    makes one tiered `alternative` route withhold the whole row, so at
+    `--grant none` a check that answers from a lockfile reports
+    `no-evidence (not-permitted)` having run nothing - a silence that reads as
+    a result, produced by a tier the record was right to declare.
+
+    The same reading per route is why `deps/inventory` does not have to state
+    an ungranted expectation: see
+    `audit_checks._languages_whose_tools_all_need_a_grant`, which asks the
+    neighbouring question about the record rather than about one row.
+
+    A record still declaring `tooling:` has no routes to read, and its tier is
+    per tool by construction, so it keeps the projected reading.
+
     Returns:
-        `resolved-tree`, `target-execution`, or the empty string where the tool
-        answers from a read-only clone.
+        `resolved-tree`, `target-execution`, or the empty string where the
+        command this row runs answers from a read-only clone.
     """
     checks = _records()
     if check not in checks:
@@ -1051,6 +1072,17 @@ def grant_tier(check: str, tool: str) -> str:
     record = checks[check]
     if tool not in record.tooling.get("python", ()):
         raise ValueError(f"{check} does not offer {tool!r} for Python")
+    if record.routes:
+        prescribed = [
+            route
+            for route in record.routes
+            if route.lang == "python"
+            and route.tool == tool
+            and route.kind == "command"
+            and route.disposition == "runs"
+        ]
+        if prescribed:
+            return prescribed[0].needs or ""
     for tier, tools in record.needs.items():
         if tool in tools:
             return tier
@@ -1292,8 +1324,9 @@ def routed_invocations() -> tuple[Invocation, ...]:
     written, which is the only thing worth carrying into the artifact. Two
     things produce that. Where the round had to complete the command, the
     reason is round-owned and comes from `COMPLETIONS`. Where the record
-    prescribes no command at all, the reason is the record's own and comes from
-    that route's `note`. A command that ran as written explains itself and
+    prescribes no command at all, the reason is the record's own and comes
+    from the notes of the routes it prescribes, composed by
+    `_reason_for_no_command` where there is more than one. A command that ran as written explains itself and
     carries none.
 
     A row's supplied route comes from `SUPPLIED`, never from a route - a
