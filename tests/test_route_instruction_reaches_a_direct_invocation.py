@@ -224,6 +224,12 @@ def test_the_engine_s_worked_examples_still_exist() -> None:
         f"{SECTION!r} teaches the `uv run --with` case from test/coverage-reach's "
         f"`pytest` command route; found {len(coverage)} such route(s)"
     )
+    assert coverage[0].in_env, (
+        f"{SECTION!r} teaches the `uv run --with` case from that route because it "
+        "carries `in_env`, which is what says the command must run inside the "
+        "materialized environment. Without the field the route is an argument for "
+        "the isolated runner instead, and the section's rule cites the wrong record"
+    )
     assert coverage[0].tool != "pytest", (
         f"{SECTION!r} argues that route needs `uv run --with` because the command "
         f"is `pytest` while the package to fetch is {coverage[0].tool!r}. With the "
