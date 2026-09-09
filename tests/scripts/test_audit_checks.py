@@ -2752,3 +2752,248 @@ def test_a_tooling_record_may_carry_a_fallback_section(tmp_path):
     )
     _, errors = ac.load_checks(tmp_path)
     assert errors == [], errors
+
+
+def test_a_tool_less_route_with_no_note_is_refused_by_name(tmp_path):
+    """The note is the prescription where there is no tool and no argv.
+
+    A `kind: procedure` route naming no tool is what a record writes when what
+    answers the check is a reading rather than a command. Strip its note and
+    the route says nothing at all, while still reading through the projected
+    `tooling`/`needs` pair and every set guard over the family exactly like a
+    route that works. It is also the one route kind where nothing downstream
+    stands in: a `kind: command` route missing a note still has its argv.
+    """
+    errors = _errors_for_routes(tmp_path, [{"lang": "none", "kind": "procedure"}])
+    assert any("naming no tool needs a note" in e for e in errors), errors
+
+
+def test_a_tool_less_route_whose_note_is_blank_is_refused_too(tmp_path):
+    """A whitespace-only note is the same silence as a missing one.
+
+    Validating the type alone accepts it, and it satisfies any rule phrased as
+    the key being present - which is why the check is on the stripped value.
+    """
+    errors = _errors_for_routes(
+        tmp_path, [{"lang": "none", "kind": "procedure", "note": "   \n  "}]
+    )
+    assert any("naming no tool needs a note" in e for e in errors), errors
+
+
+def test_a_tool_less_route_with_a_note_is_accepted(tmp_path):
+    """The shape every tool-less route in the tree actually has."""
+    check = _routes_record(
+        tmp_path,
+        [
+            {
+                "lang": "none",
+                "kind": "procedure",
+                "note": "Walk the layering edge set depth-first and record every back edge.",
+            }
+        ],
+    )
+    assert [r.tool for r in check.routes] == [None]
+    assert check.routes[0].note.startswith("Walk the layering edge set")
+
+
+def test_a_tool_less_command_route_earns_one_message_not_two(tmp_path):
+    """`kind: command` with no tool is already named by the tool rule.
+
+    Reporting the missing note beside it would put two errors on one mistake,
+    and the note is not the fix there - the argv is.
+    """
+    errors = _errors_for_routes(tmp_path, [{"lang": "python", "kind": "command"}])
+    assert any("only a kind: procedure route may" in e for e in errors), errors
+    assert not any("naming no tool needs a note" in e for e in errors), errors
+
+
+def test_the_tool_less_route_population_is_held():
+    """The rule above cannot go vacuous by the shape leaving the tree.
+
+    A length floor was the alternative considered and rejected - the shortest
+    live note is comfortably long, and a floor invites padding without
+    addressing this failure at all. If this fails because the count fell, a
+    reading was replaced by a command or dropped; check that was intended
+    rather than lowering the floor.
+    """
+    checks, errors = ac.load_checks(ac.SKILLS_DIR)
+    assert errors == []
+    tool_less = [(c.id, r) for c in checks.values() for r in c.routes if r.tool is None]
+    assert len(tool_less) >= 21, f"only {len(tool_less)} tool-less route(s)"
+    assert all(r.kind == "procedure" for _, r in tool_less)
+    assert all(r.note.strip() for _, r in tool_less)
+
+
+def test_a_tool_with_one_tiered_route_and_one_untiered_still_answers(tmp_path):
+    """The case the per-tool projection cannot express, stated as the two
+    readings disagreeing.
+
+    `deps/inventory` is this shape: one `cyclonedx-py` route carrying the
+    file-parsing subcommands untiered, and `cyclonedx-py environment` under
+    `resolved-tree` because it reads the installed environment. Projected onto
+    the tool, the record's Python side reads as fully tiered and the grant
+    looks decisive; read per route, an untiered route still runs a tool and
+    the grant changes nothing about what the check answers.
+    """
+    check = _routes_record(
+        tmp_path,
+        [
+            {"lang": "python", "kind": "command", "tool": "t", "argv": ["t", "file"]},
+            {
+                "lang": "python",
+                "kind": "command",
+                "tool": "t",
+                "argv": ["t", "environment"],
+                "disposition": "alternative",
+                "needs": "resolved-tree",
+            },
+        ],
+    )
+    # The projection, which every pre-routes reader still sees, says tiered.
+    assert ac._fully_tiered_languages(check.tooling, check.needs) == ("python",)
+    # Read per route, it does not - and that is the reading the round uses.
+    assert ac._languages_whose_tools_all_need_a_grant(check.routes) == ()
+    # Nothing is silenced either way, so no sentinel is demanded.
+    assert ac._silenced_languages(check.routes) == ()
+
+
+def test_a_language_whose_tools_are_all_tiered_is_named_even_when_a_reading_answers(
+    tmp_path,
+):
+    """`deps/freshness`'s shape, and the reason the two halves differ.
+
+    Every route naming a tool is tiered and the escape names none - a registry
+    comparison a human performs. So the tools all need a grant, something
+    still answers, and the expectation has to say what survives. Asking
+    instead whether every *answering* route is tiered would be the complement
+    of that second half and would drop this claim.
+    """
+    check = _routes_record(
+        tmp_path,
+        [
+            {
+                "lang": "python",
+                "kind": "command",
+                "tool": "t",
+                "argv": ["t"],
+                "needs": "resolved-tree",
+            },
+            {
+                "lang": "python",
+                "kind": "procedure",
+                "note": "Compare each pinned version against the registry by hand.",
+            },
+        ],
+    )
+    assert ac._languages_whose_tools_all_need_a_grant(check.routes) == ("python",)
+    assert ac._silenced_languages(check.routes) == ()
+
+
+def test_a_subject_routes_untiered_tool_is_not_a_tool_that_answers(tmp_path):
+    """`arch/complexity-gate` names `ruff`, `radon` and `xenon` this way.
+
+    They are the gate's subject rather than its instrument, so counting one as
+    an untiered tool would read that record as unaffected by a grant it never
+    claimed to need - the same exclusion `_routes_answering_ungranted` makes,
+    in the same direction.
+    """
+    check = _routes_record(
+        tmp_path,
+        [
+            {
+                "lang": "python",
+                "kind": "command",
+                "tool": "t",
+                "argv": ["t"],
+                "needs": "resolved-tree",
+            },
+            {"lang": "python", "kind": "subject", "tool": "ruff"},
+            {
+                "lang": "python",
+                "kind": "procedure",
+                "note": "Read the project's own configured gate and say whether it exists.",
+            },
+        ],
+    )
+    assert ac._languages_whose_tools_all_need_a_grant(check.routes) == ("python",)
+
+
+def test_a_forbidden_routes_untiered_tool_is_not_a_tool_that_answers(tmp_path):
+    """A route the record warns against is not one it offers.
+
+    `arch/coupling`'s bare `dlx depcruise` is untiered and resolves to an npm
+    placeholder that exits 0 having touched nothing. Reading it as a tool that
+    still answers would say the grant is not decisive on the strength of a
+    command the record forbids.
+    """
+    check = _routes_record(
+        tmp_path,
+        [
+            {
+                "lang": "python",
+                "kind": "command",
+                "tool": "t",
+                "argv": ["t"],
+                "needs": "resolved-tree",
+            },
+            {
+                "lang": "python",
+                "kind": "command",
+                "tool": "placeholder",
+                "argv": ["dlx", "placeholder"],
+                "disposition": "forbidden",
+            },
+            {
+                "lang": "python",
+                "kind": "procedure",
+                "note": "Read the import graph by hand and record every back edge.",
+            },
+        ],
+    )
+    assert ac._languages_whose_tools_all_need_a_grant(check.routes) == ("python",)
+
+
+def test_an_untiered_universal_route_naming_a_tool_answers_for_every_language(
+    tmp_path,
+):
+    """A `lang: any` route applies whatever the partition speaks.
+
+    So its tool belongs to every language the record answers for, not only to
+    the `any` key. A tiered `python` route beside an untiered `any` one naming
+    a tool means Python still has a tool once the grant is withheld.
+    """
+    check = _routes_record(
+        tmp_path,
+        [
+            {
+                "lang": "python",
+                "kind": "command",
+                "tool": "t",
+                "argv": ["t"],
+                "needs": "resolved-tree",
+            },
+            {"lang": "any", "kind": "command", "tool": "u", "argv": ["u"]},
+        ],
+    )
+    assert ac._languages_whose_tools_all_need_a_grant(check.routes) == ()
+
+
+def test_a_language_naming_no_tool_at_all_makes_no_claim_about_grants(tmp_path):
+    """`all()` over an empty list is not a claim.
+
+    The same rule `_fully_tiered_languages` applies to a language listed with
+    no tools: a language answering only by a reading has said nothing a grant
+    can change, so it is absent rather than vacuously named.
+    """
+    check = _routes_record(
+        tmp_path,
+        [
+            {
+                "lang": "python",
+                "kind": "procedure",
+                "note": "Read the docstrings and count the public symbols missing one.",
+            }
+        ],
+    )
+    assert ac._languages_whose_tools_all_need_a_grant(check.routes) == ()
+    assert ac._silenced_languages(check.routes) == ()
