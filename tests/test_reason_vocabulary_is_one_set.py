@@ -12,6 +12,15 @@ Both sets are **parsed out of the prose** rather than written here as a
 literal. A test that spells the expected reasons would be a fourth copy, and
 it would pass whenever it agreed with itself while the files disagreed.
 
+**What this cannot reach is a copy that names no reason.** `data-protection-audit`
+went stale on the fourth reason by paraphrase - "because a grant was withheld,
+because no candidate could be obtained, or because one ran and failed - all
+three of which a different environment would fix" - and nothing here matches a
+sentence like that, because there is no reason name in it to parse. A reading
+pass found it. So this module holds the copies that spell the names, and the
+prose pass over the rest stays load-bearing rather than being replaced by a
+green suite.
+
 The lens is deliberately not equal to the engine's set. `not-prescribed` is a
 check's verdict on a partition; a row in that harness is one invocation's
 observation, and where a record prescribes no command there is no invocation
@@ -50,6 +59,18 @@ _SWEEP_SPAN = (
 _CORE_REASON = re.compile(r"`([a-z][a-z-]+)` \(")
 _SWEEP_REASON = re.compile(r"`([a-z][a-z-]+)` where ")
 
+# Every hyphenated code span in a vocabulary paragraph, whatever follows it.
+# The strict patterns above encode the house style - a reason is written as a
+# name then its gloss - and a reason introduced in some other style would slip
+# past them silently, which is the same failure as a parse that finds nothing
+# and is not caught by a floor. So each span is read twice and the two must
+# agree.
+_ANY_HYPHENATED = re.compile(r"`([a-z][a-z]*-[a-z][a-z-]*)`")
+
+# Hyphenated names in those paragraphs that are not reasons. Both are statuses:
+# the sweep's rendering sentence opens by naming the status it is rendering.
+NOT_A_REASON = frozenset({"no-evidence", "not-applicable"})
+
 
 def _paragraph(text: str, start: str, end: str) -> str:
     """The slice of `text` between two markers, both of which must be there."""
@@ -60,14 +81,20 @@ def _paragraph(text: str, start: str, end: str) -> str:
     return text[i:j]
 
 
+def _engine_span() -> str:
+    return _paragraph(AUDIT_CORE.read_text(encoding="utf-8"), *_CORE_SPAN)
+
+
+def _sweep_span() -> str:
+    return _paragraph(SWEEP.read_text(encoding="utf-8"), *_SWEEP_SPAN)
+
+
 def _engine_reasons() -> set[str]:
-    span = _paragraph(AUDIT_CORE.read_text(encoding="utf-8"), *_CORE_SPAN)
-    return set(_CORE_REASON.findall(span))
+    return set(_CORE_REASON.findall(_engine_span()))
 
 
 def _sweep_reasons() -> set[str]:
-    span = _paragraph(SWEEP.read_text(encoding="utf-8"), *_SWEEP_SPAN)
-    return set(_SWEEP_REASON.findall(span))
+    return set(_SWEEP_REASON.findall(_sweep_span()))
 
 
 def _lens_reasons() -> set[str]:
@@ -94,7 +121,21 @@ def test_the_parse_found_a_real_vocabulary() -> None:
         f"parsed {sorted(sweep)} out of {SWEEP.name}, which is fewer reasons than "
         "its rendering list names"
     )
-    assert all(name.count("-") >= 1 for name in engine | sweep)
+    # The floor is a lower bound, so it passes on a parse that found four of
+    # five. Reading each span a second time with a pattern that does not care
+    # what follows the name is what catches a reason written in a new style.
+    for name, span, strict in (
+        (AUDIT_CORE.name, _engine_span(), engine),
+        (SWEEP.name, _sweep_span(), sweep),
+    ):
+        loose = set(_ANY_HYPHENATED.findall(span)) - NOT_A_REASON
+        assert loose == strict, (
+            f"{name}'s vocabulary paragraph names {sorted(loose)} and the house "
+            f"style parses {sorted(strict)}. A reason written in a different "
+            "shape is invisible to every comparison below - write it the way "
+            "its neighbours are written, or, if it is not a reason at all, add "
+            f"it to NOT_A_REASON in {Path(__file__).name} and say why"
+        )
 
 
 def test_the_sweep_enumerates_the_engine_s_reasons() -> None:
@@ -136,11 +177,11 @@ def test_the_engine_says_which_reason_wins_where_two_are_true() -> None:
     it. Held in both files because the sweep's copy is the one an agent reads
     with a route in hand.
     """
-    for path in (AUDIT_CORE, SWEEP):
-        assert "report the one a reader can act on" in path.read_text(
-            encoding="utf-8"
-        ), (
-            f"{path.parent.name}/{path.name} no longer states which reason wins "
+    for name, span in ((AUDIT_CORE.name, _engine_span()), (SWEEP.name, _sweep_span())):
+        assert "the one a reader can act on" in span, (
+            f"{name}'s vocabulary paragraph no longer states which reason wins "
             "where more than one is true, so `not-prescribed` can be reported "
-            "over an actionable `not-permitted`"
+            "over an actionable `not-permitted`. Scoped to the paragraph on "
+            "purpose: the rule has to be where the reasons are enumerated, not "
+            "somewhere else in the file"
         )
