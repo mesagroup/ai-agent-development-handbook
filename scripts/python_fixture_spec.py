@@ -675,13 +675,17 @@ class Expectation:
     record's `ungranted_note` already says what. Where the note is the `none`
     sentinel the ungranted answer is `no-evidence (not-permitted)` and needs no
     restating here; where some Python tool needs no grant at all, `claim`
-    already holds in both states. Which schema a record declares does not decide
-    whether the grant moves its answer: what decides it is whether every Python
-    tool the record offers carries a tier, and whether the record still says
-    something answers without one. The two schemas say that second thing in
-    different places - `ungranted_note` on one, an untiered answering route on
-    the other, which is commonly a route carrying no tool at all and so
-    invisible in the projected `tooling`/`needs` pair - and the test that
+    already holds in both states. Which schema a record declares decides how
+    both halves of that are read, and neither half is schema-neutral. On a
+    legacy record the tier is per tool, so the question is whether every Python
+    tool the record offers carries one. On a routes record the tier is per
+    route, and the question is whether every answering-kind, non-`forbidden`
+    route *naming a tool* carries one - a tool with one tiered route and one
+    untiered route does not put its language in that half, even though the
+    projected `tooling`/`needs` pair says it does. The two schemas also say
+    "something still answers" in different places - `ungranted_note` on one, an
+    untiered answering route on the other, which is commonly a route carrying
+    no tool at all and so invisible in the projected pair - and the test that
     derives this field reads whichever place the record's own schema uses.
     So whether this field is set is decided by a record's tools and its
     answering routes and never by which schema it declares, which is why the

@@ -581,7 +581,7 @@ def test_the_notes_are_not_all_sentinels():
         c.id for c in checks.values() if _languages_rescued_by_an_untiered_route(c)
     ]
     claims = sorted(prose + routed)
-    assert len(claims) >= 16, f"only {len(claims)} records answer anything: {claims}"
+    assert len(claims) >= 17, f"only {len(claims)} records answer anything: {claims}"
 
 
 def test_a_language_with_no_tools_is_not_fully_tiered(tmp_path):
@@ -2472,6 +2472,14 @@ def test_every_tool_less_check_states_a_reading_procedure():
     tool and one reading axis had nowhere to write the second, so the section
     was all-or-nothing per record; on the routes schema each axis is its own
     route and each one can be silent on its own.
+
+    **The loader now owns the routed half**, rejecting a tool-less route that
+    carries no note, so `assert errors == []` below fires before `silent` can
+    name anything and the routed message is unreachable on a tree that loads.
+    The assertion is kept rather than deleted because the two guard different
+    things - the loader rejects the record, this names which route of which
+    record went silent - but a reader should not maintain the message below as
+    the live guard: a failure here arrives as the loader's error list.
     """
     checks, errors = ac.load_checks(ac.SKILLS_DIR)
     assert errors == []
@@ -2584,7 +2592,7 @@ def test_the_classification_is_not_vacuous():
     checks, errors = ac.load_checks(ac.SKILLS_DIR)
     assert errors == []
     classified = sorted(c.id for c in checks.values() if c.needs)
-    assert len(classified) >= 22, (
+    assert len(classified) >= 23, (
         f"only {len(classified)} record(s) classify any tool: {classified}"
     )
     assert {t for c in checks.values() for t in c.needs} == set(ac.NEEDS_TIERS), (
