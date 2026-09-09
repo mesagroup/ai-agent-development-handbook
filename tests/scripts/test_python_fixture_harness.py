@@ -4232,9 +4232,15 @@ def test_the_two_grant_states_are_the_two_the_round_runs():
 def test_every_vocabulary_is_pinned_rather_than_merely_non_empty():
     """A membership test passes on a scale that has grown a fourth member.
 
-    `audit-core` fixes both scales - three statuses, and "the three ways a check
-    can fail to run" - so a fourth member of either is a value the pass that
-    grades this file has no row for, and it arrives silently: every existing
+    Pinned so that a member added to either arrives visibly, which is a reason
+    to pin that survives the engine growing one. `audit-core` has a fourth
+    reason, `not-prescribed`, and the lens cannot produce it - that reason is a
+    check's verdict on a partition, while a row here is one invocation's
+    observation - so the two sets differ on purpose and the difference belongs
+    in a pin rather than in a membership test that would accept either.
+
+    A fourth member arriving here would be a value the pass that grades this
+    file has no row for, and it would arrive silently, because every existing
     row still classifies into the vocabulary it always did.
     """
     assert STATUSES == ("ok", "no-evidence", "not-applicable")

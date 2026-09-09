@@ -112,19 +112,27 @@ SUPPLIED_REQUIREMENTS = "audit-export-requirements.txt"
 # because the completion that supplies that path reads it too.
 VENV_BIN = ".venv/bin"
 
-# The engine's scale, from `audit-core`. Neither tuple grows: a fourth status
-# would collapse a distinction the engine draws on purpose, and `audit-core`
-# introduces the reasons as "the three ways a check can fail to run", so a
-# fourth reason is a value the pass that grades this file has no row for. The
-# round exists to test the family against this vocabulary rather than to extend
-# it, which is why both are pinned by literal equality in the tests.
+# The engine's status scale, and the reasons an observation of a command can
+# establish. Neither tuple grows here: a fourth status would collapse a
+# distinction the engine draws on purpose, and a fourth reason arriving in this
+# file would be a value the pass that grades it has no row for. Both are pinned
+# by literal equality in the tests so that a member added to either arrives
+# visibly - the round exists to test the family against this vocabulary rather
+# than to extend it.
 #
-# Two things in this file are outside the scale on purpose. `not-applicable` is
-# a status `classify` can never return: it means the check has no lens in the
-# partition's language, which is settled by the record before the harness runs
-# rather than by an observation. And a row for a record that prescribes no
+# `audit-core` carries a fourth reason, `not-prescribed`, and REASONS does not,
+# which is deliberate rather than drift. That reason is a check's verdict on a
+# partition; a row here is one invocation's observation. Where a record
+# prescribes no command there is no invocation to report on, so this file has
+# nothing to observe rather than an invocation with a fourth outcome.
+#
+# Three things in this file are outside the scale on purpose. `not-applicable`
+# is a status `classify` can never return: it means the check has no lens in
+# the partition's language, which is settled by the record before the harness
+# runs rather than by an observation. A row for a record that prescribes no
 # command carries `status: ""` - not a fourth status but the absence of one,
-# because nothing ran to have a status.
+# because nothing ran to have a status, and that empty status is this file's
+# whole representation of the case the engine reports as `not-prescribed`.
 STATUSES = ("ok", "no-evidence", "not-applicable")
 REASONS = ("not-permitted", "tool-unavailable", "tool-failed")
 
