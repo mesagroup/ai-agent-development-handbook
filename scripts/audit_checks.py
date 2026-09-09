@@ -205,12 +205,21 @@ ROUTE_LANGS = ("python", "typescript", "any", "none")
 # every language the record answers for rather than only under its own key.
 UNIVERSAL_ROUTE_LANGS = ("any", "none")
 FINDINGS_STREAMS = ("stdout", "stderr")
+# The registries any route in the tree fetches from, and the language each one
+# is implied by. Two members rather than a plausible list of package indexes: a
+# value no record uses is a value nothing exercises, and the same reasoning
+# keeps `REGISTRY_BY_LANG` to the languages that actually imply a registry -
+# `lang: any` and `lang: none` imply none, which is exactly why a command route
+# declaring one of those has to say the registry itself.
+REGISTRIES = ("pypi", "npm")
+REGISTRY_BY_LANG = {"python": "pypi", "typescript": "npm"}
 ROUTE_FIELDS = frozenset(
     {
         "lang",
         "kind",
         "tool",
         "package",
+        "registry",
         "argv",
         "argv_by_partition",
         "disposition",
@@ -322,6 +331,7 @@ class Route:
     kind: str
     tool: str | None
     package: str | None
+    registry: str | None
     argv: tuple[str, ...]
     argv_by_partition: dict[str, tuple[str, ...]]
     disposition: str
@@ -586,6 +596,37 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
             errors.append(f"{loc}: package must be a string, got {package!r}")
             package = tool
 
+        registry = entry.get("registry")
+        if registry is not None and not isinstance(registry, str):
+            errors.append(f"{loc}: registry must be a string, got {registry!r}")
+            registry = None
+        elif registry is not None and registry not in REGISTRIES:
+            errors.append(
+                f"{loc}: registry {registry!r} is not one of {list(REGISTRIES)} - "
+                "the vocabulary holds the registries this family actually fetches "
+                "from, so a new one is a decision to record rather than a value "
+                "to spell, and an unrecognised one would be read by a consumer "
+                "choosing a runner as no registry at all"
+            )
+            registry = None
+        if registry is not None:
+            if kind != "command":
+                errors.append(
+                    f"{loc}: registry on a kind: {kind} route - only a command "
+                    "route prescribes something a one-shot runner goes in front "
+                    "of, so a registry here names where a fetch that never "
+                    "happens would have come from"
+                )
+            implied = REGISTRY_BY_LANG.get(lang)
+            if implied is not None and implied != registry:
+                errors.append(
+                    f"{loc}: registry {registry!r} contradicts lang {lang!r}, "
+                    f"which implies {implied!r}. A route whose tool really comes "
+                    "from another language's registry is a lang: any route with "
+                    "a note saying so; accepting the disagreement here would let "
+                    "the field mean whichever of the two a consumer read first"
+                )
+
         raw_argv = entry.get("argv")
         raw_per_partition = entry.get("argv_by_partition")
         for empty_key in ("argv", "argv_by_partition", "then", "own_runner"):
@@ -757,6 +798,30 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
                     "suppressing it is not a command that runs as written, it is "
                     "one that never arrives"
                 )
+            if own_runner is True and registry is not None:
+                errors.append(
+                    f"{loc}: registry beside own_runner: true - that says the "
+                    "prescribed command is complete as written, so nothing is "
+                    "fetched and the registry names where a fetch that never "
+                    "happens would have gone. Drop one: a standalone binary in "
+                    "no registry says own_runner, and a tool a runner fetches "
+                    "says registry"
+                )
+        if (
+            kind == "command"
+            and lang in UNIVERSAL_ROUTE_LANGS
+            and own_runner is not True
+            and registry is None
+        ):
+            errors.append(
+                f"{loc}: a kind: command route with lang: {lang} needs a registry "
+                f"- one of {list(REGISTRIES)}, or own_runner: true where the "
+                "command is complete as written. Neither `any` nor `none` implies "
+                "a registry, so nothing else in the record says which one a runner "
+                "should reach, and a consumer left to infer it from the partition "
+                "runs whatever package that registry happens to carry under the "
+                "same name"
+            )
 
         applies_when = entry.get("applies_when")
         if applies_when is not None and not isinstance(applies_when, str):
@@ -791,6 +856,7 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
                 kind=kind if kind in ROUTE_KINDS else "procedure",
                 tool=tool,
                 package=package,
+                registry=registry,
                 argv=argv,
                 argv_by_partition=argv_by_partition,
                 disposition=disposition,
@@ -806,6 +872,34 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
         )
 
     return tuple(routes), errors
+
+
+def registry_for(route: Route) -> str | None:
+    """The registry a runner must reach to fetch this route's tool.
+
+    The route's own `registry` where it declares one, the registry its `lang`
+    implies otherwise, and `None` where nothing is fetched - a route whose
+    command is complete as written, or one that prescribes no command at all.
+
+    One implementation because the derivation is the whole point of the field:
+    a consumer that works it out for itself is a second copy of the rule, and
+    the failure the field exists to prevent is exactly a consumer inferring a
+    registry from something that does not name one. `None` means "do not put a
+    runner in front", not "use the default runner", and those are different
+    instructions - a caller that treats them alike fetches a package named
+    after a coreutils binary.
+
+    Args:
+        route: The route to read.
+
+    Returns:
+        A member of `REGISTRIES`, or `None` where no fetch applies.
+    """
+    if route.kind != "command" or route.own_runner is True:
+        return None
+    if route.registry is not None:
+        return route.registry
+    return REGISTRY_BY_LANG.get(route.lang)
 
 
 def _project_tooling(routes: tuple[Route, ...]) -> dict[str, tuple[str, ...]]:

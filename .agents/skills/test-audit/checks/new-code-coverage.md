@@ -8,6 +8,7 @@ routes:
   - lang: any
     kind: command
     tool: diff-cover
+    registry: pypi
     argv: [diff-cover, "<report>", "--compare-branch=origin/main"]
     note: >-
       **Diff coverage:** `diff-cover <report> --compare-branch=origin/main`,
@@ -40,7 +41,10 @@ routes:
       coverage output directory beside an HTML report in `lcov-report/`, so
       `lcov.info` is the name to search the target's artifacts for.
       `diff-cover` is itself a Python-registry package, published on PyPI under
-      that name, so run it with `uvx diff-cover` or `pipx run diff-cover`
+      that name, which `registry: pypi` on this route states as a field - so
+      this paragraph is the reason and the field is the mechanism, and a
+      consumer choosing a runner reads the field rather than this sentence.
+      Run it with `uvx diff-cover` or `pipx run diff-cover`
       whatever the partition's language is, which is why this route's `lang` is
       `any`, and do not reach for the partition's own one-shot runner: an npm
       package named `diff-cover` does exist, an independent third-party

@@ -10,10 +10,16 @@ routes:
   - lang: any
     kind: command
     tool: cloc
-    argv: [npx, cloc]
+    registry: npm
+    argv: [cloc]
     note: >-
-      `cloc` is on the npm registry, so a one-shot runner fetches it
-      whatever the partition's language.
+      `cloc` is on the npm registry, which `registry: npm` states as a field
+      rather than leaving to be read here, so a one-shot runner reaching that
+      registry fetches it whatever the partition's language. The argv names
+      the command and not the runner: this route used to spell
+      `[npx, cloc]`, which is a complete runner invocation, so the runner
+      rule put a second one in front of it and a reader of the fields alone
+      got a runner fetching a runner.
   - lang: any
     kind: procedure
     tool: tokei
@@ -28,6 +34,7 @@ routes:
     kind: command
     tool: wc
     argv: [wc, "-l"]
+    own_runner: true
     disposition: alternative
     note: >-
       Reached once neither `cloc` nor `tokei` is available, which is where
@@ -35,7 +42,11 @@ routes:
       carries - `applies_when` states the second, so availability belongs
       here. The record quotes this command verbatim and says it answers the
       check once neither other tool is available. The file list to run it
-      over is an operand the record names none for.
+      over is an operand the record names none for. `own_runner: true`
+      because `wc` is coreutils: it belongs to no registry, nothing fetches
+      it, and a one-shot runner in front of it would go looking for a
+      package named `wc` and fail the way a missing tool fails - on the one
+      route this record calls the last thing that works.
 ---
 
 # File / module size
