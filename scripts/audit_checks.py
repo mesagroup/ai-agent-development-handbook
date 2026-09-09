@@ -459,7 +459,13 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
     otherwise a list of partition names, rejected unless `argv_by_partition`
     carries every name listed. Whichever
     form it takes, it is never written beside `in_env`, whose materialized
-    environment the suppressed prefix would otherwise never reach.
+    environment the suppressed prefix would otherwise never reach. Last,
+    a route naming no tool carries a non-empty `note`: with neither a tool
+    nor an argv the note is the whole prescription, and it is the one route
+    kind where nothing downstream stands in for it - a `kind: command`
+    route missing a note still has its argv to say what to do. Checked only
+    where `kind` is `procedure`, since a tool-less route of any other kind
+    is already rejected above and one mistake earns one message.
 
     The empty list is rejected rather than tolerated because `routes: []` and
     an absent `routes` key are indistinguishable to everything downstream:
@@ -760,6 +766,15 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
         if note is not None and not isinstance(note, str):
             errors.append(f"{loc}: note must be a string, got {note!r}")
             note = None
+        elif tool is None and kind == "procedure" and not (note or "").strip():
+            errors.append(
+                f"{loc}: a route naming no tool needs a note - it is the "
+                "prescription. With no tool and no argv, the note is the whole "
+                "of what this route says to do, so without one the record "
+                "offers a way of answering the check that carries nothing an "
+                "agent or a consumer can act on, and reads through the "
+                "projected tooling/needs pair exactly like a route that works"
+            )
 
         routes.append(
             Route(
@@ -924,6 +939,77 @@ def _routes_answering_ungranted(
     }
 
 
+def _languages_whose_tools_all_need_a_grant(
+    routes: tuple[Route, ...],
+) -> tuple[str, ...]:
+    """Languages where every route that names a tool needs a grant.
+
+    The counterpart of `_fully_tiered_languages` for routes, and the one
+    that reads per route rather than per tool. That difference is the
+    whole point of it: `_project_needs` collapses a record's routes onto
+    their tools, so a tool with a tiered route and an untiered one reads
+    through the projected pair as simply tiered, and a record cannot then
+    tier one invocation mode without its whole language reading as tiered.
+    `deps/inventory` is that shape - `cyclonedx-py` carries the
+    per-partition file-parsing subcommands untiered and `environment`
+    under `resolved-tree` - and reading it off the projection says the
+    grant changes what the check answers when the route it prescribes by
+    default is untiered and answers the same either way.
+
+    Distinct from `_silenced_languages`, which the two bracket rather than
+    duplicate. That one asks whether *anything* still answers; this asks
+    whether any *tool* still answers, and the pair gives three states
+    rather than two: a language with an untiered route naming a tool is
+    absent here, so the grant changes nothing; a language present here but
+    absent from `_silenced_languages` has lost its tools and kept an
+    untiered reading, so what it answers ungranted is different and has to
+    be stated; a language in both has nothing left at all and says so with
+    `answers_ungranted`. Nothing in validation reads this - it is not a
+    rule a record can break - and it lives here rather than in the fixture
+    round that asks it because it is a fact about routes, and a route is
+    declared here.
+
+    The three exclusions are the ones `_routes_answering_ungranted`
+    applies, for the same reasons. A `kind: subject` route names what the
+    check inspects rather than what runs it, so counting
+    `arch/complexity-gate`'s untiered `ruff`, `radon` and `xenon` as tools
+    that answer would read that record as unaffected by a grant it never
+    claimed to need. A `disposition: forbidden` route is one the record
+    warns against. And a route under one of `UNIVERSAL_ROUTE_LANGS`
+    applies whatever the partition's language is, so its tool belongs to
+    every language the record answers for, not only to the key it is filed
+    under - tiered or not, since here the question is which tools the
+    language has rather than which of them survive.
+
+    Args:
+        routes: The record's parsed routes.
+
+    Returns:
+        The languages, sorted. A language naming no tool at all is absent,
+        mirroring `_fully_tiered_languages`' own rule that a language
+        offering no tools has said nothing about grants: `all()` over an
+        empty list is not a claim. So is a language with no answering-kind,
+        non-forbidden route to begin with.
+    """
+    by_lang: dict[str, list[Route]] = {}
+    for route in routes:
+        if route.kind in ANSWERING_ROUTE_KINDS and route.disposition != "forbidden":
+            by_lang.setdefault(route.lang, []).append(route)
+    universal = [
+        route
+        for lang_routes in by_lang.values()
+        for route in lang_routes
+        if route.lang in UNIVERSAL_ROUTE_LANGS
+    ]
+    fully_tiered = []
+    for lang, lang_routes in sorted(by_lang.items()):
+        in_scope = lang_routes + [r for r in universal if r.lang != lang]
+        tooled = [route for route in in_scope if route.tool is not None]
+        if tooled and all(route.needs is not None for route in tooled):
+            fully_tiered.append(lang)
+    return tuple(fully_tiered)
+
+
 def _silenced_languages(routes: tuple[Route, ...]) -> tuple[str, ...]:
     """Languages a withheld grant silences under the `routes` schema.
 
@@ -933,6 +1019,14 @@ def _silenced_languages(routes: tuple[Route, ...]) -> tuple[str, ...]:
     tuple. A language absent from that mapping altogether - no answering
     route at all - is not one of them, for the same reason `all()` over an
     empty list must not be read as a claim.
+
+    `_languages_whose_tools_all_need_a_grant` asks the neighbouring
+    question - whether any *tool* still answers, rather than whether
+    anything does - and its docstring gives the three states the two
+    describe between them. A language silenced here is in that result too,
+    because a language with nothing answering has no untiered tool
+    answering either; the converse does not hold, and that gap is exactly
+    the record whose tools are gone and whose untiered reading is not.
 
     Args:
         routes: The record's parsed routes.

@@ -7,7 +7,12 @@ from pathlib import Path
 
 import pytest
 import python_fixture_spec
-from audit_checks import SKILLS_DIR, _routes_answering_ungranted, load_checks
+from audit_checks import (
+    SKILLS_DIR,
+    _languages_whose_tools_all_need_a_grant,
+    _routes_answering_ungranted,
+    load_checks,
+)
 from python_fixture_spec import (
     DEPENDENCIES,
     DEPS_CHECKS,
@@ -601,41 +606,77 @@ def test_the_complexity_seed_uses_no_conditional_expression():
 def test_the_ungranted_answer_is_stated_exactly_where_the_grant_changes_it():
     """The second axis is derived from the records, never judged per entry.
 
-    A check answers something different without the grant when every one of its
-    Python tools carries a `needs` tier and its record's `ungranted_note` says
-    something still answers. Where the note is the `none` sentinel the ungranted
-    answer is `no-evidence (not-permitted)` and restating it here would add a
-    copy to keep in step; where some Python tool needs no grant, `claim` already
-    holds in both states. Deriving the requirement rather than eyeballing it is
-    what stops a new expectation quietly omitting the axis.
+    A check answers something different without the grant when the Python
+    tools it offers all carry a `needs` tier and something still answers once
+    the grant is withheld. Where nothing does, the ungranted answer is
+    `no-evidence (not-permitted)` and restating it here would add a copy to
+    keep in step; where some Python tool needs no grant, `claim` already holds
+    in both states. Deriving the requirement rather than eyeballing it is what
+    stops a new expectation quietly omitting the axis.
 
-    Two of the three conditions are schema-neutral and the third is not. Every
-    Python tool carrying a tier reads the same off a projected `tooling`/`needs`
-    pair as off a declared one, because the projection keeps a tool under its
-    language and under its tier. What the two schemas say differently is
-    whether anything still answers: a record declaring `tooling:` says it in
-    `ungranted_note`, and a record declaring `routes:` says it by keeping an
-    untiered answering route - `answers_ungranted` takes only the sentinel, so
-    on that schema an ungranted answer is never prose to read. Reading the note
-    on both would take the untiered branch for every migrated record whatever
-    its routes said, which is wrong for exactly the records whose untiered
-    route carries no tool at all: those project no tool, so the pair a
-    note-only derivation reads is the one place the answer is invisible.
-    `deps/freshness` is that shape - `uv` and `pip` both tiered, and a
-    registry-comparison route that needs no grant and names no tool.
+    **Both halves read the schema the record declares, and neither is
+    schema-neutral.** A record declaring `tooling:` states what still answers
+    in `ungranted_note` and has only one place to carry a tier, which is per
+    tool. A record declaring `routes:` states it by keeping an untiered
+    answering route, and carries a tier per route.
+
+    The tiered half is what reads per route, and the reason is that
+    `_project_needs` collapses routes onto tools. A tool with one tiered route
+    and one untiered route reads through the projected pair as tiered, so the
+    record's whole language does too, and the derivation then demands an
+    ungranted claim from a check whose default route is untiered and answers
+    the same either way. `deps/inventory` is that shape. Reading it per route
+    through `_languages_whose_tools_all_need_a_grant` asks the question the
+    projection cannot: whether any route *naming a tool* still answers.
+
+    The two halves are deliberately over different sets, and collapsing them
+    breaks this test rather than simplifying it. Asking whether every
+    answering route is tiered would be the exact complement of the third
+    condition, since `_routes_answering_ungranted` returns precisely the
+    untiered answering routes - `differs` would be unsatisfiable and every
+    expectation carrying a measured `ungranted` claim would lose it. What
+    distinguishes the records that need the claim is that their untiered
+    escape names no tool: `deps/freshness` has `uv` and `pip` both tiered and
+    a registry-comparison route that needs no grant and names nothing, so it
+    projects no tool at all and the pair is the one place that answer is
+    invisible.
     """
     checks, errors = load_checks(SKILLS_DIR)
     assert not errors, errors
     for expectation in EXPECTATIONS:
         record = checks[expectation.check]
-        python_tools = set(record.tooling.get("python", ()))
-        tiered = {t for names in (record.needs or {}).values() for t in names}
         if record.routes:
+            tooling_needs_a_grant = "python" in _languages_whose_tools_all_need_a_grant(
+                record.routes
+            )
             answers = bool(_routes_answering_ungranted(record.routes).get("python", ()))
         else:
+            python_tools = set(record.tooling.get("python", ()))
+            tiered = {t for names in (record.needs or {}).values() for t in names}
+            tooling_needs_a_grant = bool(python_tools) and python_tools <= tiered
             answers = (record.ungranted_note or "").strip() not in ("", "none")
-        differs = bool(python_tools) and python_tools <= tiered and answers
+        differs = tooling_needs_a_grant and answers
         assert bool(expectation.ungranted) == differs, (expectation.check, differs)
+
+
+def test_the_ungranted_axis_is_not_vacuous():
+    """The test above passes on a tree where no expectation states the axis.
+
+    It holds `bool(expectation.ungranted) == differs`, so a derivation that
+    stopped finding any check whose answer changes would fail loudly - unless
+    the claims were deleted in the same breath, which moves both sides
+    together and leaves it green. That is the shape this floor exists for, and
+    it is the same argument `test_the_classification_is_not_vacuous` makes
+    about `needs:`.
+
+    The floor is the number of expectations carrying the axis today, with no
+    slack, because each of those claims was graded against an actual
+    `--grant none` run and an unmeasured one reads exactly like a measured
+    one. If this fails, a claim was removed - restore it rather than lowering
+    the floor.
+    """
+    stated = sorted((e.check, e.partitions) for e in EXPECTATIONS if e.ungranted)
+    assert len(stated) >= 8, f"only {len(stated)} expectation(s) state it: {stated}"
 
 
 def test_the_over_decomposition_expectation_carries_the_computed_file_count():

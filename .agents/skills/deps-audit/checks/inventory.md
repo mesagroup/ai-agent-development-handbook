@@ -58,6 +58,7 @@ routes:
     tool: cyclonedx-py
     argv: [cyclonedx-py, environment]
     disposition: alternative
+    needs: resolved-tree
     note: >-
       `cyclonedx-py environment` reads the installed environment instead, and
       is the more accurate of the two where a tree is available, but it
