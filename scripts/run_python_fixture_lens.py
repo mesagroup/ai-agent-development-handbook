@@ -138,7 +138,7 @@ REASONS = ("not-permitted", "tool-unavailable", "tool-failed")
 
 # Harness-local, and deliberately a separate field from `reason` rather than
 # more reasons. Both name a way a row failed to produce evidence that the
-# engine's three reasons cannot tell apart on their own: a hung command reads
+# engine's reasons cannot tell apart on their own: a hung command reads
 # exactly like a tool that ran and printed nothing, and a route whose
 # environment was never built reads exactly like a tool nobody could fetch. The
 # engine's reason still governs what the row *is*; the detail says which of them
