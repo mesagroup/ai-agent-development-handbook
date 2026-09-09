@@ -83,7 +83,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from audit_checks import SKILLS_DIR, load_checks
+from audit_checks import SKILLS_DIR, Route, load_checks
 from build_python_fixtures import DEFAULT_OUTPUT_DIR, PINNED_MANAGERS
 from python_fixture_spec import (
     ISOLATION_TIMEOUT_SECONDS,
@@ -1190,6 +1190,85 @@ def _own_runner_partitions(check: str, tool: str, route: object) -> tuple[str, .
     return tuple(route.own_runner) if route.own_runner else ()
 
 
+def _reason_for_no_command(check: str, tool: str, routes: Sequence[Route]) -> str:
+    """Why a row prescribes no command, in the record's own words.
+
+    The reason belongs to the routes the record prescribes by default - its
+    `disposition: runs` ones - because those are what a default run would
+    have taken. Where the group declares none, every route in it is a
+    candidate: that is the `forbidden` and `alternative` singleton, where the
+    one route the record carries is the only thing there is to read.
+
+    Where more than one candidate survives, the row carries all of them
+    rather than the first. The guard this replaced raised there, on the sound
+    reason that a row silently taking one of several notes attributes the
+    wrong explanation to a run - but its premise, that a tool prescribing no
+    command has at most one route explaining why, is one the record set has
+    outgrown in three different ways at once. `test/coverage-reach`'s `c8`
+    routes differ by `applies_when` (refuse it around a Vitest command, keep
+    its plain form for a runner it can observe), `test/mutation`'s Stryker
+    routes by `disposition`, and `arch/complexity`'s two `eslint` routes only
+    by `needs` - the same two rules under an audit-owned flat config or under
+    the target's own.
+
+    Requiring records to merge such notes into one route was the cheaper
+    alternative and is not available: a route carries one `needs`, so merging
+    `arch/complexity`'s pair means dropping one of its two tiers, and the
+    untiered one is exactly what keeps `typescript` out of
+    `_silenced_languages` for that record. Reading the disposition alone
+    reaches only Stryker, and `applies_when` alone only `c8`.
+
+    A composed note prefixes each candidate's note with its `applies_when`
+    where it has one, because the precondition is what tells the modes apart
+    and a note written under one can read as nonsense without it - `c8`'s
+    second note opens on "`c8`'s plain form remains the measurement there",
+    and "there" is its `applies_when`. A single candidate is not prefixed:
+    with nothing to distinguish it the precondition stays on the route where
+    a reader of the record finds it, and prefixing unconditionally would
+    rewrite the note of every live row whose one route carries an
+    `applies_when`.
+
+    Args:
+        check: The record's id, for the message.
+        tool: The tool the group is keyed on, for the message.
+        routes: The group's routes, in record order.
+
+    Returns:
+        The candidates' notes, in record order, joined by a blank line.
+
+    Raises:
+        ValueError: If several candidates survive and none of them carries a
+            note. The row would then reach the artifact saying it ran nothing
+            and not why, with no single route to attribute the absence to
+            either - the one shape where the guard this replaced was right
+            about there being nothing to choose. A lone candidate's note is
+            returned as it is, empty or not, because
+            `test_a_routed_row_prescribing_no_command_carries_the_records_reason`
+            already holds every such row in the tree and a second guard here
+            would make a noteless route the concern of tests about partition
+            keys and supplied overlays, which it is not.
+    """
+    candidates = [r for r in routes if r.disposition == "runs"] or list(routes)
+    if len(candidates) == 1:
+        return candidates[0].note
+    reason = "\n\n".join(
+        " ".join(
+            piece for piece in ((r.applies_when or "").strip(), r.note.strip()) if piece
+        )
+        for r in candidates
+        if (r.note or "").strip()
+    )
+    if not reason:
+        raise ValueError(
+            f"{check}/{tool}: prescribes no command and declares "
+            f"{len(candidates)} routes it prescribes, none of which carries a "
+            "note, so the row would reach the artifact saying it ran nothing "
+            "and not why - and there is no single route to attribute the "
+            "absence to either"
+        )
+    return reason
+
+
 @cache
 def routed_invocations() -> tuple[Invocation, ...]:
     """Every row a migrated record prescribes, read from the record.
@@ -1198,7 +1277,10 @@ def routed_invocations() -> tuple[Invocation, ...]:
     same tool's command twice, once `runs` and once `superseded`, and those are
     two forms of one row. A route naming no tool is a reading pass and produces
     no row. A route whose `kind` is not `command` produces a row prescribing no
-    command, which is what the record says and what the engine grades.
+    command, which is what the record says and what the engine grades - and
+    where several of a group's routes explain that absence,
+    `_reason_for_no_command` carries each of them, because one row per tool is
+    the unit this returns and the record's split is deliberate.
 
     `lang: python` only. A `lang: any` route is applicable to a python
     partition by its own note, and selecting it would still be wrong here: it
@@ -1231,9 +1313,11 @@ def routed_invocations() -> tuple[Invocation, ...]:
         ValueError: If a group carries more than one `runs` command route, two
             different `findings_stream` values, two different `in_env` values,
             a disposition outside `DISPOSITIONS`, or - where it prescribes no
-            command and no completion was supplied - more than one route to
-            read the reason off. Each would otherwise resolve silently to
-            whichever route happened to come first.
+            command and no completion was supplied - no route carrying a note
+            to read the reason off. The first four would otherwise resolve
+            silently to whichever route happened to come first; the last is
+            `_reason_for_no_command`'s, which composes where several routes
+            explain the absence rather than refusing to choose between them.
     """
     rows: list[Invocation] = []
     for check_id, record in sorted(_records().items()):
@@ -1289,14 +1373,8 @@ def routed_invocations() -> tuple[Invocation, ...]:
                 note = supplied.note
             elif argv or per_partition:
                 note = ""
-            elif len(routes) == 1:
-                note = routes[0].note
             else:
-                raise ValueError(
-                    f"{check_id}/{tool}: prescribes no command and declares "
-                    f"{len(routes)} routes, so which one explains the absence "
-                    "is ambiguous; the row would carry whichever came first"
-                )
+                note = _reason_for_no_command(check_id, tool, routes)
             rows.append(
                 Invocation(
                     check=check_id,

@@ -4617,6 +4617,7 @@ def _fake_route(**kw):
         "disposition": "runs",
         "findings_stream": "stdout",
         "in_env": False,
+        "applies_when": None,
         "note": "",
         "then": (),
         "own_runner": False,
@@ -4750,7 +4751,7 @@ def test_a_migrated_record_reads_its_supplied_route_from_the_overlay(monkeypatch
                 _fake_route(kind="library", argv=()),
                 _fake_route(kind="procedure", argv=()),
             ),
-            "which one explains the absence",
+            "none of which carries a note",
         ),
     ],
 )
@@ -4773,6 +4774,158 @@ def test_an_ambiguous_group_is_refused_by_name(monkeypatch, routes, expected):
         pytest.raises(ValueError, match=expected),
     ):
         routed_invocations()
+
+
+def test_a_group_prescribing_no_command_composes_the_notes_it_prescribes(monkeypatch):
+    """Two routes explaining one absence contribute both explanations.
+
+    The guard this replaced raised here, because a row taking one of two notes
+    attributes the wrong explanation to a run. Refusing to choose is right;
+    refusing to build the row is not, and the record shapes that reach this
+    are ones no other spelling can express - `arch/complexity` distinguishes
+    its two `eslint` routes by `needs` alone, and a route carries one `needs`,
+    so merging them into the single route the old rule demanded means dropping
+    a tier the record needs.
+
+    Each note is prefixed by its own `applies_when`, which is what keeps the
+    composition readable: a note written under a precondition can be nonsense
+    without it.
+    """
+    with _records_replaced_by(
+        monkeypatch,
+        {
+            "x/y": _fake_record(
+                _fake_route(
+                    kind="procedure",
+                    argv=(),
+                    applies_when="Where the runner is Vitest.",
+                    note="Never reach for it - it reports a false clean.",
+                ),
+                _fake_route(
+                    kind="procedure",
+                    argv=(),
+                    applies_when="Where the runner runs in the process.",
+                    note="Its plain form remains the measurement there.",
+                ),
+            )
+        },
+    ):
+        (row,) = routed_invocations()
+    assert row.note == (
+        "Where the runner is Vitest. Never reach for it - it reports a false clean."
+        "\n\n"
+        "Where the runner runs in the process. Its plain form remains the "
+        "measurement there."
+    )
+
+
+def test_a_composed_note_carries_both_notes_where_neither_has_a_precondition(
+    monkeypatch,
+):
+    """`arch/complexity`'s two `eslint` routes are this shape.
+
+    They are distinguished only by their tier, and that record's own note says
+    nothing machine-readable tells the modes apart. So the row carries both, in
+    record order, which is honest rather than resolved - the alternative is
+    picking one and reporting the wrong invocation mode's reason.
+    """
+    with _records_replaced_by(
+        monkeypatch,
+        {
+            "x/y": _fake_record(
+                _fake_route(kind="procedure", argv=(), note="Under an audit config."),
+                _fake_route(kind="procedure", argv=(), note="Under the target's own."),
+            )
+        },
+    ):
+        (row,) = routed_invocations()
+    assert row.note == "Under an audit config.\n\nUnder the target's own."
+
+
+def test_an_alternative_route_does_not_explain_an_absence_a_runs_route_owns(
+    monkeypatch,
+):
+    """`test/mutation`'s Stryker group is this shape.
+
+    A `procedure: runs` install-and-run beside a `command: alternative`
+    one-shot. The `alternative` route's command is already carried as a form,
+    and it is not what a default run took, so the reason the row prescribes no
+    command is the `runs` route's alone. Composing both would attribute the
+    one-shot runner's caveat to a row that never reached for it.
+    """
+    with _records_replaced_by(
+        monkeypatch,
+        {
+            "x/y": _fake_record(
+                _fake_route(
+                    kind="procedure", argv=(), note="Install it and run there."
+                ),
+                _fake_route(
+                    disposition="alternative",
+                    argv=("npx", "--package", "t", "--", "t", "run"),
+                    note="Where you reach for a one-shot runner anyway.",
+                ),
+            )
+        },
+    ):
+        (row,) = routed_invocations()
+    assert row.note == "Install it and run there."
+    assert any("npx" in form for form, _ in row.forms), row.forms
+
+
+def test_a_group_with_no_prescribed_route_falls_back_to_every_route(monkeypatch):
+    """`arch/size`'s `wc` is one `alternative` route and nothing else.
+
+    Restricting to `disposition: runs` would leave no candidate at all there,
+    so the fallback is every route in the group - which for a lone route is
+    the route itself, exactly what the rule this replaced did for it.
+    """
+    with _records_replaced_by(
+        monkeypatch,
+        {
+            "x/y": _fake_record(
+                _fake_route(disposition="alternative", argv=(), note="A rougher count.")
+            )
+        },
+    ):
+        (row,) = routed_invocations()
+    assert row.note == "A rougher count."
+
+
+def test_the_multi_route_no_command_groups_are_the_three_the_rule_was_written_for():
+    """Held by identity, because the rule is invisible on the python selection.
+
+    All three are `lang: typescript`, so `routed_invocations` builds no row
+    from any of them and the composition above is exercised only on
+    constructed records. That is the whole reason this property exists: if
+    these groups leave the tree, the rule stops having a subject and nothing
+    else would say so, and if a fourth arrives it should be read against the
+    three axes the rule settles - `needs`, `applies_when` and `disposition` -
+    rather than discovered by a crash in whoever widens the selection.
+    """
+    checks, errors = load_checks(SKILLS_DIR)
+    assert not errors, errors
+    groups: dict[tuple[str, str, str], list] = {}
+    for check_id, record in checks.items():
+        for route in record.routes:
+            if route.tool:
+                groups.setdefault((check_id, route.lang, route.tool), []).append(route)
+    multi = {
+        f"{check_id}/{tool}"
+        for (check_id, _, tool), routes in groups.items()
+        if len(routes) > 1
+        and not any(
+            r.kind == "command"
+            and r.disposition == "runs"
+            and (r.argv or r.argv_by_partition)
+            for r in routes
+        )
+    }
+    assert multi == {
+        "arch/complexity/eslint",
+        "test/coverage-reach/c8",
+        "test/mutation/@stryker-mutator/core",
+    }, multi
 
 
 def test_a_routed_row_carries_the_records_second_command(monkeypatch):
