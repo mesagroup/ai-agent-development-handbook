@@ -3007,51 +3007,71 @@ def test_a_language_naming_no_tool_at_all_makes_no_claim_about_grants(tmp_path):
     assert ac._silenced_languages(check.routes) == ()
 
 
-def test_a_per_partition_dlx_form_always_has_a_shared_argv_beside_it():
+# A partition key names a package manager, not a version of one. `yarn` is the
+# only key in the tree whose manager may not provide `dlx` at all: it is a
+# Yarn 2+ command, absent from Yarn classic's CLI index. `pnpm dlx` exists on
+# every pnpm, so a pnpm-keyed entry needs no fallback and must not be what
+# keeps the guard below non-vacuous.
+_KEYS_WHOSE_MANAGER_MAY_LACK_DLX = ("yarn",)
+
+
+def test_a_dlx_form_for_yarn_always_has_a_runnable_shared_argv_beside_it():
     """`audit/SKILL.md`'s route for Yarn classic depends on this being true.
 
     `dlx` is a Yarn 2+ command and Yarn classic's CLI index documents no
-    one-shot form at all, so the runner paragraph's rule is that a
-    `yarn`-keyed `dlx` entry is Yarn Modern's form and the route's shared
-    `argv` - an npm-registry runner reaching the same registry - is what a
-    classic partition runs instead.
+    general-purpose one-shot runner in its place, so both places the skill
+    states the rule - the runner paragraph and the argv-selection bullet - say
+    that a `yarn`-keyed `dlx` entry is Yarn Modern's form and what a classic
+    partition runs instead is the route's shared `argv`.
 
-    That rule holds only while every such route has a shared `argv` to fall
-    back to, and nothing else in the tree holds it. The per-partition entry is
-    data the loader validates for shape, not for whether a manager owns the
-    command it names, so a record dropping its shared argv would leave a Yarn
-    classic partition with a command that manager does not have and no
-    alternative - reported as `no-evidence (tool-unavailable)` for a tool that
-    was obtainable the whole time, which is the failure #42 removed.
+    Two properties make that true and this holds both, because presence alone
+    is not enough. The shared `argv` must exist, and it must not itself be
+    `dlx`-led: a fallback spelled `pnpm ... dlx` or a bare `dlx` is no
+    fallback, and restyling a shared argv to match the override's spelling is
+    the plausible way that happens. Nothing else in the tree holds either
+    property - the loader validates a keyed entry's shape, not whether the
+    manager it names owns the command it spells - so a record losing one would
+    silently reinstate `no-evidence (tool-unavailable)` for a tool obtainable
+    the whole time, which is the failure #42 removed.
 
-    Scoped to per-partition entries on purpose. A *shared* argv leading with
-    `dlx` is a different thing and must not be caught here: the
-    `disposition: forbidden` routes of the graph records carry a bare
-    `dlx depcruise`, and `deps/inventory` a bare `dlx cyclonedx-npm`, to warn
-    against a dependency-confusion placeholder. Those are named in order never
-    to be run, so they need no fallback.
+    Scoped to the partition keys whose manager may lack `dlx`, which is
+    `yarn` alone. A *shared* argv leading with `dlx` is separately excluded
+    and must not be caught: the graph records' `disposition: forbidden`
+    routes carry a bare `dlx depcruise`, and `deps/inventory` a bare
+    `dlx cyclonedx-npm`, each named in order never to be run.
     """
     checks, errors = ac.load_checks(ac.SKILLS_DIR)
     assert errors == []
-    covered, offenders = [], []
+    covered, missing, unrunnable = [], [], []
     for check in checks.values():
         for position, route in enumerate(check.routes):
-            named = sorted(
-                partition
-                for partition, argv in dict(route.argv_by_partition or {}).items()
-                if "dlx" in argv
-            )
-            if not named:
+            if route.disposition == "forbidden":
                 continue
-            covered.append((check.id, route.tool))
+            keyed = dict(route.argv_by_partition or {})
+            at_risk = sorted(
+                partition
+                for partition in _KEYS_WHOSE_MANAGER_MAY_LACK_DLX
+                if "dlx" in keyed.get(partition, ())
+            )
+            if not at_risk:
+                continue
+            covered.append((check.id, route.tool, tuple(at_risk)))
+            where = (check.id, route.tool, position, tuple(at_risk))
             if not route.argv:
-                offenders.append((check.id, route.tool, position, named))
-    assert offenders == [], (
-        "these routes prescribe a dlx form for a partition and no shared argv "
-        f"for a manager that has no dlx: {offenders}"
+                missing.append(where)
+            elif "dlx" in route.argv:
+                unrunnable.append(where)
+    assert missing == [], (
+        "these routes prescribe a dlx form for a partition whose manager may "
+        f"not have dlx, and no shared argv to run instead: {missing}"
+    )
+    assert unrunnable == [], (
+        "these routes' shared argv is itself dlx-led, so it is not a fallback "
+        f"for a manager without dlx: {unrunnable}"
     )
     assert covered, (
-        "no route carries a per-partition dlx form, so this guard has no "
-        "subject - if the forms were removed deliberately, remove this too "
-        "rather than leaving it passing over nothing"
+        "no route carries a dlx form under a key in "
+        f"{_KEYS_WHOSE_MANAGER_MAY_LACK_DLX}, so this guard has no subject - "
+        "if those forms were removed deliberately, remove this too rather "
+        "than leaving it passing over nothing"
     )
