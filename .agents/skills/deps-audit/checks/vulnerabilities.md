@@ -4,9 +4,12 @@ domain: deps
 locality: global
 evidence: >-
   Capture advisory id, affected range, and fixed version. Where no route
-  answers, note which case produced that status: a retired endpoint and a
-  missing scanner are both `no-evidence`, but only the second is fixable by
-  the audit environment.
+  answers, report the engine's reason rather than describing the case in
+  prose: a retired advisory endpoint is a tool that ran and returned nothing
+  usable, which is `tool-failed`, and a scanner that could not be obtained is
+  `tool-unavailable`. The distinction this record used to ask an auditor to
+  carry is one the reason vocabulary already draws, and a reader filtering on
+  the status sees the reason and never sees the prose.
 handbook:
   - security-supply-chain/depend-only-on-what-you-can-account-for-a
 routes:
