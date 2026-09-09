@@ -30,6 +30,7 @@ and the ledger says so itself.
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import pytest
@@ -180,4 +181,61 @@ def test_no_contract_sentence_is_back_in_the_sweep(sentence: str) -> None:
         f"contract belongs to {AUDIT_CORE.name}'s {SECTION!r}; the sweep points "
         "at it. If the sweep genuinely needs to restate this rule, say so in "
         "docs/audit/sweep-obligations.md and change that row's disposition"
+    )
+
+
+def test_the_engine_s_worked_examples_still_exist() -> None:
+    """The routes `## Running a route` names by id are still that shape.
+
+    The section teaches the runner rule from two records: `test/coverage-reach`,
+    whose `pytest` invocation needs the target's own environment and so takes
+    `uv run --with`, and `test/new-code-coverage`, whose `diff-cover` is a PyPI
+    package fetched onto a partition of any language. Both are cited by check
+    id in normative prose, so a record edited later leaves the engine teaching
+    from a route that no longer exists - and CLAUDE.md's rule is that a
+    consistency property which can move into the validator does.
+
+    Asserted on the shape the lesson depends on, not on the whole route: that
+    the coverage route's command is `pytest` while its tool is not, which is
+    what makes it the `uv run --with` case rather than the `uvx` one.
+    """
+    sys.path.insert(0, str(REPO_ROOT / "scripts"))
+    from audit_checks import load_checks
+
+    checks, errors = load_checks(SKILLS_DIR)
+    assert not errors, errors
+
+    text = AUDIT_CORE.read_text(encoding="utf-8")
+    for check_id in ("test/coverage-reach", "test/new-code-coverage"):
+        assert check_id in text, (
+            f"{AUDIT_CORE.name}'s {SECTION!r} no longer cites {check_id!r}. If the "
+            "worked example moved, point this guard at the record it moved to"
+        )
+        assert check_id in checks, (
+            f"{check_id!r} is cited in {SECTION!r} and does not exist"
+        )
+
+    coverage = [
+        route
+        for route in checks["test/coverage-reach"].routes
+        if route.kind == "command" and route.argv and route.argv[0] == "pytest"
+    ]
+    assert len(coverage) == 1, (
+        f"{SECTION!r} teaches the `uv run --with` case from test/coverage-reach's "
+        f"`pytest` command route; found {len(coverage)} such route(s)"
+    )
+    assert coverage[0].tool != "pytest", (
+        f"{SECTION!r} argues that route needs `uv run --with` because the command "
+        f"is `pytest` while the package to fetch is {coverage[0].tool!r}. With the "
+        "tool named `pytest` the example stops making that point"
+    )
+
+    diff_cover = [
+        route
+        for route in checks["test/new-code-coverage"].routes
+        if route.tool == "diff-cover"
+    ]
+    assert diff_cover, (
+        f"{SECTION!r} teaches the registry-not-lang rule from test/new-code-coverage's "
+        "`diff-cover` route, which is no longer in that record"
     )
