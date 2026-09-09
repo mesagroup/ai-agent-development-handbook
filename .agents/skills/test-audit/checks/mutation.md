@@ -136,8 +136,15 @@ routes:
       `pnpm --package=@stryker-mutator/core --package=@stryker-mutator/<runner>-runner dlx stryker run` -
       because `pnpm dlx --package=...` reads the flag as a package spec and
       fails outright on pnpm 9, and delivered no co-package at all on pnpm 11
-      when tried against another tool, and on a yarn one as
+      when tried against another tool, and on a Yarn Modern one as
       `yarn dlx -p @stryker-mutator/core -p @stryker-mutator/<runner>-runner stryker run`.
+      `dlx` is a Yarn 2+ command and Yarn classic's CLI index documents no
+      general-purpose one-shot runner in its place, so a Yarn 1 partition runs
+      the `npx` form above rather than a yarn one: the runner has to reach the
+      registry the package is published in, and it does not have to be the
+      partition's own package manager. Naming the yarn form without that
+      qualification is how a tool that was obtainable the whole time gets
+      reported `no-evidence (tool-unavailable)`.
       All three name the package rather than leaning on the command name, which
       is the whole point: a bare `dlx stryker` resolves the unscoped 0.x exactly
       as a bare `npx stryker` does, so writing "the `dlx` equivalent" and
