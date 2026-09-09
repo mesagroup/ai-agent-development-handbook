@@ -1,10 +1,12 @@
 """Keep the route-running instruction where a directly invoked skill reads it (#70).
 
 The deep-audit entry point is a `<domain>-audit` skill invoked by name. Such
-a run reads that skill's own `SKILL.md` and `audit-core/SKILL.md`, and never
-`audit/SKILL.md` - so an instruction kept in the sweep front door does not
-reach it, which is the defect #70 records. The instruction now lives in
-`audit-core`'s `## Running a route`.
+a run reads that skill's own `SKILL.md`, `audit-core/SKILL.md` and the
+records in its own `checks/` directory, and never `audit/SKILL.md` - so an
+instruction kept in the sweep front door does not reach it, which is the
+defect #70 records. The records are the other place it could have gone, and
+the reason it did not is that it would then be copied once per record. The
+instruction now lives in `audit-core`'s `## Running a route`.
 
 Two properties hold that in place, and neither is checkable by reading one
 file:
@@ -20,8 +22,10 @@ file:
   the loader that validates the fields they describe.
 
 The runner rule is deliberately *not* held to one copy. It is `restated` in
-`docs/audit/sweep-obligations.md`, and that ledger's own tests hold the
-restatement.
+`docs/audit/sweep-obligations.md`, whose tests hold the anchor in
+`audit-core` and the row's shape - not whether `audit/SKILL.md` still says
+the thing. That half is the reading pass the ledger's own header asks for,
+and the ledger says so itself.
 """
 
 from __future__ import annotations
@@ -40,11 +44,19 @@ SECTION = "## Running a route"
 # The domain skills, discovered rather than listed, so a skill added later is
 # covered without editing this file - and so a rename cannot quietly shrink
 # the checked set to nothing.
+# `audit-core` is excluded by the suffix itself rather than by name.
 DOMAIN_SKILLS = sorted(
     path / "SKILL.md"
     for path in SKILLS_DIR.iterdir()
-    if path.is_dir() and path.name.endswith("-audit") and path.name != "audit-core"
+    if path.is_dir() and path.name.endswith("-audit")
 )
+
+# The deferral, as every domain skill spells it. Matched as the link rather
+# than as the string "audit-core": that string also occurs in each skill's
+# frontmatter description and in its Announce line, so a check for the bare
+# name stays green with the deferral itself deleted - which is the defect
+# this file was written to catch, and it passed until the link was the test.
+DEFERRAL = "](../audit-core/SKILL.md)"
 
 # One sentence per field of the contract an agent has to read before it runs
 # anything. Each is a phrase rather than a keyword on purpose: the field
@@ -91,9 +103,18 @@ def test_every_domain_skill_defers_to_the_engine(skill: Path) -> None:
     defer is one whose direct invocation reads no route instruction, and the
     symptom is an agent inventing a command line rather than an error.
     """
-    assert "audit-core" in skill.read_text(encoding="utf-8"), (
-        f"{skill.parent.name}/{skill.name} does not name audit-core, so a direct "
-        f"invocation of it never reads {SECTION!r}"
+    text = skill.read_text(encoding="utf-8")
+    assert DEFERRAL in text, (
+        f"{skill.parent.name}/{skill.name} does not link {DEFERRAL}, so a direct "
+        f"invocation of it never reads {SECTION!r}. The skill's frontmatter and "
+        "its Announce line both mention audit-core by name, so the name is not "
+        "evidence that the deferral is still there"
+    )
+    assert SECTION in text, (
+        f"{skill.parent.name}/{skill.name} defers to audit-core without naming "
+        f"{SECTION!r}. The deferral summarises what that file owns, and an agent "
+        "reading a summary as a table of contents stops at the loop - which is "
+        "how the one section a direct run needs most goes unread"
     )
 
 
@@ -109,6 +130,22 @@ def test_the_domain_skills_were_found() -> None:
         "deferral check needs the real population to mean anything"
     )
     assert all(path.is_file() for path in DOMAIN_SKILLS)
+
+
+def test_the_contract_sentences_cover_the_fields() -> None:
+    """The hand-written tuple did not shrink.
+
+    `DOMAIN_SKILLS` is discovered and has a floor; this tuple is written out,
+    so an entry deleted to make a reword pass takes its field's rule out of
+    both checks below with nothing to say so. The floor is the number of
+    fields the contract covers, so it moves only when the contract does.
+    """
+    assert len(CONTRACT_SENTENCES) >= 11, (
+        f"{len(CONTRACT_SENTENCES)} contract sentences, which is fewer than the "
+        "route contract has fields with a rule. Add the sentence for the field "
+        "you are covering rather than lowering this floor"
+    )
+    assert len(set(CONTRACT_SENTENCES)) == len(CONTRACT_SENTENCES)
 
 
 @pytest.mark.parametrize("sentence", CONTRACT_SENTENCES)
