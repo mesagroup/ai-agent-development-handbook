@@ -12,6 +12,21 @@ So a property here reads one of three things, and says which: the transcribed
 rows, every row the harness runs, or - where the two sides of a comparison would
 be the same data for a routed row - the transcribed rows again, because widening
 it would add an assertion that cannot fail.
+
+**What the extractor reads, and the one thing it accepts not seeing.** A
+prescription is found in the inline backtick spans of the prescribing paragraph,
+so two other shapes escape it. A command in a fenced block is refused by the
+loader rather than read here, because a fence is the idiomatic way to write a
+command and would hide one in plain sight. A command written in prose with no
+backticks at all is an accepted limit: reading unbackticked prose is not
+mechanical, and it is the wrong goal anyway, since the answer is the convention
+that every prescribed command appears in a span - stated in `CLAUDE.md` and
+enforced for the shape that could otherwise satisfy it by accident. What the
+limit costs is stated rather than minimised: an undecorated flag beside a
+command whose span is already correct escapes every property here, because the
+span it would have to change is unchanged. That is cheaper to hit than a fence,
+being what someone writes while editing prose rather than documenting a command,
+and the convention is the only thing standing against it.
 """
 
 import ast
