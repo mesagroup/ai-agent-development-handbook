@@ -30,4 +30,4 @@ The accepted limit goes in the extractor's module docstring, where a reader of t
 
 ## Gates
 
-All six, plus a mutation check in both directions on the delimiter rule: with the rule reverted the two new assertions must fail, and with the guard's condition inverted the guard must fail. `PYTHONDONTWRITEBYTECODE=1` on those runs, because a mutate-run-revert inside one second can otherwise leave the next run honouring the mutant's cached bytecode.
+The six runnable gates - `pytest`, `ruff check`, `ruff format --check`, the two renderers' `--check`, and `deptry` - the artifact renderer being excluded because it needs the `d2` CLI. Plus a mutation check in both directions on the delimiter rule: with the rule reverted the two new assertions must fail, and with the guard's condition inverted the guard must fail. `PYTHONDONTWRITEBYTECODE=1` on those runs, because a mutate-run-revert inside one second can otherwise leave the next run honouring the mutant's cached bytecode.

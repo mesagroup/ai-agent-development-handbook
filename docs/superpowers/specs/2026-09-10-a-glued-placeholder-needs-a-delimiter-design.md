@@ -30,6 +30,18 @@ Neither shape is live. **No record in the tree writes a glued placeholder whose 
 
 `_marked` stays the one place that decides what a mark is, which is what its docstring already argues for; the delimiter is now part of that definition rather than a second condition kept in step with it somewhere else.
 
+**A name must precede the delimiter, which review found the first version had not said.** `/<` and `=<` passed the rule as first written, so `pdscan /<dir>` would have accepted any absolute path - the degenerate shape surviving at one character. The condition is that a name is there, not that it is long, so this is not the length proxy rejected above.
+
+**`@` belongs in the set.** It is npm's version delimiter and this family prescribes `npx`, `dlx` and `--package` commands, so `pkg@<version>` is one record edit away, and for that shape the guard's remedy of writing the value as its own token does not exist. The set is `=`, `:`, `/` and `@`. Deliberately excluded: `.` and `,`, which look like delimiters and are not - `coverage.<n>.xml` truncates to `coverage.<`, which accepts `coverage.xml`, a different file. The guard refusing those is correct, so its message names them as a shape to restructure rather than to re-space.
+
+## What the delimiter does not buy, stated because it was first claimed too widely
+
+A delimiter makes a head unambiguous among **option names**. It buys nothing among **values sharing a namespace prefix**, and the tree writes one: `test/mutation` prescribes `--package @stryker-mutator/core --package @stryker-mutator/<runner>-runner`, so the mark for the runner package is satisfied by the core package two tokens earlier, and dropping the runner half of that argv would pass a presence check.
+
+The first version of this spec and of the code comment asserted that a delimiter-ended head "cannot also be the start of some other option" and illustrated it with three tree tokens, omitting the one that disproves the generalisation. That is what the repository's rule against claims about a sibling is for, and a code review found it rather than a test, because no test could.
+
+It is not live: the route is `lang: typescript`, so `routed_invocations` builds no row from it, and `disposition: alternative`, so the disposition guard skips its form. Both shields would have to go first, and the second is not general - `test/determinism`'s `--sequence.seed=<n>` is `disposition: runs` and shielded by `lang` alone. Closing it needs the text *after* the placeholder, so that `@stryker-mutator/<runner>-runner` demands a token both starting `@stryker-mutator/` and ending `-runner`. That is a change to `_concrete`'s contract, which the coverage property's ordered/supplied split reads, so it is filed as its own issue rather than smuggled in here. The limit is asserted as a passing test, so closing it breaks a test that says what it was.
+
 ## The matcher alone would fail obscurely, so a record-level guard says why
 
 With the rule above, a record that someday writes `pip-audit -r<requirements>` produces the token `-r<`, which is no longer a mark and which no real command token equals, so the coverage property fails with "this token is missing" about a token the record did write. That is a true failure with a misleading cause.
@@ -44,7 +56,13 @@ So a guard over every record refuses that shape by name: a glued placeholder who
 
 The rejection's blast radius is deliberate and worth stating rather than discovering. A loader error excludes the record from `load_checks`' mapping, so a fenced block in one record removes that check from every audit run. That is the same severity the `## Tooling fallback`-beside-`routes:` rejection already carries, and it is the right one: an integrity gate makes it a red suite before it can ship, and the alternative - loading a record whose prescription no guard can read - is the absent-check-reads-as-clean failure this family exists to prevent.
 
-**An indented block stays legal.** `arch/complexity` uses one to show a tool's observed output, which is not a prescription and which nothing needs to extract. The convention is about where a *prescribed command* lives, and the error message says so, so that nobody reads the fence rule as a ban on showing output.
+**A four-space indented block stays legal, and the rule is CommonMark's.** Up to three spaces of indentation is a fence; at four the line is an indented code block, so its content is literal text and a fence inside it is being *shown* rather than opened. The first version matched a fence at any indentation, which would have rejected a record quoting the output of a tool that prints fences - a docs or prompt lens plausibly would.
+
+**The claim that a record uses an indented block for that today was false**, and is corrected wherever it appeared. Computed: zero of 77 record bodies carry one. `arch/complexity`'s `xenon` output lives in a route `note`, in frontmatter, as inline spans, which the fence rule never reads because it reads the body alone. So the allowance keeps an escape open rather than protecting a use the tree makes, and the test that pins it says so.
+
+## The two conventions land at different severities, deliberately
+
+The fence rule is in the loader, so breaking it removes the check from every audit run. The delimiter rule is a property in the harness, so breaking it reddens the suite and the check still runs. The asymmetry is not an oversight: putting the delimiter rule in the loader means reimplementing `_tokens` and `_concrete` there, which is the second-reader-over-one-source shape this spec rejects for fences. What makes that acceptable is that the delimiter rule protects the harness's own matching, which is a fixture-round concern, while the fence rule protects every property over the record.
 
 ## The unbackticked case is an accepted limit, and it needs the convention beside it
 
@@ -53,5 +71,7 @@ The rejection's blast radius is deliberate and worth stating rather than discove
 That limit is recorded where a reader of the extractor meets it - in the module's own docstring - and the convention it rests on is stated in `CLAUDE.md`'s check-record section, which is where a record author reads what a record may contain. A limit recorded only in an issue is a limit the next author will not find.
 
 ## What this change does not touch
+
+The authoring rules also go into `audit-core`'s authoring section, because `plugin.json` ships only `./.agents/skills/` and `CLAUDE.md` is therefore invisible to a record author working from an installed plugin: they would meet the fence rule as a loader error dropping their record, with the convention behind it written nowhere they could read. Three `out of scope` rows in `docs/audit/sweep-obligations.md` follow, all three authoring-time obligations a sweep run has no addressee for.
 
 No module is added under `scripts/`, so `[tool.deptry] known_first_party` is unchanged and `tests/test_deptry_gate.py`'s list still matches the directory. #86 named that rule as a concern for this item because it edits `scripts/`; the edit is to an existing module, so the concern does not arise. `deptry` is run anyway rather than reasoned about.
