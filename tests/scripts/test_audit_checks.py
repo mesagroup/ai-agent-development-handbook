@@ -1067,6 +1067,48 @@ def test_a_registry_on_a_non_command_kind_is_rejected(tmp_path, kind):
     assert any("registry" in e and kind in e for e in errors), errors
 
 
+def test_a_bare_registry_key_is_rejected(tmp_path):
+    """Written-but-empty is its own mistake, and it bypassed two rules.
+
+    YAML reads a bare key as `null`, so `registry:` with no value reached the
+    kind and `own_runner` checks as `None` and passed both - a
+    `kind: procedure` route could declare the field and load clean. The two
+    commits before this branch fixed the same class for `argv` and its three
+    neighbours; the new field was added without joining them.
+    """
+    errors = _errors_for_route(tmp_path, "kind: procedure\n    tool: t\n    registry:")
+    assert any("registry is empty" in e for e in errors), errors
+
+
+def test_a_bare_registry_still_fails_the_kind_rule(tmp_path):
+    """The bypass, stated as the shape it let through rather than as the key.
+
+    The empty-value error alone would be satisfied by rejecting the key and
+    stopping, so this holds the thing that mattered: a procedure route
+    declaring a registry is rejected whether or not it named one.
+    """
+    named = _errors_for_route(
+        tmp_path, "kind: procedure\n    tool: t\n    registry: pypi"
+    )
+    assert any("registry" in e and "procedure" in e for e in named), named
+
+
+def test_a_rejected_registry_is_not_also_reported_as_a_missing_one(tmp_path):
+    """A typo must not produce a second error naming a fix already applied.
+
+    The vocabulary check resets the value to `None`, and the required rule
+    reads `None`, so `registry: pypy` on a universal command route used to
+    report both "not one of" and "needs a registry" - the second false about
+    the record, and pointing the author at the field they had just written.
+    """
+    errors = _errors_for_route(
+        tmp_path,
+        "lang: any\n    kind: command\n    tool: t\n    registry: pypy\n    argv: [t]",
+    )
+    assert any("not one of" in e for e in errors), errors
+    assert not any("needs a registry" in e for e in errors), errors
+
+
 def test_a_wrong_typed_registry_is_rejected_as_a_type_and_not_as_a_vocabulary_miss(
     tmp_path,
 ):

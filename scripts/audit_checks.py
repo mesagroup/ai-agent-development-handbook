@@ -605,7 +605,23 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
             errors.append(f"{loc}: package must be a string, got {package!r}")
             package = tool
 
+        # Written-but-empty is its own mistake, and `registry` needs the same
+        # guard `package` has for the same reason: YAML reads a bare key as
+        # nothing, so without this the two rules below never fire and an
+        # illegal shape loads clean. Tracked separately from the value because
+        # the required rule must not then tell an author to add a field they
+        # did write - it would name a fix already applied.
+        registry_declared = "registry" in entry
         registry = entry.get("registry")
+        if registry_declared and registry is None:
+            errors.append(
+                f"{loc}: registry is empty - YAML reads `null`, `~` and a bare "
+                "key as nothing, which is not the same as an absent key: an "
+                "absent key means the registry is whatever `lang` implies, "
+                "while this one declares a field and says nothing with it, so "
+                "the kind and own_runner rules below would pass over it. Name "
+                "the registry, or drop the key"
+            )
         if registry is not None and not isinstance(registry, str):
             errors.append(f"{loc}: registry must be a string, got {registry!r}")
             registry = None
@@ -821,6 +837,7 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
             and lang in UNIVERSAL_ROUTE_LANGS
             and own_runner is not True
             and registry is None
+            and not registry_declared
         ):
             errors.append(
                 f"{loc}: a kind: command route with lang: {lang} needs a registry "
@@ -884,25 +901,34 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
 
 
 def registry_for(route: Route) -> str | None:
-    """The registry a runner must reach to fetch this route's tool.
+    """Which registry a fetch would have to reach, if this route needs a fetch.
 
-    The route's own `registry` where it declares one, the registry its `lang`
-    implies otherwise, and `None` where nothing is fetched - a route whose
-    command is complete as written, or one that prescribes no command at all.
+    The route's own `registry` where it declares one, and the registry its
+    `lang` implies otherwise. `None` only where the route settles the question
+    itself: it prescribes no command, or its command is complete as written.
+
+    **It does not answer whether a fetch applies at all, and a caller must not
+    read it that way.** Most command routes in this tree need no fetch and
+    still get an answer here: a subcommand of the target's own package manager
+    - `npm audit`, `pip list --outdated` - is run directly, and a route whose
+    argv already leads with a runner has its fetch spelled out. Both are
+    `kind: command` with a language, so both derive a registry, and a caller
+    that treats a non-`None` answer as "put this runner in front" produces
+    `npx npm audit`. Deciding that is the three-kinds question, which no field
+    answers yet; this one only says where to look once something else has
+    decided a package must be obtained.
 
     One implementation because the derivation is the whole point of the field:
-    a consumer that works it out for itself is a second copy of the rule, and
-    the failure the field exists to prevent is exactly a consumer inferring a
-    registry from something that does not name one. `None` means "do not put a
-    runner in front", not "use the default runner", and those are different
-    instructions - a caller that treats them alike fetches a package named
-    after a coreutils binary.
+    a consumer working it out for itself is a second copy of the rule, and the
+    failure the field exists to prevent is exactly a consumer inferring a
+    registry from something that does not name one.
 
     Args:
         route: The route to read.
 
     Returns:
-        A member of `REGISTRIES`, or `None` where no fetch applies.
+        A member of `REGISTRIES`, or `None` where the route needs no runner in
+        front of it at all.
     """
     if route.kind != "command" or route.own_runner is True:
         return None
