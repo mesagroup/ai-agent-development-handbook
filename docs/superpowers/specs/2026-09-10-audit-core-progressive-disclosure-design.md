@@ -10,12 +10,17 @@ Issue #85. `audit-core/SKILL.md` is loaded on every path through this family - t
 |---|---|---|
 | `SKILL.md` whole, before | 7,284 | 86 rows resolve |
 | `## The loop` steps 3-6 | 515 | 0 |
-| `## Authoring a new auditing skill` body | 975 | 1 |
-| `SKILL.md` whole, after | **5,961** | 86 rows still resolve |
+| `## Authoring a new auditing skill` body, without its heading | 969 | 1 |
+| the two pointers that replace them | 161 | - |
+| `SKILL.md` whole, after | **5,997** | 86 rows still resolve |
 
-**The issue's own figure of 6,461 words is stale** - #70, #74 and #77 added to the file after it was filed. #86 predicted 5,794 after both moves; the real figure is 5,961, and the difference is the two pointer paragraphs that replace the moved text. A pointer has to say what the reference holds and when to read it, or the move trades a section nobody read for a section nobody can find, so those words are the cost of the move rather than an overrun.
+The arithmetic reconciles exactly: 7,284 - 515 - 969 + 161 = 5,961 after the move, and review then added 36 words to `SKILL.md` for two reasons below - the line-number justification that had left the file with the section, and a clause sending a fix-mode reader back to the cross-cutting rules. **5,997.**
 
-**Acceptance criterion 3 is therefore left unticked**, with the residual named: 461 words above `skill-creator`'s ~5,500 guideline. That is #86's settled instruction and the reason for it holds - trimming to reach the number is criterion 5's question, it is settled by an eval rather than by taste, and #93 now carries it.
+**Two counts here were wrong in the first version, and both came from carrying a figure forward rather than computing it.** The authoring body is 969 words, not the 975 #86 records, because #86's figure includes the `## ` heading and the heading stays in `SKILL.md` as the pointer's home. And the pointers are 161 words, not the 167 the difference implied, the remaining 6 being that retained heading. The rule against uncomputed counts exists for exactly this: the number was right for #86's assumption and wrong for what shipped.
+
+**The issue's own figure of 6,461 words is stale** - #70, #74 and #77 added to the file after it was filed. #86 predicted 5,794, which is the arithmetic of the move without the pointers. A pointer has to say what the reference holds and when to read it, or the move trades a section nobody read for a section nobody can find, so those words are the cost of the move rather than an overrun.
+
+**Acceptance criterion 3 is therefore left unticked**, with the residual named: 497 words above `skill-creator`'s ~5,500 guideline. That is #86's settled instruction and the reason for it holds - trimming to reach the number is criterion 5's question, it is settled by an eval rather than by taste, and #93 now carries it.
 
 ## What moves, and what the pointer has to carry
 
@@ -50,6 +55,24 @@ What none of them can check is whether a pointer says enough for a reader to kno
 ## The queue's disjoint-files property does not hold here
 
 #86 chose its four items so no PR would need a rebase under another. That was true when the queue was written. **PR #88, this loop's first item, adds three authoring sentences to the section this branch moves into `references/`.** Whichever merges second needs a rebase that relocates those sentences into the reference file rather than a textual merge, and the PR body says so. Nothing here depends on #88, so the branch is cut from freshly fetched `origin/main` and this is not stacking.
+
+## What review changed
+
+Two reviewers, both pinned to this tree, one reading the diff and one reading the prose cold. The move itself came out clean: both agents verified the extracted text is byte-identical to what `origin/main` carried, so nothing was dropped or altered. What they found instead was the class of defect a move produces around its edges.
+
+**Two references only worked from the old location.** `../arch-audit/checks/` resolved from `SKILL.md` and resolves to nothing from `references/`, so an author sent to the section's one concrete example got a dead path - and no test sees it, because it is backticked text rather than a Markdown link. And the justification for citing a stable identifier rather than a line number had left `SKILL.md` with the authoring section, so step 2 deferred a reason to a file its own pointer tells a run not to open. That reason is inlined now.
+
+**A pointer's threshold was too high to catch what it guards.** `_MIN_DUPLICATE` was 120 characters. The references' shortest instruction lines are 93 and 94 characters, so re-inlining either left the duplicate test green - verified by mutation, then re-verified at 80, which catches both and stays clear of the 32- and 34-character headings.
+
+**Four stale numbers came with the moved text**, and the move made them quieter by putting them in a file no `SKILL.md` reader passes through. A comment on #85 from an earlier tick had flagged them and said whoever moves the section has to re-measure; this branch is that move. Recomputed, the header range the sentence quoted was wrong in three of four figures and its superlative was falsified by a domain 2.4 times the size of the one it named. Rather than restate a range that rots on the next edit, the sentence now says to measure your own domain and nothing more - which is this repository's own preference for a claim that cannot go stale.
+
+**Several deictics stopped resolving once the text moved:** "the loop above", "a shared tree here", "the Phase-1 evidence", "this section's own obligation". Each is now named rather than pointed at. And a bare `docs/audit/sweep-obligations.md` path in a skill file is an absolute GitHub URL, per the rule that a relative path out of a plugin cache resolves to nothing for a file the plugin does not ship.
+
+**Reworking the line-number sentence broke a ledger anchor**, which is the trap the previous loop recorded: an anchor quoting a sentence you improve still breaks. The row's anchor moved with the prose in the same commit, and the replacement carries no nested backticks - the other trap from that loop.
+
+**One instruction was missing from the reference read as its own document.** Four of `SKILL.md`'s cross-cutting rules are load-bearing for steps 3-6, and the reference prescribed plans and implementer subagents without them. Both the pointer and the reference now say so.
+
+**The ledger gained a block-disposition paragraph for the two reference files.** Its re-run instruction now sends a reader through `references/`, and `remediation-loop.md` holds a dozen imperative sentences with no rows - which would read as a dozen missing rows every time the pass is run. The paragraph dispositions each file as a block, the way `## Running a route` already gets one, so a sentence wanting a row of its own is answered by arguing the block rather than by adding a row beside it.
 
 ## What this change does not touch
 
