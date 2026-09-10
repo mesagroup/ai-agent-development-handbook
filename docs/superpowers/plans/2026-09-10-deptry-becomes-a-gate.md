@@ -22,7 +22,7 @@ The `check` job keeps its name. Branch protection and the check-set comparison b
 
 - **The first-party list covers `scripts/`.** Parsed from `pyproject.toml` and compared against the directory, so adding a script without naming it fails here rather than in CI on someone else's branch.
 - **The workflow invokes the tool.** A configuration nothing runs is the state this issue exists to end, and it is invisible once the config looks right.
-- **The gate is non-vacuous.** Copy the project to a temporary directory, undeclare a dependency the code imports, run `deptry` there, assert it reports the import as missing. This is criterion 3's demonstration made permanent instead of performed once, and it is what fails if `known_first_party` is ever widened until it swallows a real third-party name.
+- **The gate is non-vacuous.** Copy the project to a temporary directory, undeclare a dependency the code imports, run `deptry` there, assert it exits non-zero and names the module. Criterion 3's demonstration made permanent instead of performed once. Which finding code comes back depends on whether the removed dependency is still installed in the caller's environment, so the test asserts neither. What catches `known_first_party` being widened to swallow a real third-party name is the equality check rather than this one, since an exempted name is one that matches no module in `scripts/`.
 
 ## 4. `deps-audit/checks/hygiene.md` gains one clause
 
