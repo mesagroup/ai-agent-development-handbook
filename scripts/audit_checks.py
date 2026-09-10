@@ -121,6 +121,15 @@ this schema the routes are the fallback, and a section beside them would be
 a second copy nothing holds against the first, unread by the properties
 that read it on a record still declaring `tooling`.
 
+The body is validated too, which the split above understates: it must carry
+an `# ` title, being the check's display name, and it may not carry a fenced
+code block in either spelling. Every command a record prescribes appears in
+an inline backtick span, because that is the only place the form extractor
+reads, so a command in a fence is invisible to every property holding a
+record's prescription against what ran. A four-space indented block is
+legal - its content is literal text, so a record may show a tool's output
+there even where that output prints a fence.
+
 `answers_ungranted` is `ungranted_note`'s counterpart under `routes`: where
 every answering-kind route (`command`, `library`, `procedure`) a language
 offers needs a grant, the record must also carry an untiered route that
@@ -256,10 +265,14 @@ _FALLBACK_SECTION_RE = re.compile(r"^## Tooling fallback\s*$", re.M)
 #: A fenced code block opening at the start of a line, in either spelling. Only
 #: the fence is matched, not the block: one occurrence is the whole finding, and
 #: a record with an unclosed fence is as much of a problem as one with a closed
-#: one. An *indented* block is deliberately not matched - a record uses one to
-#: show a tool's observed output, which is not a prescription and which nothing
-#: extracts.
-_FENCE_RE = re.compile(r"^\s*(?:```|~~~)", re.M)
+#: one. Up to three spaces of indentation, which is CommonMark's own rule - at
+#: four the line is an indented code block, so its content is literal text and a
+#: fence inside it is a fence being *shown* rather than opened. No record body
+#: carries an indented block today (computed: zero of 77), so that allowance
+#: keeps an escape open rather than protecting a use the tree makes: a record
+#: quoting the observed output of a tool that prints fences, which a docs or
+#: prompt lens plausibly would.
+_FENCE_RE = re.compile(r"^ {0,3}(?:```|~~~)", re.M)
 
 
 @dataclass(frozen=True)
@@ -1518,8 +1531,9 @@ def _load_one(
             "only place the form extractor reads: a command in a fence is "
             "invisible to every property that holds a record's prescription "
             "against what ran, and the suite stays green over it. Write the "
-            "command in a span in its own paragraph. An indented block is not "
-            "this - a record showing a tool's observed output prescribes nothing"
+            "command in a span in its own paragraph. A four-space indented "
+            "block is not this: its content is literal text, so a record may "
+            "show a tool's output there even where that output prints a fence"
         )
 
     if raw_routes is not None and _FALLBACK_SECTION_RE.search(body):
