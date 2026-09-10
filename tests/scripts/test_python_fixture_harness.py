@@ -109,6 +109,15 @@ def _tokens(text: str) -> list[str]:
     return out
 
 
+#: The characters a head may end at for the mark after it to mean anything. Each
+#: introduces a value rather than continuing a name, so a token carrying one
+#: cannot also be the start of some other option: nothing but `--cov=<pkg>` is
+#: spelled `--cov=`, and `file://` and `https://pypi.org/pypi/` are the same
+#: shape. A head ending in anything else is a prefix of other tokens as well as
+#: of its own value, which is what `_marked` refuses.
+_VALUE_DELIMITERS = "=:/"
+
+
 def _marked(wanted: str) -> bool:
     """Whether `_concrete` left this token a prefix for the caller to complete.
 
@@ -117,8 +126,16 @@ def _marked(wanted: str) -> bool:
     order among the unmarked tokens and presence for the marked ones. A
     disagreement about which is which would move a token quietly from one rule to
     the other.
+
+    The mark counts only where the head before it ends at a value delimiter,
+    because that is what makes the prefix unambiguous rather than merely long.
+    `-r<`, from a record writing `-r<file>`, is a mark by shape alone and would
+    accept `-rf`, a different flag; `-<` would accept every flag there is. Length
+    is the wrong test for the same reason - `-ab<` is three characters and accepts
+    `-abc`. `_glued_heads_end_at_a_delimiter` refuses that shape in a record, so
+    this returning False for it never has to stand in as the diagnosis.
     """
-    return wanted.endswith("<")
+    return len(wanted) > 1 and wanted.endswith("<") and wanted[-2] in _VALUE_DELIMITERS
 
 
 def _matches(wanted: str, token: str) -> bool:
@@ -127,9 +144,14 @@ def _matches(wanted: str, token: str) -> bool:
     Equality, except for a token `_concrete` reduced to the part before a
     placeholder and left a trailing `<` on as the mark: `--cov=<` is satisfied by
     any token beginning `--cov=` that carries something after it, which is what
-    the caller supplied. The mark is what keeps this from being a blanket prefix
-    test - `-r` would otherwise be satisfied by `-rf`, and an exact token must
-    stay exact.
+    the caller supplied.
+
+    What keeps this from being a blanket prefix test is `_marked`, and both halves
+    of that matter. A token with no mark compares by equality, so `-r` is not
+    satisfied by `-rf`. A token whose mark sits on a head that does not end at a
+    value delimiter is not marked either, so `-r<` also compares by equality: the
+    prefix test applies where the head can only be its own option's, never where
+    it is a prefix of other options too.
 
     A record's own tokens never end in `<`, because the placeholder it writes
     closes with `>`, so the older guards passing raw tokens through
@@ -705,6 +727,61 @@ def test_a_truncated_flag_is_satisfied_by_a_value_and_by_nothing_else():
     assert not _matches("--cov-config=<", "--cov=fixture_pkg")
     assert not _matches("-r", "-rf")
     assert _matches("-r", "-r")
+
+
+def test_a_mark_on_a_head_that_is_a_prefix_of_other_flags_is_not_a_mark():
+    """The one shape of this file's own matching that failed the clean way.
+
+    `_concrete` truncates at the `<` whatever the head looks like, so a record
+    writing `-r<file>` yields `-r<` and one writing `-<n>` yields `-<`. Read as a
+    prefix, the first accepts `-rf`, a different flag, and the second accepts
+    every flag there is - a token that asserts nothing while looking like an
+    assertion, which is the false-clean direction and the reason this is the hole
+    worth closing rather than the two that only fail to see a prescription.
+
+    The delimiter is what separates the two rows below from the `--cov=` rows
+    above, and it is the property rather than the length: `-ab<` is as long as
+    `--c=<` and accepts `-abc`. So each of these compares by equality, which no
+    real command token satisfies - and a record that writes one is refused by
+    `test_a_glued_placeholder_needs_a_value_delimiter_before_its_mark` rather than
+    left to fail here as a token it did write going missing.
+    """
+    assert not _matches("-r<", "-rf")
+    assert not _matches("-r<", "-rrequirements.txt")
+    assert not _matches("-<", "-x")
+    assert not _matches("-<", "--verbose")
+    assert not _matches("-ab<", "-abc")
+    assert _matches("file://<", "file:///tmp/fixture")
+    assert _matches("@stryker-mutator/<", "@stryker-mutator/jest-runner")
+
+
+def test_a_glued_placeholder_needs_a_value_delimiter_before_its_mark():
+    """No record writes a glued placeholder this file cannot verify.
+
+    `_matches` refusing to treat `-r<` as a mark makes the matcher safe and makes
+    a record writing `-r<file>` fail somewhere unhelpful: the token is real, no
+    command token equals it, and the coverage property reports it missing. This
+    is where that shape is named instead, so the fix is legible - write the value
+    space-separated, as `pip-audit -r <requirements>` already does, and both the
+    mark and this guard go quiet.
+
+    The floor is the tree's own count and the tree's count is zero, so this fires
+    on the first such token rather than on a number that has to be maintained.
+    """
+    offenders = []
+    for path in sorted(SKILLS.glob("*-audit/checks/*.md")):
+        for span in _spans(path.read_text()):
+            for concrete in _concrete(_tokens(span)):
+                if concrete.endswith("<") and not _marked(concrete):
+                    offenders.append(
+                        f"{path.relative_to(SKILLS)}: {span!r} -> {concrete!r}"
+                    )
+    assert offenders == [], (
+        "a placeholder glued to a head that does not end at a value delimiter "
+        f"({_VALUE_DELIMITERS!r}) cannot be verified: the head is a prefix of "
+        "other tokens too, so matching it would accept a different flag. Write "
+        "the value space-separated instead:\n  " + "\n  ".join(offenders)
+    )
 
 
 def test_a_form_led_by_a_runner_is_found_through_the_argvs_own_first_word():
