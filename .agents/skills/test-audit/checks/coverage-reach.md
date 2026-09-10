@@ -105,7 +105,7 @@ routes:
       exists to refuse.
     note: >-
       **Never reach for `c8` around a Vitest command.** `c8` wraps an arbitrary
-      command and is fetchable from the partition's own registry, and it cannot
+      command and is fetchable from npm, and it cannot
       see coverage produced inside Vitest's worker processes, nor the TypeScript
       Vitest transforms in memory: run against a real target it reported
       **96.35% statements and 69.56% branches over three files** - two configs
