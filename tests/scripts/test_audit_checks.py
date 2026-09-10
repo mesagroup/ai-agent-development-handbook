@@ -1424,6 +1424,44 @@ def test_a_route_defaults_to_the_any_language(tmp_path):
     assert check.routes[0].lang == "any"
 
 
+def test_an_unrecognized_lang_earns_one_error_and_not_the_registry_s_too(tmp_path):
+    """One authoring mistake, one message.
+
+    An unrecognized `lang` is recovered as `any` so the rest of the route
+    still reports its own problems. `any` is also what the registry
+    requirement fires on, so the recovery used to earn a second error
+    demanding a registry - a field that stops being required the moment
+    `lang` is corrected, demanded under a language the record never wrote.
+    An author reading that adds `registry: pypi` to a route that wanted
+    `lang: python`, which loads clean and is wrong.
+
+    The recovery still happens, and every other rule still sees `any`; only
+    the requirement that exists *because* `any` implies no registry is
+    skipped, since a recovered `any` is not the author's claim.
+    """
+    errors = _errors_for_route(
+        tmp_path,
+        "lang: pyhton\n    kind: command\n    tool: ruff\n    argv: [ruff, check]",
+    )
+    assert len(errors) == 1, errors
+    assert "lang must be one of" in errors[0], errors
+    assert "needs a registry" not in errors[0], errors
+
+
+def test_a_genuinely_universal_route_still_needs_its_registry(tmp_path):
+    """The complement of the test above, so the suppression cannot go wide.
+
+    Skipping the requirement on a recovered `lang` is right; skipping it on a
+    written one would remove the rule this branch exists to add, and nothing
+    else in the suite reads the two cases against each other.
+    """
+    errors = _errors_for_route(
+        tmp_path,
+        "lang: any\n    kind: command\n    tool: ruff\n    argv: [ruff, check]",
+    )
+    assert any("needs a registry" in e for e in errors), errors
+
+
 def test_a_record_with_no_routes_key_carries_none(tmp_path):
     _write(tmp_path, "arch-audit/checks/layering.md", GOOD)
     checks, errors = ac.load_checks(tmp_path)
