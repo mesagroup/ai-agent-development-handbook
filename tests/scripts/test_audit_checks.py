@@ -1229,6 +1229,27 @@ def test_registry_for_reads_the_route_then_the_lang_then_nothing(tmp_path):
     assert ac.registry_for(nothing_to_run.routes[0]) is None
 
 
+# The first word of a command that leaves nothing for a one-shot runner to go in
+# front of: a package manager whose subcommand is run directly, or a runner the
+# argv already spells. Both are `registry_for`'s two reasons for answering a
+# route that needs no fetch, which is the trap its docstring warns about.
+_RUNS_ITSELF = frozenset(
+    {
+        "npm",
+        "pnpm",
+        "yarn",
+        "pip",
+        "poetry",
+        "pipenv",
+        "uv",
+        "npx",
+        "dlx",
+        "uvx",
+        "pipx",
+    }
+)
+
+
 def test_the_registry_requirement_is_not_vacuous():
     """The rule fires on routes that exist, and the count is the guard.
 
@@ -3310,4 +3331,58 @@ def test_a_dlx_form_for_yarn_always_has_a_runnable_shared_argv_beside_it():
         f"{_KEYS_WHOSE_MANAGER_MAY_LACK_DLX}, so this guard has no subject - "
         "if those forms were removed deliberately, remove this too rather "
         "than leaving it passing over nothing"
+    )
+
+
+def test_the_docstring_s_no_fetch_count_is_the_tree_s():
+    """`registry_for`'s warning cites a number, so the number is checked here.
+
+    The docstring's whole point is that a non-`None` answer is not a verdict
+    that a fetch applies, and its evidence is how many routes get an answer
+    and need no fetch. A number in prose is the kind of claim CLAUDE.md says
+    to compute rather than assert, and the two places that carry it - this
+    docstring and CLAUDE.md's `## Check records` - are read by agents that
+    cannot recompute it. So compute it, and read the docstring's own figures
+    back rather than restating them, which is what makes an edit to either
+    number fail instead of quietly disagreeing with the tree.
+
+    The predicate is the docstring's own two reasons: a package-manager
+    subcommand run directly, and an argv that already leads with a runner.
+    Both leave nothing for a caller to put in front, and both derive a
+    registry anyway, which is the trap.
+    """
+    checks, errors = ac.load_checks(ac.SKILLS_DIR)
+    assert errors == [], errors
+
+    answered = [
+        route
+        for check in checks.values()
+        for route in check.routes or ()
+        if route.kind == "command" and ac.registry_for(route) is not None
+    ]
+
+    def leads_with_a_manager_or_a_runner(route: ac.Route) -> bool:
+        commands = [route.argv] if route.argv else []
+        commands += list((route.argv_by_partition or {}).values())
+        return bool(commands) and all(
+            command and command[0] in _RUNS_ITSELF for command in commands
+        )
+
+    no_fetch = [route for route in answered if leads_with_a_manager_or_a_runner(route)]
+
+    stated = re.search(
+        r"(\d+) of the (\d+) command routes that get an answer here\s+need no fetch",
+        ac.registry_for.__doc__,
+    )
+    assert stated, (
+        "`registry_for`'s docstring no longer states the two counts this guard "
+        "reads back. If the sentence was reworded, point the pattern at the new "
+        "wording rather than deleting the check - the numbers are what go stale"
+    )
+    assert (len(no_fetch), len(answered)) == (int(stated[1]), int(stated[2])), (
+        f"the tree has {len(no_fetch)} of {len(answered)} command routes getting an "
+        f"answer while needing no fetch; the docstring says {stated[1]} of "
+        f"{stated[2]}. CLAUDE.md's `## Check records` carries the same pair, so "
+        "both want updating together - and a large move here means the taxonomy "
+        "shifted rather than the count drifting"
     )
