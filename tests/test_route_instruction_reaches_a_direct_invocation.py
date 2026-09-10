@@ -171,7 +171,13 @@ def test_no_contract_sentence_is_back_in_the_sweep(sentence: str) -> None:
     """One copy, which is #70's second acceptance criterion.
 
     The sweep may point at the section and may name the fields while doing
-    so. What it may not do is describe them again: `sweep-obligations.md`
+    so, and it may restate one where the ledger says it does and why - the
+    runner bullet states the yarn instance of the `argv_by_partition` key
+    rule, because choosing between a keyed entry and the shared `argv` on a
+    Yarn classic partition is a runner choice. This check is over the
+    engine's wording, so a deliberate restatement in the sweep's own words
+    passes and a copy does not, which is the line the ledger draws too.
+    What the sweep may not do is take a field's rule back: `sweep-obligations.md`
     dispositions these obligations `delegated` precisely because a second
     authority for one rule is the failure, and the fields are validated by
     `scripts/audit_checks.py`, so the copy that drifts is a contract
