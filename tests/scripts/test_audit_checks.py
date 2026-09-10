@@ -3039,6 +3039,70 @@ def test_a_routes_record_may_not_carry_a_fallback_section(tmp_path):
     assert any("Tooling fallback" in e for e in errors), errors
 
 
+@pytest.mark.parametrize("fence", ["```bash", "```", "~~~bash", "   ```"])
+def test_a_record_may_not_write_a_prescription_in_a_fenced_block(tmp_path, fence):
+    """The shape that hides a command from every reader of one.
+
+    The form extractor reads inline backtick spans out of the prescribing
+    paragraph, so a command in a fence is invisible to it and the suite stays
+    green over a prescription nothing holds against what ran. A fence is also
+    the most idiomatic Markdown way to write a command, which is why the
+    convention needs enforcing rather than assuming - no record uses one today,
+    and nothing but this stops the next one.
+
+    Both spellings and an indented fence, because a rule that catches only
+    ``` leaves the same hole open under a different three characters.
+    """
+    _write(
+        tmp_path,
+        "demo-audit/checks/thing.md",
+        _record(tooling={"python": ["t"]})
+        + f"\n## Tooling fallback\n\n{fence}\npydeps --show-cycles\n{fence.strip()}\n",
+    )
+    checks, errors = ac.load_checks(tmp_path)
+    assert any("fenced code block" in e for e in errors), errors
+    # The record is absent from the mapping, which is the severity this rule
+    # carries on purpose: a prescription no property can read is the
+    # absent-check-reads-as-clean failure, and an integrity gate makes it a red
+    # suite rather than a check that quietly stops running.
+    assert checks == {}
+
+
+def test_a_record_may_show_a_tools_output_in_an_indented_block(tmp_path):
+    """The convention's own escape, which the rule above must not close.
+
+    `arch/complexity` shows `xenon`'s observed output as an indented block. That
+    prescribes nothing and no extractor reads it, so forbidding it would forbid
+    the one place a record can show what a finding looks like.
+    """
+    _write(
+        tmp_path,
+        "demo-audit/checks/thing.md",
+        _record(tooling={"python": ["t"]})
+        + "\n## Tooling fallback\n\nRun `t`, which reports:\n\n    t: 3 blocks over the threshold\n",
+    )
+    checks, errors = ac.load_checks(tmp_path)
+    assert errors == [], errors
+    assert set(checks) == {"demo/thing"}
+
+
+def test_no_record_in_the_tree_carries_a_fence(tmp_path):
+    """The rule states a convention the tree keeps, not a migration it needs.
+
+    Read off the records rather than from the loader's own verdict, because
+    `load_checks` reporting no errors would also be satisfied by a rule that
+    never fires.
+    """
+    fenced = [
+        path.relative_to(ac.SKILLS_DIR).as_posix()
+        for path in sorted(
+            ac.SKILLS_DIR.glob(f"*{ac.SKILL_SUFFIX}/{ac.CHECKS_SUBDIR}/*.md")
+        )
+        if ac._FENCE_RE.search(path.read_text())
+    ]
+    assert fenced == [], fenced
+
+
 def test_a_tooling_record_may_carry_a_fallback_section(tmp_path):
     """A record still on the old schema keeps its section, and must."""
     _write(
