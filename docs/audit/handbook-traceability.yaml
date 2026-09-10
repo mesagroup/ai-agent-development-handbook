@@ -384,6 +384,33 @@
     - arch/cycles
   note: arch-audit's `arch/layering` check is explicitly at its strongest when the project documents its tiers, so it audits conformance to whichever tier list the project declares. What it does not second-guess is the ordering principle behind that list - sort by reuse - which is a design judgment rather than a graph property.
 
+- id: codebase-structure/count-the-runtimes-and-make-each-one-earn-its-place-a
+  section: "Count the runtimes, and make each one earn its place"
+  claim: Carry the fewest runtimes that do the work and treat each additional one as a decision rather than a consequence; a second language stack earns its place when the work genuinely cannot be done in the primary one and the team can carry both, and every runtime beyond the primary one is declared in the binding-rules file with what it buys and who maintains it.
+  class: process
+  severity: important
+  note: >-
+    The judgment is not decidable from a snapshot, which is the reason PR #17 gave for rejecting an `arch/guest-stack` check and which still holds: whether a second stack could be replaced by the primary one turns on which libraries exist and who the team can staff, neither of which is in the tree. The auditable residue is split into the `-b` row rather than left inside this claim, because a row takes one class and bundling the two would make whichever is written second invisible.
+
+- id: codebase-structure/count-the-runtimes-and-make-each-one-earn-its-place-b
+  section: "Count the runtimes, and make each one earn its place"
+  claim: Every runtime beyond the primary one is named in the project's binding-rules file, with what it buys and who maintains it, so a second stack is an owned decision rather than an unowned arrival.
+  class: static
+  severity: important
+  gap:
+    recommendation: extend-skill
+    note: >-
+      arch-audit is the owner and has no check for this. Both halves are
+      snapshot-decidable and neither is a judgment - the runtimes present are
+      detectable from manifests and lockfiles, the declaration is a named list
+      in the rules file, and the finding is the set difference. What the check
+      must not do is rate the stack itself, because the individual costs of an
+      undeclared runtime belong to the domains that already own them
+      (`test`, `ci`, `deps`), which is why a guest-stack quality check was
+      rejected while this declaration check is worth having. Target issue: #91.
+  note: >-
+    Split from the `-a` row because the declaration is checkable while the judgment behind it is not. Undeclared is the failure this half names, so a project with one runtime satisfies it trivially and a project with three satisfies it by naming two.
+
 - id: codebase-structure/point-every-dependency-toward-the-core-and-never-cycle-a
   section: "Point every dependency toward the core, and never cycle"
   claim: Hold one invariant - an import may only point at a more-reusable tier than the one it lives in, and the graph has no cycles - so core infrastructure never imports an application's types, and cross-application reuse goes through composition (exposing one agent to another as a tool) rather than reaching into another application's internals.
