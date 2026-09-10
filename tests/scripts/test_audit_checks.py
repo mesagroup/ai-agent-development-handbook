@@ -3050,14 +3050,19 @@ def test_a_record_may_not_write_a_prescription_in_a_fenced_block(tmp_path, fence
     convention needs enforcing rather than assuming - no record uses one today,
     and nothing but this stops the next one.
 
-    Both spellings and an indented fence, because a rule that catches only
-    ``` leaves the same hole open under a different three characters.
+    Both spellings, because a rule catching only ``` leaves the same hole open
+    under three different characters, and up to three spaces of indentation,
+    because that is a fence in CommonMark and four spaces is not. Every
+    parameter's *closing* fence carries the opener's own indentation: written
+    flush left it would be caught whatever the opener looked like, and the
+    indented parameter would then pass for a reason that has nothing to do with
+    what it is testing.
     """
     _write(
         tmp_path,
         "demo-audit/checks/thing.md",
         _record(tooling={"python": ["t"]})
-        + f"\n## Tooling fallback\n\n{fence}\npydeps --show-cycles\n{fence.strip()}\n",
+        + f"\n## Tooling fallback\n\n{fence}\npydeps --show-cycles\n{fence}\n",
     )
     checks, errors = ac.load_checks(tmp_path)
     assert any("fenced code block" in e for e in errors), errors
@@ -3068,38 +3073,59 @@ def test_a_record_may_not_write_a_prescription_in_a_fenced_block(tmp_path, fence
     assert checks == {}
 
 
-def test_a_record_may_show_a_tools_output_in_an_indented_block(tmp_path):
-    """The convention's own escape, which the rule above must not close.
+@pytest.mark.parametrize(
+    "block",
+    [
+        "    t: 3 blocks over the threshold",
+        "    ```\n    t: 3 blocks over the threshold\n    ```",
+    ],
+)
+def test_a_four_space_indented_block_is_not_a_fence(tmp_path, block):
+    """The convention's escape, which the rule above must leave open.
 
-    `arch/complexity` shows `xenon`'s observed output as an indented block. That
-    prescribes nothing and no extractor reads it, so forbidding it would forbid
-    the one place a record can show what a finding looks like.
+    No record body carries an indented block today - computed, zero of 77 - so
+    this is not protecting a use the tree makes. It is the place a record could
+    show a tool's observed output, and the second parameter is why the allowance
+    has to survive the fence rule rather than being incidental to it: a docs or
+    prompt lens quoting a Markdown tool's output would be quoting fences, and a
+    rule matching a fence at any indentation would reject the record for showing
+    one.
+
+    `arch/complexity` is the nearest thing the tree has, and it is not this: it
+    shows `xenon`'s output in a route `note`, in frontmatter, as inline spans -
+    which `_FENCE_RE` never sees, since it reads the body alone.
     """
     _write(
         tmp_path,
         "demo-audit/checks/thing.md",
         _record(tooling={"python": ["t"]})
-        + "\n## Tooling fallback\n\nRun `t`, which reports:\n\n    t: 3 blocks over the threshold\n",
+        + f"\n## Tooling fallback\n\nRun `t`, which reports:\n\n{block}\n",
     )
     checks, errors = ac.load_checks(tmp_path)
     assert errors == [], errors
     assert set(checks) == {"demo/thing"}
 
 
-def test_no_record_in_the_tree_carries_a_fence(tmp_path):
+def test_no_record_in_the_tree_carries_a_fence():
     """The rule states a convention the tree keeps, not a migration it needs.
 
     Read off the records rather than from the loader's own verdict, because
     `load_checks` reporting no errors would also be satisfied by a rule that
-    never fires.
+    never fires - and off the body alone, because that is what the loader reads
+    and a route note in frontmatter is a different question.
+
+    `rglob`, matching `load_checks`, so a record at the wrong depth is read here
+    too. Such a record is already its own error, but a glob narrower than the
+    loader's would report "no record carries a fence" about a set of records the
+    loader is larger than.
     """
-    fenced = [
-        path.relative_to(ac.SKILLS_DIR).as_posix()
-        for path in sorted(
-            ac.SKILLS_DIR.glob(f"*{ac.SKILL_SUFFIX}/{ac.CHECKS_SUBDIR}/*.md")
-        )
-        if ac._FENCE_RE.search(path.read_text())
-    ]
+    fenced = []
+    for path in sorted(ac.SKILLS_DIR.rglob("*.md")):
+        if path.parent.name != ac.CHECKS_SUBDIR:
+            continue
+        _, body, _ = ac._split_frontmatter(path.read_text())
+        if ac._FENCE_RE.search(body):
+            fenced.append(path.relative_to(ac.SKILLS_DIR).as_posix())
     assert fenced == [], fenced
 
 
