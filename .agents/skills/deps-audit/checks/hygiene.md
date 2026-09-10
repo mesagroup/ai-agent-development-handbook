@@ -28,10 +28,34 @@ routes:
       where a distribution name equals its import name and misreports in both
       directions at once where they diverge, emitting a declared-but-unused
       finding for the distribution and a missing-dependency finding for the
-      import it could not resolve.
+      import it could not resolve. **How the scan root is written changes what
+      it does, twice over, and neither shows in the output.** The root selects
+      the files while the dependency definitions come from the configuration
+      found at the working directory, so `deptry <target>` run from anywhere
+      else scans the target's source against *your* dependencies: measured on
+      a copy of this repository with a declared dependency removed, that
+      prints `Success! No dependency issues found.` and exits 0 while the same
+      files run with the target as the working directory report the missing
+      import. An audit that reports a pass is worse than one that cannot run,
+      so either run it with the target as the working directory or pass
+      `--config <target>/pyproject.toml`. And the exclude patterns are matched
+      against the path as written, and the defaults are relative - `tests`,
+      `venv` - so an absolute root matches none of them and pulls the target's
+      test suite into the scan, where every `import pytest` comes back as a
+      misplaced dev dependency. Both are invocation artifacts rather than
+      findings about the target. **A sibling module imported as a top-level
+      name is the third:** where a target's scripts sit on `sys.path` and
+      import each other, each such import is reported as a missing
+      dependency, and this repository was the worked instance at eight
+      occurrences across five files before it configured
+      `known_first_party`.
     alone_insufficient: >-
       `deptry` takes a scan root and the record names none, so the argv is not
-      a complete invocation on its own.
+      a complete invocation on its own - and naming one is not enough either:
+      the root has to be relative to the target with the target as the working
+      directory, or the config pointed at the target explicitly, for the
+      reasons the note gives. A run that gets this wrong does not fail; it
+      passes.
     applies_when: >-
       The partition is not pipenv-only. `deptry` has no reader for `Pipfile`
       or `Pipfile.lock` at all: pointed at a pipenv-only project it raises
