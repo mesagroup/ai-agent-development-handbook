@@ -20,7 +20,7 @@ Both fixes get a bold lead, which is how the sibling records write a `## Fix` wi
 
 ## 4. `## Review lens` gains the paragraph that judges the new fix
 
-The family's `**Pipeline-security correctness**` paragraph, verbatim as the three sibling records carry it, because consistency across them is the convention and the migration rule is that a record's lens reviews that record's own fix. `**No pipeline regression**` stays and judges the exit-code fix.
+The family's `**Pipeline-security correctness**` paragraph, verbatim as the two sibling records carrying it do - `ci/permissions-secrets` and `ci/trigger-safety`, while `ci/action-supply-chain` carries `**Supply-chain integrity**` instead - because consistency across them is the convention and the migration rule is that a record's lens reviews that record's own fix. `**No pipeline regression**` stays and judges the exit-code fix.
 
 ## 5. The `handbook_note` stops lumping the two faults together
 

@@ -18,9 +18,13 @@ handbook_note: >-
   SHA, never running untrusted pull-request code with secrets in scope, and
   short-lived federated credentials - and interpolating attacker-controlled
   *data* into an otherwise trusted step is none of them. The third is
-  untrusted *code*, which is `ci/trigger-safety`'s. So this check exceeds
-  the handbook on technical grounds rather than on taste, which is what the
-  empty list is for.
+  untrusted *code*, which is `ci/trigger-safety`'s. The source-to-sink
+  clause is the other candidate and is also not it: Part 9 divides its
+  subject into three surfaces - first-party code, what you depend on, and
+  the pipeline that builds you - and that clause is the first surface's, so
+  a workflow's own `run:` block is outside it by the handbook's own
+  division. So this check exceeds the handbook on technical grounds rather
+  than on taste, which is what the empty list is for.
 tooling:
   any: [actionlint, zizmor]
 ---
@@ -41,11 +45,19 @@ Invalid workflow syntax, shell quoting bugs, misused expressions (`${{ }}` injec
 
 `actionlint` (catches syntax, expression, and shell-quoting errors), or the platform's config validator.
 
-`zizmor <workflow>` for the injection half; capture the rule id + `file:line`. Both tools are needed and they answer different questions: `actionlint` type-checks an expression and shellchecks the `run:` block it lands in, which says nothing about whether the value interpolated there is attacker-controlled, and this skill's `**Detect**` list is where the split is stated. A run reaching for `actionlint` alone answers the syntax and quoting halves and reports nothing for the half this record calls Critical - a tool that ran and found nothing, which reads exactly like a clean workflow.
+`zizmor <workflow>` for the injection half; capture the rule id + `file:line`. The two tools answer different questions rather than standing in for one another, and this skill's `**Detect**` list is where that split is stated: it gives `actionlint` workflow correctness and shellcheck of `run:` blocks, and gives `zizmor` injection. Shellchecking the block an expression lands in says nothing about whether the value interpolated there is attacker-controlled, so a run reaching for `actionlint` alone answers the syntax and quoting halves and reports nothing for the half this record calls Critical - a tool that ran and found nothing, which reads exactly like a clean workflow.
+
+Where `zizmor` cannot be obtained the injection half is still answerable by reading, so it is not `no-evidence`: grep every `run:` block for `${{` and read each hit for a context an outsider can write - `github.event.issue.*`, `github.event.pull_request.*`, `github.event.comment.*`, `github.head_ref`, and `inputs.*` on a `workflow_dispatch`. Say which half each row's evidence came from either way. A status that covers both halves when one tool ran is the failure the paragraph above describes, arriving by a different route.
 
 ## Fix
 
-**Bind untrusted context into `env:` rather than interpolating it into the shell:** put `env: BODY: ${{ github.event.issue.body }}` on the step and reference `"$BODY"` in the `run:` body, so the value reaches the script as an environment variable the shell reads rather than as text spliced into the script before the shell parses it. Where the action offers an input for the value, prefer that over shell interpolation entirely. **Quoting the interpolation is not the fix** - `"${{ github.event.issue.body }}"` is substituted into the script text first, so the quotes end up around whatever the attacker sent and inside whatever they closed.
+**Bind untrusted context into `env:` rather than interpolating it into the shell:** give the step an `env:` block mapping a name to the expression, `BODY` to `${{ github.event.issue.body }}`, and reference `"$BODY"` in the `run:` body, so the value reaches the script as an environment variable the shell reads rather than as text spliced into the script before the shell parses it. The reference is the step's shell's, not bash's everywhere - `$env:BODY` under `pwsh`, `os.environ["BODY"]` under `shell: python`, `process.env.BODY` in an `actions/github-script` `script:`. **Quoting the interpolation is not the fix** - `"${{ github.event.issue.body }}"` is substituted into the script text first, so the quotes end up around whatever the attacker sent and inside whatever they closed.
+
+**An action input is a fix only where the action reads it from the environment.** A JavaScript action does, so passing the value as a `with:` input neutralizes it there. A composite action does not: its inputs arrive as `${{ inputs.* }}`, so a composite whose own `run:` interpolates one has moved the sink into another file rather than removed it, and a container action's `args:` is the same shape. Read the action before preferring its input - this is exactly the fix-that-moves-rather-than-removes case `## Review lens` asks about, so a finding closed this way and not read is one the lens is meant to reopen.
+
+**A value written to a workflow command file needs a delimiter as well as the binding.** `echo "TITLE=$BODY" >> "$GITHUB_ENV"` satisfies the binding above and is still a sink: a newline in the value appends lines of the attacker's choosing to the file, which sets environment variables for every later step in the job. Write it as a heredoc under a delimiter the value cannot contain, and the same for `$GITHUB_OUTPUT` and `$GITHUB_PATH`.
+
+**What the pattern covers.** An expression in a `run:` block, which is what the lead prose and the Critical tier name. The same binding carries to another position where a shell or a script reads the value, a `github-script` `script:` being the common one. An `if:` is not a shell at all, so the binding does not apply there and this record prescribes nothing for a finding in one - `zizmor` reports injection at positions this fix does not reach, and saying so is better than a pattern that looks general.
 
 **Make failures actually fail** (drop `|| true`, propagate exit codes).
 
