@@ -855,11 +855,19 @@ def test_a_glued_placeholder_needs_a_value_delimiter_before_its_mark():
     diagnosis the `supplied` branch used to give it. This is where that shape is
     named instead, so the fix is legible.
 
-    Both places a record can write a command are read, because they are different
-    fields and only one of them has backticks: the prose spans, and each route's
-    `argv` and `argv_by_partition`. Five glued tokens across three routes in two
-    records live in the second, so a guard reading spans alone would be reading
-    the field the shape is least likely to appear in.
+    Every field a record can write a command in is read, because they are
+    different fields and only one of them has backticks: the prose spans, and
+    each route's `argv`, `argv_by_partition` and `then`. Five glued tokens across
+    three routes in two records live in the argv fields, so a guard reading spans
+    alone would be reading the field the shape is least likely to appear in.
+
+    `then` is read because it is a prescribed command too, not because anything
+    in the tree needs it: one route carries a `then` and it has no placeholder at
+    all. A `then` on a `runs` route gives that row a second `runs` form, and that
+    form goes through `_concrete` and the ordered/supplied split exactly as the
+    argv's does, so unverifiable glue there would fail as the bare tuple this
+    guard exists to replace. Found by review, having been left out on the
+    assumption that a command lives in an argv.
 
     The floor is the tree's own count and the tree's count is zero, so this fires
     on the first such token rather than on a number that has to be maintained.
@@ -878,7 +886,7 @@ def test_a_glued_placeholder_needs_a_value_delimiter_before_its_mark():
     assert errors == [], errors
     for cid, check in sorted(checks.items()):
         for route in check.routes or ():
-            argvs = [("argv", route.argv or ())]
+            argvs = [("argv", route.argv or ()), ("then", route.then or ())]
             argvs += [
                 (f"argv_by_partition[{name}]", argv)
                 for name, argv in sorted((route.argv_by_partition or {}).items())
