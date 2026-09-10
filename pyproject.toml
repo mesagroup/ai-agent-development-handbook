@@ -8,7 +8,38 @@ requires-python = ">=3.11"
 dependencies = ["pyyaml>=6.0", "markdown>=3.5"]
 
 [dependency-groups]
-dev = ["pytest>=8.0", "ruff>=0.6"]
+dev = ["pytest>=8.0", "ruff>=0.6", "deptry>=0.20"]
+
+# `deps/hygiene` prescribes `deptry`, and until #14 nothing here ran it - so
+# the check that would have caught this repository's own undeclared `markdown`
+# import only fired when a human invoked the skill. It is declared rather than
+# fetched at run time so the gate's version comes from the lockfile.
+#
+# Every module in `scripts/` is first-party. They import each other as
+# top-level names because `scripts/` is `sys.path[0]` at run time and is put on
+# the path by `tests/scripts/conftest.py` under pytest, and `deptry` reads such
+# an import as a missing dependency: eight of them across five files before
+# this list existed. The list names the whole directory rather than the four
+# names that trip it today, because a module there is first-party by
+# construction and a list of what is imported this week would fail CI on the
+# next sibling import. `tests/test_deptry_gate.py` holds it against the
+# directory.
+#
+# `tests/` stays outside the scan, which is `deptry`'s own default and is
+# correct rather than merely conservative: including it reports `pytest` as a
+# misplaced dev dependency eight times over, because `deptry` then reads the
+# suite as production code.
+[tool.deptry]
+known_first_party = [
+    "audit_checks",
+    "build_python_fixtures",
+    "grade_python_fixture_run",
+    "python_fixture_spec",
+    "render_handbook_artifact",
+    "render_handbook_traceability",
+    "render_python_fixture_expectations",
+    "run_python_fixture_lens",
+]
 
 # Carried over from lidia-agents, where this code was written and linted. A
 # different config here would flag the migrated files on arrival, which reads
