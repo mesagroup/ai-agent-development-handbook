@@ -1,9 +1,10 @@
-"""Keep the `no-evidence` reason vocabulary one set across its three copies (#74).
+"""Keep the `no-evidence` reason vocabulary one set across its four copies (#74).
 
-`audit-core/SKILL.md` defines the reasons, `audit/SKILL.md` restates them in
-the list that tells a domain agent how to render `no-evidence`, and
+`audit-core/SKILL.md` defines the reasons, `audit/SKILL.md` restates them
+twice - once in the list that tells a domain agent how to render `no-evidence`,
+and once inside the consolidated report's own template - and
 `scripts/run_python_fixture_lens.py` mirrors the subset a run of that harness
-can produce. Three copies in two languages, and nothing held them together:
+can produce. Four copies in two languages, and nothing held them together:
 adding a reason to the engine and forgetting the sweep leaves a domain agent
 enumerating three where the engine has four, which does not fail any gate and
 does not look like anything when read.
@@ -12,14 +13,21 @@ Both sets are **parsed out of the prose** rather than written here as a
 literal. A test that spells the expected reasons would be a fourth copy, and
 it would pass whenever it agreed with itself while the files disagreed.
 
-**What this cannot reach is a copy that names no reason.** `data-protection-audit`
+The template copy is the one that reaches furthest. It sits inside the report
+fence, so it is copied verbatim into every consolidated report handed to an
+audited team, and a stale enumeration there tells someone outside this
+repository that a cell value they are looking at cannot exist. It went stale on
+the fourth reason exactly once, which is why it is anchored here now.
+
+**What this cannot reach is a copy outside the three anchored spans, or one that
+names no reason.** `data-protection-audit`
 went stale on the fourth reason by paraphrase - "because a grant was withheld,
 because no candidate could be obtained, or because one ran and failed - all
 three of which a different environment would fix" - and nothing here matches a
 sentence like that, because there is no reason name in it to parse. A reading
-pass found it. So this module holds the copies that spell the names, and the
-prose pass over the rest stays load-bearing rather than being replaced by a
-green suite.
+pass found it, and a reading pass found the template copy too. So this module
+holds the spans that spell the names, and the prose pass over everything else
+stays load-bearing rather than being replaced by a green suite.
 
 The lens is deliberately not equal to the engine's set. `not-prescribed` is a
 check's verdict on a partition; a row in that harness is one invocation's
@@ -56,8 +64,16 @@ _SWEEP_SPAN = (
     "Render `no-evidence` with the reason that produced it",
     "If the check has no lens",
 )
+# The report template's own copy, which names the reasons as a bare list rather
+# than in either house style - so it needs its own pattern, and it is why the
+# strict/loose agreement below is checked per span rather than once.
+_TEMPLATE_SPAN = (
+    "a `no-evidence` cell carries its reason",
+    "because a reader deciding what to do next",
+)
 _CORE_REASON = re.compile(r"`([a-z][a-z-]+)` \(")
 _SWEEP_REASON = re.compile(r"`([a-z][a-z-]+)` where ")
+_TEMPLATE_REASON = re.compile(r"`([a-z][a-z-]+)`(?=,| or | -)")
 
 # Every hyphenated code span in a vocabulary paragraph, whatever follows it.
 # The strict patterns above encode the house style - a reason is written as a
@@ -97,6 +113,14 @@ def _sweep_reasons() -> set[str]:
     return set(_SWEEP_REASON.findall(_sweep_span()))
 
 
+def _template_span() -> str:
+    return _paragraph(SWEEP.read_text(encoding="utf-8"), *_TEMPLATE_SPAN)
+
+
+def _template_reasons() -> set[str]:
+    return set(_TEMPLATE_REASON.findall(_template_span()))
+
+
 def _lens_reasons() -> set[str]:
     sys.path.insert(0, str(REPO_ROOT / "scripts"))
     import run_python_fixture_lens
@@ -121,12 +145,19 @@ def test_the_parse_found_a_real_vocabulary() -> None:
         f"parsed {sorted(sweep)} out of {SWEEP.name}, which is fewer reasons than "
         "its rendering list names"
     )
+    template = _template_reasons()
+    assert len(template) >= 4, (
+        f"parsed {sorted(template)} out of {SWEEP.name}'s report template, which is "
+        "fewer reasons than the template enumerates. That copy ships to the audited "
+        "team, so a parse that stops seeing it is the one worth failing loudest"
+    )
     # The floor is a lower bound, so it passes on a parse that found four of
     # five. Reading each span a second time with a pattern that does not care
     # what follows the name is what catches a reason written in a new style.
     for name, span, strict in (
         (AUDIT_CORE.name, _engine_span(), engine),
         (SWEEP.name, _sweep_span(), sweep),
+        (f"{SWEEP.name}'s report template", _template_span(), template),
     ):
         loose = set(_ANY_HYPHENATED.findall(span)) - NOT_A_REASON
         assert loose == strict, (
@@ -146,6 +177,23 @@ def test_the_sweep_enumerates_the_engine_s_reasons() -> None:
         f"list names {sorted(sweep)}. Only in the engine means a domain agent "
         "never reports it; only in the sweep means it is rendered against a "
         "vocabulary the engine does not define"
+    )
+
+
+def test_the_report_template_enumerates_the_engine_s_reasons() -> None:
+    """A reason the template omits is one the audited team is told cannot exist.
+
+    Held separately from the rendering list because the two have different
+    readers and went stale independently: the list is an instruction to an
+    agent, the template is prose the agent copies into the report. A cell can
+    carry a reason the template's own legend does not admit, and the person
+    deciding what to do next is the one who cannot resolve it.
+    """
+    engine, template = _engine_reasons(), _template_reasons()
+    assert engine == template, (
+        f"{AUDIT_CORE.name} defines {sorted(engine)} and the report template "
+        f"enumerates {sorted(template)}. The template is inside the report fence, "
+        "so this difference is published to whoever reads the audit"
     )
 
 
