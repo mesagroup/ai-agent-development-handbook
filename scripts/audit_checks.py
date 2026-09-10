@@ -548,7 +548,14 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
                 )
 
         lang = entry.get("lang", "any")
-        if lang not in ROUTE_LANGS:
+        # An unrecognized `lang` is recovered as `any` so the rest of the route
+        # still loads and reports its own problems, but the recovery is not a
+        # claim the author made. The registry requirement below fires on `any`,
+        # so without this flag a typo'd language earns a second error demanding
+        # a field that stops being required the moment `lang` is corrected -
+        # and demanding it under a language the record never wrote.
+        lang_recovered = lang not in ROUTE_LANGS
+        if lang_recovered:
             errors.append(f"{loc}: lang must be one of {ROUTE_LANGS}, got {lang!r}")
             lang = "any"
 
@@ -835,6 +842,7 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
         if (
             kind == "command"
             and lang in UNIVERSAL_ROUTE_LANGS
+            and not lang_recovered
             and own_runner is not True
             and registry is None
             and not registry_declared
