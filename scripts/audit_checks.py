@@ -908,10 +908,10 @@ def registry_for(route: Route) -> str | None:
     itself: it prescribes no command, or its command is complete as written.
 
     **It does not answer whether a fetch applies at all, and a caller must not
-    read it that way.** Most command routes in this tree need no fetch and
-    still get an answer here: a subcommand of the target's own package manager
-    - `npm audit`, `pip list --outdated` - is run directly, and a route whose
-    argv already leads with a runner has its fetch spelled out. Both are
+    read it that way.** 26 of the 56 command routes that get an answer here
+    need no fetch: a subcommand of the target's own package manager - `npm
+    audit`, `pip list --outdated` - is run directly, and a route whose argv
+    already leads with a runner has its fetch spelled out. Both are
     `kind: command` with a language, so both derive a registry, and a caller
     that treats a non-`None` answer as "put this runner in front" produces
     `npx npm audit`. Deciding that is the three-kinds question, which no field
@@ -927,8 +927,9 @@ def registry_for(route: Route) -> str | None:
         route: The route to read.
 
     Returns:
-        A member of `REGISTRIES`, or `None` where the route needs no runner in
-        front of it at all.
+        A member of `REGISTRIES`, or `None` where the route settles the
+        question itself - it prescribes no command, or its command is complete
+        as written. Not a verdict on whether a fetch applies, per above.
     """
     if route.kind != "command" or route.own_runner is True:
         return None
