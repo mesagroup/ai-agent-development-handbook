@@ -36,14 +36,26 @@ routes:
       removing a declared dependency from a project and pointing the tool at
       it from outside, that prints `Success! No dependency issues found.` and
       exits 0, while the same files run with that project as the working
-      directory report the missing import. An audit that reports a pass is worse than one that cannot run,
-      so either run it with the target as the working directory or pass
-      `--config <target>/pyproject.toml`. And the exclude patterns are matched
-      against the path as written, and the defaults are relative - `tests`,
-      `venv` - so an absolute root matches none of them and pulls the target's
-      test suite into the scan, where every `import pytest` comes back as a
-      misplaced dev dependency. Both are invocation artifacts rather than
-      findings about the target. **A sibling module imported as a top-level
+      directory report the missing import. An audit that reports a pass is
+      worse than one that cannot run. **There is one right invocation, and it
+      is `.` with the target as the working directory.**
+      `--config <target>/pyproject.toml` is not the escape it looks like: it
+      chooses which manifest supplies the dependency definitions and nothing
+      else, so it leaves the second problem below untouched and still reads
+      the caller's installed distributions rather than the target's, which
+      this route's `in_env` requires. The second problem is that the exclude
+      patterns are matched against the path as written, anchored at its
+      start, and the defaults are relative - `tests`, `venv`, `\.venv`. So
+      **any** root but `.` puts a prefix in front of every path and matches
+      none of them: measured, a target scanned as an absolute path and as a
+      relative sibling both pull its test suite in, where every
+      `import pytest` returns as a misplaced dev dependency. Absoluteness is
+      not the trigger; being anything other than `.` is. By the same
+      mechanism a target carrying a virtualenv is exposed to having it
+      scanned, those patterns sitting in the same anchored list. These are
+      invocation artifacts rather than findings about the target, and unlike
+      the first problem they are loud: the run fails, with findings that are
+      not there. **A sibling module imported as a top-level
       name is the third:** where a target's scripts sit on `sys.path` and
       import each other, each such import is reported as a missing
       dependency, so on such a target the count of DEP001s can be entirely
@@ -53,10 +65,11 @@ routes:
     alone_insufficient: >-
       `deptry` takes a scan root and the record names none, so the argv is not
       a complete invocation on its own - and naming one is not enough either:
-      the root has to be relative to the target with the target as the working
-      directory, or the config pointed at the target explicitly, for the
-      reasons the note gives. A run that gets this wrong does not fail; it
-      passes.
+      it has to be `.`, with the target as the working directory, for the
+      reasons the note gives. The two ways of getting it wrong are worth
+      telling apart: name the wrong working directory and the run does not
+      fail, it passes; write the root as anything but `.` and it fails
+      loudly, with findings that are artifacts of the invocation.
     applies_when: >-
       The partition is not pipenv-only. `deptry` has no reader for `Pipfile`
       or `Pipfile.lock` at all: pointed at a pipenv-only project it raises

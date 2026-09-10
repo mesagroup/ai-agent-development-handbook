@@ -16,7 +16,10 @@ Three things can rot, and none of them is visible by reading the config:
   state #14 exists to end, and it looks identical to a working one.
 - **The gate is configured into silence.** `known_first_party` widened until
   it swallows a real third-party name leaves `deptry` green on a project with
-  a genuine missing dependency, which is how a gate like this dies.
+  a genuine missing dependency, which is how a gate like this dies. The
+  equality check above is what catches that, not the non-vacuity check below:
+  an exempted name is one that matches no module in `scripts/`. The
+  non-vacuity check only sees it for the one dependency it removes.
 
 The last is #14's third acceptance criterion - "undeclare a dependency, watch
 CI fail, restore" - as a test rather than as a thing done once on one commit.
@@ -24,6 +27,7 @@ CI fail, restore" - as a test rather than as a thing done once on one commit.
 
 from __future__ import annotations
 
+import importlib.util
 import re
 import shutil
 import subprocess
@@ -43,6 +47,25 @@ SCRIPTS = REPO_ROOT / "scripts"
 # imports it lazily inside a function - so it also holds the finding that a
 # function-level import is not a blind spot for this tool.
 UNDECLARED_UNDER_TEST = "markdown"
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _deptry_is_installed() -> None:
+    """Fail once, clearly, when the tool itself is missing.
+
+    Four of the tests below shell out to `deptry`, and without it they fail
+    with messages about a shipping check record or about this branch's own
+    invariants - sending a maintainer to edit prose when the cause is an
+    uninstalled tool. Module-scoped so that says itself once rather than
+    once per test. Not `importorskip`: skipping would leave the gate
+    unenforced and green, which is the state #14 exists to end.
+    """
+    if importlib.util.find_spec("deptry") is None:
+        pytest.fail(
+            "deptry is not importable, so none of the checks in this module "
+            "mean anything. It is declared in the dev dependency group; run "
+            "`uv sync --group dev`"
+        )
 
 
 def _config() -> dict:
@@ -165,6 +188,14 @@ def test_the_gate_fails_on_an_undeclared_import(
     non-zero and name the module. Exit code alone would pass on a tool that
     crashed, and the module name alone would pass on a tool that reported it
     as something harmless.
+
+    Which code it reports is deliberately not asserted. Removing the
+    declaration from a copy leaves the dependency installed in the
+    environment running this suite, so the finding comes back as
+    `DEP003 ... transitive dependency` rather than the `DEP001 ... missing`
+    that the same edit produces where it is not installed. Both are the gate
+    firing; pinning either would make this test a claim about the caller's
+    environment.
     """
     copy = project_with_an_undeclared_import
     result = _deptry(".", cwd=copy)
@@ -236,13 +267,20 @@ def test_a_scan_root_without_its_own_config_reports_a_false_clean(
     assert UNDECLARED_UNDER_TEST in pointed.stdout + pointed.stderr
 
 
-def test_an_absolute_scan_root_loses_the_default_excludes() -> None:
+def test_any_scan_root_but_dot_loses_the_default_excludes(tmp_path: Path) -> None:
     """The other half of the same trap, and it points the opposite way.
 
-    deptry matches its exclude patterns against the path as it appears, and
-    the default patterns are relative (`tests`, `venv`, `\\.venv`). So
-    `deptry .` excludes `tests/` and `deptry /abs/path/to/project` does not -
-    same project, same config, a different set of files scanned.
+    deptry matches its exclude patterns against the path as it appears,
+    anchored at the start, and the default patterns are relative (`tests`,
+    `venv`, `\\.venv`). So `deptry .` excludes `tests/` and any other spelling
+    of the same root does not - same project, same config, a different set of
+    files scanned.
+
+    **Absoluteness is not the trigger**, which is worth pinning because it is
+    the obvious wrong reading: a plain relative sibling path loses the
+    excludes too, since it also puts a prefix in front of every path. Both
+    spellings are checked here so the record's claim cannot decay into the
+    narrower one.
 
     Here that surfaces as `pytest` reported as a misplaced dev dependency once
     per test module: deptry is reading the suite as production code, which is
@@ -257,7 +295,10 @@ def test_an_absolute_scan_root_loses_the_default_excludes() -> None:
     """
     relative = _deptry(".", cwd=REPO_ROOT)
     absolute = _deptry(str(REPO_ROOT), cwd=REPO_ROOT)
-    assert relative.returncode == 0, "the relative invocation is not clean"
+    assert relative.returncode == 0, (
+        "the `.` invocation is not clean, so this test cannot show a "
+        f"difference:\n{relative.stdout + relative.stderr}"
+    )
     assert absolute.returncode != 0, (
         "an absolute scan root no longer pulls tests/ into the scan, so "
         "deptry's exclude matching has changed. Re-read deps/hygiene's note "
@@ -267,4 +308,19 @@ def test_an_absolute_scan_root_loses_the_default_excludes() -> None:
     assert "DEP004" in output and "pytest" in output, (
         "the absolute invocation failed for some other reason than the test "
         f"suite being scanned:\n{output}"
+    )
+
+    # The same root written as a relative sibling, to show the mechanism is
+    # the prefix rather than the leading slash.
+    parent = tmp_path / "parent"
+    (parent / REPO_ROOT.name).mkdir(parents=True)
+    shutil.copytree(REPO_ROOT / "scripts", parent / REPO_ROOT.name / "scripts")
+    shutil.copytree(REPO_ROOT / "tests", parent / REPO_ROOT.name / "tests")
+    shutil.copy(PYPROJECT, parent / REPO_ROOT.name / "pyproject.toml")
+    shutil.copy(PYPROJECT, parent / "pyproject.toml")
+    sibling = _deptry(REPO_ROOT.name, cwd=parent)
+    assert sibling.returncode != 0, (
+        "a relative sibling root kept the default excludes, so the trap is "
+        "about absolute paths after all and both the record's wording and "
+        f"this test's name are wrong:\n{sibling.stdout + sibling.stderr}"
     )

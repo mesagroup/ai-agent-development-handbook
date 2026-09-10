@@ -27,8 +27,8 @@ dev = ["pytest>=8.0", "ruff>=0.6", "deptry>=0.20"]
 #
 # `tests/` stays outside the scan, which is `deptry`'s own default and is
 # correct rather than merely conservative: including it reports `pytest` as a
-# misplaced dev dependency eight times over, because `deptry` then reads the
-# suite as production code.
+# misplaced dev dependency once per test module, because `deptry` then reads
+# the suite as production code.
 [tool.deptry]
 known_first_party = [
     "audit_checks",
