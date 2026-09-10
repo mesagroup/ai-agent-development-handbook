@@ -37,3 +37,16 @@ jobs:
       # stops the record describing a fixture the generator no longer builds.
       - name: Fixture expectations integrity
         run: uv run python scripts/render_python_fixture_expectations.py --check
+
+      # `deps/hygiene` prescribes this tool and nothing ran it until #14, so
+      # the check that would have caught this repository's own undeclared
+      # `markdown` import only fired when a human invoked the skill.
+      #
+      # `deptry` writes its whole report to stderr and leaves stdout empty, and
+      # signals findings with exit 1 - both measured in `deps/hygiene`'s own
+      # note and re-verified on this branch. So do not pipe this step's output:
+      # redirecting stdout looks tidy, captures nothing, and leaves a gate that
+      # is green because it reported into a void. The non-zero exit is the
+      # finding, not the tool failing.
+      - name: Dependency hygiene
+        run: uv run deptry .
