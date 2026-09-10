@@ -68,6 +68,7 @@ CONTRACT_SENTENCES = (
     "which applies regardless of the partition's language",
     "is the only one that hands you something to run",
     "names a package manager, not a version of one",
+    "naming the registry the runner in front of it has to reach",
     "that is the record saying this partition has no command for the check",
     "and you run both, in the order the record writes them",
     "which says the prescribed command is complete as written",
@@ -142,7 +143,7 @@ def test_the_contract_sentences_cover_the_fields() -> None:
     both checks below with nothing to say so. The floor is the number of
     fields the contract covers, so it moves only when the contract does.
     """
-    assert len(CONTRACT_SENTENCES) >= 12, (
+    assert len(CONTRACT_SENTENCES) >= 13, (
         f"{len(CONTRACT_SENTENCES)} contract sentences, which is fewer than the "
         "route contract has fields with a rule. Add the sentence for the field "
         "you are covering rather than lowering this floor"
