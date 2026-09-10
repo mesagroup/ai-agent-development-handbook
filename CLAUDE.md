@@ -73,6 +73,8 @@ A `tooling` list, on a record declaring `tooling` rather than `routes`, holds ca
 
 Every review-lens paragraph carries a `**Label** - ` prefix.
 
+**Every command a record prescribes appears in an inline backtick span**, because that is the only place the form extractor in `tests/scripts/test_python_fixture_harness.py` reads. A command written anywhere else is invisible to every property that holds a record's prescription against what actually ran, and the suite stays green over it. The loader rejects a fenced code block for that reason, in either spelling; an *indented* block is not what it forbids, since a record uses one to show a tool's observed output, which prescribes nothing. The remaining escape is a command written in prose with no backticks at all, which is an accepted limit rather than a parser to write: this convention is what makes it acceptable, and enforcing the fence is what stops the idiomatic way of hiding a command. Where a record glues a placeholder to a flag, the head must end at a value delimiter - `--cov=<pkg>`, not `-r<file>` - because the harness matches such a token as a prefix, and `-r` is a prefix of other flags while nothing but `--cov=<pkg>` is spelled `--cov=`. Write the value space-separated instead, as `pip-audit -r <requirements>` does.
+
 ## Matrix and records are one edge set
 
 A matrix row's `checks:` entry and a record's `handbook:` entry are the two directions of the same edge. Change one, change the other, or the gate fails. Add the citation and the row in the same commit.
