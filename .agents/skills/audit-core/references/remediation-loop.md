@@ -2,13 +2,13 @@
 
 Read this when the mode is fix, and not otherwise. `SKILL.md`'s loop runs steps 0 to 2 - scope and mode, evidence, the findings matrix - and stops there when the mode is report-only. These are the four steps after that stop: plan the remediation, apply the fixes, review the whole branch, finish.
 
-The step numbers continue `SKILL.md`'s, so step 3 below follows step 2 there. A report-only run reaches none of it, which is why it is not in the file every run loads.
+The step numbers continue `SKILL.md`'s, so step 3 below follows step 2 there, and that file's `## Cross-cutting rules (all domains)` govern these steps too - the domain gate per task, no writes to the target's working tree, no environment-specific values, and fixing what you touch. A report-only run reaches none of this, which is why it is not in the file every run loads.
 
 3. **Plan remediation.** Turn the fail/violation rows into a work list. Write a plan file under the project's plans location (fall back to `docs/plans/`).
    - **One task per coherent fix** (or tightly-coupled group), each independently verifiable.
    - **Global-constraints block** copied verbatim into every task: the domain's fix conventions, the gate that must stay green (link-checker / test suite / linter - whichever the domain uses), style/commit conventions, and **no environment-specific values** (no absolute machine paths, personal profiles, hostnames - use placeholders).
    - **Forward-safe ordering + per-item gate:** order tasks so none depends on a later task's output, and have each task leave the domain gate green in its own commit, so a regression is attributable to the task that caused it.
-   - Ground each task in the Phase-1 evidence (exact `file:line` / tool findings) so the implementer verifies rather than guesses.
+   - Ground each task in step 1's evidence (exact `file:line` / tool findings) so the implementer verifies rather than guesses.
 
 4. **Apply fixes - subagent-driven with per-item review.** Work one task at a time, tracking progress in a durable ledger (so the run survives interruption):
    1. Dispatch a **fresh implementer subagent** with: where the fix fits, the task brief + evidence, the global constraints and the report-file path. It makes the change, re-runs the domain gate to green, commits, and self-reviews.

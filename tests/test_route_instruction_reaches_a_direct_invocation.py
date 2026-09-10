@@ -1,8 +1,9 @@
 """Keep the route-running instruction where a directly invoked skill reads it (#70).
 
 The deep-audit entry point is a `<domain>-audit` skill invoked by name. Such
-a run reads that skill's own `SKILL.md`, `audit-core/SKILL.md` and the
-records in its own `checks/` directory, and never `audit/SKILL.md` - so an
+a run reads that skill's own `SKILL.md`, `audit-core/SKILL.md`, the
+references that file sends it to, and the records in its own `checks/`
+directory, and never `audit/SKILL.md` - so an
 instruction kept in the sweep front door does not reach it, which is the
 defect #70 records. The records are the other place it could have gone, and
 the reason it did not is that it would then be copied once per record. The

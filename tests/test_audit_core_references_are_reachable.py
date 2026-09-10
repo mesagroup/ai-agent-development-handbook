@@ -24,8 +24,12 @@ AUDIT_CORE = REPO_ROOT / ".agents" / "skills" / "audit-core" / "SKILL.md"
 REFERENCES = AUDIT_CORE.parent / "references"
 
 # A line long enough that finding it in two files means duplication rather
-# than two files happening to share a short phrase.
-_MIN_DUPLICATE = 120
+# than two files happening to share a short phrase. Computed against the
+# references rather than picked: their shortest instruction lines are 93 and 94
+# characters, and their headings are 32 and 34, so 80 catches a duplicated rule
+# and stays well clear of a shared heading. At 120 - the first value tried -
+# re-inlining either of those two instructions left this test green.
+_MIN_DUPLICATE = 80
 
 _LINK_RE = re.compile(r"\]\((references/[^)\s]+)\)")
 

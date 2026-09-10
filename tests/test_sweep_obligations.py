@@ -4,7 +4,7 @@ The ledger records, one row per obligation, how the `audit` sweep discharges
 each rule `audit-core` states. Its exposure is not that a row is wrong - a
 reader has to judge that - but that the files get reworded and every row
 silently stops pointing at anything. Each row quotes a verbatim anchor, and
-that is checkable: an anchor no longer present in `audit-core/SKILL.md` means
+that is checkable: an anchor no longer present in `audit-core` - `SKILL.md` or a file beside it in `references/` - means
 the obligation moved, changed wording, or was removed, and the row needs
 re-reading either way.
 
@@ -250,7 +250,7 @@ def test_the_obligations_table_is_not_empty() -> None:
 
 @pytest.mark.parametrize("row", ROWS, ids=_IDS)
 def test_anchor_occurs_exactly_once_in_audit_core(row: tuple) -> None:
-    """Each anchor pins one sentence in `audit-core/SKILL.md`, not zero or many.
+    """Each anchor pins one sentence of `audit-core`, not zero or many.
 
     Exactly-once rather than merely present: these anchors are short, and a
     phrase repeated in a later recap would let the row keep passing while the
