@@ -4711,14 +4711,13 @@ def _fake_route(**kw):
     # overridden tool here too - a fixed default would silently describe a
     # different installable from the one the route names.
     field.setdefault("package", field["tool"])
-    # `registry` follows `lang` the way the loader derives it, so a fake route
-    # left at the default reads the way a real `lang: python` one does. A fixed
-    # `pypi` would describe the wrong registry the moment a test overrides
-    # `lang`, and a fixed `None` would make every fake route look like the
-    # universal case the loader requires the field on.
-    field.setdefault(
-        "registry", {"python": "pypi", "typescript": "npm"}.get(field["lang"])
-    )
+    # `registry` defaults to nothing, because that is what the loader stores
+    # for a route that declares no key: it keeps the declared value and
+    # `registry_for` does the deriving, so a real `lang: python` route carries
+    # `None` and resolves to `pypi` only when something asks. Defaulting to
+    # `pypi` here would make the fake carry what no real route carries, which
+    # is the one thing a duck-typed double must not do.
+    field.setdefault("registry", None)
     return SimpleNamespace(**field)
 
 
