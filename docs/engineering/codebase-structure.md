@@ -18,16 +18,6 @@ Pick your own tier list; what matters is the *ordering principle*. Sort the code
 | **Evaluation** | The harness that measures the tiers above. | Broad |
 | **Agents / applications** | The task-shaped layer, a specific product built from everything below. | Single-use |
 
-## Count the runtimes, and make each one earn its place
-
-The tier table above is written for one language stack, and each additional runtime duplicates almost all of it: its own dependency graph and lockfile, its own test runner and coverage story, its own CI lane, its own vulnerability and licence surface, and its own upgrade cadence that somebody has to schedule. That cost is fixed and it recurs, while the reason a second stack arrives is usually local and momentary - one library that exists only there, one function a platform wants in a different language, one contributor's fluency.
-
-So **carry the fewest runtimes that do the work, and treat each additional one as a decision rather than a consequence.** A second stack earns its place when the work genuinely cannot be done in the primary one and the team can carry both; it does not earn it by being the language whoever wrote that component reached for first. The judgment is yours, because it turns on what libraries exist and who you can staff - but it is a judgment somebody should make on purpose.
-
-**Declare every runtime beyond the primary one in the project's binding-rules file** ([Part 8](documentation.md)), naming what it buys and who maintains it. What this prevents is not a second stack, it is an *unowned* one: a service or a function in another language, with its own declaration file nobody locked, no test command anyone runs, and no CI lane, which stays invisible until it breaks or a vulnerability lands in it. Two Python footprints inside a TypeScript monorepo are two of these, not one, when each carries its own requirements file and neither is named anywhere.
-
-Where a stack is declared, its costs are ordinary and belong where they already did: the tests to [Part 2](implementation-disciplines.md), the gate that runs them to the same place, and the lockfile and the vulnerability surface to [Part 9](security-supply-chain.md). This clause adds only the count and the decision, so nothing here is a second home for a cost those parts already own.
-
 ## Point every dependency toward the core, and never cycle
 
 Hold one invariant: **an import may only point at a more-reusable tier than the one it lives in, and the dependency graph has no cycles.** Don't let core infrastructure import an application's types, or an integration import an agent. Reuse across applications by *composition* (expose one agent to another as a tool), never by one application reaching into another's internals.
@@ -79,6 +69,16 @@ Layering is the highest-value axis, but it is not the only way structure decays,
 
 Treat these as health signals, not absolutes, an oversized-but-cohesive file or a moderately complex function may be fine. Measure them deliberately rather than discovering them during a refactor that keeps rippling further than expected. And per [Part 1](lifecycle.md), the durable fix for the layering rule specifically is to encode it as an import-linter contract in CI, so a violation can't silently return.
 
+## Count the runtimes, and make each one earn its place
+
+The tier list assumes one language stack. Each additional runtime brings its own dependency graph and lockfile, its own test suite and the gate that runs it, its own vulnerability and licence surface, and its own upgrade cadence that somebody has to schedule. Those costs are fixed and they recur, while the reason a second stack arrives is usually local and momentary - one library that exists only there, one function a platform wants in a different language, one contributor's fluency.
+
+So **carry the fewest runtimes that do the work, and treat each additional one as a decision rather than a consequence.** A second stack earns its place when the work genuinely cannot be done in the primary one and the team can carry both; it does not earn it by being the language whoever wrote that component reached for first. That judgment is yours, because it turns on which libraries exist and who you can staff - but it is a judgment somebody should make on purpose.
+
+**Name every runtime the project carries in its [binding-rules file](README.md#where-the-binding-rules-live)** (see also [Part 8](documentation.md)), marking which one is primary, and for each of the others say what it buys and who maintains it. What this prevents is not a second stack, it is an unowned one: a service or a function in another language, with a dependency file nobody locked, no test command anyone runs, and no CI lane, which stays invisible until it breaks or a vulnerability lands in it. A stack that arrives as several separate footprints, each with its own dependency file and none of them named, is that failure repeated rather than one instance of it.
+
+A declared stack's costs are ordinary and live where the rest of the handbook puts them: its tests and the gate that runs them in [Part 2](implementation-disciplines.md), its lockfile and its vulnerability surface in [Part 9](security-supply-chain.md). What this section governs is the count and the declaration, not those costs.
+
 ## Compose agents with typed hooks over a generic runner
 
 Don't fork a base agent; **configure shared machinery**. Give the core tier a generic runner that owns the run lifecycle and exposes a small set of hook methods (create the agent, build the collector, format the query, post-process the result, and so on). Customize each application by overriding those hooks, and narrow the runner's loose metadata into your own typed sub-models, so run records are structured and self-describing rather than a loose bag of keys. This is composition-over-inheritance: the reusable runner, the disposable task layer.
@@ -104,6 +104,7 @@ So any combination worth reusing gets a name. Bundle it into a machine-readable 
 - [ ] Cross-application reuse is via `as_tool()` composition, not internal reach-in.
 - [ ] Backend selection dispatches on a discriminator (`match`/`switch`), not a runtime type test (`isinstance`/`instanceof`).
 - [ ] The layering rule is enforced by an import-linter contract in CI, not left to prose and memory.
+- [ ] Any runtime this change introduces is named in the binding-rules file, with what it buys and who maintains it.
 
 *Next: the same core-versus-task-layer shape, one level down, inside the documents your agents work on. [Part 4. The three-layer document model](three-layer-model.md).*
 
