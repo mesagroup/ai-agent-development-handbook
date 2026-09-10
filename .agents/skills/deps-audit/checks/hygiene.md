@@ -32,11 +32,11 @@ routes:
       it does, twice over, and neither shows in the output.** The root selects
       the files while the dependency definitions come from the configuration
       found at the working directory, so `deptry <target>` run from anywhere
-      else scans the target's source against *your* dependencies: measured on
-      a copy of this repository with a declared dependency removed, that
-      prints `Success! No dependency issues found.` and exits 0 while the same
-      files run with the target as the working directory report the missing
-      import. An audit that reports a pass is worse than one that cannot run,
+      else scans the target's source against *your* dependencies: measured by
+      removing a declared dependency from a project and pointing the tool at
+      it from outside, that prints `Success! No dependency issues found.` and
+      exits 0, while the same files run with that project as the working
+      directory report the missing import. An audit that reports a pass is worse than one that cannot run,
       so either run it with the target as the working directory or pass
       `--config <target>/pyproject.toml`. And the exclude patterns are matched
       against the path as written, and the defaults are relative - `tests`,
@@ -46,9 +46,10 @@ routes:
       findings about the target. **A sibling module imported as a top-level
       name is the third:** where a target's scripts sit on `sys.path` and
       import each other, each such import is reported as a missing
-      dependency, and this repository was the worked instance at eight
-      occurrences across five files before it configured
-      `known_first_party`.
+      dependency, so on such a target the count of DEP001s can be entirely
+      first-party and none of them a hygiene defect. A project closes it by
+      declaring those modules in `known_first_party`, which is a fix to
+      recommend rather than a finding to report.
     alone_insufficient: >-
       `deptry` takes a scan root and the record names none, so the argv is not
       a complete invocation on its own - and naming one is not enough either:
