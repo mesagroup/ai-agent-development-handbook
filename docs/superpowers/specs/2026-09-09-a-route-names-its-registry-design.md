@@ -10,7 +10,7 @@ The nightshift ledger, issue #78, records it: `registry:` beside `package`, defa
 
 ## Criterion 4's audit decides the field's population, so it was done first
 
-"Every `lang: any` and `lang: none` command route in the family audited for the same shape." Computed over every route in the tree: 13 universal routes, of which exactly **three** are `kind: command`. The other ten are `kind: procedure`, nine naming no tool at all, so nothing about them is fetchable.
+"Every `lang: any` and `lang: none` command route in the family audited for the same shape." Computed over every route in the tree: **12** universal routes, of which exactly **three** are `kind: command`. The other nine are `kind: procedure`, eight of them naming no tool at all - the ninth is `arch/size`'s `tokei`, a standalone binary the record prescribes no invocation for - so nothing about any of them is fetchable by a runner. (An earlier draft of this spec said 13, ten and nine. Three of those four numbers were miscounted off my own output and a review recomputed them; the split is stated in full here so the next reader can check the part the design rests on, which is the three.)
 
 | route | tool | argv on `main` | what it is |
 |---|---|---|---|
@@ -41,7 +41,9 @@ So the field is required on two routes and impossible on the third, and that thi
 
 ## A broader inconsistency this deliberately does not fix
 
-Computed while auditing: every route in the tree whose argv begins with a runner token carries `own_runner` absent rather than `true` - the four `dependency-cruiser` routes, their four `depcruise` `forbidden` siblings, `test/mutation`'s Stryker route, and `arch/size`'s `cloc`. A test docstring in `tests/scripts/test_audit_checks.py` argues about those very routes that "every command in them is complete as written", which is the claim `own_runner: true` exists to make, and none of them makes it.
+Computed while auditing, and the predicate matters as much as the count: a form led by a one-shot runner is one beginning `npx`, `uvx` or `pipx`, or whose second word is `dlx`. **Five routes carry such a form and declare no `own_runner`** - the four `dependency-cruiser` routes and `test/mutation`'s Stryker route - across five records, and `arch/size`'s `cloc` was a sixth until this branch. A test docstring in `tests/scripts/test_audit_checks.py` argues about those very routes that "every command in them is complete as written", which is the claim `own_runner: true` exists to make, and none of them makes it.
+
+The `forbidden` routes are excluded deliberately: `dlx depcruise` and `dlx cyclonedx-npm` lead with a bare `dlx` and exist to warn against a form, and no lens runs a `forbidden` route, so whether they suppress a prefix is moot. Excluded too are the package-manager subcommands - `pnpm audit`, `yarn licenses list`, `pnpm outdated` - whose argv begins with a manager's name rather than a runner; a first draft of this paragraph counted those and reached ten, which conflated the taxonomy's second kind with its first.
 
 That is not #77's subject and it is not fixed here. It spans six records and its right answer depends on whether the runner rule double-fronts a runner-led argv in practice, which is a question about the lens and the sweep rather than about the registry. Named here, in the PR body and on the ledger so an attended session can pick it up, rather than turned into a speculative issue or folded into this change. The one route this branch does touch, `cloc`, stops being an instance of it by losing its baked-in runner.
 

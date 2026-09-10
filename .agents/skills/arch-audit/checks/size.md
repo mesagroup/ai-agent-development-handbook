@@ -16,10 +16,9 @@ routes:
       `cloc` is on the npm registry, which `registry: npm` states as a field
       rather than leaving to be read here, so a one-shot runner reaching that
       registry fetches it whatever the partition's language. The argv names
-      the command and not the runner: this route used to spell
-      `[npx, cloc]`, which is a complete runner invocation, so the runner
-      rule put a second one in front of it and a reader of the fields alone
-      got a runner fetching a runner.
+      the command and not the runner, which is the split the two fields
+      exist to keep: spell a runner into the argv and whatever the runner
+      rule puts in front of it fetches a runner.
   - lang: any
     kind: procedure
     tool: tokei
