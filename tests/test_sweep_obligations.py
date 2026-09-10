@@ -30,6 +30,27 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parent.parent
 LEDGER = REPO_ROOT / "docs" / "audit" / "sweep-obligations.md"
 AUDIT_CORE = REPO_ROOT / ".agents" / "skills" / "audit-core" / "SKILL.md"
+AUDIT_CORE_REFERENCES = AUDIT_CORE.parent / "references"
+
+
+def _audit_core_sources() -> list[Path]:
+    """`SKILL.md` and every reference file beside it, which are one document.
+
+    An obligation `audit-core` states is `audit-core`'s wherever the text sits,
+    and progressive disclosure moved two sections out of `SKILL.md` into
+    `references/` without changing what they oblige. Searching the directory
+    rather than the one file is what stops that move from reading as an
+    obligation that vanished - and searching it as one corpus, rather than
+    per file, is what keeps a sentence duplicated across two of them from
+    satisfying the exactly-once rule twice.
+
+    Discovered by glob rather than listed, because a reference nobody added to
+    a constant would be a section of `audit-core` this module does not read,
+    which is the silent half of the failure it exists to catch.
+    """
+    return [AUDIT_CORE, *sorted(AUDIT_CORE_REFERENCES.glob("*.md"))]
+
+
 SWEEP = REPO_ROOT / ".agents" / "skills" / "audit" / "SKILL.md"
 
 # Tables are identified by their own headers rather than by position, so
@@ -238,10 +259,12 @@ def test_anchor_occurs_exactly_once_in_audit_core(row: tuple) -> None:
     line_no, obligation, anchor, _, _ = row
     assert obligation, f"{LEDGER.name}:{line_no} names no obligation"
     assert anchor, f"{obligation!r} has an empty anchor"
-    found = AUDIT_CORE.read_text(encoding="utf-8").count(anchor)
+    sources = _audit_core_sources()
+    found = sum(s.read_text(encoding="utf-8").count(anchor) for s in sources)
+    where = ", ".join(s.name for s in sources)
     assert found == 1, (
         f"{LEDGER.name}:{line_no} anchors {obligation!r} on {anchor!r}, which "
-        f"occurs {found} times in {AUDIT_CORE.name} (expected 1). Zero means the "
+        f"occurs {found} times across {where} (expected 1). Zero means the "
         "obligation was reworded, moved or removed; more than one means the "
         "anchor no longer identifies a single sentence. Re-read the obligation "
         "and rewrite the row - do not shorten the anchor to make this pass"
@@ -271,7 +294,9 @@ def test_quotes_in_the_ledger_are_verbatim() -> None:
     guard the `audit-core` side; without this, a reword on the sweep's side
     leaves the ledger quoting a sentence that no longer exists.
     """
-    sources = SWEEP.read_text(encoding="utf-8") + AUDIT_CORE.read_text(encoding="utf-8")
+    sources = SWEEP.read_text(encoding="utf-8") + "".join(
+        s.read_text(encoding="utf-8") for s in _audit_core_sources()
+    )
     # Line-scoped: a quote spanning a newline is not a quote, and `[^"]`
     # would otherwise run from one quote mark to a far-off later one.
     quoted = re.findall(
