@@ -27,13 +27,15 @@ uv sync --group dev
 uv run pytest tests/ -q                                        # unit tests
 uv run ruff check . && uv run ruff format --check .            # lint
 uv run python scripts/render_handbook_traceability.py --check  # integrity gate
+uv run python scripts/render_python_fixture_expectations.py --check  # integrity gate
+uv run deptry .                                                # dependency hygiene gate
 uv run python scripts/render_handbook_traceability.py          # regenerate the matrix Markdown
 uv run python scripts/render_handbook_artifact.py              # render the handbook to one HTML file
 ```
 
 The matrix Markdown is generated. Edit [`handbook-traceability.yaml`](docs/audit/handbook-traceability.yaml), never the `.md`.
 
-The integrity gate is the one that matters: the matrix and the check records are two views of a single edge set, and a change applied to only one of them fails the gate. Rendering the handbook artifact additionally needs the [`d2`](https://d2lang.com) CLI on `PATH`.
+The traceability gate is the one that matters most: the matrix and the check records are two views of a single edge set, and a change applied to only one of them fails it. Rendering the handbook artifact additionally needs the [`d2`](https://d2lang.com) CLI on `PATH`.
 
 ## History
 

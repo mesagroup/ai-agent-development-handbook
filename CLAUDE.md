@@ -11,6 +11,7 @@ uv run python scripts/render_handbook_traceability.py --check   # integrity gate
 uv run python scripts/render_handbook_traceability.py           # regenerate the matrix Markdown
 uv run python scripts/render_handbook_artifact.py               # needs the d2 CLI
 uv run python scripts/render_python_fixture_expectations.py --check   # integrity gate
+uv run deptry .                                                      # dependency hygiene gate
 uv run python scripts/render_python_fixture_expectations.py           # regenerate the fixture expectations
 uv run python scripts/build_python_fixtures.py --all                  # generate the five gitignored fixture trees
 ```
@@ -54,7 +55,7 @@ Path-based history surgery matches *historical* paths. A file renamed out of a d
 ## Toolchain
 
 - ruff's `extend-exclude = ["docs"]` is load-bearing. Recent ruff formats Python inside Markdown fences, and specs, plans and stories are a record of what was written at the time; reformatting their samples edits that record.
-- `scripts/render_handbook_artifact.py` imports `markdown` lazily, so a missing dependency surfaces when the renderer runs rather than at import. It is declared in `pyproject.toml`; a lazy import is not a reason to leave one undeclared.
+- `scripts/render_handbook_artifact.py` imports `markdown` lazily, so a missing dependency surfaces when the renderer runs rather than at import. It is declared in `pyproject.toml`; a lazy import is not a reason to leave one undeclared, and `deptry` now fails CI on one - that import is the case the gate's non-vacuity test undeclares, because a function-level import is exactly what a reader might expect the tool to miss.
 - The artifact renderer reports `residual .md hrefs: 0`. A relative `.md` link out of the handbook tree (only `engineering-notes.md` today) is *unlinked* rather than mapped - it prints a `NOTE`, keeps the link text and drops the anchor, because a self-contained page cannot link to a file it does not contain. A *sibling* `.md` link naming no part still raises.
 - Diagrams need the `d2` CLI.
 
@@ -106,7 +107,7 @@ When dispatching any agent from a git worktree, pass the worktree's absolute roo
 
 ## Tests
 
-New code ships with unit tests, and adding code must not lower coverage. Scripts are not exempt: load them with `importlib.util.spec_from_file_location` and exercise their pure helpers, with `scripts/` on `sys.path` via `tests/scripts/conftest.py`.
+New code ships with unit tests, and adding code must not lower coverage. Scripts are not exempt: load them with `importlib.util.spec_from_file_location` and exercise their pure helpers, with `scripts/` on `sys.path` via `tests/scripts/conftest.py`. A new module in `scripts/` also joins `[tool.deptry] known_first_party` in `pyproject.toml`, because the modules there import each other as top-level names and `deptry` reads such an import as a missing dependency; `tests/test_deptry_gate.py` holds that list against the directory, so the failure is a red local test rather than a surprise in CI.
 
 Mutation checks against `scripts/run_python_fixture_lens.py` run with `PYTHONDONTWRITEBYTECODE=1`. `.pyc` invalidation compares the source's mtime and size, and some of the mutations this table invites move a token between fields without changing either, so a mutate-run-revert inside one second can leave the next run honouring the mutant's cached bytecode. It shows up as a failure on a byte-identical clean tree, or, in the direction that matters, as a green run over a mutation that should have failed. A mutation that does change the file's length is not exposed to it, which is why the instruction is the flag rather than a judgement about each mutation.
 
