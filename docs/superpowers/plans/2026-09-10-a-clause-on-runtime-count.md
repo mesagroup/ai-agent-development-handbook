@@ -4,13 +4,17 @@ Issue #18. Design: [../specs/2026-09-10-a-clause-on-runtime-count-design.md](../
 
 The edge-set rule makes this one commit: a clause and its rows land together or the integrity gate fails.
 
-## 1. The clause, in Part 3 after the tier table
+## 1. The clause, in Part 3 after the decay section
 
-Four paragraphs in the part's own voice: the cost each additional runtime duplicates, the rule and the judgment it leaves to the reader, the declaration the rule requires, and a closing paragraph pointing the individual costs back at the parts that already own them so the clause is not a second home for any of them.
+Four paragraphs in the part's own voice: the costs each additional runtime brings, the rule and the judgment it leaves to the reader, the declaration the rule requires and the unowned stack it prevents, and a closing paragraph pointing the individual costs back at the parts that already own them so the clause is not a second home for any of them.
+
+After `## Watch for structural decay beyond layering` rather than after the tier table, so the part's idea-then-invariant run stays contiguous and the two sections that step outside the layering argument sit together.
 
 ## 2. Two matrix rows under the section's slug
 
-`-a` `process` / important, the judgment, with a note saying why no snapshot reaches it. `-b` `static` / important, the declaration, with an `extend-skill` gap naming `arch-audit` and #91.
+`-a` `process` / important, the judgment, with a note saying why no snapshot reaches it. `-b` `static` / important, the declaration, with an `extend-skill` gap naming `arch-audit` in the note and #91 in `gap.target`, which is the field the renderer reads and five other `extend-skill` gaps use.
+
+The checklist gains a line for the declaration half, and the checklist's own recap row goes from seven items to eight.
 
 Then re-render, because the Markdown view is generated and the gate compares it against the YAML.
 
