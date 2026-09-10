@@ -929,15 +929,22 @@ def test_a_non_string_route_key_beside_a_string_one_reports_both(tmp_path):
             "kind: command\n    tool: t\n    argv: [t]\n    alone_insufficient: [oops]",
         ),
         ("note", "kind: command\n    tool: t\n    argv: [t]\n    note: [oops]"),
+        (
+            "registry",
+            "kind: command\n    tool: t\n    argv: [t]\n    registry: [oops]",
+        ),
     ],
 )
 def test_a_wrong_typed_route_field_is_rejected(tmp_path, field, route_body):
-    """The review named eight validation branches in `_load_routes` with no
-    test of their own: `tool`, `package`, `argv_by_partition` (both its own
-    mapping type and a per-partition entry's list type), `in_env`,
-    `applies_when`, `alone_insufficient` and `note` each reject a
-    wrong-typed value. Assert only that the field name appears in the
-    message, not the message's full text.
+    """Every `_load_routes` branch that rejects a wrong-typed value has a row.
+
+    Written after a review found eight of them untested, and kept as a row per
+    branch rather than a count, because the population grows with the schema:
+    `registry` arrived with #77 and its type check would otherwise have been
+    the ninth branch nobody exercised. A field added here without a row is the
+    same silence as before - the loader has the check and nothing proves it
+    fires. Assert only that the field name appears in the message, not the
+    message's full text.
     """
     errors = _errors_for_route(tmp_path, route_body)
     assert any(field in e for e in errors), errors
@@ -1058,6 +1065,26 @@ def test_a_registry_on_a_non_command_kind_is_rejected(tmp_path, kind):
         tmp_path, f"kind: {kind}\n    tool: t\n    registry: pypi"
     )
     assert any("registry" in e and kind in e for e in errors), errors
+
+
+def test_a_wrong_typed_registry_is_rejected_as_a_type_and_not_as_a_vocabulary_miss(
+    tmp_path,
+):
+    """The parametrized row above cannot tell these two branches apart.
+
+    It asserts only that the field name appears, and a non-string value fails
+    the vocabulary check too - no list is a member of `REGISTRIES` - so
+    deleting the type check entirely leaves that row green. Checked by doing
+    it. This one pins the type message, which is the only assertion that
+    distinguishes "you wrote the wrong shape" from "you wrote a registry
+    nobody supports", and those want different fixes from a record author.
+    """
+    errors = _errors_for_route(
+        tmp_path,
+        "lang: any\n    kind: command\n    tool: t\n    registry: [oops]"
+        "\n    argv: [t]",
+    )
+    assert any("registry must be a string" in e for e in errors), errors
 
 
 def test_a_registry_outside_the_vocabulary_is_rejected(tmp_path):

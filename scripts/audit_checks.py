@@ -305,8 +305,11 @@ class Route:
     `deps/inventory`'s `dlx cyclonedx-npm` are the second kind. Nothing enforces
     that split; a `forbidden` route is simply never a candidate. And none of the
     candidates says anything today whatever their number, because every one is a
-    `lang: typescript` route bar `arch/size`'s `npx cloc`, which offers no python
-    tooling - a silence that is unobserved rather than correct.
+    `lang: typescript` route, which a python lens never selects - a silence that
+    is unobserved rather than correct. `arch/size`'s `cloc` was the one
+    exception until it stopped leading with a fetcher: its argv names the
+    command and `registry: npm` names what fetches it, which is the shape the
+    flag was never for.
 
     The residual shape neither form expresses: a route whose shared argv needs
     no runner while one partition's override does. `True` over-claims it and a
@@ -455,7 +458,9 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
     string, and one `ROUTE_FIELDS` knows; `lang`, `kind`, `disposition`,
     `findings_stream` and `needs` each name a known value; `tool` is present
     unless `kind` is `procedure`; `package` defaults to `tool` when the key
-    is absent and is rejected when the key is written with no value, because
+    is absent and is rejected when the key is written with no value; `registry`
+    is a string from `REGISTRIES`, is present only where `kind` is `command`,
+    and never contradicts the registry its `lang` implies, because
     those two are the same YAML to `get` and different claims to a reader;
     `argv` and `argv_by_partition` are present only where `kind` is `command`,
     and every argv they name - `argv` itself, and each partition's entry
@@ -478,7 +483,11 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
     otherwise a list of partition names, rejected unless `argv_by_partition`
     carries every name listed. Whichever
     form it takes, it is never written beside `in_env`, whose materialized
-    environment the suppressed prefix would otherwise never reach. Last,
+    environment the suppressed prefix would otherwise never reach; and `true`
+    is never written beside `registry`, which names where a fetch that never
+    happens would have come from - while a universal command route that is
+    *not* `true` must carry one, since neither `any` nor `none` implies a
+    registry and nothing else in the record would say. Last,
     a route naming no tool carries a non-empty `note`: with neither a tool
     nor an argv the note is the whole prescription, and it is the one route
     kind where nothing downstream stands in for it - a `kind: command`
