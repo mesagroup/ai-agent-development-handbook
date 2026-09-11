@@ -29,6 +29,8 @@ Conformance is decidable from the source bytes, with no reading and no judgment 
 
 **Non-paragraph blocks are out of scope by construction**, because their line structure is content rather than formatting: fenced and indented code, tables, YAML front matter, HTML blocks, link reference definitions, headings and thematic breaks. A table's rows and a code block's lines mean what they are; joining them changes the document.
 
+**Two of those are not CommonMark constructs, so no parser excludes them for you.** The base specification defines neither tables nor front matter. A pipe table is a GFM extension and parses as an ordinary multi-line paragraph without it; a leading `---` block parses as a thematic break followed by a paragraph whose closing `---` turns it into a setext heading. A plain CommonMark parse therefore reports both as findings on conforming source, and the rejoin this record prescribes as the fix would destroy a table and swallow the front matter - which is the one way this check can damage a document rather than merely misreport it. Enable the parser's table and front-matter extensions, or, where it has neither, strip the front-matter block and every table by their own syntax before the paragraph scan. Say in the row which of the two you did, because a reader cannot tell a tree with no tables from a scan that never saw them.
+
 ## The finding is never that a line is too long
 
 This check and a line-length rule are opposites wearing the same clothes, and confusing them is the way it goes wrong once someone wires a tool in. `markdownlint`'s `MD013` enforces a maximum line length, so it fails a conforming tree on every paragraph long enough to be worth reading, and a tree that satisfies it is hard-wrapped by construction. **Name the finding by the paragraph, never by the line**, and where a project already runs a Markdown linter, check whether its configuration enables a line-length rule - that is a conflicting convention and belongs in the row rather than being silently overruled.
@@ -45,7 +47,7 @@ The subject is the documentation tree, and `audit-core`'s partitioning slices co
 
 ## Tooling fallback
 
-No tool answers this as asked, so read the source. `markdownlint`'s `MD013` is the opposite rule and must not be substituted - see above. Resolve the blocks with whatever CommonMark parser the project already has (a docs site's own renderer, a Markdown library in the test environment) and report each paragraph whose block spans more than one source line; with no parser available, read the files, which is affordable because the subject is a docs tree rather than a codebase.
+No tool answers this as asked, so read the source. `markdownlint`'s `MD013` is the opposite rule and must not be substituted - see above. Resolve the blocks with whatever CommonMark parser the project already has (a docs site's own renderer, a Markdown library in the test environment), with its table and front-matter extensions enabled for the reason above, and report each paragraph whose block spans more than one source line; with no parser available, read the files, which is affordable because the subject is a docs tree rather than a codebase.
 
 Detection needs nothing installed and nothing resolved: the files are in a read-only clone, and this check reads their bytes.
 
