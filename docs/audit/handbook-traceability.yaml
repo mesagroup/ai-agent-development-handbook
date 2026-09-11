@@ -223,9 +223,17 @@
   claim: Decide the unit-test coverage floor upfront rather than assuming a number - state a required floor and what it is measured over, record both somewhere executable (coverage config or CI gate) rather than aspirational, treat exclusions as part of the decision and never exclude load-bearing deterministic logic, justify a deliberately low floor, and pair the whole-project floor with a floor on changed lines.
   class: static
   severity: important
-  gap:
-    recommendation: extend-skill
-    note: "test-audit is the owner and already carries the floor concept outside its checks - scope asks what floor the contributor guide or CI enforces, and the status scale reads meets-floor/below-floor - but no check asks whether a floor was stated, recorded executably, or justified. `test/coverage-reach` measures reach, so it would pass a project that never decided a floor, and pass one that omits its parsers from the denominator because excluded code is absent rather than uncovered. Mapping it would satisfy the claim with exactly what the clause forbids, so this row maps nothing. The declaration belongs to that skill's wave-1 sweep pass (#7 + #5 + #8)."
+  checks:
+    - test/coverage-floor-declaration
+  note: >-
+    Mapped by a declaration check rather than by a measurement one, which is
+    what the old gap note said the row needed and could not have. The
+    distinction it drew holds and is now the boundary between two records:
+    `test/coverage-reach` reads a project's threshold and exclusions as what
+    its own measured number is read against, while whether the decision exists
+    at all and has an executable home is `test/coverage-floor-declaration`'s.
+    The clause's changed-lines half is a declaration question here and a
+    measurement question in `test/new-code-coverage`.
 
 - id: implementation-disciplines/prompt-and-sop-engineering-a
   section: "Prompt and SOP engineering"

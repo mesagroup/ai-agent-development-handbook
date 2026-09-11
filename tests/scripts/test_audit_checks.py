@@ -2637,6 +2637,7 @@ def test_the_real_checks_tree_loads_clean():
         "security/sensitive-data",
         "security/unsafe-io",
         "test/assertion-strength",
+        "test/coverage-floor-declaration",
         "test/coverage-reach",
         "test/determinism",
         "test/isolation",
