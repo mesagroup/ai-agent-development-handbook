@@ -20,8 +20,10 @@ routes:
       runtimes** come from the partitioning `audit-core` step 1 already did:
       a language counts as a runtime where it carries its own dependency
       manifest - `pyproject.toml`, `requirements.txt`, `package.json`,
-      `go.mod`, `Cargo.toml`, `Gemfile`, `pom.xml`, or a `Dockerfile` base
-      image that installs one. **Declared runtimes** come from the
+      `go.mod`, `Cargo.toml`, `Gemfile`, `pom.xml`, or a `Dockerfile` line
+      that installs that language's packages, which is a dependency
+      declaration with nothing locking it. A base image alone is not one.
+      **Declared runtimes** come from the
       binding-rules file's own list. **The finding is the difference**, plus
       a declared non-primary runtime missing what it buys or who maintains
       it. Record the manifest path for each detected runtime and the line for
@@ -44,6 +46,8 @@ Whether the project's binding-rules file **names every runtime the project carri
 **The binding-rules file is resolved by role, not by path.** The handbook defines it under `Where the binding rules live` in Part 0 as the file a team and its coding agents both read as authoritative, and deliberately does not name it - it is `CLAUDE.md` in one project and `AGENTS.md`, `CONTRIBUTING.md` or a file under `docs/` in another. Resolve it by asking which file the project treats as binding, and say in the row which file you resolved it to, because a reader cannot check the finding without knowing what was read. This is the first check in the family to need that resolution, so the rule is stated here rather than reused from elsewhere.
 
 **A dependency manifest is what makes a language a runtime.** A single `.py` script in a TypeScript repository, with no dependency declaration of its own, is a file in another language and not a second stack; the same script beside its own `requirements.txt` is. The manifest is the discriminator because it is what brings the costs the clause is about - a graph to lock, a surface to scan, a cadence to schedule - and a language with none of those brings none of them.
+
+**A `Dockerfile` counts where it makes the declaration, not where its base image carries an interpreter.** A line installing that language's packages is a dependency declaration in its worst form - a surface with nothing locking it - so it makes the language a runtime exactly as a manifest does. `FROM python:3.12` on its own does not: a base image is as often the primary stack's own delivery vehicle as it is a second stack's, so it cannot tell those apart, and a script it runs that needs nothing installed carries none of the costs the rule above is about. Stated because the two readings disagree on the same tree - a repository whose only manifest is a `package.json`, with a Dockerfile built on a Python image and one dependency-free `.py` file, is one runtime and not two.
 
 **The check counts runtimes, not dependency surfaces.** Two Python footprints with their own dependency files are one runtime and two surfaces, and whether each surface is locked and scanned belongs to `deps`. But an undeclared runtime's row lists **every** footprint that evidences it, because the clause says a stack arriving as several separate footprints, none of them named, is that failure repeated rather than one instance of it - so the count of findings is per runtime and the extent within one is carried by its evidence.
 
