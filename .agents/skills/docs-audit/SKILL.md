@@ -21,7 +21,7 @@ A domain specialization of **[audit-core](../audit-core/SKILL.md)** - read that 
 
 Status per row: **ok / warn / violation** (coverage: documented / partial / gap).
 
-Prose-doc fixes are **docs-only**, which usually keeps the PR off the heavy code gates - call that out. The domain gate is **the link/index checker green**.
+Prose-doc fixes are **docs-only**, which usually keeps the PR off the heavy code gates - call that out. The domain gate is **the link/index checker green**. **One check closes outside that gate**, and reading the rule above as universal is how a fix agent closes it wrongly: `docs/source-wrapping`'s fix rejoins hard-wrapped paragraphs, and no link or index checker can see it - a rejoin resolves the same links the wrapped source did, so that gate stays green whether the paragraphs were joined correctly, joined into the wrong blocks, or never touched. Its gate is re-running the check's own detection over the changed files, plus a read of the diff confirming that no code block, table or diagram source moved, which is the half the detection cannot answer.
 
 **Opt-in deliverable:** consider proposing a small checker as a deliverable.
 
