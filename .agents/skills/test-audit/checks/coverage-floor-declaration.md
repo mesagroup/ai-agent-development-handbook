@@ -40,7 +40,10 @@ routes:
       pytest's `addopts` - and not when a person types it by hand. Pytest's own
       config files are a second set with a second set of headings, overlapping
       the coverage ones without sharing their spelling: `pytest.toml` or
-      `.pytest.toml`, which take precedence over the rest; `pytest.ini` or
+      `.pytest.toml` under `[pytest]`, which take precedence over the rest
+      **even when empty** - so an empty one is itself a finding wherever the
+      floor sits in another file, because it wins the search and the floor is
+      never read; `pytest.ini` or
       `.pytest.ini` under `[pytest]`; `pyproject.toml` under `[tool.pytest]` or
       `[tool.pytest.ini_options]`; `tox.ini` under `[pytest]`; and `setup.cfg`
       under `[tool:pytest]` - renamed from the bare `[pytest]` to stop it
