@@ -1040,9 +1040,16 @@
   claim: Write one paragraph as one line in the Markdown source and let the renderer wrap - never hard-wrap prose to a column and never reflow a code block or a diagram - so a one-word edit stays a one-line diff and the source reads well in tools that soft-wrap.
   class: static
   severity: minor
-  gap:
-    recommendation: extend-skill
-    note: mechanically checkable and entirely unmapped - docs-audit is the owner and reads what the docs say and where they sit, never how their source is formatted.
+  checks:
+    - docs/source-wrapping
+  note: >-
+    The conforming state the clause asks for - each prose paragraph on one
+    source line - is decidable from the bytes, so the check reads it directly.
+    The clause's second instruction, never reflow a code block or a diagram, is
+    not decidable from a snapshot at all: a wrapped code line and a code line
+    written that way are the same bytes. It binds whoever performs the rejoin,
+    so the record carries it as a fix constraint rather than as detection, and
+    between them the two reach the whole claim.
 
 - id: documentation/checklist-shipping-documentation
   section: "Checklist: shipping documentation"

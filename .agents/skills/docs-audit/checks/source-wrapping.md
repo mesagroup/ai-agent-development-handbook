@@ -1,0 +1,72 @@
+---
+id: docs/source-wrapping
+domain: docs
+locality: global
+evidence: >-
+  One row per paragraph that occupies more than one source line, evidenced by
+  the file and the line range the paragraph spans, so the fix is a rejoin of
+  named lines rather than a reformat of the file. A row also records which
+  block kind the paragraph sits in - top level, a list item, a block quote -
+  because the rejoin differs: a continuation line inside a list item carries
+  the item's indentation and a naive join produces a different document. A
+  whole-file verdict is deliberately not the unit; it hides which paragraph to
+  fix and reads as an instruction to reformat everything.
+handbook:
+  - documentation/house-rule-dont-hard-wrap-markdown-source
+---
+
+# Source wrapping
+
+Whether each prose paragraph in the documentation source occupies **one line**, leaving the wrapping to the renderer. The finding is a paragraph that spans more than one source line. What this buys is the diff: in a hard-wrapped tree a one-word edit reflows the paragraph around it, so every small change arrives as a multi-line hunk and a reviewer cannot tell a typo fix from a rewrite. It also reads correctly in the editors and review tools that soft-wrap, which a column-wrapped source does not.
+
+Conformance is decidable from the source bytes, with no reading and no judgment - which is what makes this a check rather than a convention the domain merely states.
+
+## What counts as a paragraph, and what does not
+
+**CommonMark's own block structure decides.** A paragraph inside a list item or a block quote is a paragraph, and its continuation lines count exactly as a top-level paragraph's do. Resolve the blocks with a Markdown parser where the project has one available rather than with a line regex: a regex cannot tell a paragraph's second line from a lazy continuation, a setext heading's underline, or a line inside a fence, and each of those misreadings produces a finding on conforming source.
+
+**An explicit hard break is not a finding.** A line ending in two spaces, or in a backslash, is a line break the author asked the renderer to honour. That is the opposite of a paragraph wrapped to a column - the author wants the break to survive rendering - so a paragraph whose internal line endings are all explicit breaks conforms.
+
+**Non-paragraph blocks are out of scope by construction**, because their line structure is content rather than formatting: fenced and indented code, tables, YAML front matter, HTML blocks, link reference definitions, headings and thematic breaks. A table's rows and a code block's lines mean what they are; joining them changes the document.
+
+## The finding is never that a line is too long
+
+This check and a line-length rule are opposites wearing the same clothes, and confusing them is the way it goes wrong once someone wires a tool in. `markdownlint`'s `MD013` enforces a maximum line length, so it fails a conforming tree on every paragraph long enough to be worth reading, and a tree that satisfies it is hard-wrapped by construction. **Name the finding by the paragraph, never by the line**, and where a project already runs a Markdown linter, check whether its configuration enables a line-length rule - that is a conflicting convention and belongs in the row rather than being silently overruled.
+
+## Why this is answered once over the whole tree
+
+The subject is the documentation tree, and `audit-core`'s partitioning slices code tiers rather than docs, so there is no partition to give this check a slice of. It is answered in one pass over the tree, as `docs/coverage`, `docs/cross-referencing` and `docs/organization` are. That is a statement about where its subject lives, not a claim that it needs a cross-file property: each file is decidable on its own, which is why fanning it out per agent would duplicate the read for no gain.
+
+## Severity
+
+**Minor** - a paragraph occupying more than one source line. That is the whole of the tier scale here, and deliberately so. The cost this clause names is review legibility and diff noise; nothing about it is a correctness, availability or security question, so there is no evidence on which this check could raise an Important. A tree that is hard-wrapped throughout is many minor rows rather than one severe one, because the fix is per paragraph and so is the evidence.
+
+**A project that has chosen the opposite convention is what Minor is for.** Where a contributor guide or a linter configuration states a column limit, say so in the row: the project has made a decision this clause disagrees with, and reporting it as a defect at any higher tier would be this check overruling a convention rather than recording the distance from the handbook's.
+
+## Tooling fallback
+
+No tool answers this as asked, so read the source. `markdownlint`'s `MD013` is the opposite rule and must not be substituted - see above. Resolve the blocks with whatever CommonMark parser the project already has (a docs site's own renderer, a Markdown library in the test environment) and report each paragraph whose block spans more than one source line; with no parser available, read the files, which is affordable because the subject is a docs tree rather than a codebase.
+
+Detection needs nothing installed and nothing resolved: the files are in a read-only clone, and this check reads their bytes.
+
+## Fix
+
+**Join each reported paragraph onto one line**, and change nothing else in the file. The joined line is the paragraph's text with each line break replaced by a single space, preserving the block's own indentation where the paragraph sits inside a list item or a block quote.
+
+**Leave every code block and every diagram exactly as authored.** This is the clause's second instruction and it binds the fix rather than the detection, because it is not decidable from a snapshot: a wrapped code line and a code line written that way are the same bytes. So a reformatter pointed at the whole file is the wrong instrument - it cannot tell the two apart either, and it will normalise fences, tables and diagram sources that were correct. Rejoin the paragraphs the rows name and leave the rest of the file untouched.
+
+**Never reflow a paragraph the check did not report.** A conforming paragraph is already one line; touching it turns a fix into a whole-file diff, which is the cost the clause exists to avoid, arriving as its own remedy.
+
+## What this check does not do
+
+**It does not judge the prose.** The finding is "this paragraph is hard-wrapped", never "this paragraph is too long", "badly written" or "in the wrong file". Length, clarity and placement are `docs/coverage`'s and `docs/organization`'s, and answering them here would double count the findings the front door exists to consolidate.
+
+**It does not decide whether the project should adopt the rule.** It reports the distance from the handbook's house rule. Whether a project with a stated column limit changes that limit is a convention decision its maintainers take, and the row's Minor severity and the note about a conflicting configuration are how this check hands that decision over rather than making it.
+
+## Review lens
+
+**Paragraph, not line** - does every row name a paragraph and a line range rather than a long line, and does the report survive the obvious challenge that it is a line-length finding under another name? A row that cites a single line number is the shape this fails as.
+
+**The fix touched only what was reported** - were the reported paragraphs joined and nothing else, with every code block, table and diagram source byte-identical to what it was? A whole-file reformat closes the rows and reintroduces the diff cost the clause is about.
+
+**Convention conflict recorded, not overruled** - where the project's own guide or linter configuration asks for a column limit, does the row say so, rather than reporting the tree as defective against a rule its maintainers declined?
