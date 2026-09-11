@@ -268,7 +268,7 @@ _FALLBACK_SECTION_RE = re.compile(r"^## Tooling fallback\s*$", re.M)
 #: one. Up to three spaces of indentation, which is CommonMark's own rule - at
 #: four the line is an indented code block, so its content is literal text and a
 #: fence inside it is a fence being *shown* rather than opened. No record body
-#: carries an indented block today (computed: zero of 77), so that allowance
+#: carries an indented block today (computed: zero of 78), so that allowance
 #: keeps an escape open rather than protecting a use the tree makes: a record
 #: quoting the observed output of a tool that prints fences, which a docs or
 #: prompt lens plausibly would.

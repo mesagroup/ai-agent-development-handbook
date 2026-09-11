@@ -457,19 +457,8 @@
   claim: The binding-rules file names every runtime the project carries and marks which one is primary, and for each of the others says what it buys and who maintains it, so a second stack is an owned decision rather than an unowned arrival.
   class: static
   severity: important
-  gap:
-    recommendation: extend-skill
-    target: "#91"
-    note: >-
-      arch-audit is the owner and has no check for this. Detecting the runtimes
-      present is a manifest and lockfile read, the declared list is named in the
-      rules file, and the finding is the set difference - the clause requires the
-      declaration to mark its own primary, so no reader of it has to decide which
-      runtime is exempt from the justification half. What the check must not do is
-      rate the stack, because the individual costs of an undeclared runtime belong
-      to the domains that already own them (`test`, `ci`, `deps`), which is the
-      double-counting reason a guest-stack quality check was rejected for while
-      this declaration check is worth having.
+  checks:
+    - arch/runtime-declaration
   note: >-
     Split from the `-a` row because the declaration is checkable while the
     judgment behind it is not. Undeclared is the failure this half names, so a

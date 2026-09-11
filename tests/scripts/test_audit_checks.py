@@ -2574,6 +2574,7 @@ def test_the_real_checks_tree_loads_clean():
         "arch/martin-metrics",
         "arch/over-abstraction",
         "arch/over-decomposition",
+        "arch/runtime-declaration",
         "arch/size",
         "ci/action-supply-chain",
         "ci/branch-protection",
@@ -3083,7 +3084,7 @@ def test_a_record_may_not_write_a_prescription_in_a_fenced_block(tmp_path, fence
 def test_a_four_space_indented_block_is_not_a_fence(tmp_path, block):
     """The convention's escape, which the rule above must leave open.
 
-    No record body carries an indented block today - computed, zero of 77 - so
+    No record body carries an indented block today - computed, zero of 78 - so
     this is not protecting a use the tree makes. It is the place a record could
     show a tool's observed output, and the second parameter is why the allowance
     has to survive the fence rule rather than being incidental to it: a docs or
