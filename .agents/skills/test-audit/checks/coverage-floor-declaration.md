@@ -21,9 +21,21 @@ routes:
     kind: procedure
     note: >-
       Where a Python project's floor lives, all readable from a read-only
-      clone. `[tool.coverage.report]`'s `fail_under` in `pyproject.toml`, or
-      `[report]`'s in `.coveragerc` or `setup.cfg`, is the declaration in its
-      executable form. `--cov-fail-under=<n>` is the same decision written as a
+      clone. `fail_under` is the declaration in its executable form, and the
+      section it sits under is spelled differently per file: coverage.py reads
+      `[tool.coverage.report]` in `pyproject.toml`, `[report]` in `.coveragerc`
+      - and, in `setup.cfg` or `tox.ini`, only a section prefixed `coverage:`,
+      so the heading there is `[coverage:report]` and a search for the bare
+      `[report]` reads a project that set a floor as one that set none. Two
+      more facts about those files decide whether a floor found in one is
+      executable at all. coverage.py takes the **first** file that holds valid
+      settings, searching `.coveragerc`, `.coveragerc.toml`, `setup.cfg`,
+      `tox.ini` and `pyproject.toml` in that order and ignoring the rest, so a
+      `fail_under` in a later file of a project that also configures an earlier
+      one is written where the tool will never read it - which is a finding
+      here rather than a floor, because nothing enforces it. And
+      `pyproject.toml` support needs Python 3.11 or the `toml` extra, so read
+      the project's own floor against what it runs on. `--cov-fail-under=<n>` is the same decision written as a
       pytest flag, and it counts wherever it is durable - in
       `[tool.pytest.ini_options]`'s `addopts`, in `pytest.ini`, or in a CI step
       - and not when a person types it by hand. What the floor is measured over
