@@ -36,9 +36,17 @@ routes:
       here rather than a floor, because nothing enforces it. And
       `pyproject.toml` support needs Python 3.11 or the `toml` extra, so read
       the project's own floor against what it runs on. `--cov-fail-under=<n>` is the same decision written as a
-      pytest flag, and it counts wherever it is durable - in
-      `[tool.pytest.ini_options]`'s `addopts`, in `pytest.ini`, or in a CI step
-      - and not when a person types it by hand. What the floor is measured over
+      pytest flag, and it counts wherever it is durable - in a CI step, or in
+      pytest's `addopts` - and not when a person types it by hand. Pytest's own
+      config files are a second set with a second set of headings, overlapping
+      the coverage ones without sharing their spelling: `pytest.toml` or
+      `.pytest.toml`, which take precedence over the rest; `pytest.ini` or
+      `.pytest.ini` under `[pytest]`; `pyproject.toml` under `[tool.pytest]` or
+      `[tool.pytest.ini_options]`; `tox.ini` under `[pytest]`; and `setup.cfg`
+      under `[tool:pytest]` - renamed from the bare `[pytest]` to stop it
+      colliding with distutils commands, so the bare name is right in `tox.ini`
+      and wrong in `setup.cfg`. Pytest also takes only the first matching file,
+      so the precedence trap above has a second instance here. What the floor is measured over
       is `[tool.coverage.run]`'s `source` and `omit` plus
       `[tool.coverage.report]`'s `exclude_lines`, which together name the code
       the number will never account for.
@@ -55,9 +63,23 @@ routes:
       so a project with no `vitest.config.*` keeps these keys in its Vite
       config and a search naming only the former reads a project that set a
       floor as one that set none. Jest carries `coverageThreshold`, in
-      `jest.config.*` or in `package.json`'s `jest` key. What the floor is
-      measured over is `coverage.include` and `coverage.exclude` for Vitest,
-      and `collectCoverageFrom` and `coveragePathIgnorePatterns` for Jest.
+      `jest.config.*` or in `package.json`'s `jest` key. `c8` is the third
+      home, and the domain already treats it as one of this language's coverage
+      tools: it reads `.c8rc`, `.c8rc.json`, `.nycrc` or `.nycrc.json`, walked
+      up from the working directory, or a `c8` key in `package.json`, and its
+      config keys are the long-form flags without the dashes - so the floor is
+      `check-coverage` set beside `lines`, `branches`, `functions` or
+      `statements`. It can be a command rather than a file too:
+      `c8 --check-coverage --lines <n>` in a script, `c8 --100` for the
+      all-metrics shorthand, or a separate `c8 check-coverage --lines <n>` step
+      re-checking data an earlier step collected. Whether `c8` can measure that
+      project truthfully is not this check's question - `test/coverage-reach`
+      owns it, and forbids `c8` around a Vitest command outright - and a floor
+      declared for a tool that measures the wrong thing is still a floor that
+      was decided. What the floor is measured over is `coverage.include` and
+      `coverage.exclude` for Vitest, `collectCoverageFrom` and
+      `coveragePathIgnorePatterns` for Jest, and `include`, `exclude` and `src`
+      for `c8`.
     alone_insufficient: >-
       Finding nothing here is not the finding, for the same reason as the
       Python route: the floor may live in a CI step, and absence is evidence
