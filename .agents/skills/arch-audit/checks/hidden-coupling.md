@@ -46,14 +46,52 @@ routes:
   - lang: typescript
     kind: procedure
     tool: eslint
+    note: >-
+      The same tells from ESLint's AST rather than the import graph, under a
+      flat config the audit supplies rather than the target's. Core
+      `no-restricted-syntax` takes AST selectors and needs no plugin and no type
+      information, so pointed at an audit-owned flat config with `--config` and
+      `--no-config-lookup` it reads the target's source with no `node_modules`
+      in the target at all. One selector per tell, each reporting its own
+      message: `ExportNamedDeclaration > VariableDeclaration[kind!='const']` for
+      a mutable module-level export, `ImportDeclaration[specifiers.length=0]`
+      for a side-effect-only import, `ImportExpression` for a dynamic import,
+      `MemberExpression[computed=true][property.type='Literal']` for a
+      string-keyed lookup, and `Program > ExpressionStatement > CallExpression`
+      for a top-level side effect. The record names the rule and its selectors
+      and prescribes no command line, and `--config` takes a config path the
+      record names no value for, so there is no argv to declare and a
+      `kind: command` route would have to invent one. Install ESLint and the
+      TypeScript parser into an audit-owned directory and keep that config in
+      it: without the parser ESLint reports `Parsing error: Unexpected token :`
+      on a TypeScript file rather than any rule result, and a parser handed to a
+      one-shot runner instead is not resolvable from a config living outside the
+      runner's sandbox. What the install needs is network rather than the
+      target's tree, which is why this route carries no tier and survives a
+      withheld grant.
+    alone_insufficient: >-
+      Every selector here is a single-file pattern, and no ESLint invocation
+      changes that: a linter reads one file's AST at a time and cross-file
+      understanding is a type checker's, which is why the cross-module half of
+      this check belongs to the `knip` route below and to the reading pass, not
+      to a better rule set. So a hit says a tell is present in one module and
+      never says a second module shares it, which is the finding.
+  - lang: typescript
+    kind: procedure
+    tool: eslint
     needs: target-execution
     note: >-
-      The same tells from ESLint's AST rather than the import graph. The record
-      names the tool and prescribes no command line for it, so there is no argv
-      to declare and a `kind: command` route would have to invent one. The tier
-      is the target's own tree: ESLint's flat config imports its plugins from
-      the target's own `node_modules` and aborts with `ERR_MODULE_NOT_FOUND`
-      without them.
+      The same tells run under the target's own flat config, which is what the
+      grant buys: the project's own configured rules and plugins, including any
+      it already has for these patterns, and its parser settings rather than the
+      audit's. That config loads its plugins from the target's own
+      `node_modules`, and without it ESLint aborts with `ERR_MODULE_NOT_FOUND`
+      rather than reporting anything. It is the same tool as the route above and
+      a different invocation mode, which is the whole distinction between them;
+      the schema carries the two tiers and the two notes, and nothing
+      machine-readable tells the modes apart. What the grant does not buy is the
+      cross-module confirmation - that is not a configuration question, and the
+      route above says why.
   - lang: typescript
     kind: procedure
     tool: knip
