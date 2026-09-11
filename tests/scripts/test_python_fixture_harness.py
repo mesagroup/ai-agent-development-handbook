@@ -174,11 +174,23 @@ def _marked(wanted: str) -> bool:
     false-clean shape this rule exists to refuse, arriving between the holes
     rather than before them.
 
+    A token still carrying a `>` is refused outright, because only `_concrete`
+    makes a mark and `_concrete` consumes every placeholder's `>`. What that
+    protects is a record's OWN tokens, which the anchor guards pass through
+    `_is_subsequence` raw on both sides: `--cov=<pkg>` has a delimited head, so
+    reading it as a mark would hole-fill it against the record's sentence and
+    let a quote writing `<pkg>` be satisfied by a paragraph writing `<mypkg>`,
+    whose placeholder name merely ends with it. Those two are different
+    prescriptions and telling them apart is what the anchor guards are for. The
+    invariant `_is_subsequence` names - that a record's own tokens close a
+    placeholder with `>` and so compare by equality - is stated there and
+    enforced here.
+
     `test_a_glued_placeholder_needs_a_value_delimiter_before_its_mark` refuses
     every shape this returns False for in a record, so a False here never has to
     stand in as the diagnosis.
     """
-    if "<" not in wanted:
+    if "<" not in wanted or ">" in wanted:
         return False
     segments = wanted.split("<")
     head = segments[0]
@@ -903,6 +915,33 @@ def test_a_mark_on_a_head_that_is_a_prefix_of_other_flags_is_not_a_mark():
     assert _matches("file://<", "file:///tmp/fixture")
     assert _matches("@stryker-mutator/<", "@stryker-mutator/jest-runner")
     assert _matches("p/<", "p/ci")
+
+
+def test_a_record_token_that_still_closes_its_placeholder_is_not_a_mark():
+    """The invariant `_is_subsequence` rests on, enforced rather than assumed.
+
+    A mark is what `_concrete` leaves behind, and `_concrete` consumes every
+    placeholder's `>`. So a token still carrying one was never reduced, and the
+    anchor guards pass exactly those: they trace a record's raw quote tokens
+    through the record's own sentence, both sides unreduced.
+
+    Reading such a token as a mark is the false-clean direction. `--cov=<pkg>`
+    has a delimited head, so hole-filling it would let a quote writing `<pkg>` be
+    satisfied by a paragraph writing `<mypkg>` - a different prescription whose
+    placeholder name merely ends with the first. Telling those apart is the whole
+    job of the guards that compare them.
+
+    Found by review on this branch: widening the mark from "ends with `<`" to
+    "contains `<`" silently took the raw tokens in with the reduced ones.
+    """
+    assert not _marked("--cov=<pkg>")
+    assert not _marked("@stryker-mutator/<runner>-runner")
+    assert _matches("--cov=<pkg>", "--cov=<pkg>")
+    assert not _matches("--cov=<pkg>", "--cov=<mypkg>")
+    assert not _is_subsequence(["--cov=<pkg>"], ["--cov=<mypkg>"])
+    # And the reduction of that same token still is a mark, so the refusal is
+    # about the `>` rather than about the shape as a whole.
+    assert _marked(_concrete(["--cov=<pkg>"])[0])
 
 
 def test_a_mark_is_not_satisfied_by_a_sibling_in_the_same_namespace():
