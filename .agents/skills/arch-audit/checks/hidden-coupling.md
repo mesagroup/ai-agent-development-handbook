@@ -57,12 +57,21 @@ routes:
       and the value are different things:
       `ExportNamedDeclaration > VariableDeclaration[kind!='const']` for a
       rebindable export, and
-      `ExportNamedDeclaration > VariableDeclaration > VariableDeclarator:matches([init.type='ObjectExpression'],[init.type='ArrayExpression'],[init.type='NewExpression'])`
+      `ExportNamedDeclaration > VariableDeclaration > VariableDeclarator:matches([init.type='ObjectExpression'],[init.type='ArrayExpression'],[init.type='NewExpression'],[init.expression.type='ObjectExpression'],[init.expression.type='ArrayExpression'],[init.expression.type='NewExpression'])`
       for an exported singleton or container - `export const` of an object, an
       array or a `new` instance. The second is the one that matters more here
       and the first alone would miss it: an ESM import binding is read-only, as
       the `knip` route below says, so another module cannot reassign an
-      `export let` and couples by mutating the exported value instead. Then
+      `export let` and couples by mutating the exported value instead. Its
+      `init.expression` half is why it is six clauses rather than three: a
+      TypeScript `as` or `satisfies` wrapper makes the initialiser a
+      `TSAsExpression` or `TSSatisfiesExpression` holding the literal, so
+      `{} as Registry` - the typed empty registry this check exists for, with
+      whatever type the target spells there - reads as neither an object nor an
+      array to a selector matching `init.type` alone. The example is written
+      without its type arguments on purpose: a generic in a backtick span is a
+      `<` glued to a name, which this family's form extractor reads as a
+      placeholder and refuses. Then
       `ImportDeclaration[specifiers.length=0]`
       for a side-effect-only import, `ImportExpression` for a dynamic import,
       `MemberExpression[computed=true][property.type='Literal'][property.raw=/^["']/]`
@@ -90,7 +99,16 @@ routes:
       understanding is a type checker's, which is why the cross-module half of
       this check belongs to the `knip` route below and to the reading pass, not
       to a better rule set. So a hit says a tell is present in one module and
-      never says a second module shares it, which is the finding.
+      never says a second module shares it, which is the finding. **The
+      selector list is a floor and not the definition of the tells**, which the
+      tool-less TypeScript route states in prose and keeps as the authority: a
+      fixed set of AST patterns misses whatever spelling it was not written
+      against, and this one has already been widened twice for a form it did
+      not anticipate - a numeric index reading as a string key, and a mutable
+      value behind a `const` binding or behind a type assertion. Widen it for
+      the dialect in front of you rather than reading a clean ESLint run as an
+      answer, and treat a partition whose source style these selectors were not
+      written against as unmeasured on this axis rather than clean.
   - lang: typescript
     kind: procedure
     tool: eslint
