@@ -1,6 +1,6 @@
 ---
 name: docs-audit
-description: "Audit a project's documentation for organization, cross-referencing, and coverage, then fill the gaps to a consistent functional + architecture standard. Use when docs have drifted from the code, when a tree has grown organically and needs a structured review, when onboarding requires the docs alone to explain the system, or when the user asks to audit/reorganize/complete documentation. Works on any codebase. Optionally also audits docstrings. Runs on the audit-core engine."
+description: "Audit a project's documentation for organization, cross-referencing, coverage, and the form its Markdown source takes, then fill the gaps to a consistent functional + architecture standard. Use when docs have drifted from the code, when a tree has grown organically and needs a structured review, when onboarding requires the docs alone to explain the system, or when the user asks to audit/reorganize/complete documentation. Works on any codebase. Optionally also audits docstrings. Runs on the audit-core engine."
 ---
 
 # Documentation Audit and Gap-Filling
