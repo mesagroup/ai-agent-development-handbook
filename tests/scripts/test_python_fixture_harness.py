@@ -5264,9 +5264,9 @@ def test_an_ambiguous_group_is_refused_by_name(monkeypatch, routes, expected):
     disagreeing with this sentence.
 
     The last case is not ambiguity, and its shape is **not** absent. A group
-    prescribing no command and declaring more than one route is in the tree
-    three times, all `lang: typescript`, held by identity in
-    `test_the_multi_route_no_command_groups_are_the_three_the_rule_was_written_for`
+    prescribing no command and declaring more than one route is present in the
+    tree, all `lang: typescript`, held by identity in
+    `test_the_multi_route_no_command_groups_are_the_ones_the_rule_was_written_for`
     - and it does not raise, because `_reason_for_no_command` composes those
     routes' notes rather than choosing between them. This case is the
     note-less variant: several prescribed routes with no note anywhere among
