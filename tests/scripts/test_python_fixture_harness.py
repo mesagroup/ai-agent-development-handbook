@@ -134,37 +134,57 @@ def _tokens(text: str) -> list[str]:
 #: shape the guard's usual remedy of writing the value space-separated does not
 #: exist.
 #:
-#: What the delimiter does NOT buy is unambiguity among *values* that share a
-#: namespace prefix. `@stryker-mutator/<` is satisfied by `@stryker-mutator/core`,
-#: a different package named in the same prescribed command; see
-#: `test_a_mark_is_still_satisfied_by_a_sibling_in_the_same_namespace`. Closing
-#: that needs the text after the placeholder, not a better delimiter.
+#: What the delimiter does not buy on its own is unambiguity among *values* that
+#: share a namespace prefix: a mark reduced to `@stryker-mutator/` alone is
+#: satisfied by `@stryker-mutator/core`, a different package named in the same
+#: prescribed command. What closes that is the text after the placeholder rather
+#: than a better delimiter, so a mark keeps the literal segments around its holes
+#: and the delimiter rule below decides only whether the *head* earns one; see
+#: `test_a_mark_is_not_satisfied_by_a_sibling_in_the_same_namespace`.
 _VALUE_DELIMITERS = "=:/@"
 
 
 def _marked(wanted: str) -> bool:
-    """Whether `_concrete` left this token a prefix for the caller to complete.
+    """Whether `_concrete` left this token holes for the caller to fill.
 
     One place decides what the mark is, because two readers have to agree on it:
-    `_matches` treats a marked token as a prefix, and the coverage property holds
+    `_matches` fills a marked token's holes, and the coverage property holds
     order among the unmarked tokens and presence for the marked ones. A
     disagreement about which is which would move a token quietly from one rule to
     the other.
 
-    The mark counts only where a name ends at a value delimiter, which is two
+    A marked token is its literal segments separated by `<`, one per placeholder
+    the record glued into it, so `--cov=<` is a head and an empty tail while
+    `@stryker-mutator/<-runner` is a head and a real one. The head is what this
+    rule judges; the tail is what `_matches` then demands, and it is the tail
+    that separates two packages sharing a namespace.
+
+    The head counts only where a name ends at a value delimiter, which is two
     conditions and not one. Without the delimiter, `-r<` from a record writing
     `-r<file>` is a mark by shape alone and accepts `-rf`, a different flag,
     while `-<` accepts every flag there is. Without the name, `/<` and `=<` are
-    marks whose prefix is the delimiter itself, which accepts any value at all -
+    marks whose head is the delimiter itself, which accepts any value at all -
     the same "asserts nothing while looking like an assertion" shape surviving at
     one character. Length is the wrong test for both: `-abc<` has a longer head
     than the legitimate `p/<` and degenerates where `p/<` does not.
 
+    An interior segment is refused when it is empty, which is two placeholders
+    written adjacent. There is no token a fill could produce that such a mark
+    describes, so honouring it would be a comparison that cannot fire - the
+    false-clean shape this rule exists to refuse, arriving between the holes
+    rather than before them.
+
     `test_a_glued_placeholder_needs_a_value_delimiter_before_its_mark` refuses
-    both shapes in a record, so this returning False for one never has to stand
-    in as the diagnosis.
+    every shape this returns False for in a record, so a False here never has to
+    stand in as the diagnosis.
     """
-    return len(wanted) > 2 and wanted.endswith("<") and wanted[-2] in _VALUE_DELIMITERS
+    if "<" not in wanted:
+        return False
+    segments = wanted.split("<")
+    head = segments[0]
+    if len(head) < 2 or head[-1] not in _VALUE_DELIMITERS:
+        return False
+    return all(segment for segment in segments[1:-1])
 
 
 def _matches(wanted: str, token: str) -> bool:
@@ -182,13 +202,26 @@ def _matches(wanted: str, token: str) -> bool:
     prefix test applies where the head can only be its own option's, never where
     it is a prefix of other options too.
 
-    A record's own tokens never end in `<`, because the placeholder it writes
-    closes with `>`, so the older guards passing raw tokens through
+    A record's own tokens never carry a bare `<`, because the placeholder it
+    writes closes with `>`, so the older guards passing raw tokens through
     `_is_subsequence` still compare by equality.
+
+    Each hole must consume at least one character. Two literals meeting is not a
+    fill: `@stryker-mutator/-runner` satisfies both ends of
+    `@stryker-mutator/<-runner` and named no package, and `--cov=` is a flag
+    whose value never arrived.
     """
     if _marked(wanted):
-        prefix = wanted[:-1]
-        return token.startswith(prefix) and len(token) > len(prefix)
+        segments = wanted.split("<")
+        if not token.startswith(segments[0]) or not token.endswith(segments[-1]):
+            return False
+        at = len(segments[0])
+        for segment in segments[1:-1]:
+            found = token.find(segment, at + 1)
+            if found < 0:
+                return False
+            at = found + len(segment)
+        return len(token) >= at + 1 + len(segments[-1])
     return token == wanted
 
 
@@ -317,25 +350,56 @@ def _concrete(tokens: list[str]) -> list[str]:
     what lets the coverage property watch the entry whose placeholder forced the
     anchor guard to be switched off for it.
 
-    Where the placeholder is glued to a flag the token is *truncated* rather than
-    dropped, keeping the `<`, which `_marked` reads as a mark where the head ends
-    at a value delimiter and refuses where it does not: `--cov=<pkg>` becomes
-    `--cov=<`, which any `--cov=` token carrying a package name satisfies. Dropping the whole
-    token instead reopens the drift this file exists to catch - a paragraph that
-    grows `--cov-config=<file>` would reduce to nothing at all, `all([])` is
-    vacuously true, and a newly prescribed flag nothing transcribes would pass
-    the flag property in silence. It also degrades the coverage property to a
-    check on the lead word alone, since `pytest --randomly-seed=<n>` would reduce
-    to `pytest` and be satisfied by an argv running the suite bare.
+    Where the placeholder is glued to the rest of a token, the token is *reduced*
+    rather than dropped: each placeholder collapses to a bare `<` and everything
+    around it is kept, which `_marked` reads as a mark where the head ends at a
+    value delimiter and refuses where it does not. `--cov=<pkg>` becomes
+    `--cov=<`, which any `--cov=` token carrying a package name satisfies, and
+    `@stryker-mutator/<runner>-runner` becomes `@stryker-mutator/<-runner`, which
+    a sibling in the same namespace does not.
+
+    Keeping what follows the placeholder is the whole of that second case. A
+    reduction to the head alone made the mark for the runner package satisfied by
+    the core package named two tokens earlier in the same prescribed command, so
+    an argv that dropped the runner half passed the presence check.
+
+    Dropping the whole token instead reopens the drift this file exists to catch
+    - a paragraph that grows `--cov-config=<file>` would reduce to nothing at
+    all, `all([])` is vacuously true, and a newly prescribed flag nothing
+    transcribes would pass the flag property in silence. It also degrades the
+    coverage property to a check on the lead word alone, since `pytest
+    --randomly-seed=<n>` would reduce to `pytest` and be satisfied by an argv
+    running the suite bare.
+
+    A token whose `<` never closes keeps the older behaviour of truncating there,
+    because there is no placeholder to collapse and the text after an unclosed
+    `<` is not a literal a command can be held to. The tree writes none - every
+    glued placeholder in it closes - so this is a defined edge rather than a case
+    the records exercise.
     """
     out = []
     for token in tokens:
         if "<" not in token:
             out.append(token)
             continue
-        head = token.split("<", 1)[0]
-        if head:
-            out.append(head + "<")
+        reduced, at = [], 0
+        while at < len(token):
+            if token[at] != "<":
+                reduced.append(token[at])
+                at += 1
+                continue
+            reduced.append("<")
+            closed = token.find(">", at)
+            if closed < 0:
+                break
+            at = closed + 1
+        collapsed = "".join(reduced)
+        # A token that is only holes says nothing a command can be held to, and
+        # a standalone `<requirements>` is exactly that: dropping it is what lets
+        # the coverage property watch the entry whose placeholder forced the
+        # anchor guard off.
+        if not collapsed.startswith("<"):
+            out.append(collapsed)
     return out
 
 
@@ -595,7 +659,7 @@ def _demoted_tokens(inv: Invocation) -> list[str]:
 
     Equality is the whole comparison because a record's own tokens are never
     marked: the placeholder a record writes closes with `>`, and only
-    `_concrete` leaves the trailing `<` that `_marked` can read as a prefix.
+    `_concrete` leaves the bare `<` that `_marked` can read as a hole.
     """
     quote = _tokens(inv.record_quote)
     return [token for token in inv.completion if token in quote]
@@ -729,7 +793,7 @@ def test_a_placeholder_token_is_dropped_before_matching_an_argv():
     ]
 
 
-def test_a_placeholder_glued_to_a_flag_keeps_the_flag_as_a_prefix():
+def test_a_placeholder_glued_to_a_flag_keeps_the_literals_around_it():
     """`--cov=<pkg>` is the same phenomenon, and dropping it goes too far.
 
     A record writes the value the caller supplies inside the flag, so no command
@@ -737,6 +801,10 @@ def test_a_placeholder_glued_to_a_flag_keeps_the_flag_as_a_prefix():
     reads as one the harness does not run. Dropped whole, the flag stops being
     held at all, which is worse: it is the drift shape these properties exist to
     catch.
+
+    What survives the reduction is every literal the record wrote, not the head
+    alone - a placeholder in the middle leaves a head and a tail, and a token
+    carrying two leaves an interior segment between them.
     """
     assert _concrete(_tokens("pytest --cov=<pkg> --cov-branch")) == [
         "pytest",
@@ -744,6 +812,51 @@ def test_a_placeholder_glued_to_a_flag_keeps_the_flag_as_a_prefix():
         "--cov-branch",
     ]
     assert _concrete(_tokens("pip-audit -r <requirements>")) == ["pip-audit", "-r"]
+    assert _concrete(["@stryker-mutator/<runner>-runner"]) == [
+        "@stryker-mutator/<-runner"
+    ]
+    assert _concrete(["https://pypi.org/pypi/<name>/<version>/json"]) == [
+        "https://pypi.org/pypi/</</json"
+    ]
+
+
+def test_every_glued_placeholder_the_routes_carry_keeps_its_behaviour():
+    """The five tokens in the tree's route argvs, each read through the change.
+
+    The reduction's representation changed, so "nothing went red" is evidence
+    about the tree and not about these five: four of them have an empty tail and
+    must behave exactly as they did, and the fifth is the one this change exists
+    for. Asserting each is what separates the two.
+
+    Computed rather than restated: five glued tokens across three routes in two
+    records, `test/determinism`'s two seeds and `test/mutation`'s three spellings
+    of the Stryker runner package. The guard below holds the tree's own count at
+    zero offenders; this holds each token's meaning.
+    """
+    seeds = _concrete(["--randomly-seed=<n>", "--sequence.seed=<n>"])
+    assert seeds == ["--randomly-seed=<", "--sequence.seed=<"]
+    assert _matches(seeds[0], "--randomly-seed=4242")
+    assert not _matches(seeds[0], "--randomly-seed=")
+    assert not _matches(seeds[0], "--randomly-seed-extra=4242")
+    assert _matches(seeds[1], "--sequence.seed=4242")
+    assert not _matches(seeds[1], "--sequence.seed=")
+
+    # The three Stryker spellings, including the `pnpm` override whose head ends
+    # at `/` rather than at the `=` earlier in the same token.
+    bare = _concrete(["@stryker-mutator/<runner>-runner"])[0]
+    flagged = _concrete(["--package=@stryker-mutator/<runner>-runner"])[0]
+    assert flagged == "--package=@stryker-mutator/<-runner"
+    for mark, core, runner in (
+        (bare, "@stryker-mutator/core", "@stryker-mutator/jest-runner"),
+        (
+            flagged,
+            "--package=@stryker-mutator/core",
+            "--package=@stryker-mutator/jest-runner",
+        ),
+    ):
+        assert _marked(mark)
+        assert not _matches(mark, core)
+        assert _matches(mark, runner)
 
 
 def test_a_truncated_flag_is_satisfied_by_a_value_and_by_nothing_else():
@@ -792,57 +905,81 @@ def test_a_mark_on_a_head_that_is_a_prefix_of_other_flags_is_not_a_mark():
     assert _matches("p/<", "p/ci")
 
 
-def test_a_mark_is_still_satisfied_by_a_sibling_in_the_same_namespace():
-    """The limit the delimiter rule does not close, asserted rather than implied.
+def test_a_mark_is_not_satisfied_by_a_sibling_in_the_same_namespace():
+    """The limit the delimiter rule does not close, closed by the suffix.
 
     A delimiter makes a head unambiguous among *option names* - nothing but
     `--cov=<pkg>` is spelled `--cov=`. It buys nothing among *values* sharing a
     namespace prefix, and the tree writes one: `test/mutation` prescribes
     `--package @stryker-mutator/core --package @stryker-mutator/<runner>-runner`,
-    so the mark for the runner package is satisfied by the core package named two
-    tokens earlier. Dropping the runner half of that argv would pass a presence
+    so a mark that kept only the head was satisfied by the core package named two
+    tokens earlier, and an argv that dropped the runner half passed the presence
     check.
 
-    Not live, for a reason that is about that route rather than about this rule:
-    it is `lang: typescript`, so `routed_invocations` builds no row from it, and
-    `disposition: alternative`, so the disposition guard skips its form. Both
-    shields would have to go before it mattered, and the second is not general -
-    `test/determinism`'s `--sequence.seed=<n>` is `disposition: runs` and shielded
-    by `lang` alone.
+    What closes it is the text after the placeholder. A mark carries the literal
+    segments around its holes, so `@stryker-mutator/<runner>-runner` demands a
+    token that begins `@stryker-mutator/` AND ends `-runner` with something
+    between. The head alone no longer decides.
 
-    Closing it needs the text after the placeholder, which is a different change
-    to `_concrete`'s contract than this one and is filed rather than smuggled in
-    here. This assertion exists so the limit cannot be mistaken for an oversight,
-    and so that closing it breaks a test that says what it was.
+    Asserted through `_concrete` rather than on a hand-written mark, because the
+    representation is what changed: a literal would test this file's encoding of
+    a mark, and what is worth holding is the contract from the token a record
+    writes to the tokens a command may carry.
     """
-    assert _matches("@stryker-mutator/<", "@stryker-mutator/core")
+    mark = _concrete(["@stryker-mutator/<runner>-runner"])[0]
+    assert _marked(mark)
+    assert not _matches(mark, "@stryker-mutator/core")
+    assert _matches(mark, "@stryker-mutator/jest-runner")
+    assert _matches(mark, "@stryker-mutator/vitest-runner")
+    # The hole is not optional: the two literals meeting is not a fill.
+    assert not _matches(mark, "@stryker-mutator/-runner")
+    # A sibling long enough that the length floor alone would admit it. The
+    # tree's own `@stryker-mutator/core` is shorter than the two literals put
+    # together, so it is refused whether or not the tail is demanded - which
+    # makes it, on its own, evidence for the wrong property. This row is the one
+    # that fails when the tail stops being read, found by mutating that demand
+    # away and watching the assertions above stay green.
+    assert not _matches(mark, "@stryker-mutator/core-runner-plugin")
 
 
 def _unverifiable_glue(concrete: str) -> bool:
     """Whether this truncated token is one no reader here can verify.
 
-    A token `_concrete` truncated but `_marked` will not honour: the mark is
-    there and the head does not earn it. Split out from the guard below so the
-    detection is testable on a literal - a guard whose only input is the tree
-    passes for two different reasons, one of them being that `_marked` regressed
-    and now honours everything.
+    A token `_concrete` reduced but `_marked` will not honour. Two shapes reach
+    it: a head that does not end at a value delimiter, so the mark is there and
+    the head does not earn it; and two placeholders written adjacent, whose empty
+    interior segment describes no token a fill could produce. Split out from the
+    guard below so the detection is testable on a literal - a guard whose only
+    input is the tree passes for two different reasons, one of them being that
+    `_marked` regressed and now honours everything.
     """
-    return concrete.endswith("<") and not _marked(concrete)
+    return "<" in concrete and not _marked(concrete)
 
 
 def test_the_unverifiable_shapes_are_detected_on_literals():
     """The guard's own detection, held on tokens rather than on the tree.
 
-    The tree carries none of these, so the guard below cannot show that it would
-    catch one. These are the two shapes `_marked` refuses and the three the tree
-    actually writes, each read through the same predicate the guard uses.
+    The tree carries none of the refused shapes, so the guard below cannot show
+    that it would catch one. These are the shapes `_marked` refuses - a head that
+    does not end at a value delimiter, and two placeholders written adjacent -
+    and the ones the tree actually writes, each read through the same predicate
+    the guard uses.
+
+    `pkg@<a><b>` is the adjacent pair, which has a delimiter and still describes
+    no token: the empty segment between its holes is a literal a fill can never
+    produce. The pypi URL is its legitimate neighbour, two holes with a real
+    segment between them, and the tree writes it twice.
     """
     assert _unverifiable_glue(_concrete(["-r<file>"])[0])
     assert _unverifiable_glue(_concrete(["-<n>"])[0])
     assert _unverifiable_glue(_concrete(["coverage.<n>.xml"])[0])
+    assert _unverifiable_glue(_concrete(["pkg@<a><b>"])[0])
     assert not _unverifiable_glue(_concrete(["--cov=<pkg>"])[0])
     assert not _unverifiable_glue(_concrete(["file://<dir>"])[0])
     assert not _unverifiable_glue(_concrete(["pkg@<version>"])[0])
+    assert not _unverifiable_glue(
+        _concrete(["https://pypi.org/pypi/<name>/<version>/json"])[0]
+    )
 
 
 def test_a_glued_placeholder_needs_a_value_delimiter_before_its_mark():
@@ -2061,13 +2198,20 @@ def test_every_form_the_harness_runs_appears_in_an_argv():
     route staying out of the `supplied` branch is a convention and not a schema
     fact, and the assertion holds the rows this property reads to it. Do not read
     those routes as the thing the assertion is guarding against, but read what
-    shields each one: every one of them is `lang: typescript`, so
-    `routed_invocations` builds no row from any. Only two are also `alternative`.
-    `test/determinism`'s `--sequence.seed=<n>` is `disposition: runs`, so `lang`
-    is its only shield, and extending `routed_invocations` to TypeScript on the
-    strength of "doubly guarded" would walk into it. The
-    convention the assertion holds a python route to is to leave such a
-    placeholder in `alone_insufficient`, which derives no form.
+    shields each one, because no two of the three are shielded by the same thing:
+
+    - `test/determinism`'s python `--randomly-seed=<n>` is on a `pytest-randomly`
+      route that DOES build a routed row. What keeps it out of this branch is
+      `disposition: alternative` alone, since only a `runs` form is read here.
+    - `test/determinism`'s typescript `--sequence.seed=<n>` is `disposition:
+      runs`, so `lang` is its only shield - `routed_invocations` is python-only.
+    - `test/mutation`'s three Stryker spellings have both.
+
+    So "doubly guarded" is true of one of the three. Extending
+    `routed_invocations` to TypeScript walks into the second, and reading a
+    `runs` form off an `alternative` route walks into the first. The convention
+    the assertion holds a python route to is to leave such a placeholder in
+    `alone_insufficient`, which derives no form.
 
     So no form on either path takes the `supplied` branch today, and it stays
     because a transcribed entry can take one: a record writes the token it
