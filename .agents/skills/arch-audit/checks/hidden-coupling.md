@@ -53,13 +53,22 @@ routes:
       information, so pointed at an audit-owned flat config with `--config` and
       `--no-config-lookup` it reads the target's source with no `node_modules`
       in the target at all. One selector per tell, each reporting its own
-      message: `ExportNamedDeclaration > VariableDeclaration[kind!='const']` for
-      a mutable module-level export, `ImportDeclaration[specifiers.length=0]`
+      message. A mutable module-level export takes two, because the binding
+      and the value are different things:
+      `ExportNamedDeclaration > VariableDeclaration[kind!='const']` for a
+      rebindable export, and
+      `ExportNamedDeclaration > VariableDeclaration > VariableDeclarator:matches([init.type='ObjectExpression'],[init.type='ArrayExpression'],[init.type='NewExpression'])`
+      for an exported singleton or container - `export const` of an object, an
+      array or a `new` instance. The second is the one that matters more here
+      and the first alone would miss it: an ESM import binding is read-only, as
+      the `knip` route below says, so another module cannot reassign an
+      `export let` and couples by mutating the exported value instead. Then
+      `ImportDeclaration[specifiers.length=0]`
       for a side-effect-only import, `ImportExpression` for a dynamic import,
       `MemberExpression[computed=true][property.type='Literal'][property.raw=/^["']/]`
       for a string-keyed lookup, and
       `Program > ExpressionStatement > CallExpression` for a top-level side
-      effect. The `property.raw` test is what keeps the fourth selector to
+      effect. The `property.raw` test is what keeps the string-key selector to
       string keys: a `Literal` property also covers `arr[0]` and `arr[true]`,
       so without it ordinary index access reports as a service-locator lookup
       and the reading pass drowns in hits the tell does not describe. Matching
