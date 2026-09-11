@@ -56,9 +56,15 @@ routes:
       message: `ExportNamedDeclaration > VariableDeclaration[kind!='const']` for
       a mutable module-level export, `ImportDeclaration[specifiers.length=0]`
       for a side-effect-only import, `ImportExpression` for a dynamic import,
-      `MemberExpression[computed=true][property.type='Literal']` for a
-      string-keyed lookup, and `Program > ExpressionStatement > CallExpression`
-      for a top-level side effect. The record names the rule and its selectors
+      `MemberExpression[computed=true][property.type='Literal'][property.raw=/^["']/]`
+      for a string-keyed lookup, and
+      `Program > ExpressionStatement > CallExpression` for a top-level side
+      effect. The `property.raw` test is what keeps the fourth selector to
+      string keys: a `Literal` property also covers `arr[0]` and `arr[true]`,
+      so without it ordinary index access reports as a service-locator lookup
+      and the reading pass drowns in hits the tell does not describe. Matching
+      the raw source rather than the value is what distinguishes them, since
+      the quote is in the source text and not in the parsed value. The record names the rule and its selectors
       and prescribes no command line, and `--config` takes a config path the
       record names no value for, so there is no argv to declare and a
       `kind: command` route would have to invent one. Install ESLint and the
