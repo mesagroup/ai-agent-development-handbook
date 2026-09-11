@@ -7,9 +7,16 @@ evidence: >-
   module as the evidence pointer, in either language. What the untiered
   `kind: procedure` routes below read - what a project excluded from
   measurement, and the branch threshold it set for itself - is part of what
-  this check asks. Whether a coverage threshold is *enforced* is a different
-  check's question - `ci/gate-enforcement` owns whether an intended gate is
-  actually required - so do not answer it here. Every command route below runs
+  this check asks, as what its measured number is read against. Two adjacent
+  questions are not this check's. Whether a coverage threshold is *enforced* is
+  `ci/gate-enforcement`'s - it owns whether an intended gate is actually
+  required. Whether a floor was ever *decided*, and whether it has an
+  executable home rather than living in prose, is
+  `test/coverage-floor-declaration`'s, and a project that set no threshold at
+  all is silent here and a finding there. What stays here is whether the number
+  this check measures is adequate and whether the threshold measures the right
+  thing - the `fail_under`-without-`branch = true` pair the Python route below
+  names is a metric-basis finding and belongs to this record. Every command route below runs
   the target's own suite to produce its report, which is the `target-execution`
   grant; without it the reach measurement itself is
   `no-evidence (not-permitted)`, and what remains is the exclusion-config
