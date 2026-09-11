@@ -3,11 +3,13 @@ id: arch/runtime-declaration
 domain: arch
 locality: global
 evidence: >-
-  Two lists and their difference. Each detected runtime is evidenced by the
-  manifest that makes it one, at `file:line`; each declared runtime by the line
-  of the binding-rules file naming it. A row records the difference in both
-  directions and, where the declaration is present but thin, which of the two
-  required clauses it is missing.
+  Two lists and the difference in one direction. Each detected runtime is
+  evidenced by the manifest that makes it one, at `file:line`; each declared
+  runtime by the line of the binding-rules file naming it. A row records the
+  detected runtimes the declaration does not name, and, where a declaration is
+  present but thin, which of the two required clauses it is missing. It records
+  the file it resolved as the binding-rules file either way, since the
+  comparison is unreadable without it.
 handbook:
   - codebase-structure/count-the-runtimes-and-make-each-one-earn-its-place-b
 routes:
@@ -54,6 +56,8 @@ Whether the project's binding-rules file **names every runtime the project carri
 **Minor** - a non-primary runtime that is declared but thin: named in the list, with what it buys or who maintains it missing. The stack is owned; the record of why is incomplete. A missing primary marking is this tier too, because a list that marks no primary makes every entry read as needing the justification half.
 
 There is deliberately **no Critical tier**. The tiers here run out at Important because the check asks whether a runtime is declared and never whether it should exist, so it has no attacker path and no evaded gate to offer - those belong to the domains named below.
+
+**A runtime declared but not present has no tier, and that is the whole of its treatment.** The clause requires the declaration to cover what the project carries; it says nothing about an entry for a stack that has since gone, and this check reports only the difference in the direction the clause names. A stale entry is a documentation-accuracy question and belongs to Part 8 with the rest of them. So the comparison runs one way: detected minus declared. Reporting the other way would be this check deciding the list should be shorter, which is a stack judgment wearing a declaration check's clothes.
 
 ## Fix
 
