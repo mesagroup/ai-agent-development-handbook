@@ -49,7 +49,9 @@ The subject is the documentation tree, and `audit-core`'s partitioning slices co
 
 ## Tooling fallback
 
-No tool answers this as asked, so read the source. `markdownlint`'s `MD013` is the opposite rule and must not be substituted - see above. Resolve the blocks with whatever CommonMark parser the project already has (a docs site's own renderer, a Markdown library in the test environment), with its table and front-matter extensions enabled for the reason above, and report each paragraph whose block spans more than one source line for any reason other than an explicit hard break. The exception belongs in this sentence rather than only in the detection rule above: a fallback that restates the rule without it is the form an agent actually runs, and it reports conforming paragraphs.
+No tool answers this as asked, so read the source. `markdownlint`'s `MD013` is the opposite rule and must not be substituted - see above. Resolve the blocks with whatever CommonMark parser the project already has (a docs site's own renderer, a Markdown library in the test environment), with its table and front-matter extensions enabled for the reason above.
+
+**This section says what to run. It does not say what counts as a finding, and it deliberately does not restate the rule that does.** That rule is `What counts as a paragraph, and what does not` above, and it is one rule rather than a headline with qualifications: the hard-break exception and the per-paragraph marker guard are clauses of it, not footnotes to it. The separation is here because a paraphrase in this section is the form an agent actually runs, so every clause a paraphrase drops becomes a conforming paragraph reported and then joined - and this record lost a different clause that way on each of two consecutive revisions before the paraphrase was removed rather than corrected again.
 
 With no parser available, read the files, which is affordable because the subject is a docs tree rather than a codebase.
 
