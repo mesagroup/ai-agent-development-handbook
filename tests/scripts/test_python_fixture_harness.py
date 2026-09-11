@@ -5398,16 +5398,26 @@ def test_a_group_with_no_prescribed_route_falls_back_to_every_route(monkeypatch)
     assert row.note == "A rougher count."
 
 
-def test_the_multi_route_no_command_groups_are_the_three_the_rule_was_written_for():
+def test_the_multi_route_no_command_groups_are_the_ones_the_rule_was_written_for():
     """Held by identity, because the rule is invisible on the python selection.
 
-    All three are `lang: typescript`, so `routed_invocations` builds no row
+    Every one is `lang: typescript`, so `routed_invocations` builds no row
     from any of them and the composition above is exercised only on
     constructed records. That is the whole reason this property exists: if
     these groups leave the tree, the rule stops having a subject and nothing
-    else would say so, and if a fourth arrives it should be read against the
-    three axes the rule settles - `needs`, `applies_when` and `disposition` -
-    rather than discovered by a crash in whoever widens the selection.
+    else would say so, and a new arrival should be read against the three axes
+    the rule settles - `needs`, `applies_when` and `disposition` - rather than
+    discovered by a crash in whoever widens the selection.
+
+    Each group is discriminated by exactly one of those axes, and the set holds
+    a worked example of each: `test/coverage-reach/c8` splits on
+    `applies_when`, `test/mutation/@stryker-mutator/core` on `disposition`,
+    and the two ESLint groups on `needs` - an audit-owned flat config that
+    carries no tier beside the target's own config that carries
+    `target-execution`. `arch/hidden-coupling/eslint` was read against the
+    three when it arrived and is a second instance of the `needs` axis rather
+    than a fourth shape, which is why it is added here rather than sent back to
+    the rule.
     """
     checks, errors = load_checks(SKILLS_DIR)
     assert not errors, errors
@@ -5429,6 +5439,7 @@ def test_the_multi_route_no_command_groups_are_the_three_the_rule_was_written_fo
     }
     assert multi == {
         "arch/complexity/eslint",
+        "arch/hidden-coupling/eslint",
         "test/coverage-reach/c8",
         "test/mutation/@stryker-mutator/core",
     }, multi
