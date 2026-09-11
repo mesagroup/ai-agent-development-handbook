@@ -36,8 +36,12 @@ routes:
       here rather than a floor, because nothing enforces it. And
       `pyproject.toml` support needs Python 3.11 or the `toml` extra, so read
       the project's own floor against what it runs on. `--cov-fail-under=<n>` is the same decision written as a
-      pytest flag, and it counts wherever it is durable - in a CI step, or in
-      pytest's `addopts` - and not when a person types it by hand. Pytest's own
+      pytest flag, and it counts wherever it is durable, which is
+      wider than a config file: pytest's `addopts`, a CI step, a `tox.ini`
+      `[testenv]` command, a Nox or Hatch script, a Makefile target, a
+      `package.json`-style script entry in whatever the project uses. What
+      disqualifies an invocation is a person typing it, not the kind of file it
+      sits in. Pytest's own
       config files are a second set with a second set of headings, overlapping
       the coverage ones without sharing their spelling: `pytest.toml` or
       `.pytest.toml` under `[pytest]`, which take precedence over the rest
@@ -49,10 +53,16 @@ routes:
       under `[tool:pytest]` - renamed from the bare `[pytest]` to stop it
       colliding with distutils commands, so the bare name is right in `tox.ini`
       and wrong in `setup.cfg`. Pytest also takes only the first matching file,
-      so the precedence trap above has a second instance here. What the floor is measured over
-      is `[tool.coverage.run]`'s `source` and `omit` plus
-      `[tool.coverage.report]`'s `exclude_lines`, which together name the code
-      the number will never account for.
+      so the precedence trap above has a second instance here. What the floor is measured over is
+      the run section's `source`, `source_pkgs`, `include` and `omit` together
+      with the report section's `exclude_lines` and `exclude_also` - the last
+      of which supplements the default exclusions rather than replacing them,
+      so a project using it has exclusions a reader watching only
+      `exclude_lines` never sees. `.coveragerc.toml` takes the bare `[run]` and
+      `[report]` headings, the same as `.coveragerc`, and also accepts the
+      `[tool.coverage.*]` form; it is a recent addition, so check the coverage
+      version the project pins before reading a floor there as one anything
+      enforces.
     alone_insufficient: >-
       Finding nothing here is not the finding. A project may keep its floor in
       a CI step instead, which the `lang: any` route reads, so absence is only
@@ -72,7 +82,11 @@ routes:
       up from the working directory, or a `c8` key in `package.json`, and its
       config keys are the long-form flags without the dashes - so the floor is
       `check-coverage` set beside `lines`, `branches`, `functions` or
-      `statements`. It can be a command rather than a file too:
+      `statements` - **and `check-coverage` on its own is already a floor**,
+      because the metric flags carry defaults, so a config or a
+      `c8 --check-coverage` script naming no number still fails a build under
+      one. Reading the keys rather than the switch is how a declared floor gets
+      reported as none. It can be a command rather than a file too:
       `c8 --check-coverage --lines <n>` in a script, `c8 --100` for the
       all-metrics shorthand, or a separate `c8 check-coverage --lines <n>` step
       re-checking data an earlier step collected. Whether `c8` can measure that
@@ -113,7 +127,9 @@ What it prevents is a verdict the audit invented. This domain's own status scale
 
 ## What counts as declared, what counts as executable, and what is a finding
 
-**A floor is declared when a number exists and something reads it.** The homes are in the routes above, one per language plus the CI-side ones. The check reports on the project, so it reads all of them before concluding anything: a floor found in any one home is a floor.
+**A floor is declared when a number exists in a place that is durable and machine-read.** Durable means it survives the person who typed it - a file in the repository, or a command in something the project runs the same way every time. Machine-read means a tool actually consults it and fails on it. Those two together are the test, and every home named in the routes below is an instance of it rather than the definition.
+
+**Treat the routes' lists as the common homes, never as the whole set.** They name where a floor usually lives and the traps in reading those places; they cannot be exhaustive, because a project declares its floor wherever its own toolchain reads one, and a check that concludes from a fixed list reports the absence of the list rather than the absence of a floor. So when nothing on the lists holds a number, find the command the project's tests actually run under - the CI job, the task runner's entry, the script in the manifest - and read that before concluding anything, because a threshold flag there is a floor by the rule above however unfamiliar the file carrying it. The routes read all of them before the check concludes: a floor found in any one home is a floor.
 
 **A floor recorded only in prose is a finding.** A number in a contributor guide, a README or a code-review checklist, with no `fail_under`, no runner threshold and no CI step carrying it, is the aspirational form the clause rejects outright - and it is the shape most likely to be mistaken for conformance, because the project did decide and can point at the sentence. The finding is the pair: the prose that states the number, and the executable homes that hold none.
 
