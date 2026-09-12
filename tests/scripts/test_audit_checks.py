@@ -2570,6 +2570,7 @@ def test_the_real_checks_tree_loads_clean():
         "arch/cycles",
         "arch/dead-code",
         "arch/hidden-coupling",
+        "arch/import-rule-declaration",
         "arch/layering",
         "arch/martin-metrics",
         "arch/over-abstraction",
