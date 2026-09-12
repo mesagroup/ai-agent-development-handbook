@@ -132,12 +132,16 @@ routes:
       the partition's own coverage config, which the language routes read.
     alone_insufficient: >-
       A threshold flag found in a workflow or a task runner is a clean result
-      that does not by itself answer the check. The step may be one nothing
-      runs - a job behind a path filter that this change never matches, or a
-      manually-triggered workflow - which is a floor written down and never
-      reached. Whether the job is *required* is `ci/gate-enforcement`'s, but
-      whether the step runs at all is what this route has to read before
-      reporting the floor as declared.
+      that does not by itself answer the check, because the two decisions this
+      record keeps apart are spelled the same way here. A `--fail-under` on a
+      diff-coverage command is the **changed-lines** floor and says nothing
+      about the whole-project one; reading it as either is how one decision
+      gets reported as two made or two as one. Read which command the flag
+      belongs to before recording what was declared. Whether the step is one
+      anything actually runs is deliberately not asked: that is enforcement,
+      it is `ci/gate-enforcement`'s, and this check is answered for the
+      project rather than for a change, so a path filter has no diff here to
+      be judged against.
 ---
 
 # Coverage floor declaration
