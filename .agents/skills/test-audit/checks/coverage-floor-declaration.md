@@ -63,10 +63,17 @@ routes:
       `[tool.coverage.*]` form; it is a recent addition, so check the coverage
       version the project pins before reading a floor there as one anything
       enforces.
+      **Finding nothing here is not the finding**: the floor may live in a CI
+      step instead, which the `lang: any` route reads, so absence is evidence
+      only once every home has been read.
     alone_insufficient: >-
-      Finding nothing here is not the finding. A project may keep its floor in
-      a CI step instead, which the `lang: any` route reads, so absence is only
-      evidence once every home has been read.
+      A floor found here is a clean result that does not by itself answer the
+      check. Two shapes read as a declared floor and are not: a `fail_under` in
+      a file coverage.py never opens, because an earlier file in the search
+      order held valid settings, and one whose `source` and `omit` leave the
+      code the number is supposed to cover out of the denominator. Read what
+      the number is measured over, and which file the tool would actually read,
+      before reporting the floor as declared.
   - lang: typescript
     kind: procedure
     note: >-
@@ -97,10 +104,17 @@ routes:
       `coverage.exclude` for Vitest, `collectCoverageFrom` and
       `coveragePathIgnorePatterns` for Jest, and `include`, `exclude` and `src`
       for `c8`.
-    alone_insufficient: >-
-      Finding nothing here is not the finding, for the same reason as the
+      **Finding nothing here is not the finding**, for the same reason as the
       Python route: the floor may live in a CI step, and absence is evidence
       only once every home has been read.
+    alone_insufficient: >-
+      A threshold found here is a clean result that does not by itself answer
+      the check. A `coverage.thresholds` or `coverageThreshold` block can carry
+      a number while `coverage.include`, `coverage.exclude`,
+      `collectCoverageFrom` or `coveragePathIgnorePatterns` remove the code it
+      was meant to cover, and a `c8` config can set `check-coverage` over a
+      `src` that is not the source tree. Read the denominator before reporting
+      the floor as declared.
   - lang: any
     kind: procedure
     note: >-
@@ -114,9 +128,16 @@ routes:
       API what is required - whether the job can block is
       `ci/gate-enforcement`'s question and not this one, and a floor written
       into a job nobody requires is still a floor that was decided.
+      **Finding nothing here is not the finding** either: the floor may live in
+      the partition's own coverage config, which the language routes read.
     alone_insufficient: >-
-      Finding nothing here is not the finding either. The floor may live in the
-      partition's own coverage config, which the language routes read.
+      A threshold flag found in a workflow or a task runner is a clean result
+      that does not by itself answer the check. The step may be one nothing
+      runs - a job behind a path filter that this change never matches, or a
+      manually-triggered workflow - which is a floor written down and never
+      reached. Whether the job is *required* is `ci/gate-enforcement`'s, but
+      whether the step runs at all is what this route has to read before
+      reporting the floor as declared.
 ---
 
 # Coverage floor declaration
