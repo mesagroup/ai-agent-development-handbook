@@ -41,10 +41,25 @@ routes:
     kind: procedure
     note: >-
       The executable contracts a Python project writes this rule as, read as
-      configuration rather than run. `import-linter` keeps its contracts in
-      `.importlinter`, or in `setup.cfg` or `tox.ini`, and `tach` keeps its
-      module boundaries in `tach.toml` or under `[tool.tach]` in
-      `pyproject.toml`. A contract naming the layers and their permitted
+      configuration rather than run, and each home named against the tool's own
+      documentation because a home guessed wrong reports a declared rule as
+      none. `import-linter` searches the current directory for `.importlinter`
+      or `setup.cfg` in INI form and `pyproject.toml` in TOML form, and the
+      heading differs with the format: `[importlinter]` for the top-level
+      settings and `[importlinter:contract:<name>]` per contract in INI,
+      `[tool.importlinter]` and the `[[tool.importlinter.contracts]]` array of
+      tables in TOML. It does **not** read `tox.ini`, so finding nothing there
+      says nothing. `tach` keeps its configuration in `tach.toml` at the
+      project root - `tach.yml` in older projects - where `layers` and each
+      `[[modules]]` entry's `layer` and `depends_on` are where the direction
+      lives. **A config file the tool reads is not automatically a declared
+      rule.** An `[importlinter]` section carrying only `root_package` and no
+      contract, or a `tach.toml` listing modules with no `layers` and no
+      `depends_on`, is a file that exists, is read, and constrains nothing -
+      the permissive declaration in its best disguise, and a finding rather
+      than a pass. Either tool can also be pointed elsewhere with `--config`,
+      so read the command the project runs before concluding from the searched
+      files alone. A contract naming the layers and their permitted
       direction **is** the rule written down, in the strongest form the clause
       asks for - it says the clause wants the rule recorded *so that* a linter
       can enforce it, so a project that went straight to the linter has
