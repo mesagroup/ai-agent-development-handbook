@@ -407,10 +407,18 @@
   class: static
   severity: minor
   checks:
+    - arch/import-rule-declaration
     - ci/gate-enforcement
-  gap:
-    recommendation: extend-skill
-    note: arch-audit is the owner, but its `arch/layering` check presupposes that the project has documented its tiers rather than asking whether it has, and no check looks for an import-boundary contract at all; ci-audit's `ci/gate-enforcement` reaches only the case where such a workflow already exists and asks whether it is required.
+  note: >-
+    Two checks for the sentence's two halves. The declaration is
+    `arch/import-rule-declaration`'s: whether the project wrote down which tier
+    may import which, in the binding-rules file or as a layering-contract
+    config a linter reads. Whether such a contract can actually block is
+    `ci/gate-enforcement`'s, which this row already cited and keeps. What
+    remains outside both, by the clause's own construction, is whether the
+    declared rule is a good one - `arch/layering` judges the code against the
+    rule and neither check rates the rule itself, which is the half the
+    handbook keeps as judgment rather than as a snapshot property.
 
 - id: codebase-structure/why-the-rule-matters-a
   section: "Why the rule matters"
