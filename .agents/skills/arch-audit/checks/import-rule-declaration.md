@@ -32,11 +32,18 @@ routes:
       unreadable without it. A tier list with no direction is not this rule: it
       says what the tiers are and not what may import what, which is the half
       the clause asks for.
+      **Finding nothing here is not the finding**: the rule may have been
+      written as an executable contract instead, which the language routes
+      read and which is the stronger form rather than a weaker one, so
+      conclude only once every home has been read.
     alone_insufficient: >-
-      An absent statement here is not the finding on its own. A project may
-      have written the rule as an executable contract instead, which the
-      language routes read, and that is the stronger form rather than a
-      weaker one.
+      A statement found here is a clean result that does not by itself answer
+      the check. A tier list with no direction is not this rule - it says what
+      the tiers are and not what may import what - and neither is a sentence
+      about layering in general, nor a dependency rule stated for one pair of
+      modules rather than for tiers. Read what the statement constrains before
+      reporting the rule as declared; finding a mention is the mechanical half
+      only.
   - lang: python
     kind: procedure
     note: >-
@@ -67,10 +74,14 @@ routes:
       here and no command is prescribed for either: whether the code obeys the
       contract is `arch/layering`'s question and that record already
       prescribes both tools for it.
-    alone_insufficient: >-
-      An absent contract is not the finding on its own either, for the mirror
-      of the reason above: the rule may be stated in the binding-rules file,
+      **Finding nothing here is not the finding** either, for the mirror of
+      the reason above: the rule may be stated in the binding-rules file,
       which the `lang: any` route reads.
+    alone_insufficient: >-
+      A contract found here is a clean result that does not by itself answer
+      the check, which is the caveat above stated as this route's own: a config
+      the tool reads can constrain nothing at all. Read the contracts rather
+      than the file's existence before reporting the rule as declared.
   - lang: typescript
     kind: procedure
     note: >-
@@ -86,9 +97,15 @@ routes:
       judging edges against *something* - and it is exactly the substitution
       this check must not make, because the question here is whether the
       project stated a rule rather than whether the audit can find a rubric.
+      **Finding nothing here is not the finding**, for the same reason as the
+      Python route: the rule may be in the binding-rules file.
     alone_insufficient: >-
-      An absent config is not the finding on its own, for the same reason as
-      the Python route: the rule may be in the binding-rules file.
+      A config found here is a clean result that does not by itself answer the
+      check. A `dependency-cruiser` rule set can be present and forbid nothing
+      between tiers: a config carrying only `no-circular` or `no-orphans`
+      constrains cycles and dead files rather than tier direction, which is
+      what this clause asks for. Read which edges the rules forbid before
+      reporting the rule as declared.
 ---
 
 # Import rule declaration
@@ -99,7 +116,7 @@ What it prevents is the domain judging a project against an architecture the aud
 
 ## What counts as written down
 
-**Either form satisfies the clause, and the contract is the stronger one.** The clause asks for the rule to be recorded *so that* an import-boundary linter can enforce it, so a project whose rule exists only as an `import-linter` contract has met it more completely than one with a sentence in `CLAUDE.md` and no config. Read every home before concluding anything: each route's `alone_insufficient` says so, because an absence found in one place is not the finding.
+**Either form satisfies the clause, and the contract is the stronger one.** The clause asks for the rule to be recorded *so that* an import-boundary linter can enforce it, so a project whose rule exists only as an `import-linter` contract has met it more completely than one with a sentence in `CLAUDE.md` and no config. Read every home before concluding anything, which each route's `note` says in its own words, because an absence found in one place is not the finding. Each route's `alone_insufficient` says the other half: a rule *found* there is a clean result that still has to be read, because a list without a direction and a contract that constrains nothing both look like declarations.
 
 **A direction is what makes it the rule.** "The tiers are `core`, `services`, `apps`" names the tiers and permits everything; the clause asks which tier may import which. A list without a direction is not a declaration of this rule, and reporting it as one passes the project on the half it did not write.
 
