@@ -410,13 +410,17 @@
     - arch/import-rule-declaration
     - ci/gate-enforcement
   note: >-
-    Two checks for the sentence's two halves. The declaration is
-    `arch/import-rule-declaration`'s: whether the project wrote down which tier
-    may import which, in the binding-rules file or as a layering-contract
-    config a linter reads. Whether such a contract can actually block is
-    `ci/gate-enforcement`'s, which this row already cited and keeps. What
-    remains outside both, by the clause's own construction, is whether the
-    declared rule is a good one - `arch/layering` judges the code against the
+    Two checks for the sentence's two halves, and one residue neither reaches.
+    The declaration is `arch/import-rule-declaration`'s: whether the project
+    wrote down which tier may import which, in the binding-rules file or as a
+    layering-contract config a linter reads. Enforcement is
+    `ci/gate-enforcement`'s, which this row already cited and keeps - but only
+    where such a job already exists, which is the qualifier the gap note this
+    replaced carried and which still holds: a contract wired into nothing at
+    all gives that check nothing to compare, so it passes here as a
+    declaration and is silent there, and the clause's "in CI" is reached by
+    neither. Whether the declared rule is a good one is outside both by the
+    clause's own construction - `arch/layering` judges the code against the
     rule and neither check rates the rule itself, which is the half the
     handbook keeps as judgment rather than as a snapshot property.
 
