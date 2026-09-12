@@ -53,12 +53,18 @@ routes:
       under `[tool:pytest]` - renamed from the bare `[pytest]` to stop it
       colliding with distutils commands, so the bare name is right in `tox.ini`
       and wrong in `setup.cfg`. Pytest also takes only the first matching file,
-      so the precedence trap above has a second instance here. What the floor is measured over is
-      the run section's `source`, `source_pkgs`, `include` and `omit` together
-      with the report section's `exclude_lines` and `exclude_also` - the last
-      of which supplements the default exclusions rather than replacing them,
-      so a project using it has exclusions a reader watching only
-      `exclude_lines` never sees. `.coveragerc.toml` takes the bare `[run]` and
+      so the precedence trap above has a second instance here. What the floor is measured over is set in
+      both sections, and reading only the run one overstates the denominator.
+      The run section contributes `source`, `source_pkgs`, `include` and
+      `omit`. The report section contributes `exclude_lines` and
+      `exclude_also` - the last supplements the default exclusions rather than
+      replacing them, so a project using it has exclusions a reader watching
+      only `exclude_lines` never sees - **and its own `include` and `omit`**,
+      which are separate settings from the run section's and are the ones that
+      matter most here: `fail_under` is itself a report setting, computed over
+      the files the report covers, so a `[report] omit` dropping load-bearing
+      modules lowers the denominator the floor is compared against while the
+      run configuration still names them. `.coveragerc.toml` takes the bare `[run]` and
       `[report]` headings, the same as `.coveragerc`, and also accepts the
       `[tool.coverage.*]` form; it is a recent addition, so check the coverage
       version the project pins before reading a floor there as one anything
@@ -68,12 +74,15 @@ routes:
       only once every home has been read.
     alone_insufficient: >-
       A floor found here is a clean result that does not by itself answer the
-      check. Two shapes read as a declared floor and are not: a `fail_under` in
-      a file coverage.py never opens, because an earlier file in the search
-      order held valid settings, and one whose `source` and `omit` leave the
-      code the number is supposed to cover out of the denominator. Read what
-      the number is measured over, and which file the tool would actually read,
-      before reporting the floor as declared.
+      check, and the two things still to read produce different findings.
+      **Which file the tool would actually open** decides whether a floor was
+      declared at all: a `fail_under` in a file coverage.py never reads,
+      because an earlier one in the search order held valid settings, is the
+      absence finding however plainly the number is written. **What the number
+      is measured over** does not: a denominator that drops load-bearing code
+      is the exclusion finding in this record's severity scale, where the
+      decision exists and is incomplete, so do not report it as no floor
+      having been decided.
   - lang: typescript
     kind: procedure
     note: >-
@@ -109,12 +118,14 @@ routes:
       only once every home has been read.
     alone_insufficient: >-
       A threshold found here is a clean result that does not by itself answer
-      the check. A `coverage.thresholds` or `coverageThreshold` block can carry
+      the check: a `coverage.thresholds` or `coverageThreshold` block can carry
       a number while `coverage.include`, `coverage.exclude`,
       `collectCoverageFrom` or `coveragePathIgnorePatterns` remove the code it
       was meant to cover, and a `c8` config can set `check-coverage` over a
-      `src` that is not the source tree. Read the denominator before reporting
-      the floor as declared.
+      `src` that is not the source tree. Read the denominator - and record what
+      it holds as the exclusion finding, which this record's severity scale
+      puts at Minor with the decision made and incomplete, rather than as the
+      floor not having been declared.
   - lang: any
     kind: procedure
     note: >-
