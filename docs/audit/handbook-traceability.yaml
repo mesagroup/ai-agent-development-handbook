@@ -675,7 +675,8 @@
   severity: important
   checks:
     - eval/regression-tracking
-  note: "`eval/regression-tracking` names a cheap/mock eval mode outright, so this is the most direct mapping in Part 5. The two clauses it does not reach inherit gaps already recorded in Part 7 - the variance band on evaluation/measure-honestly-a (#3) and full-cost accounting on evaluation/measure-honestly-b (#2)."
+    - eval/run-variance
+  note: "`eval/regression-tracking` names a cheap/mock eval mode outright, so this is the most direct mapping in Part 5, and `eval/run-variance` reaches the variance band the cheap loop is here to buy - it asks whether the reported number carries the spread of the runs behind it, not whether a cheap backend produced them. Full-cost accounting is still unreached and inherits the gap recorded on evaluation/measure-honestly-b (#2)."
 
 - id: agent-harness/make-bounding-the-default
   section: "Make bounding the default"
@@ -835,10 +836,8 @@
   claim: A single run of a stochastic system is an anecdote - run each candidate several times and report the spread, per-case k-of-N reliability bands and the strict pass^N aggregate.
   class: artifact
   severity: important
-  gap:
-    recommendation: extend-skill
-    target: "#3"
-    note: no eval-audit check requires repeated runs or a reported variance band; the target issue exists to add exactly this one.
+  checks:
+    - eval/run-variance
 
 - id: evaluation/measure-honestly-b
   section: "Measure honestly"
@@ -931,7 +930,8 @@
     - eval/coverage
     - eval/methodology
     - eval/reproducibility
-  note: Two of the six - the single run and quality without cost - inherit the gaps recorded on measure-honestly-a and measure-honestly-b.
+    - eval/run-variance
+  note: Five of the six have a check; quality without cost inherits the gap recorded on measure-honestly-b. The single run is `eval/run-variance`, which asks whether a reported number carries the spread of the runs behind it.
 
 - id: evaluation/see-also
   section: "See also"

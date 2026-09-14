@@ -2616,6 +2616,7 @@ def test_the_real_checks_tree_loads_clean():
         "eval/prompt-quality",
         "eval/regression-tracking",
         "eval/reproducibility",
+        "eval/run-variance",
         "eval/smoke-test-gate",
         "eval/verdict-scale",
         "prompt/cognitive-load",
@@ -2701,6 +2702,7 @@ RECORDS_DECLARING_NO_ROUTES = frozenset(
         "eval/prompt-quality",
         "eval/regression-tracking",
         "eval/reproducibility",
+        "eval/run-variance",
         "eval/smoke-test-gate",
         "eval/verdict-scale",
         "prompt/cognitive-load",
@@ -2732,7 +2734,7 @@ def test_the_records_declaring_no_routes_are_the_ones_named():
     The set is every record the loader accepts without a `routes:` block, and
     that is two populations wearing one name: records the migration has not
     reached, and records authored on the non-routes schema after that schema
-    existed. `docs/source-wrapping` is the second kind - written deliberately
+    existed. `docs/source-wrapping` is one of the second kind - written deliberately
     on the shape its domain already used, never migrated from anything. Both
     have to be named somewhere, or the loader accepting them reads exactly like
     the loader having nothing left to accept.
@@ -3101,7 +3103,7 @@ def test_a_record_may_not_write_a_prescription_in_a_fenced_block(tmp_path, fence
 def test_a_four_space_indented_block_is_not_a_fence(tmp_path, block):
     """The convention's escape, which the rule above must leave open.
 
-    No record body carries an indented block today - computed, zero of 81 - so
+    No record body carries an indented block today - computed, zero of 82 - so
     this is not protecting a use the tree makes. It is the place a record could
     show a tool's observed output, and the second parameter is why the allowance
     has to survive the fence rule rather than being incidental to it: a docs or
