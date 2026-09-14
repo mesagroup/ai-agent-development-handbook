@@ -2666,7 +2666,7 @@ def test_the_real_checks_tree_loads_clean():
     ]
 
 
-LEGACY_TOOLING_RECORDS = frozenset(
+RECORDS_DECLARING_NO_ROUTES = frozenset(
     {
         "ci/action-supply-chain",
         "ci/branch-protection",
@@ -2726,21 +2726,34 @@ LEGACY_TOOLING_RECORDS = frozenset(
 )
 
 
-def test_the_records_still_on_the_old_schema_are_the_ones_named():
-    """A record migrated without updating this set fails, and so does the reverse.
+def test_the_records_declaring_no_routes_are_the_ones_named():
+    """A record gaining or losing `routes:` fails until this set is updated.
 
-    The migration runs domain by domain, so both schemas load for as long as it
-    takes. That is a decision rather than a tolerance: an unmigrated record has
-    to be named somewhere, or the loader accepting it reads exactly like the
-    loader having nothing left to accept.
+    The set is every record the loader accepts without a `routes:` block, and
+    that is two populations wearing one name: records the migration has not
+    reached, and records authored on the non-routes schema after that schema
+    existed. `docs/source-wrapping` is the second kind - written deliberately
+    on the shape its domain already used, never migrated from anything. Both
+    have to be named somewhere, or the loader accepting them reads exactly like
+    the loader having nothing left to accept.
+
+    The distinction is the whole point of the wording, because the obvious
+    inference from an empty set does not hold: emptiness says nothing currently
+    needs the dual-schema branch, not that the migration is over. A domain can
+    migrate every record it has and then have the next new one written this way
+    again.
     """
     checks, errors = ac.load_checks(ac.SKILLS_DIR)
     assert not errors, errors
     legacy = {cid for cid, check in checks.items() if not check.routes}
-    assert legacy == LEGACY_TOOLING_RECORDS
+    assert legacy == RECORDS_DECLARING_NO_ROUTES
     assert legacy, (
-        "no record is on the old schema, so this set is dead - delete it and "
-        "the dual-schema branch of the loader with it"
+        "no record declares anything but `routes:` today, so this set is empty "
+        "- read that as nothing needing the dual-schema branch right now, not "
+        "as the migration being finished: a new record can still be authored "
+        "without routes, which is how this set last gained a member. Retire "
+        "the branch by making the loader refuse such a record, not by "
+        "observing that none exists"
     )
 
 
