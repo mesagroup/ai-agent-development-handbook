@@ -94,8 +94,11 @@ routes:
     kind: procedure
     note: >-
       Where a TypeScript project's floor lives, all readable from a read-only
-      clone. Vitest carries `coverage.thresholds` in `vitest.config.*` or in
-      the `test` block of `vite.config.*`, and it looks for the former first.
+      clone. Vitest carries its floor at `test.coverage.thresholds`, under the
+      `test` block in **both** `vitest.config.*` and `vite.config.*`: every
+      Vitest option lives under `test`, a standalone `vitest.config.*`
+      included, so the two files differ in which one is read and never in
+      where the key sits. Vitest looks for the former first.
       That cuts both ways, and the rule is the one the Python route states:
       a number in a file the tool will not open is the absence finding rather
       than a floor. A project with no `vitest.config.*` keeps these keys in
@@ -142,9 +145,10 @@ routes:
       only once every home has been read.
     alone_insufficient: >-
       A threshold found here is a clean result that does not by itself answer
-      the check: a `coverage.thresholds` or `coverageThreshold` block can carry
-      a number while `coverage.include`, `coverage.exclude`,
-      `collectCoverageFrom` or `coveragePathIgnorePatterns` remove the code it
+      the check: a `test.coverage.thresholds` or `coverageThreshold` block
+      can carry a number while `test.coverage.include`,
+      `test.coverage.exclude`, `collectCoverageFrom` or
+      `coveragePathIgnorePatterns` remove the code it
       was meant to cover, and a `c8` config can set `check-coverage` over a
       `src` that is not the source tree. Read the denominator - and record what
       it holds as the exclusion finding, which this record's severity scale
