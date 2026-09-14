@@ -95,11 +95,28 @@ routes:
     note: >-
       Where a TypeScript project's floor lives, all readable from a read-only
       clone. Vitest carries `coverage.thresholds` in `vitest.config.*` or in
-      the `test` block of `vite.config.*` - and it looks for the former first,
-      so a project with no `vitest.config.*` keeps these keys in its Vite
-      config and a search naming only the former reads a project that set a
-      floor as one that set none. Jest carries `coverageThreshold`, in
-      `jest.config.*` or in `package.json`'s `jest` key. `c8` is the third
+      the `test` block of `vite.config.*`, and it looks for the former first.
+      That cuts both ways, and the rule is the one the Python route states:
+      a number in a file the tool will not open is the absence finding rather
+      than a floor. A project with no `vitest.config.*` keeps these keys in
+      its Vite config, so a search naming only the former reads a project
+      that set a floor as one that set none. A project carrying both is the
+      opposite trap: Vitest resolves `vitest.config.*` first and its own
+      documentation says the Vite config's options are then **ignored**
+      entirely, so a threshold left behind in `vite.config.*` is written
+      where nothing reads it. **Read the vitest config for a merge before
+      raising that one** - `mergeConfig(viteConfig, defineConfig({...}))` is
+      the documented way to keep both, and a project using it does have the
+      Vite config's thresholds read, so the finding is false there. Jest
+      carries `coverageThreshold` in `jest.config.*` or in `package.json`'s
+      `jest` key, and the same rule governs it - but which of the two Jest
+      loads when both exist is not something this record settles, so where
+      both carry a threshold, establish which configuration this project's
+      Jest actually loads and say in the row which it was. Guessing the
+      order makes one of the two a wrong answer, and the two wrong answers
+      differ: calling an unread number a floor passes a project that
+      declared nothing, and calling a read one absent fails a project that
+      declared. `c8` is the third
       home, and the domain already treats it as one of this language's coverage
       tools: it reads `.c8rc`, `.c8rc.json`, `.nycrc` or `.nycrc.json`, walked
       up from the working directory, or a `c8` key in `package.json`, and its
