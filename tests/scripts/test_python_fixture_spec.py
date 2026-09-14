@@ -72,9 +72,18 @@ _TEST_REF = re.compile(r"(tests/test_\w+\.py)(?:::(\w+))?")
 def _python_lens_records() -> set[str]:
     """Every check record in the family that names a Python tool.
 
-    Read from the records rather than listed here: the fixture round exists to
-    exercise the `python:` tooling entries, so the set it must cover is whatever
-    the family currently declares, not a copy of it taken when this was written.
+    Read from the records rather than listed here: the fixture round exercises
+    the `python:` tooling entries, written as frontmatter or projected from
+    routes, so the set it covers is whatever the family currently names rather
+    than a copy taken when this was written.
+
+    A record can carry a `lang: python` route and still sit outside this set,
+    because a route naming no tool prescribes a reading rather than a command,
+    and the harness runs literal shell commands - there is nothing to seed an
+    expectation for. So the population is the tool-naming records, and a
+    tool-less route's absence from the fixture round is the shape of the round
+    rather than a seed that went missing. Read "whatever the family declares"
+    as the tools it declares, which is the only part a seeded tree can answer.
     """
     checks, errors = load_checks(SKILLS_DIR)
     assert not errors, errors
