@@ -45,9 +45,16 @@ routes:
       config files are a second set with a second set of headings, overlapping
       the coverage ones without sharing their spelling: `pytest.toml` or
       `.pytest.toml` under `[pytest]`, which take precedence over the rest
-      **even when empty** - so an empty one is itself a finding wherever the
-      floor sits in another file, because it wins the search and the floor is
-      never read; `pytest.ini` or
+      **even when empty** - so an empty one silences every floor carried in
+      pytest's own configuration, `--cov-fail-under` in `addopts` above all,
+      because it wins *pytest's* search and those files are then never read.
+      It silences nothing of coverage.py's: that tool runs the separate search
+      named above, over `.coveragerc`, `.coveragerc.toml`, `setup.cfg`,
+      `tox.ini` and `pyproject.toml`, so a `fail_under` in one of those is
+      still read and still fails the run. Report the empty file as a finding
+      for the floor it actually hides, and not for one the other search still
+      reaches - the two config searches belong to two tools and neither
+      shadows the other; `pytest.ini` or
       `.pytest.ini` under `[pytest]`; `pyproject.toml` under `[tool.pytest]` or
       `[tool.pytest.ini_options]`; `tox.ini` under `[pytest]`; and `setup.cfg`
       under `[tool:pytest]` - renamed from the bare `[pytest]` to stop it
@@ -163,9 +170,11 @@ What it prevents is a verdict the audit invented. This domain's own status scale
 
 ## What counts as declared, what counts as executable, and what is a finding
 
-**A floor is declared when a number exists in a place that is durable and machine-read.** Durable means it survives the person who typed it - a file in the repository, or a command in something the project runs the same way every time. Machine-read means a tool actually consults it and fails on it. Those two together are the test, and every home named in the routes below is an instance of it rather than the definition.
+**A floor is declared when a bar exists in a place that is durable and machine-read.** Durable means it survives the person who typed it - a file in the repository, or a command in something the project runs the same way every time. Machine-read means a tool actually consults it and fails on it. Those two together are the test, and every home named in the routes below is an instance of it rather than the definition.
 
-**Treat the routes' lists as the common homes, never as the whole set.** They name where a floor usually lives and the traps in reading those places; they cannot be exhaustive, because a project declares its floor wherever its own toolchain reads one, and a check that concludes from a fixed list reports the absence of the list rather than the absence of a floor. So when nothing on the lists holds a number, find the command the project's tests actually run under - the CI job, the task runner's entry, the script in the manifest - and read that before concluding anything, because a threshold flag there is a floor by the rule above however unfamiliar the file carrying it. The routes read all of them before the check concludes: a floor found in any one home is a floor.
+**The bar is usually a number and does not have to be one.** A switch that turns a tool's documented defaults into a threshold declares a floor as surely as a percentage does - `c8 --check-coverage` names no figure and still fails a build, because its metric flags carry defaults, which is what the TypeScript route below says in its own words. What the rule asks is that something the project recorded makes a run fail below some level, not that a digit appears in the file. Reading for the digit is how an enforced floor gets reported as never decided, and that is the one direction this check must not be wrong in.
+
+**Treat the routes' lists as the common homes, never as the whole set.** They name where a floor usually lives and the traps in reading those places; they cannot be exhaustive, because a project declares its floor wherever its own toolchain reads one, and a check that concludes from a fixed list reports the absence of the list rather than the absence of a floor. So when nothing on the lists holds a bar, find the command the project's tests actually run under - the CI job, the task runner's entry, the script in the manifest - and read that before concluding anything, because a threshold flag there is a floor by the rule above however unfamiliar the file carrying it. The routes read all of them before the check concludes: a floor found in any one home is a floor.
 
 **A floor recorded only in prose is a finding.** A number in a contributor guide, a README or a code-review checklist, with no `fail_under`, no runner threshold and no CI step carrying it, is the aspirational form the clause rejects outright - and it is the shape most likely to be mistaken for conformance, because the project did decide and can point at the sentence. The finding is the pair: the prose that states the number, and the executable homes that hold none.
 
