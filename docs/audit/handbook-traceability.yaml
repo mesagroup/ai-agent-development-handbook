@@ -158,7 +158,7 @@
   claim: Parallelise agents that read and judge and serialise anything that mutates shared state, because parallel writers collide on the same files and the loser's work disappears with no error - so where the unit of work is a write, a fan-out is the wrong tool.
   class: process
   severity: important
-  note: Which agents a team runs concurrently is a property of a run rather than of the repository, and no snapshot can date it. The engine's own form of this rule is `audit-core` step 1's one-implementer-at-a-time fix loop, which cites this clause.
+  note: Which agents a team runs concurrently is a property of a run rather than of the repository, and no snapshot can date it. The engine's own form of this rule is the one-implementer-at-a-time step of `audit-core`'s remediation loop, which cites this clause, as does the sweep's fix-mode paragraph.
 
 - id: lifecycle/fan-work-out-to-parallel-agents-and-merge-it-honestly-b
   section: "Fan work out to parallel agents, and merge it honestly"

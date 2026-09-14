@@ -53,7 +53,7 @@ Two boundaries keep this from becoming a licence to cut corners. First, the two 
 
 > Scope each subagent to its brief: a worker that inherits too much context tends to overreach and act on the whole plan instead of its one task. Any standing instruction of this kind belongs in the dispatching prompt, since a subagent inherits none of the conventions you are working under.
 
-That is the route. The craft each station demands (how the code and the agent's behaviour get written, and the mechanical, human-shaped, and behavioural gates that catch what the writing missed) is the subject of [Part 2](implementation-disciplines.md). What remains here is the rest of the trace: what to do after the merge, and the one meta-practice that keeps every gate from quietly lapsing.
+That is the route. The craft each station demands (how the code and the agent's behaviour get written, and the mechanical, human-shaped, and behavioural gates that catch what the writing missed) is the subject of [Part 2](implementation-disciplines.md). What remains here is the shape work takes when it does not fit that route at all, and then the rest of the trace: what to do after the merge, and the one meta-practice that keeps every gate from quietly lapsing.
 
 ## Fan work out to parallel agents, and merge it honestly
 
