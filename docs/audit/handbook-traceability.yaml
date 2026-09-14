@@ -648,7 +648,7 @@
   gap:
     recommendation: extend-skill
     note: eval-audit is the owner, since the generation-parameter surface is exactly what a like-for-like comparison varies one variable at a time, but the section's own claim is wholly unmapped - no check asks whether generation parameters are exposed as optional flags falling back to provider defaults, nor whether a reasoning budget flag exists where the model supports one.
-  note: The closing clause - treat a parameter change as a hypothesis measured against a frozen benchmark, one variable at a time - is a cross-reference to Part 7 and is already owned there, split across two rows - the one-variable-at-a-time half by evaluation/measure-honestly-c, which classes it artifact and carries eval-audit's `eval/methodology` and `eval/reproducibility`, and the frozen-benchmark half by evaluation/build-a-dataset-you-can-trust. This row keeps only the harness-side claim, the same division offer-cheap-and-mock-backends uses for its Part 7 clauses.
+  note: The closing clause - treat a parameter change as a hypothesis measured against a frozen benchmark, one variable at a time - is a cross-reference to Part 7 and is already owned there, split across two rows - the one-variable-at-a-time half by evaluation/measure-honestly-c, which classes it artifact and carries eval-audit's `eval/methodology` and `eval/reproducibility`, and the frozen-benchmark half by evaluation/build-a-dataset-you-can-trust. This row keeps only the harness-side claim.
 
 - id: agent-harness/bundle-configuration-into-named-profiles
   section: "Bundle configuration into named profiles"
