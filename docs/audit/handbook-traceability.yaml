@@ -1101,9 +1101,11 @@
   claim: Treat an agent's granted powers as an attack surface in their own right - never concentrate the lethal trifecta of private-data access, untrusted-content exposure and the ability to act on the outside world in one agent without a human gate on the acting edge, default a diagnostic, research or analysis agent to read-only tool and MCP access, and widen write access per tool and per purpose, never wholesale and never to production or the pipeline for convenience.
   class: static
   severity: critical
+  checks:
+    - security/agent-privilege-surface
   gap:
-    recommendation: extend-skill
-    note: security-audit is the owner, since prompt injection as application security is explicitly its surface, but none of its checks reads an agent's granted tool and MCP surface; ci-audit's `ci/permissions-secrets` is the nearest and scopes least privilege to the pipeline token rather than to what an agent is allowed to do.
+    recommendation: report-only
+    note: "partial - `security/agent-privilege-surface` reads what each agent is granted and reports the three powers held at once with no human gate on the acting edge, a diagnostic role widened to write, or a surface declared nowhere at all, so it flags those rather than passing them. The residue is the per-purpose half of the claim - whether a widened grant was widened *for* something - which is an intent no snapshot carries, since a grant narrow enough to look deliberate reads the same whether or not anyone decided it. `ci/permissions-secrets` is not part of that residue - the pipeline token's own least privilege is a different subject rather than an unreached half of this one."
 
 - id: security-supply-chain/secrets-never-commit-them-and-rotate-dont-just-delete-a
   section: "Secrets: never commit them, and rotate: don't just delete"
