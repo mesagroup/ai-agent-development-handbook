@@ -63,8 +63,17 @@ routes:
       rule.** An `[importlinter]` section carrying only `root_package` and no
       contract, or a `tach.toml` listing modules with no `layers` and no
       `depends_on`, is a file that exists, is read, and constrains nothing -
-      the permissive declaration in its best disguise, and a finding rather
-      than a pass. Either tool can also be pointed elsewhere with `--config`,
+      the permissive declaration in its best disguise. **Read it as nothing
+      found here rather than as a finding in itself.** It declares no rule, so
+      it cannot satisfy the clause; it is equally not evidence that the
+      project declared nothing, because the binding-rules file may carry the
+      rule and the `lang: any` route reads it. A `tach init` skeleton listing
+      modules with no layers is the ordinary way this shape arrives, so a
+      project with a real direction rule in prose beside a starter config
+      conforms, and reporting it would be this check failing a project that
+      did what the clause asks. Record the empty config in the row either way:
+      a reader who takes it for enforcement is making the mistake this
+      sentence is about. Either tool can also be pointed elsewhere with `--config`,
       so read the command the project runs before concluding from the searched
       files alone. A contract naming the layers and their permitted
       direction **is** the rule written down, in the strongest form the clause
