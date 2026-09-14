@@ -131,14 +131,21 @@ routes:
       the documented way to keep both, and a project using it does have the
       Vite config's thresholds read, so the finding is false there. Jest
       carries `coverageThreshold` in `jest.config.*` or in `package.json`'s
-      `jest` key, and the same rule governs it - but which of the two Jest
-      loads when both exist is not something this record settles, so where
-      both carry a threshold, establish which configuration this project's
-      Jest actually loads and say in the row which it was. Guessing the
-      order makes one of the two a wrong answer, and the two wrong answers
-      differ: calling an unread number a floor passes a project that
-      declared nothing, and calling a read one absent fails a project that
-      declared. `c8` is the third
+      `jest` key, and it resolves the two by refusing rather than by
+      preferring. With exactly one of them present, that one is read. With
+      **both** present and no `--config` on the invocation, Jest does not
+      pick a winner and does not run: it exits with *"Multiple configurations
+      found ... Implicit config resolution does not allow multiple
+      configuration files"* and asks for one to be named. So the both-present
+      case is not a silent-precedence trap and must not be read as one - the
+      threshold is not unread, the test run does not happen. What decides it
+      there is the invocation: where the project's own test command passes
+      `--config <path>`, that file is the floor's only home and a
+      `coverageThreshold` in the other is written where nothing reads it,
+      which is this check's finding. Where it does not, the project cannot
+      run Jest implicitly at all, and a floor is moot until that is fixed -
+      report the configuration collision as the finding and do not score the
+      threshold either way. `c8` is the third
       home, and the domain already treats it as one of this language's coverage
       tools: it reads `.c8rc`, `.c8rc.json`, `.nycrc` or `.nycrc.json`, walked
       up from the working directory, or a `c8` key in `package.json`, and its
