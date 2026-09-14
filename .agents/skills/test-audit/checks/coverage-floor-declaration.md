@@ -28,12 +28,22 @@ routes:
       so the heading there is `[coverage:report]` and a search for the bare
       `[report]` reads a project that set a floor as one that set none. Two
       more facts about those files decide whether a floor found in one is
-      executable at all. coverage.py takes the **first** file that holds valid
-      settings, searching `.coveragerc`, `.coveragerc.toml`, `setup.cfg`,
-      `tox.ini` and `pyproject.toml` in that order and ignoring the rest, so a
-      `fail_under` in a later file of a project that also configures an earlier
-      one is written where the tool will never read it - which is a finding
-      here rather than a floor, because nothing enforces it. And
+      executable at all. coverage.py searches `.coveragerc`,
+      `.coveragerc.toml`, `setup.cfg`, `tox.ini` and `pyproject.toml` in that
+      order, stops at the first that answers and ignores the rest - and what
+      counts as answering differs between the two kinds of file, which is
+      where this goes wrong. **A dedicated file wins by existing.** An empty
+      or comment-only `.coveragerc` or `.coveragerc.toml` ends the search, so
+      a `fail_under` anywhere later is never read: verified by running
+      coverage.py against a tree holding an empty `.coveragerc` beside a
+      `setup.cfg` carrying `fail_under = 90`, where the effective value stays
+      at the default. **A shared file has to carry a coverage section.** A
+      `setup.cfg` or `tox.ini` with no `[coverage:...]` in it is passed over
+      and the search continues. So a floor in a later file is written where
+      nothing reads it whenever an earlier *dedicated* file exists at all, or
+      an earlier shared file carries a coverage section - a finding here
+      rather than a floor, because nothing enforces it. The empty-file trap
+      is the same one the pytest half names below, in a second tool. And
       `pyproject.toml` support needs Python 3.11 or the `toml` extra, so read
       the project's own floor against what it runs on. `--cov-fail-under=<n>` is the same decision written as a
       pytest flag, and it counts wherever it is durable, which is
@@ -55,8 +65,17 @@ routes:
       for the floor it actually hides, and not for one the other search still
       reaches - the two config searches belong to two tools and neither
       shadows the other; `pytest.ini` or
-      `.pytest.ini` under `[pytest]`; `pyproject.toml` under `[tool.pytest]` or
-      `[tool.pytest.ini_options]`; `tox.ini` under `[pytest]`; and `setup.cfg`
+      `.pytest.ini` under `[pytest]`; `pyproject.toml` under
+      `[tool.pytest.ini_options]`, or under `[tool.pytest]` **on pytest 9 and
+      later only** - pytest 8 ignores that table silently, with no warning and
+      no error, so a `--cov-fail-under` living only there is not executable on
+      a project pinned below 9 and is this check's finding rather than its
+      floor; verified by running both versions against a `[tool.pytest]`
+      `addopts` naming an option that does not exist, which pytest 9 rejects
+      and pytest 8 runs straight past. The two tables also take different
+      value types, so read the pin before reading either: the native table
+      takes real TOML and wants `addopts = ["--cov-fail-under=90"]`, while
+      `ini_options` keeps the ini spelling, `addopts = "--cov-fail-under=90"`; `tox.ini` under `[pytest]`; and `setup.cfg`
       under `[tool:pytest]` - renamed from the bare `[pytest]` to stop it
       colliding with distutils commands, so the bare name is right in `tox.ini`
       and wrong in `setup.cfg`. Pytest also takes only the first matching file,
