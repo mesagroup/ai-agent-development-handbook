@@ -11,7 +11,7 @@ tooling:
 
 # Git-history secret scan
 
-Scan the full commit history (`gitleaks detect`, `trufflehog git`), not just the working tree - enable via argument or ask the user. Default **on before making a repo public**.
+Scan the full commit history (`gitleaks detect`, `trufflehog git`), not just the working tree. **It is opt-in for two reasons, and neither is that history matters less**: it needs one of those binaries already present in the audit environment, since no one-shot runner supplies either - the fallback below sets out what that costs - and acting on what it finds is a coordinated history rewrite rather than an edit, which is a decision the project takes rather than one an audit takes for it. Enable via argument or ask the user, and default it **on before making a repo public**.
 
 ## Tooling fallback
 
