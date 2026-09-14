@@ -153,6 +153,37 @@
     note: "a development-process claim like the two rows above: these are requirements on a dispatching prompt the team writes to build the product, not on a prompt the product ships, so prompt-audit's subject does not reach them. Its Tier A judges how well an existing prompt is written, never whether the project's standing operational instructions are carried into it at all."
 
 
+- id: lifecycle/fan-work-out-to-parallel-agents-and-merge-it-honestly-a
+  section: "Fan work out to parallel agents, and merge it honestly"
+  claim: Parallelise agents that read and judge and serialise anything that mutates shared state, because parallel writers collide on the same files and the loser's work disappears with no error - so where the unit of work is a write, a fan-out is the wrong tool.
+  class: process
+  severity: important
+  note: Which agents a team runs concurrently is a property of a run rather than of the repository, and no snapshot can date it. The engine's own form of this rule is `audit-core` step 1's one-implementer-at-a-time fix loop, which cites this clause.
+
+- id: lifecycle/fan-work-out-to-parallel-agents-and-merge-it-honestly-b
+  section: "Fan work out to parallel agents, and merge it honestly"
+  claim: Assert coverage over a merged multi-agent artifact before anything reads it - exactly one verdict per unit, the distinct count matching the expected count, no gaps and no duplicates, with conflicts and gaps going to a single cleanup pass.
+  class: artifact
+  severity: important
+  gap:
+    recommendation: extend-skill
+    target: "#109"
+    note: eval-audit is the owner, because the merged artifact is per-unit verdicts and that is the material the domain already reads - `eval/coverage` cites evaluate-a-multi-agent-system-unit-by-unit for the same reason. No check asks whether an assertion runs between the merge and the first consumer, and the target issue exists to add exactly that one.
+
+- id: lifecycle/fan-work-out-to-parallel-agents-and-merge-it-honestly-c
+  section: "Fan work out to parallel agents, and merge it honestly"
+  claim: Partition the questions before partitioning the work - a whole-subject property (totals, cycles, ratios, report-this-once) goes to an agent holding the whole subject, because an agent holding one slice answers from the slice with no sign in its output that it did.
+  class: process
+  severity: important
+  note: How a run splits its questions is a property of the run. The repository-visible form of this rule is `audit-core`'s `local` and `global` localities, which this clause is the general statement of and which the engine cites here.
+
+- id: lifecycle/fan-work-out-to-parallel-agents-and-merge-it-honestly-d
+  section: "Fan work out to parallel agents, and merge it honestly"
+  claim: Treat the rubric a sweep applies as an artifact that grows during the sweep - one file, every mid-run ruling lifted into it as it is made, and a final whole-corpus pass planned from the start because early slices ran under a thinner rulebook.
+  class: process
+  severity: minor
+  note: A rubric file is repository-visible where a sweep keeps one, but whether rulings were lifted into it as they were made, and whether the final pass was planned rather than improvised, are facts about how the run went that no snapshot carries.
+
 - id: lifecycle/after-the-merge
   section: "After the merge"
   claim: Close the trail after merging - verify each acceptance criterion was actually implemented before ticking it, post a release-notes-style comment, and set the issue's final status.
@@ -886,6 +917,13 @@
   severity: important
   checks:
     - eval/methodology
+
+- id: evaluation/agreement-is-not-corroboration
+  section: "Agreement is not corroboration"
+  claim: Agreement among agents reading one input is not several measurements - they inherit that input's errors together, so independence comes from diversity of method (one that executes, one that reads, one that tests) rather than from redundancy of reader.
+  class: process
+  severity: important
+  note: How many readers of which kind a review spent its budget on is a property of that review rather than of the repository. The nearest repository-visible half belongs to eval-audit's `eval/judge-calibration`, which asks whether a judge was validated against human labels - a different question about a different reader.
 
 - id: evaluation/ask-for-a-described-category-not-a-bare-number
   section: "Ask for a described category, not a bare number"
