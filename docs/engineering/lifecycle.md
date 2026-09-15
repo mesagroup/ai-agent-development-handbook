@@ -1,6 +1,6 @@
 # Part 1. The Development Lifecycle
 
-*Here the story begins: an idea on its way to becoming a merged, verified change. This part is the handbook's spine, the one path every piece of work travels, with the human judgment placed at the moments where it pays most. Two throughlines run through it end to end: the trail you capture at every step, and the standards you make executable so that the path holds without heroics.*
+*Here the story begins: an idea on its way to becoming a merged, verified change. This part is the handbook's spine, the path work travels by default, with the human judgment placed at the moments where it pays most. Two throughlines run through it end to end: the trail you capture at every step, and the standards you make executable so that the path holds without heroics.*
 
 Take every piece of work from idea to merged code along one path: issue → spec → plan → implement → review → merge. The individual practices it runs on (TDD, CI, static analysis, code review, an end-to-end quality gate, each detailed in [Part 2](implementation-disciplines.md)) are standard professional engineering; what is distinctive is running them as *one guided lifecycle* with the human-in-the-loop decisions chosen up front, because you develop *with* agents, and delegating without a spec, a plan, and a verification step is guessing at scale.
 
