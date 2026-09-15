@@ -39,4 +39,4 @@ The traceability gate is the one that matters most: the matrix and the check rec
 
 ## History
 
-Extracted from [`lidia-tech/lidia-agents`](https://github.com/lidia-tech/lidia-agents) with history preserved, so `#NNN` references in commits before the split point at that repository's issues and read as `lidia-tech/lidia-agents#NNN`.
+This repository was extracted from its origin repository with history preserved, so `#NNN` references in commits before the split point at that repository's issues and read as `<origin-repo>#NNN`. `CLAUDE.md` says what that placeholder stands for; the origin's name lives in the engagement's own records, not here.
