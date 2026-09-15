@@ -628,7 +628,7 @@
   severity: important
   gap:
     recommendation: report-only
-    note: no skill audits the *composition* of an agent's tool surface - `security/agent-privilege-surface` reads the same declarations but asks what the grants reach rather than how the operations are shaped, eval-audit's `eval/prompt-quality` reaches tools only as drift between a prompt and the tools that exist, and prompt-audit judges the text of a prompt rather than what it is given to call. An auditor diagnoses the tool surface in report prose against Part 4's checklist, as on the other Part 4 rows.
+    note: no skill audits the *composition* of an agent's tool surface - `security/agent-privilege-surface` reads an agent's tool and MCP declarations but asks what the grants reach rather than how the operations are shaped, eval-audit's `eval/prompt-quality` reaches tools only as drift between a prompt and the tools that exist, and prompt-audit judges the text of a prompt rather than what it is given to call. An auditor diagnoses the tool surface in report prose against Part 4's checklist, as on the other Part 4 rows.
 
 - id: three-layer-model/why-this-is-the-organizing-principle-not-just-a-document-feature
   section: "Why this is the organizing principle, not just a document feature"
