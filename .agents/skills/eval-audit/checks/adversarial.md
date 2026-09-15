@@ -18,7 +18,7 @@ handbook_note: >-
 
 # Adversarial / red-team eval
 
-Probe prompt-injection and jailbreak resistance as a behavioral suite (coordinate the security framing with `security-audit`) - enable via argument or ask the user.
+Probe prompt-injection and jailbreak resistance as a behavioral suite (the security framing is framed for the report here, not re-decided) - enable via argument or ask the user.
 
 ## Tooling fallback
 

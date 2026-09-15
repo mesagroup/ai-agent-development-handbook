@@ -22,4 +22,4 @@ Is there a cheap behavioral pre-merge check, does it run on the paths that can r
 
 ## Fix
 
-**Smoke-test fixes:** set a threshold that trips on a real regression, run it on the paths that can change behavior (coordinate with `ci/gate-enforcement` on making it a required gate).
+**Smoke-test fixes:** set a threshold that trips on a real regression, run it on the paths that can change behavior; whether it is a required gate is `ci/gate-enforcement`'s and is not settled here.
