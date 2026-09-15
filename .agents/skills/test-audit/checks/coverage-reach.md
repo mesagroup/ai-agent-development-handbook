@@ -12,8 +12,7 @@ evidence: >-
   `ci/gate-enforcement`'s - it owns whether an intended gate is actually
   required. Whether a floor was ever *decided*, and whether it has an
   executable home rather than living in prose, is
-  `test/coverage-floor-declaration`'s, and a project that set no threshold at
-  all is silent here and a finding there. What stays here is whether the number
+  `test/coverage-floor-declaration`'s. What stays here is whether the number
   this check measures is adequate and whether the threshold measures the right
   thing - the `fail_under`-without-`branch = true` pair the Python route below
   names is a metric-basis finding and belongs to this record. Every command route below runs

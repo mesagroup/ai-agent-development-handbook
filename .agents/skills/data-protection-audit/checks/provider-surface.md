@@ -36,7 +36,7 @@ Where the derivation could not resolve a call path - a base URL assembled at run
 
 ## Fix
 
-Add the missing providers to the register with the three fields it carries - a signed data processing agreement, the provider's training position and, where its default is to train, the mechanism opted out by, and the retention window including any longer abuse-monitoring one - then record the reconciliation date, which is what makes the next pass cheap. The fields are named here rather than cited, because the plugin ships only `.agents/skills/` and an agent running this check from a plugin cache in another repository cannot open the handbook to look them up. Where the surface is large or dynamic, move the outbound calls behind one client layer, so the surface becomes enumerable by construction rather than by search - the same shape `data-protection/boundary-minimization` wants for the redaction step, and the two fixes land in the same place.
+Add the missing providers to the register with the three fields it carries - a signed data processing agreement, the provider's training position and, where its default is to train, the mechanism opted out by, and the retention window including any longer abuse-monitoring one - then record the reconciliation date, which is what makes the next pass cheap. The fields are named here rather than cited, because the plugin ships only `.agents/skills/` and an agent running this check from a plugin cache in another repository cannot open the handbook to look them up. Where the surface is large or dynamic, move the outbound calls behind one client layer, so the surface becomes enumerable by construction rather than by search.
 
 ## Review lens
 
