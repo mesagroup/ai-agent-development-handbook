@@ -69,8 +69,12 @@ routes:
     kind: procedure
     tool: "@cyclonedx/cdxgen"
     note: >-
-      Read for the whole resolved graph rather than for the direct set. It
-      needs the dependency tree materialized and an environment it can run in.
+      Read for the whole resolved graph rather than for the direct set. **Run
+      it with `FETCH_LICENSE=true`**: licence resolution is off by default and
+      an SBOM generated without it comes back with empty licence fields. With
+      it, licences resolve from the lockfile over the network rather than from
+      an installed tree, so what this route needs is network and not the tree,
+      which is why it carries no tier.
 ---
 
 # Transitive-license deep dive
