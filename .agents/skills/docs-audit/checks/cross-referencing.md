@@ -26,7 +26,7 @@ If the project has a docs link-checker / index-completeness script, use it. If n
 
 Reconcile the index, repair dead links, add reciprocal research↔architecture links.
 
-Ground each writing task in the Phase-1 source maps: the exact cross-links, so the implementer verifies rather than invents.
+Ground each writing task in the source maps the skill header builds: the exact cross-links, so the implementer verifies rather than invents.
 
 ## Review lens
 
