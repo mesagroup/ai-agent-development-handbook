@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add the symptom-indexed troubleshooting companion page to the engineering handbook (issue lidia-tech/lidia-agents#536) per the approved spec `docs/superpowers/specs/2026-07-28-troubleshooting-guide-design.md`.
+**Goal:** Add the symptom-indexed troubleshooting companion page to the engineering handbook (issue `<origin-repo>#536`) per the approved spec `docs/superpowers/specs/2026-07-28-troubleshooting-guide-design.md`.
 
 **Architecture:** One new unnumbered companion page `docs/engineering/troubleshooting.md` (15 entries in 4 clusters), wired into the handbook artifact renderer (`scripts/render_handbook_artifact.py`, one PARTS row plus an unnumbered-glyph case in `render_nav`), the handbook README (companion table row + a "start here" pointer), and the `docs/README.md` blurb. Task 1 lands the skeleton page and all wiring so every verification gate runs green from the first commit; Tasks 2-4 author the clusters into the already-wired page.
 
@@ -23,7 +23,7 @@ Binding for everything under `docs/engineering/` (from the spec; the renderer co
   2. `uv run python scripts/check_docs.py` — exit 0.
   3. `uv run mkdocs build --strict` — exit 0 (regression only: `docs/engineering/` is excluded from the site, see `mkdocs.yml`).
   4. `uv run python scripts/check_site_links.py site` — exit 0.
-- **Commits:** message style `docs(lidia-tech/lidia-agents#536): <what>`, body explains what/why, ends with `Refs lidia-tech/lidia-agents#536` and the trailer `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`. Stage explicit paths only (never `git add -A`).
+- **Commits:** message style `docs(<origin-repo>#536): <what>`, body explains what/why, ends with `Refs <origin-repo>#536` and the trailer `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`. Stage explicit paths only (never `git add -A`).
 
 ---
 
@@ -146,10 +146,10 @@ Run each command from the Global Constraints gate list. Expected: renderer print
 
 ```bash
 git add docs/engineering/troubleshooting.md scripts/render_handbook_artifact.py tests/scripts/test_render_handbook_artifact.py docs/engineering/README.md docs/README.md docs/superpowers/specs/2026-07-28-troubleshooting-guide-design.md
-git commit -m "docs(lidia-tech/lidia-agents#536): add troubleshooting companion skeleton and wire it into the handbook"
+git commit -m "docs(<origin-repo>#536): add troubleshooting companion skeleton and wire it into the handbook"
 ```
 
-(Include the standard body: what/why, `Refs lidia-tech/lidia-agents#536`, the co-author trailer from Global Constraints.)
+(Include the standard body: what/why, `Refs <origin-repo>#536`, the co-author trailer from Global Constraints.)
 
 ---
 
@@ -213,10 +213,10 @@ Same commands and expectations as Task 1 Step 9 (`sections: 12`, `em-dashes: 0`,
 
 ```bash
 git add docs/engineering/troubleshooting.md
-git commit -m "docs(lidia-tech/lidia-agents#536): author troubleshooting clusters 1-2 (cost and latency; reliability)"
+git commit -m "docs(<origin-repo>#536): author troubleshooting clusters 1-2 (cost and latency; reliability)"
 ```
 
-(Standard body, `Refs lidia-tech/lidia-agents#536`, co-author trailer.)
+(Standard body, `Refs <origin-repo>#536`, co-author trailer.)
 
 ---
 
@@ -270,10 +270,10 @@ Same commands and expectations as Task 1 Step 9.
 
 ```bash
 git add docs/engineering/troubleshooting.md
-git commit -m "docs(lidia-tech/lidia-agents#536): author troubleshooting cluster 3 (output quality)"
+git commit -m "docs(<origin-repo>#536): author troubleshooting cluster 3 (output quality)"
 ```
 
-(Standard body, `Refs lidia-tech/lidia-agents#536`, co-author trailer.)
+(Standard body, `Refs <origin-repo>#536`, co-author trailer.)
 
 ---
 
@@ -325,7 +325,7 @@ Same commands and expectations as Task 1 Step 9.
 
 ```bash
 git add docs/engineering/troubleshooting.md
-git commit -m "docs(lidia-tech/lidia-agents#536): author troubleshooting cluster 4 (measurement and change), complete the page"
+git commit -m "docs(<origin-repo>#536): author troubleshooting cluster 4 (measurement and change), complete the page"
 ```
 
-(Standard body, `Refs lidia-tech/lidia-agents#536`, co-author trailer.)
+(Standard body, `Refs <origin-repo>#536`, co-author trailer.)

@@ -1,6 +1,6 @@
 # Handbook D2 Diagrams — Design
 
-**Issue:** [lidia-tech/lidia-agents#537](https://github.com/lidia-tech/lidia-agents/issues/537)
+**Issue:** `<origin-repo>#537`
 **Date:** 2026-07-28
 **Status:** approved in session (style, diagram set, and lifecycle placement each confirmed by the user)
 

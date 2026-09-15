@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python 3.11+, `pyyaml`, `pytest`, `ruff`, `pyright`. No new dependencies.
 
-**Spec:** `docs/superpowers/specs/2026-07-31-audit-checks-db-design.md`. Issue: [lidia-tech/lidia-agents#559](https://github.com/lidia-tech/lidia-agents/issues/559).
+**Spec:** `docs/superpowers/specs/2026-07-31-audit-checks-db-design.md`. Issue: `<origin-repo>#559`.
 
 > **One path changed after this plan ran.** Every `.agents/skills/audit-core/checks/arch/` below is now `.agents/skills/arch-audit/checks/`: the records live in the domain's own skill, so a domain is one portable directory and a record is one hop from the `SKILL.md` naming it rather than two hops through a sibling skill. The check ids and every matrix reference were unaffected. The reasoning is in decision 1 of the spec; the paths below are left as the tasks were actually dispatched.
 
@@ -41,7 +41,7 @@ Copied verbatim into every task's dispatch.
 - **Module docstrings stay current.** If you change what a module does, update its docstring in the same commit.
 - **Every commit runs `uv run ruff check .` and `uv run ruff format --check .` clean** before it is made. Run `uv run pyright` for any task touching `scripts/` or `tests/`.
 - **The domain gate for every task is:** `uv run pytest tests/scripts/ -q` green **and** `uv run python scripts/render_handbook_traceability.py --check` exit 0.
-- **Reference the issue in every commit message:** `Refs lidia-tech/lidia-agents#559`. No Claude credits, no co-author trailers naming an assistant.
+- **Reference the issue in every commit message:** `Refs <origin-repo>#559`. No Claude credits, no co-author trailers naming an assistant.
 - **Do not open a PR and do not merge.** The controller handles both.
 
 ---
@@ -65,7 +65,7 @@ Copied verbatim into every task's dispatch.
 Create `tests/scripts/test_audit_checks.py`:
 
 ```python
-"""Tests for scripts/audit_checks.py (lidia-tech/lidia-agents#559)."""
+"""Tests for scripts/audit_checks.py (<origin-repo>#559)."""
 
 import importlib.util
 import sys
@@ -243,7 +243,7 @@ Expected: collection error, `FileNotFoundError` / `ModuleNotFoundError` for `scr
 - [ ] **Step 3: Write `scripts/audit_checks.py`**
 
 ```python
-"""Load and validate the audit check records (lidia-tech/lidia-agents#559).
+"""Load and validate the audit check records (<origin-repo>#559).
 
 `.agents/skills/audit-core/checks/<domain>/<check>.md` holds one record per
 auditable check: the machine-checkable attributes in YAML frontmatter, the
@@ -493,14 +493,14 @@ Expected: PASS. `test_the_real_checks_tree_loads_clean` passes trivially against
 ```bash
 uv run ruff check . && uv run ruff format --check . && uv run pyright
 git add scripts/audit_checks.py tests/scripts/test_audit_checks.py
-git commit -m "feat(lidia-tech/lidia-agents#559): check-record loader and intra-record validation
+git commit -m "feat(<origin-repo>#559): check-record loader and intra-record validation
 
 The audit family's per-check attributes move out of eight SKILL.md files
 into one record per check. This is the loader and the half of validation
 that a single file can answer on its own; the matrix cross-reference
 lands next, in the renderer that already holds the matrix.
 
-Refs lidia-tech/lidia-agents#559"
+Refs <origin-repo>#559"
 ```
 
 ---
@@ -813,7 +813,7 @@ Finally update the module docstring: after the paragraph ending "renders the com
 ```
 A row's `checks` list carries one entry per check that reaches the clause.
 An entry is a check id (`arch/layering`) resolved against the check records
-under `.agents/skills/audit-core/checks/` (lidia-tech/lidia-agents#559), or - until the remaining
+under `.agents/skills/audit-core/checks/` (<origin-repo>#559), or - until the remaining
 domains migrate - the legacy `{skill, dimension}` pair parsed out of a
 skill's `## N. Dimensions` bullets. The two views of an edge are checked
 against each other: a record may not cite a clause no row connects it to,
@@ -839,7 +839,7 @@ Expected: PASS, exit 0. The committed `.md` is unchanged - no real row uses an i
 ```bash
 uv run ruff check . && uv run ruff format --check . && uv run pyright
 git add scripts/render_handbook_traceability.py tests/scripts/test_render_handbook_traceability.py
-git commit -m "feat(lidia-tech/lidia-agents#559): resolve matrix check references against the check records
+git commit -m "feat(<origin-repo>#559): resolve matrix check references against the check records
 
 A checks[] entry may now be a stable check id as well as the legacy
 {skill, dimension} pair, and the two views of an edge are validated
@@ -847,7 +847,7 @@ against each other: a record may not cite a clause no row connects it
 to, and a cited record may not declare itself ungrounded. No matrix row
 uses an id yet; the arch rows migrate next.
 
-Refs lidia-tech/lidia-agents#559"
+Refs <origin-repo>#559"
 ```
 
 ---
@@ -1023,14 +1023,14 @@ Expected: 6 occurrences of `arch/layering` in the rendered md; exit 0; tests pas
 
 ```bash
 git add .agents/skills/audit-core/checks/arch/layering.md .agents/skills/audit-core/checks/arch/complexity.md .agents/skills/audit-core/checks/arch/dead-code.md .agents/skills/audit-core/checks/arch/size.md docs/audit/handbook-traceability.yaml docs/audit/handbook-traceability.md
-git commit -m "feat(lidia-tech/lidia-agents#559): migrate the four local arch checks to check records
+git commit -m "feat(<origin-repo>#559): migrate the four local arch checks to check records
 
 Layering, complexity, dead code and file size become records under
 audit-core/checks/arch/, and the nine matrix references that cited them
 as arch-audit dimensions now cite stable ids. Prose moved verbatim; the
 TypeScript half of each tooling fallback is new (#5).
 
-Refs lidia-tech/lidia-agents#559, #7, #5"
+Refs <origin-repo>#559, #7, #5"
 ```
 
 ---
@@ -1213,7 +1213,7 @@ Expected: all green, exit 0.
 
 ```bash
 git add .agents/skills/audit-core/checks/arch/ docs/audit/handbook-traceability.yaml docs/audit/handbook-traceability.md tests/scripts/test_audit_checks.py
-git commit -m "feat(lidia-tech/lidia-agents#559): migrate the six global arch checks; no arch-audit pair left
+git commit -m "feat(<origin-repo>#559): migrate the six global arch checks; no arch-audit pair left
 
 Completes the arch inventory at ten records. Splitting Coupling &
 cohesion into coupling and over-decomposition is what makes the handbook
@@ -1221,7 +1221,7 @@ grounding honest: the decay section names hubs and grab-bag utils and no
 ravioli signal, so over-decomposition carries an empty handbook and a
 note instead of a citation the clause does not support.
 
-Refs lidia-tech/lidia-agents#559, #7, #5"
+Refs <origin-repo>#559, #7, #5"
 ```
 
 ---
@@ -1280,7 +1280,7 @@ A `<domain>-audit` skill is thin: it states the lens and defers the loop above t
 
 **The skill file holds only what does not vary by check:** the subject and how to slice it, the ground-truth artifact to build once, the status scale, whether fixes touch code, and any opt-in *deliverables* (a generated config, a rendered report - things that produce an artifact rather than findings-matrix rows). Target roughly 250 words plus the `description`.
 
-**Domains not yet migrated** (everything but `arch`, until lidia-tech/lidia-agents#559 PR 2) still carry their checks inline as seven numbered slots: 1. Subject & scope, 2. Dimensions, 3. Evidence sources & tooling, 4. Status scale + severity rubric, 5. Fix patterns, 6. Review dimensions, 7. Opt-in sub-audits. Read them as written; do not convert one on the side.
+**Domains not yet migrated** (everything but `arch`, until <origin-repo>#559 PR 2) still carry their checks inline as seven numbered slots: 1. Subject & scope, 2. Dimensions, 3. Evidence sources & tooling, 4. Status scale + severity rubric, 5. Fix patterns, 6. Review dimensions, 7. Opt-in sub-audits. Read them as written; do not convert one on the side.
 ```
 
 - [ ] **Step 1: Rewrite both files**
@@ -1306,7 +1306,7 @@ Expected: both clean. `.agents/skills/` is outside the site, so the only site-vi
 
 ```bash
 git add .agents/skills/arch-audit/SKILL.md .agents/skills/audit-core/SKILL.md
-git commit -m "refactor(lidia-tech/lidia-agents#559): reduce arch-audit to a domain header
+git commit -m "refactor(<origin-repo>#559): reduce arch-audit to a domain header
 
 Prompt change, so the why: every /audit sweep dispatches one subagent per
 domain and each reads its whole SKILL.md, so arch-audit's 3,335 words
@@ -1318,12 +1318,12 @@ status scale, and the opt-in deliverables. audit-core gains the record
 model and marks the seven-slot shape as what the unmigrated domains
 still use.
 
-Refs lidia-tech/lidia-agents#559"
+Refs <origin-repo>#559"
 ```
 
 ---
 
-### Task 6: Pilot verification against the lidia-tech/lidia-agents#508 baseline
+### Task 6: Pilot verification against the `<origin-repo>#508` baseline
 
 **Files:**
 - Create: `test-reports/559-arch-pilot/findings.md` (gitignored working artifact, not committed)
@@ -1335,7 +1335,7 @@ Refs lidia-tech/lidia-agents#559"
 
 This is the spec's application test: a schema that survives `arch` survives the other seven domains, and one pilot run costs an eighth of discovering the schema is wrong after 68 records.
 
-**Baseline.** [lidia-tech/lidia-agents#512](https://github.com/lidia-tech/lidia-agents/issues/512) records what `arch-audit` found on this repo on 2026-07-22, verified with `grimp`, `radon`, `vulture` and `ruff C901`:
+**Baseline.** `<origin-repo>#512` records what `arch-audit` found on this repo on 2026-07-22, verified with `grimp`, `radon`, `vulture` and `ruff C901`:
 
 - 3 illegal cross-tier import edges: `core.references` -> `capabilities.citing.markers`, `core.hooks.url_masking` -> `capabilities.citing.markers`, `eval.convert` -> `agents.legal_search.references_section`
 - 2 tier-level import cycles: `capabilities <-> core`, `agents <-> eval`

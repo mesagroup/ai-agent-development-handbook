@@ -1,4 +1,4 @@
-"""Tests for scripts/render_handbook_traceability.py (lidia-tech/lidia-agents#543)."""
+"""Tests for scripts/render_handbook_traceability.py (<origin-repo>#543)."""
 
 import importlib.util
 import sys
@@ -256,7 +256,7 @@ def test_validate_catches_each_rule(tmp_path):
         # An id with no record: the row's citation is dropped, which also
         # leaves demo/injection uncited, hence 2.
         (lambda r: r[0].update(checks=["demo/ghost"]), "unknown check id", 2),
-        # A branch predating lidia-tech/lidia-agents#559 carries the pair form. It is named as such
+        # A branch predating <origin-repo>#559 carries the pair form. It is named as such
         # rather than reported as a type error, so its author is sent to the
         # record that replaced it.
         (
@@ -354,7 +354,7 @@ def test_render_reconciles_the_gap_total_when_no_process_row_gaps():
 
 
 def test_render_reconciles_the_gap_total_when_a_process_row_gaps():
-    # The case lidia-tech/lidia-agents#554 names: the closing total counted a population the
+    # The case <origin-repo>#554 names: the closing total counted a population the
     # components above it never included. It is absent from today's matrix,
     # so only a fixture can hold the arithmetic honest.
     rows = _valid_rows()
@@ -732,7 +732,7 @@ def test_real_matrix_passes_the_strict_check():
 
 
 def test_real_matrix_band_unchecked_counts_match_the_cross_tab():
-    # lidia-tech/lidia-agents#553's second criterion, made mechanical rather than a counting
+    # <origin-repo>#553's second criterion, made mechanical rather than a counting
     # exercise: a band's printed unchecked figure is the same number as its
     # Unmapped column, and stays so as rows are added. Both are read out of
     # the rendered page, so a renderer that drifts them apart fails here.
@@ -813,7 +813,7 @@ def test_unknown_check_id_is_reported(tmp_path):
 
 
 def test_legacy_skill_dimension_entry_is_named_not_typed(tmp_path):
-    # The pair form is what a branch predating lidia-tech/lidia-agents#559 carries. "expected a
+    # The pair form is what a branch predating <origin-repo>#559 carries. "expected a
     # string" would send its author hunting a typo in the matrix; naming the
     # form points at the record that replaced it.
     checks = _checks_tree(

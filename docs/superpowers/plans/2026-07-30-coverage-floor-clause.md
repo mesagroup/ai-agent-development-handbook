@@ -100,7 +100,7 @@ Expected: all pass.
 
 ```bash
 git add docs/engineering/implementation-disciplines.md docs/audit/handbook-traceability.yaml docs/audit/handbook-traceability.md
-git commit -m "docs(lidia-tech/lidia-agents#551): require deciding the unit-test coverage floor upfront"
+git commit -m "docs(<origin-repo>#551): require deciding the unit-test coverage floor upfront"
 ```
 
 The message body must explain why the clause requires the decision rather than a number, and why it sits after "Chase caught regressions".
@@ -116,7 +116,7 @@ The message body must explain why the clause requires the decision rather than a
 - Consumes: nothing. Independent of Task 1.
 - Produces: an enforced CI coverage gate.
 
-**Context the implementer needs:** CI runs `uv run pytest tests/ --cov=lidia_agents ... | tee` under `set -o pipefail` (`.github/workflows/ci.yml`). `pytest-cov` honours `fail_under` from `[tool.coverage.report]`, so this one line turns on the gate with no workflow change. Current measured coverage is 66.67% (14610/21914 statements). The existing `omit` is tests-only, which is an honest denominator and must not be widened.
+**Context the implementer needs:** CI runs `uv run pytest tests/ --cov=<origin-package> ... | tee` under `set -o pipefail` (`.github/workflows/ci.yml`). `pytest-cov` honours `fail_under` from `[tool.coverage.report]`, so this one line turns on the gate with no workflow change. Current measured coverage is 66.67% (14610/21914 statements). The existing `omit` is tests-only, which is an honest denominator and must not be widened.
 
 - [ ] **Step 1: Add the floor**
 
@@ -143,7 +143,7 @@ fail_under = 65
 
 - [ ] **Step 2: Verify the gate is wired and currently passes**
 
-Run: `uv run pytest tests/ --cov=lidia_agents --cov-report=term-missing -q`
+Run: `uv run pytest tests/ --cov=<origin-package> --cov-report=term-missing -q`
 Expected: PASS, with a `Required test coverage of 65% reached` line (or no coverage failure). Record the reported total.
 
 - [ ] **Step 3: Verify the gate actually bites**
@@ -156,7 +156,7 @@ This step exists because a threshold that is never observed failing is indisting
 
 ```bash
 git add pyproject.toml
-git commit -m "chore(lidia-tech/lidia-agents#551): adopt a stated unit-test coverage floor of 65%"
+git commit -m "chore(<origin-repo>#551): adopt a stated unit-test coverage floor of 65%"
 ```
 
 The message body must state the measured coverage, why the floor sits below it, and that CI needed no workflow change.

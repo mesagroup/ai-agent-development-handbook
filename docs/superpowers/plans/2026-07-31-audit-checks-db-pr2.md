@@ -8,11 +8,11 @@
 
 **Tech Stack:** Markdown with YAML frontmatter, Python 3.11+, `pyyaml`, `pytest`, `ruff`, `pyright`. No new dependencies.
 
-**Spec:** `docs/superpowers/specs/2026-07-31-audit-checks-db-design.md`. Predecessor plan: `docs/superpowers/plans/2026-07-31-audit-checks-db-pr1.md` (merged as PR lidia-tech/lidia-agents#560). Issue: [lidia-tech/lidia-agents#559](https://github.com/lidia-tech/lidia-agents/issues/559).
+**Spec:** `docs/superpowers/specs/2026-07-31-audit-checks-db-design.md`. Predecessor plan: `docs/superpowers/plans/2026-07-31-audit-checks-db-pr1.md` (merged as PR `<origin-repo>#560`). Issue: `<origin-repo>#559`.
 
 ## Two decisions taken before this plan
 
-Both were flagged as open in PR lidia-tech/lidia-agents#560's body and answered by the user on 2026-07-31.
+Both were flagged as open in PR `<origin-repo>#560`'s body and answered by the user on 2026-07-31.
 
 1. **`arch/complexity`'s repo-global fact splits into its own `global` check** (Task 1). The record currently mitigates with the prose instruction "Report this once for the repo, not once per package" - an instruction that asks N independent per-package agents to coordinate, which they cannot. `audit-core` gains the general rule, so the seven domains migrating in this PR apply it rather than re-inventing the mitigation. This makes `arch` eleven records, matching the spec's original estimate.
 2. **Removing `skill_dimensions()` stays PR 3.** After Task 9 nothing cites the legacy form, but the code path stays, so this PR ends at a checkpoint where both reference forms still resolve. Do **not** add a validator rule forbidding the legacy mapping - that would hard-enforce the id-only world a PR early and remove the rollback the sequencing exists for.
@@ -50,7 +50,7 @@ Copied verbatim into every task's dispatch.
 - **Every commit runs `uv run ruff check .` and `uv run ruff format --check .` clean** before it is made. Run `uv run pyright` for any task touching `scripts/` or `tests/`.
 - **The domain gate for every task is:** `uv run pytest tests/scripts/ -q` green **and** `uv run python scripts/render_handbook_traceability.py --check` exit 0.
 - **Re-render the Markdown view** with `uv run python scripts/render_handbook_traceability.py` in any task that edits `docs/audit/handbook-traceability.yaml`, and commit both files together.
-- **Reference the issue in every commit message:** `Refs lidia-tech/lidia-agents#559`. No Claude credits, no co-author trailers naming an assistant.
+- **Reference the issue in every commit message:** `Refs <origin-repo>#559`. No Claude credits, no co-author trailers naming an assistant.
 - **Do not open a PR and do not merge.** The controller handles both.
 
 ## The record schema (unchanged from PR 1)
@@ -112,12 +112,12 @@ uv run python scripts/render_handbook_traceability.py --check
 uv run pytest tests/scripts/ -q
 git status --short
 git add .agents/skills/arch-audit/checks/complexity.md .agents/skills/arch-audit/checks/complexity-gate.md .agents/skills/audit-core/SKILL.md
-git commit -m "refactor(lidia-tech/lidia-agents#559): split arch/complexity's repo-global fact into its own check
+git commit -m "refactor(<origin-repo>#559): split arch/complexity's repo-global fact into its own check
 
 A local check cannot honour 'report this once for the repo' - the N
 per-package agents that run it never see each other. Splitting the
 threshold-configured fact into a global check makes the once-ness
-structural. Refs lidia-tech/lidia-agents#559"
+structural. Refs <origin-repo>#559"
 ```
 
 ---
@@ -159,7 +159,7 @@ Every `deps` check is `global`: the subject is one resolved dependency set, not 
 
 Each of those four gets the citing row's id in its `handbook`. The two opt-ins are cited by nobody, so both need `handbook: []` and a `handbook_note` - and per the global constraints those two notes must differ, because the reasons differ (an SBOM's completeness versus a transitive-graph depth the handbook never asks for).
 
-**`deptry`, the question PR lidia-tech/lidia-agents#560 left open.** PR 1 dropped `deptry` from `arch`'s detect list as an orphan no arch check consumed, noting `deps-audit` already claimed it. Confirm that here: `deptry` detects declared-but-unused and used-but-undeclared imports, which is exactly `deps/hygiene`. If it belongs in `deps/hygiene`'s `tooling.python`, put it there and say so in the commit message; if the source `§3` never listed it, say that instead. Either way, resolve it - do not carry it forward as open.
+**`deptry`, the question PR `<origin-repo>#560` left open.** PR 1 dropped `deptry` from `arch`'s detect list as an orphan no arch check consumed, noting `deps-audit` already claimed it. Confirm that here: `deptry` detects declared-but-unused and used-but-undeclared imports, which is exactly `deps/hygiene`. If it belongs in `deps/hygiene`'s `tooling.python`, put it there and say so in the commit message; if the source `§3` never listed it, say that instead. Either way, resolve it - do not carry it forward as open.
 
 - [ ] **Step 1: Read the sources**
 
@@ -179,7 +179,7 @@ Replace the four mappings with bare id strings. Then `grep -c "skill: deps-audit
 
 - [ ] **Step 5: Gate and commit**
 
-Run the gate, then stage the exact paths and commit with `feat(lidia-tech/lidia-agents#559): migrate deps-audit to check records`.
+Run the gate, then stage the exact paths and commit with `feat(<origin-repo>#559): migrate deps-audit to check records`.
 
 ---
 
@@ -215,7 +215,7 @@ The three prose dimensions are `global`: an orphaned doc, a dead link and an ind
 
 `docs/coverage`'s `handbook` therefore lists three row ids, `docs/cross-referencing` three, `docs/organization` two. The three docstring records are cited by nobody: `handbook: []` plus three genuinely different notes.
 
-Steps as Task 2 (read and map, write records, reduce header, rewire, gate). `grep -c "skill: docs-audit"` must print `0`. Commit: `feat(lidia-tech/lidia-agents#559): migrate docs-audit to check records`.
+Steps as Task 2 (read and map, write records, reduce header, rewire, gate). `grep -c "skill: docs-audit"` must print `0`. Commit: `feat(<origin-repo>#559): migrate docs-audit to check records`.
 
 ---
 
@@ -254,7 +254,7 @@ Six pattern-matching checks are `local` - each is decidable from one package's s
 
 `security/crypto` and `security/secret-history` are cited by nobody and need `handbook: []` plus notes.
 
-Steps as Task 2. `grep -c "skill: security-audit"` must print `0`. Commit: `feat(lidia-tech/lidia-agents#559): migrate security-audit to check records`.
+Steps as Task 2. `grep -c "skill: security-audit"` must print `0`. Commit: `feat(<origin-repo>#559): migrate security-audit to check records`.
 
 ---
 
@@ -285,7 +285,7 @@ Steps as Task 2. `grep -c "skill: security-audit"` must print `0`. Commit: `feat
 
 Every `test` check except `test/property-based-gap` is cited, so only that one needs a `handbook_note`.
 
-Steps as Task 2. `grep -c "skill: test-audit"` must print `0`. Commit: `feat(lidia-tech/lidia-agents#559): migrate test-audit to check records`.
+Steps as Task 2. `grep -c "skill: test-audit"` must print `0`. Commit: `feat(<origin-repo>#559): migrate test-audit to check records`.
 
 ---
 
@@ -325,7 +325,7 @@ The partition here is **one workflow file**, so most checks are `local` to a wor
 
 Five records are cited by nobody: `workflow-correctness`, `efficiency`, `deploy-safety`, `branch-protection`, `self-hosted-runners`. Five distinct `handbook_note`s. If two of them come out identical, re-read the handbook for the one you are about to duplicate - the notes are where the gap analysis actually lives, and #4's scope is read off them.
 
-Steps as Task 2. `grep -c "skill: ci-audit"` must print `0`. Commit: `feat(lidia-tech/lidia-agents#559): migrate ci-audit to check records`.
+Steps as Task 2. `grep -c "skill: ci-audit"` must print `0`. Commit: `feat(<origin-repo>#559): migrate ci-audit to check records`.
 
 ---
 
@@ -367,7 +367,7 @@ The partition is **one eval suite**. `eval/coverage` is global because "is every
 
 Only the three opt-ins are uncited and need notes.
 
-Steps as Task 2. `grep -c "skill: eval-audit"` must print `0`. Commit: `feat(lidia-tech/lidia-agents#559): migrate eval-audit to check records`.
+Steps as Task 2. `grep -c "skill: eval-audit"` must print `0`. Commit: `feat(<origin-repo>#559): migrate eval-audit to check records`.
 
 ---
 
@@ -419,7 +419,7 @@ The largest header in the family (2,877 words) and the only one with a two-tier 
 
 Seven records are uncited: `output-contract`, `examples-delimiters`, `internal-consistency`, the three `sop-*`, and `cross-prompt-consistency`. That is the largest block of `handbook_note`s in the PR, and the three `sop-*` notes are the ones most likely to come out identical - the handbook does not carry the SOP spec, which is a single reason covering three records. If that is genuinely the situation, say it three times in three different words, each naming what *that* record checks; do not paste one sentence three times, and do not merge the three records to dodge the problem.
 
-Steps as Task 2. `grep -c "skill: prompt-audit"` must print `0`. Commit: `feat(lidia-tech/lidia-agents#559): migrate prompt-audit to check records`.
+Steps as Task 2. `grep -c "skill: prompt-audit"` must print `0`. Commit: `feat(<origin-repo>#559): migrate prompt-audit to check records`.
 
 ---
 
@@ -453,7 +453,7 @@ The line handed to each domain subagent currently says to read the whole domain 
 
 - [ ] **Step 5: Remove `audit-core`'s transitional paragraph, and correct the word ceiling**
 
-Delete the "**Domains not yet migrated** (everything but `arch`, until lidia-tech/lidia-agents#559 PR 2)…" paragraph and its seven-slot list. Nothing is unmigrated now. Update the sentence pointing at `../arch-audit/checks/` as the reference set if a better example now exists.
+Delete the "**Domains not yet migrated** (everything but `arch`, until `<origin-repo>#559` PR 2)…" paragraph and its seven-slot list. Nothing is unmigrated now. Update the sentence pointing at `../arch-audit/checks/` as the reference set if a better example now exists.
 
 Then correct the ceiling. `audit-core` currently says the reference header "runs to about 520 words of body, and `arch` is the densest domain in the family - treat that as a ceiling rather than a target." That was measured when `arch` was the only migrated domain, and Task 5 falsified it: `test-audit` needs 587 body words, and a reviewer walking its header sentence by sentence found nothing further to cut that a record does not already say. Replace the claim with the measured range across all eight domains, and replace "`arch` is the densest" with what actually drives the number - a domain needs more header when it carries a `global`-locality check whose rationale must be stated, or a cross-cutting fix pattern with no single-check home. Measure all eight yourself; do not copy the numbers from this plan.
 
@@ -473,7 +473,7 @@ The first must print `0`. Record the final record count and the per-domain heade
 
 - [ ] **Step 7: Gate and commit**
 
-Commit: `feat(lidia-tech/lidia-agents#559): detect audit domains from the checks tree`.
+Commit: `feat(<origin-repo>#559): detect audit domains from the checks tree`.
 
 ---
 

@@ -8,7 +8,7 @@ Each entry names the practice, the environment it applies to, and why it is not 
 
 This file is deliberately outside `docs/engineering/`. Inside, it would need matrix rows for advisory content and would ride into the standalone handbook artifact as if it carried equal weight.
 
-**Not for obsolete practices.** Contingent goes here; obsolete stays deleted. The rule against passing hash-comments to an agent's Bash tool (removed repo-wide in lidia-tech/lidia-agents#549) is not recorded here, because it is not true anywhere any more - it worked around a tool-permission gate that no longer exists.
+**Not for obsolete practices.** Contingent goes here; obsolete stays deleted. The rule against passing hash-comments to an agent's Bash tool (removed repo-wide in `<origin-repo>#549`) is not recorded here, because it is not true anywhere any more - it worked around a tool-permission gate that no longer exists.
 
 ## Keep the host awake during a long agent run
 
@@ -16,4 +16,4 @@ This file is deliberately outside `docs/engineering/`. Inside, it would need mat
 
 **Environment.** A laptop or workstation running the agent harness locally, where the OS suspends the machine on an idle timer and a suspended host kills an in-flight run.
 
-**Why it is not normative.** It is contingent on where the harness runs. A cloud harness, a CI runner, or a server with no idle suspension makes the clause meaningless, and the handbook is not the place to encode one execution environment's power management. The failure it prevents is real but recoverable - you rerun the batch - which puts it at Minor even where it applies. Removed from Part 1 in lidia-tech/lidia-agents#552.
+**Why it is not normative.** It is contingent on where the harness runs. A cloud harness, a CI runner, or a server with no idle suspension makes the clause meaningless, and the handbook is not the place to encode one execution environment's power management. The failure it prevents is real but recoverable - you rerun the batch - which puts it at Minor even where it applies. Removed from Part 1 in `<origin-repo>#552`.

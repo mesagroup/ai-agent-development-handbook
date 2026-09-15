@@ -18,7 +18,7 @@ Every task's requirements implicitly include this section.
 - No environment-specific values in any committed file: no absolute local paths, personal profile names, hostnames or emails. A repository name is one of these, so refer to the verification repositories by a `<placeholder>` describing their shape and keep the real names in the uncommitted run ledger. An earlier revision of this line exempted repository names; it was wrong, and the exemption is why the design document had to be swept afterwards.
 - The gate must stay green in every commit: `uv run python scripts/render_handbook_traceability.py --check` exits 0, and `uv run pytest tests/ -q` passes.
 - Run `uv run ruff check . && uv run ruff format --check .` before committing any task that touched a `.py` file. No task in this plan is expected to touch one.
-- Bare `#NNN` is an issue in this repository. An issue in the source repository is written `lidia-tech/lidia-agents#NNN`.
+- Bare `#NNN` is an issue in this repository. An issue in the source repository is written `<origin-repo>#NNN`.
 - Reference the issue in every commit message: `Refs #8`.
 - Never assert a count you did not compute in the same breath.
 - Do not merge anything. The PR is the deliverable.
@@ -643,7 +643,7 @@ Edit the body of #7 to state that the `handbook:` lists and their bidirectional 
 
 - [ ] **Step 4: Rewrite #8 to its residue**
 
-Edit the body of #8 to record that the sweep for repository-specific assumptions is already largely met, because no lidia-specific grounding remains anywhere in the family, and that what remains is the two repo-root-relative paths, the Python-only ephemeral runner, and the target root and ref. Add a criterion for capturing and reporting the target ref, which the issue does not currently ask for.
+Edit the body of #8 to record that the sweep for repository-specific assumptions is already largely met, because no origin-specific grounding remains anywhere in the family, and that what remains is the two repo-root-relative paths, the Python-only ephemeral runner, and the target root and ref. Add a criterion for capturing and reporting the target ref, which the issue does not currently ask for.
 
 - [ ] **Step 5: File the handbook gap**
 

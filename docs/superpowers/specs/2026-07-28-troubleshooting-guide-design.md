@@ -1,6 +1,6 @@
 # Handbook Troubleshooting Guide — Design
 
-**Issue:** [lidia-tech/lidia-agents#536](https://github.com/lidia-tech/lidia-agents/issues/536)
+**Issue:** `<origin-repo>#536`
 **Date:** 2026-07-28
 **Status:** approved in session (placement, depth, and symptom set each confirmed by the user)
 
@@ -83,4 +83,4 @@ All standing `docs/engineering/` gates, binding:
 
 - No new fix content in the parts. If writing an entry exposes a genuine gap in a part (a root cause with nothing to route to), file it as a separate issue rather than inlining the fix material in the guide.
 - The renderer change turned out to need a `render_nav` glyph branch as well as the PARTS row (an unnumbered anchor needs its own `✚` case), and per the project's rule that new code ships with tests, that branch carries a unit test.
-- No diagrams: that is lidia-tech/lidia-agents#537, and the guide can pick up a diagram there later if one earns its place.
+- No diagrams: that is `<origin-repo>#537`, and the guide can pick up a diagram there later if one earns its place.
