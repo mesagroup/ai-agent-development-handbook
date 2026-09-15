@@ -19,8 +19,7 @@ routes:
   - lang: any
     kind: procedure
     note: >-
-      The binding-rules file, whatever the partition's language. Resolve it the
-      way `arch/runtime-declaration` does and do not invent a second rule. The
+      The binding-rules file, whatever the partition's language. The
       handbook defines it **by role rather than by path**, as the file a team and its coding agents both read as
       authoritative and deliberately does not name it - `CLAUDE.md` in one
       project, `AGENTS.md`, `CONTRIBUTING.md` or a file under `docs/` in
@@ -118,7 +117,7 @@ routes:
 
 Whether the project has **written down which tier may import which** - in its binding-rules file, or as a layering-contract config a linter reads. The finding is that no such statement exists, and it is a declaration finding: this check never asks whether the rule is a good one, and never whether the code obeys it.
 
-What it prevents is the domain judging a project against an architecture the audit supplied. `arch-audit`'s setup step reads the contributor guide for a stated tier structure and, where none is documented, **infers** the layers from the directory structure and confirms them with the user before flagging anything. That is the right handling - a domain with no rubric can do nothing else - but it consumes the absence as a branch in the setup, so it never reaches the report. A project that has never written its import rule down therefore passes this claim, and the absence reaches no report. **The setup step handles the absence; this check reports it.** Those are two jobs, not two policies.
+What it prevents is the domain judging a project against an architecture the audit supplied. `arch-audit`'s setup step reads the contributor guide for a stated tier structure and, where none is documented, **infers** the layers from the directory structure and confirms them with the user before flagging anything. That is the right handling - a domain with no rubric can do nothing else - but it consumes the absence as a branch in the setup, so it never reaches the report. Without a check that reports it, a project that has never written its import rule down is graded against tiers the audit proposed and nothing says so. **The setup step handles the absence; this check reports it.** Those are two jobs, not two policies.
 
 ## What counts as written down
 
