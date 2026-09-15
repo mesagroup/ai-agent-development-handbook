@@ -43,7 +43,7 @@ Runs in order; each step feeds the next.
 
 **If the mode is report-only, stop here** - present the findings matrix + report (with a short recommended-remediation sketch), modify no files, and ask the user whether to proceed to fixes. Steps 3–6 run only in report + fix mode.
 
-**If the mode is report + fix, the remaining four steps are** [references/remediation-loop.md](references/remediation-loop.md) - plan the remediation, apply the fixes one task at a time with a per-item review, review the whole branch, open the PR. Read it at this point and follow it from step 3; the numbering continues, and `## Cross-cutting rules (all domains)` below applies to those steps as much as to these. A report-only run reaches none of it, and the sweep in `../audit/SKILL.md` is report-only by construction, so none of its nine fan-out agents can reach those four steps.
+**If the mode is report + fix, the remaining four steps are** [references/remediation-loop.md](references/remediation-loop.md) - plan the remediation, apply the fixes one task at a time with a per-item review, review the whole branch, open the PR. Read it at this point and follow it from step 3; the numbering continues, and `## Cross-cutting rules (all domains)` below applies to those steps as much as to these. A report-only run reaches none of it.
 
 ## Running a route
 
@@ -60,7 +60,7 @@ A record's frontmatter says what the check runs, and turning that into a command
 ## Cross-cutting rules (all domains)
 
 - **Verify against evidence, always.** Every finding and every fix cites the artifact/tool output it rests on. Reviews exist to catch confident-but-wrong claims.
-- **Cross-link, don't duplicate.** If another skill/doc already owns a topic (e.g. `security-audit` and `deps-audit` both touch CVEs), one owns it and the other links.
+- **Cross-link, don't duplicate.** If another skill/doc already owns a topic (e.g. CVEs are reached from more than one lens), one owns it and the other links.
 - **Attribution / provenance honesty.** Never fabricate a source, URL, license, or CVE id; "unverified, tracked in issue #N" is an acceptable honest outcome.
 - **Fix pre-existing issues you touch** if small and real; discuss larger ones before expanding scope.
 - **Keep the domain gate green per task**, so regressions are attributable.

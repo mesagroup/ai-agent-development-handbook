@@ -30,9 +30,9 @@ No tool decides whether a payload was minimized, because the question is what a 
 
 **Follow the outbound call into the package that makes it before concluding minimization is absent.** Where this partition reaches a provider through a shared client in another partition, the shared step is present and the shared-path band does not apply; say which partition holds it. `SKILL.md` gives the reason: a shared client in a `core` package that every service imports is the state this check's own fix asks for, so a per-partition agent that reads only its own directory reports the repository that already did the work as the one that did not. Read the eval suite for a dimension that measures the redacted path against the unredacted one.
 
-**Hand the measurement half off rather than absorbing it.** `eval/coverage` owns whether a behaviour that matters has an eval exercising it at all, so a project with no eval suite is that check's finding rather than this one's, and this row reports the missing redaction dimension rather than the missing suite. Note the handoff in the report, Note the handoff in the report.
+**Hand the measurement half off rather than absorbing it.** `eval/coverage` owns whether a behaviour that matters has an eval exercising it at all, so a project with no eval suite is that check's finding rather than this one's, and this row reports the missing redaction dimension rather than the missing suite. Note the handoff in the report.
 
-Personal data reaching a log or an exception message at one of these call sites is `security/sensitive-data`'s row rather than this one's: is `security/sensitive-data`'s row rather than this one's; this one reads the call site for what it sends across the boundary. Do not restate its findings here, and do not accept a clean result from it as covering this check - a call site it cleared for logging still sends an unminimized payload if nothing redacts before the request.
+Personal data reaching a log or an exception message at one of these call sites is `security/sensitive-data`'s row rather than this one's; this one reads the call site for what it sends across the boundary. Do not restate its findings here, and do not accept a clean result from it as covering this check - a call site it cleared for logging still sends an unminimized payload if nothing redacts before the request.
 
 ## Fix
 

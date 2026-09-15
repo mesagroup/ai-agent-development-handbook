@@ -112,7 +112,7 @@ routes:
       Stryker and its matching runner plugin into a copy of the target this
       check owns and run there**, which is not an install into the
       target - nor into the shared reconstructed tree a sweep hands every
-      domain, for the reason `audit-core` gives: these are packages the target
+      domain, because these are packages the target
       does not declare, so they belong in a copy this check owns rather than in
       the graph the other domains are reading: that produced a real mutation
       score - 52.34% over one scoped module, 56 mutants killed and 37 survived,

@@ -39,7 +39,7 @@ This check and a line-length rule are opposites wearing the same clothes, and co
 
 ## Why this is answered once over the whole tree
 
-The subject is the documentation tree, and `audit-core`'s partitioning slices code tiers rather than docs, so there is no partition to give this check a slice of. It is answered in one pass over the tree, as `docs/coverage`, `docs/cross-referencing` and `docs/organization` are. That is a statement about where its subject lives, not a claim that it needs a cross-file property: each file is decidable on its own, which is why fanning it out per agent would duplicate the read for no gain.
+The subject is the documentation tree, and `audit-core`'s partitioning slices code tiers rather than docs, so there is no partition to give this check a slice of. It is answered in one pass over the tree. That is a statement about where its subject lives, not a claim that it needs a cross-file property: each file is decidable on its own, which is why fanning it out per agent would duplicate the read for no gain.
 
 ## Severity
 

@@ -24,8 +24,8 @@ routes:
     in_env: true
     needs: resolved-tree
     note: >-
-      This tool, read for the whole resolved graph rather than for the direct
-      set.
+      `pip-licenses` reports every installed distribution in the environment,
+      which is the resolved graph rather than the declared direct set.
   - lang: python
     kind: procedure
     applies_when: >-
@@ -34,7 +34,7 @@ routes:
       set from, and that is not a clean result for this partition.
     note: >-
       What answers with no environment installed: the registry procedure
-      `deps/licenses` describes answers this check too, and the extra depth
+      the registry procedure answers this check as well, and the extra depth
       costs nothing - a complete lockfile already pins the transitive graph, so
       the set to query is the whole of it rather than the direct dependencies.
   - lang: typescript
@@ -52,8 +52,8 @@ routes:
     argv: [pnpm, licenses, list]
     needs: resolved-tree
     note: >-
-      This tool, read for the whole resolved graph rather than for the direct
-      set.
+      `pnpm licenses list` reports across the whole workspace, so the depth
+      this check needs is in what the output already covers.
   - lang: typescript
     kind: command
     tool: yarn licenses list
@@ -63,15 +63,14 @@ routes:
       The partition is on Yarn Classic, as `deps/licenses` states for the same
       route.
     note: >-
-      This tool, read for the whole resolved graph rather than for the direct
-      set.
+      `yarn licenses list` walks the lockfile's resolved tree, so the direct
+      set is a subset of what it already prints.
   - lang: typescript
     kind: procedure
     tool: "@cyclonedx/cdxgen"
     note: >-
-      This tool, read for the whole
-      resolved graph rather than for the direct set. What it needs, and the
-      environment it needs it in, are that record's and hold here unchanged.
+      Read for the whole resolved graph rather than for the direct set. It
+      needs the dependency tree materialized and an environment it can run in.
 ---
 
 # Transitive-license deep dive

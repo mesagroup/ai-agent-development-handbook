@@ -211,7 +211,7 @@ routes:
 
 # Coverage floor declaration
 
-Whether the project **decided** a unit-test coverage floor, what that floor is measured over, and whether both are recorded somewhere a machine enforces them. This is a declaration check in the shape of `arch/runtime-declaration`: it asks whether the decision was taken and written down, never whether the number is high enough.
+Whether the project **decided** a unit-test coverage floor, what that floor is measured over, and whether both are recorded somewhere a machine enforces them. This is a declaration check: it asks whether the decision was taken and written down, never whether the number is high enough.
 
 What it prevents is a verdict the audit invented. This domain's own status scale reads `meets-floor / below-floor / untested`, and its scope step asks what floor the contributor guide or CI enforces - so every other part of the skill assumes a floor exists. A project that never decided one still gets `meets-floor` or `below-floor`, measured against a number the audit supplied on its behalf, and nobody reading the report can tell that from a real verdict.
 
