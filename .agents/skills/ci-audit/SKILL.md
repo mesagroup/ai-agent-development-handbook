@@ -5,13 +5,13 @@ description: "Audit a project's CI/CD pipelines (GitHub Actions and similar): wo
 
 # CI/CD Audit (pipelines, gates, pipeline security)
 
-A domain specialization of **[audit-core](../audit-core/SKILL.md)** - read that first; it owns the loop (scope → parallel evidence → findings matrix → plan → subagent-driven fixes → review → PR), the `## Running a route` contract that turns this skill's records into commands, and the cross-cutting rules. The checks are records in [`checks/`](checks/) beside this file; load the ones your slice needs, not the directory. This skill supplies the pipeline lens. It cross-links two neighbors: **`security-audit`** (a sibling in the audit-skills program) owns first-party application-code weaknesses, and **[deps-audit](../deps-audit/SKILL.md)** owns third-party package CVEs/licenses - this skill owns the *pipeline itself* (its secrets, permissions, and the actions it pulls in).
+A domain specialization of **[audit-core](../audit-core/SKILL.md)** - read that first; it owns the loop (scope → parallel evidence → findings matrix → plan → subagent-driven fixes → review → PR), the `## Running a route` contract that turns this skill's records into commands, and the cross-cutting rules. The checks are records in [`checks/`](checks/) beside this file; load the ones your slice needs, not the directory. This skill supplies the pipeline lens. It cross-links two neighbors: **`security-audit`** (a sibling in the audit-skills program) owns first-party application-code weaknesses and what the project's agents are granted, and **[deps-audit](../deps-audit/SKILL.md)** owns third-party package CVEs/licenses - this skill owns the *pipeline itself* (its secrets, permissions, and the actions it pulls in).
 
 **Core principle:** CI is both a quality gate and a privileged execution environment holding your secrets. The audit answers two questions at once - *does the pipeline actually enforce what everyone assumes it enforces?* (a gate that never runs is worse than no gate, because people trust it) and *what could a malicious PR or a compromised action do with the pipeline's permissions and secrets?* Verify both against the real workflow files and run history, not the badge.
 
 **Announce:** "I'm using the ci-audit skill (on the audit-core engine) to audit the CI/CD pipelines."
 
-**Not for:** application-code security (use `security-audit`), dependency CVEs in the app's own requirements (use `deps-audit`), or writing a brand-new pipeline from scratch (that's authoring, not auditing - though the findings inform it).
+**Not for:** application-code security and what an agent is granted (use `security-audit`), dependency CVEs in the app's own requirements (use `deps-audit`), or writing a brand-new pipeline from scratch (that's authoring, not auditing - though the findings inform it).
 
 **Subject:** the pipeline definitions and the platform they run on. Establish first:
 

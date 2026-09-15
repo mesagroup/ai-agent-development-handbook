@@ -11,7 +11,7 @@ A domain specialization of **[audit-core](../audit-core/SKILL.md)** - read that 
 
 **Announce:** "I'm using the deps-audit skill (on the audit-core engine) to audit the dependency surface."
 
-**Not for:** first-party application-code security (use `security-audit`) or the pipeline's own supply chain (use `ci-audit`).
+**Not for:** first-party application-code security and what an agent is granted (use `security-audit`) or the pipeline's own supply chain (use `ci-audit`).
 
 **Subject:** the project's declared and resolved dependency graph, and the licenses/vulnerabilities/freshness/usage of every node in it. Establish two things first, because they change the verdicts:
 
