@@ -5,7 +5,7 @@ description: "Audit a project's documentation for organization, cross-referencin
 
 # Documentation Audit and Gap-Filling
 
-A domain specialization of **[audit-core](../audit-core/SKILL.md)** - read that first; it owns the loop (scope → parallel evidence → findings matrix → plan → subagent-driven fixes → review → PR), the `## Running a route` contract that turns this skill's records into commands, and the cross-cutting rules. The checks are records in [`checks/`](checks/) beside this file; load the ones your slice needs, not the directory. This skill supplies the documentation lens.
+A domain specialization of **[audit-core](../audit-core/SKILL.md)** - read that first; it owns the loop, the `## Running a route` contract that turns this skill's records into commands, and the cross-cutting rules. The checks are records in [`checks/`](checks/) beside this file; load the ones your slice needs, not the directory. This skill supplies the documentation lens.
 
 **Core principle:** the docs alone should convey what the system does and how it is built, without reading the source. The audit measures the distance from that goal; the fill-gaps phase closes it. Every written claim must be verifiable against current source - a confident, wrong doc is worse than a missing one.
 

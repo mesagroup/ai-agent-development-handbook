@@ -17,7 +17,7 @@ routes:
     kind: procedure
     note: >-
       Two reads and a set difference, with nothing installed. **Detected
-      runtimes** come from the partitioning `audit-core` step 1 already did:
+      runtimes** come from the partitioning `audit-core`'s parallel evidence step already did:
       a language counts as a runtime where it carries its own dependency
       manifest - `pyproject.toml`, `requirements.txt`, `package.json`,
       `go.mod`, `Cargo.toml`, `Gemfile`, `pom.xml`, or a `Dockerfile` line

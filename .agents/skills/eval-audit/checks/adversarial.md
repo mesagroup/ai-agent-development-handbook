@@ -22,4 +22,4 @@ Probe prompt-injection and jailbreak resistance as a behavioral suite (coordinat
 
 ## Tooling fallback
 
-Needs reading - no tool in this domain's evidence pass runs a red-team/adversarial suite: probe prompt-injection and jailbreak resistance as a behavioral suite by hand, coordinating the security framing with `security-audit`.
+Needs reading - no tool in this domain's evidence pass runs a red-team/adversarial suite: probe prompt-injection and jailbreak resistance as a behavioral suite by hand, and frame the security overlap for the report rather than re-deciding it here.

@@ -33,8 +33,8 @@ routes:
       direct dependencies, there is nothing here to enumerate the transitive
       set from, and that is not a clean result for this partition.
     note: >-
-      What answers with no environment installed: the registry procedure
-      the registry procedure answers this check as well, and the extra depth
+      What answers with no environment installed: the registry procedure - see
+      `deps/licenses` - answers this check as well, and the extra depth
       costs nothing - a complete lockfile already pins the transitive graph, so
       the set to query is the whole of it rather than the direct dependencies.
   - lang: typescript
@@ -60,8 +60,8 @@ routes:
     argv: [yarn, licenses, list]
     needs: resolved-tree
     applies_when: >-
-      The partition is on Yarn Classic, as `deps/licenses` states for the same
-      route.
+      The partition is on Yarn Classic, whose `yarn licenses list` is the command
+      this route prescribes.
     note: >-
       `yarn licenses list` walks the lockfile's resolved tree, so the direct
       set is a subset of what it already prints.
