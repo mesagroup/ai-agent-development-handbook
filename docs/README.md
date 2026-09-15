@@ -2,6 +2,7 @@
 
 | Area | What is in it |
 |------|---------------|
+| [`goal.md`](goal.md) | **What this repository delivers**, as outcomes with stable ids that every issue's `Serves:` line names, the categories of work that do not count, and the done condition. The tracker is held against it. |
 | [`engineering/`](engineering/README.md) | **The handbook.** Ten parts covering the life of a change, from problem framing through evaluation to operation. Normative prose; the source of every claim the audit skills check. Ships as a standalone HTML artifact via `scripts/render_handbook_artifact.py`. |
 | [`engineering-notes.md`](engineering-notes.md) | Practices true enough to write down but too contingent on one execution environment to be normative. The cutting-room floor, with the reason each was cut. |
 | [`audit/`](audit/README.md) | The traceability matrix: every handbook section mapped onto the checks that cover it, with a class and severity per clause and the gap list ordered by severity. |

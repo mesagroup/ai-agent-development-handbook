@@ -45,6 +45,8 @@ The repository is private, so the absolute GitHub URLs the skills emit resolve o
 
 This repository uses the `github-issues-workflow` skill. An issue per unit of work, a branch named `<number>-short-description`, `status:*` labels tracking progress, `Refs #<number>` in commit messages, and a PR that closes the issue. Never merge without explicit approval.
 
+The tracker is held against [`docs/goal.md`](docs/goal.md): every issue body carries a `**Serves:** O<n>` line naming one of its outcomes, a batch's queue is composed in the outcome order there, and something found while implementing goes under `## Found, not fixed` in the pull request body rather than into a new issue, to be triaged when the batch closes. An issue that can name no outcome is a question for the maintainer, not a line to leave out.
+
 The `status:*` labels exist in the repository and are not decorative: move the issue as the work moves, removing the previous status before adding the next.
 
 ## Issue references and provenance
