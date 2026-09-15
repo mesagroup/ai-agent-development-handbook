@@ -30,7 +30,7 @@ Write the missing doc to the project's doc standard (Overview → Functional →
 
 **Each doc-creation task ships its own index entry in the same commit** (forward-link-safe: no task links a doc a later task creates; the checker stays green per task). Only isolate index changes to a final task when the new docs sit under an existing directory-link that auto-covers them.
 
-Ground each writing task in the Phase-1 source maps: the exact interfaces/facts to cover (with `file:line`), so the implementer verifies rather than invents.
+Ground each writing task in the source maps the skill header builds: the exact interfaces/facts to cover (with `file:line`), so the implementer verifies rather than invents.
 
 ## Review lens
 
