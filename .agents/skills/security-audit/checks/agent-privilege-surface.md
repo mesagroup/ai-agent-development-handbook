@@ -8,7 +8,7 @@ handbook:
 
 # Agent privilege surface
 
-What is each agent in this project *allowed to do*, and does any one of them hold private-data access, untrusted-content exposure and the ability to act on the outside world at once with no human gate on the acting edge? The other checks in this domain read what the code does with input it receives; this one reads what the deployment lets an agent reach before any of that code runs. A diagnostic, research or analysis agent holding a write grant is the same claim's other half.
+What is each agent in this project *allowed to do*, and does any one of them hold private-data access, untrusted-content exposure and the ability to act on the outside world at once with no human gate on the acting edge? The code checks in this domain read what the code does with input it receives; this one reads what the deployment lets an agent reach before any of that code runs. A diagnostic, research or analysis agent holding a write grant is the same claim's other half.
 
 ## Severity
 
@@ -16,7 +16,7 @@ What is each agent in this project *allowed to do*, and does any one of them hol
 
 **Important** - an agent whose role is diagnostic, research or analysis holds a write grant; a grant widened wholesale rather than per tool; production or pipeline write access held for convenience.
 
-**Important** - the agents exist but their grants are declared nowhere, inherited entirely from a runtime default. A surface nobody wrote down cannot have the trifecta ruled out, and the clause asks for these powers to be reasoned about explicitly.
+**Important** - the grants and the agents cannot be paired: agents are declared but their grants are inherited entirely from a runtime default, or a grant is declared - an MCP server, an auto-approval setting, an agent-scoped credential - with no agent definition saying who holds it. A surface nobody wrote down as some agent's cannot have the trifecta ruled out, and the clause asks for these powers to be reasoned about explicitly.
 
 ## Tooling fallback
 
@@ -26,9 +26,9 @@ Needs reading - no scanner in this domain's evidence pass reaches this: read wha
 
 **The evidence pointer names the agent, the declaring `file:line`, and the granting tool on each axis it occupies.** All three, because a trifecta finding is unreadable without them: a reader who cannot see which grant supplied which axis cannot tell whether narrowing one of them closes the finding.
 
-**A project with no agent definitions gets this domain's clean value, with what was read recorded beside it** - the homes searched and the absence found. There is nothing to constrain, so the claim is satisfied vacuously, and that is a result rather than a missing one. It is deliberately not `not-applicable`: `audit-core` reserves that status for a check with no lens in the partition's languages, and the lens here applies fine to a project that simply has no agents. Reporting it as `not-applicable` would put an unanswered-looking row where an answered one belongs.
+**A project declaring no privilege surface at all gets this domain's clean value, with what was read recorded beside it** - the homes searched and the absence found. What has to be empty is the whole surface rather than the first home looked in: a project with no agent definition file but an MCP server declaration, an auto-approval setting or an agent-scoped credential has grants to classify, and a grant no agent definition claims is the `Important` finding above rather than an absence. Where every home is empty there is nothing to constrain, so the claim is satisfied vacuously, and that is a result rather than a missing one. It is deliberately not `not-applicable`: `audit-core` reserves that status for a check with no lens in the partition's languages, and the lens here applies fine to a project that simply has no agents. Reporting it as `not-applicable` would put an unanswered-looking row where an answered one belongs.
 
-**The three neighbours, and what each keeps.** `ci/permissions-secrets` owns the pipeline token's own least privilege, which is the pipeline's power rather than an agent's. `data-protection/provider-surface` reads MCP server declarations too and asks a different question of them - whether every outbound provider is in the processor register - so both records read one artifact for two claims, which is not double counting and is why each names the other. The prompt domain owns what an agent is *told*; this check owns what it is *allowed to do*, which is the division the handbook clause draws for itself.
+**The three neighbours, and what each keeps.** `ci/permissions-secrets` owns the pipeline token's own least privilege, which is the pipeline's power rather than an agent's. `data-protection/provider-surface` reads MCP server declarations too and asks a different question of them - whether every outbound provider is in the processor register - so both records read one artifact for two claims, which is not double counting and is why this record names it. The prompt domain owns what an agent is *told*; this check owns what it is *allowed to do*. That boundary is the one `prompt-audit` and this skill state between them: the handbook clause draws a different line, pairing *allowed to do* against what a model or tool *returns*, which is the code checks' half of this domain.
 
 **This check reports the configuration it finds and does not rate the architecture.** Which agents a project has, and whether a capability should exist at all, are not its question - only whether the three powers are concentrated without a gate, and whether a read-only role was widened.
 
