@@ -2,7 +2,7 @@
 
 Read this when the mode is fix, and not otherwise. `SKILL.md`'s loop runs steps 0 to 2 - scope and mode, evidence, the findings matrix - and stops there when the mode is report-only. These are the four steps after that stop: plan the remediation, apply the fixes, review the whole branch, finish.
 
-These steps are numbered to follow the engine's, and the engine's cross-cutting rules govern them - the domain gate per task, no writes to the target's working tree, no environment-specific values, and fixing what you touch. A report-only run reaches none of this, which is why it is not in the file every run loads.
+The step numbers continue `SKILL.md`'s, so step 3 below follows step 2 there, and that file's `## Cross-cutting rules (all domains)` govern these steps too - the domain gate per task, no writes to the target's working tree, no environment-specific values, and fixing what you touch. A report-only run reaches none of this, which is why it is not in the file every run loads.
 
 3. **Plan remediation.** Turn the fail/violation rows into a work list. Write a plan file under the project's plans location (fall back to `docs/plans/`).
    - **One task per coherent fix** (or tightly-coupled group), each independently verifiable.

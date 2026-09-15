@@ -231,7 +231,7 @@ What it prevents is a verdict the audit invented. This domain's own status scale
 
 ## The three neighbours, and where each line falls
 
-**`test/coverage-reach` measures reach, and reads the threshold as context for its own number.** What a project excluded from measurement and the threshold it set for itself are context for that measured number. Two questions stay there and not here: whether the reported coverage is adequate, and whether the floor measures the right thing. What is here is whether the decision exists at all and whether it has an executable home.
+**`test/coverage-reach` measures reach.** What a project excluded from measurement and the threshold it set for itself are context for that measured number. Two questions stay there and not here: whether the reported coverage is adequate, and whether the floor measures the right thing. What is here is whether the decision exists at all and whether it has an executable home.
 
 **`ci/gate-enforcement` owns whether an intended gate can actually block** - its own subject is whether the intended quality gates are run and *required*, and a workflow that is skippable, scheduled-only or absent from branch protection is a gate in name only. So a floor written into a job nobody requires is a `ci` finding and a pass here: the decision was taken and recorded executably, and what failed is the mechanism carrying it. Do not read branch protection to answer this check.
 

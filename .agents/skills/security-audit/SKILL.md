@@ -5,7 +5,7 @@ description: "Audit a project's first-party code for security weaknesses: danger
 
 # Security Audit (first-party code and agent grants)
 
-A domain specialization of **[audit-core](../audit-core/SKILL.md)** - read that first; it owns the loop (scope → parallel evidence → findings matrix → plan → subagent-driven fixes → review → PR), the `## Running a route` contract that turns this skill's records into commands, and the cross-cutting rules. The checks are records in [`checks/`](checks/) beside this file; load the ones your slice needs, not the directory.
+A domain specialization of **[audit-core](../audit-core/SKILL.md)** - read that first; it owns the loop, the `## Running a route` contract that turns this skill's records into commands, and the cross-cutting rules. The checks are records in [`checks/`](checks/) beside this file; load the ones your slice needs, not the directory.
 
 **Core principle:** find the places where untrusted input meets a dangerous operation, where a secret could leak, and where an agent has been granted more reach than its task needs. For the code checks a finding is only real when you can name the source of untrusted data and the sink it reaches; a scanner hit with no reachable attacker path is noise, and a real dataflow the scanner missed is the finding that matters, so verify both directions against the actual code. Not every check here has a path to name: `security/agent-privilege-surface` names a combination of grants one agent holds, and the two secrets checks name a literal and the commit carrying it. What makes each of those real is stated in its own record rather than here.
 

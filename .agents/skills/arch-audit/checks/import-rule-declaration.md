@@ -118,7 +118,7 @@ routes:
 
 Whether the project has **written down which tier may import which** - in its binding-rules file, or as a layering-contract config a linter reads. The finding is that no such statement exists, and it is a declaration finding: this check never asks whether the rule is a good one, and never whether the code obeys it.
 
-What it prevents is the domain judging a project against an architecture the audit supplied. `arch-audit`'s setup step reads the contributor guide for a stated tier structure and, where none is documented, **infers** the layers from the directory structure and confirms them with the user before flagging anything. That is the right handling - a domain with no rubric can do nothing else - but it consumes the absence as a branch in the setup, so it never reaches the report. A project that has never written its import rule down therefore passes this claim while `arch/layering` grades it against inferred tiers. **The setup step handles the absence; this check reports it.** Those are two jobs, not two policies.
+What it prevents is the domain judging a project against an architecture the audit supplied. `arch-audit`'s setup step reads the contributor guide for a stated tier structure and, where none is documented, **infers** the layers from the directory structure and confirms them with the user before flagging anything. That is the right handling - a domain with no rubric can do nothing else - but it consumes the absence as a branch in the setup, so it never reaches the report. A project that has never written its import rule down therefore passes this claim, and the absence reaches no report. **The setup step handles the absence; this check reports it.** Those are two jobs, not two policies.
 
 ## What counts as written down
 
@@ -130,7 +130,7 @@ What it prevents is the domain judging a project against an architecture the aud
 
 ## A single-tier project is not a finding
 
-The rule constrains imports **between** tiers, so a tree with one tier has nothing to constrain and satisfies the claim vacuously. Report the domain's own clean value with the row naming the tier list it was read against - not `not-applicable`, which `audit-core` reserves for a check with no lens in the partition's languages, and this check has one in every language it looks at.
+The rule constrains imports **between** tiers, so a tree with one tier has nothing to constrain and satisfies the claim vacuously. Report the domain's own clean value with the row naming the tier list it was read against - not `not-applicable` - see `audit-core` for what that status is for, and this check has a lens in every language it looks at.
 
 This is the one place the check depends on the setup step it otherwise reports around: whether the tree has tiers to constrain is the setup's inferred layer list, and the row cites that list so a clean result is checkable rather than asserted.
 

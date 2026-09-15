@@ -5,7 +5,7 @@ description: "Audit a project's structure: layering / dependency-rule conformanc
 
 # Architecture Audit (structure, layering, coupling)
 
-A domain specialization of **[audit-core](../audit-core/SKILL.md)** - read that first; it owns the loop (scope → parallel evidence → findings matrix → plan → subagent-driven fixes → review → PR), the `## Running a route` contract that turns this skill's records into commands, and the cross-cutting rules. The checks are records in [`checks/`](checks/) beside this file; load the ones your slice needs, not the directory. This skill supplies the structural lens.
+A domain specialization of **[audit-core](../audit-core/SKILL.md)** - read that first; it owns the loop, the `## Running a route` contract that turns this skill's records into commands, and the cross-cutting rules. The checks are records in [`checks/`](checks/) beside this file; load the ones your slice needs, not the directory. This skill supplies the structural lens.
 
 **Core principle:** structure is judged against an architecture the project has actually declared or confirmed, never against a universal ideal - so establishing that spec comes before measuring anything against it, and a rule the team never agreed to is not a violation. What the fixes then change is the shape and never the behavior - for the checks that judge the code, which is most of them. The two declaration checks, `arch/runtime-declaration` and `arch/import-rule-declaration`, change a document instead: they ask whether the project wrote something down, so their fix adds a line to the binding-rules file or a layering contract and touches no code at all.
 

@@ -114,7 +114,7 @@ routes:
       target - nor into the shared reconstructed tree a sweep hands every
       domain, because these are packages the target
       does not declare, so they belong in a copy this check owns rather than in
-      the graph the other domains are reading: that produced a real mutation
+      any tree shared with another agent: that produced a real mutation
       score - 52.34% over one scoped module, 56 mutants killed and 37 survived,
       in 68 seconds. That install-and-run is prescribed as an operation and not
       as a command line, so there is no argv to declare here.
