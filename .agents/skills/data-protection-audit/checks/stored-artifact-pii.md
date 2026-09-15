@@ -10,7 +10,7 @@ tooling:
 
 # Personal data in stored artifacts
 
-Whether personal data has reached the artifacts that outlive the call - stored traces and run records, eval datasets, and the fixtures somebody extracted from a real case because it reproduced a bug. The call-site half of this claim is `security/sensitive-data`'s: it reads logging and exception-handling call sites and outbound URL construction, so a payload reaching a log statement or an identifier carried in a URL is its row and is not restated here, and this record takes only the stored copy that is still there after the call has returned.
+Whether personal data has reached the artifacts that outlive the call - stored traces and run records, eval datasets, and the fixtures somebody extracted from a real case because it reproduced a bug. The call-site half of this claim is `security/sensitive-data`'s, so a payload reaching a log statement or an identifier carried in a URL is its row and is not restated here, and this record takes only the stored copy that is still there after the call has returned.
 
 ## Severity
 
