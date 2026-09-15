@@ -99,8 +99,8 @@ routes:
       **not**: they say which names resolve where, and a project can carry a
       full set of aliases while permitting every tier to import every other,
       so reading them as a declaration is how this check passes a project that
-      never made one. They are a legitimate fallback for judging edges against
-      *something*, and exactly the substitution
+      never made one. Reading them as a rubric to judge edges against is a
+      different and legitimate move, and exactly the substitution
       this check must not make, because the question here is whether the
       project stated a rule rather than whether the audit can find a rubric.
       **Finding nothing here is not the finding**, for the same reason as the
@@ -136,7 +136,7 @@ This is the one place the check depends on the setup step it otherwise reports a
 
 ## The two neighbours, and where each line falls
 
-**`arch/layering` asks whether the code obeys the rule.** It judges the code against a rubric it is handed, and reports the edges that break it. Whether the project ever wrote that rule down is this check's question.
+**`arch/layering` asks whether the code obeys the rule.** Whether the project ever wrote that rule down is this check's question.
 
 **`ci/gate-enforcement` asks whether the contract can block.** Its subject is whether intended gates are run and *required*, so a layering contract that exists and is not wired into a required job is a `ci` finding and a pass here.
 
