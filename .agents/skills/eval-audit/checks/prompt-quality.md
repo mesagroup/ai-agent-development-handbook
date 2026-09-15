@@ -16,7 +16,7 @@ The *behavioral* facets: drift between prompt and the current code/tools, missin
 
 ## Tooling fallback
 
-**Prompt audit:** read each system prompt / SOP / tool description; check against the current code/tools for drift (references to tools/steps that changed or vanished) and for injection-resistance (how untrusted/tool-returned content enters the prompt). For the *static* authoring quality (spec-conformance, constraint hygiene, contradictions, cognitive load, redundancy), hand off to `prompt-audit`, which drives the `/prompt-analyzer` scan and the SOP-spec checks; don't duplicate them here.
+**Prompt audit:** read each system prompt / SOP / tool description; check against the current code/tools for drift (references to tools/steps that changed or vanished) and for injection-resistance (how untrusted/tool-returned content enters the prompt). For the *static* authoring quality (spec-conformance, constraint hygiene, contradictions, cognitive load, redundancy), hand off to `prompt-audit`; don't duplicate its checks here.
 
 ## Fix
 
