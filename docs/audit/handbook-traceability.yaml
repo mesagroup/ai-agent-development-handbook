@@ -165,10 +165,8 @@
   claim: Assert coverage over a merged multi-agent artifact before anything reads it - exactly one verdict per unit, the distinct count matching the expected count, no gaps and no duplicates, with conflicts and gaps going to a single cleanup pass.
   class: artifact
   severity: important
-  gap:
-    recommendation: extend-skill
-    target: "#109"
-    note: eval-audit is the owner, because the merged artifact is per-unit verdicts and that is the material the domain already reads - `eval/coverage` cites evaluate-a-multi-agent-system-unit-by-unit for the same reason. No check asks whether an assertion runs between the merge and the first consumer, and the target issue exists to add exactly that one.
+  checks:
+    - eval/merge-coverage-assertion
 
 - id: lifecycle/fan-work-out-to-parallel-agents-and-merge-it-honestly-c
   section: "Fan work out to parallel agents, and merge it honestly"
