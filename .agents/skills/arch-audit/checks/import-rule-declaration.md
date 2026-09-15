@@ -129,7 +129,7 @@ What it prevents is the domain judging a project against an architecture the aud
 
 **A direction is what makes it the rule.** "The tiers are `core`, `services`, `apps`" names the tiers and permits everything; the clause asks which tier may import which. A list without a direction is not a declaration of this rule, and reporting it as one passes the project on the half it did not write.
 
-**`tsconfig` path aliases are not a declaration**, and this is the substitution most likely to be made, because `arch/layering` deliberately does read them as the declared boundaries when nothing else exists. That is the right fallback for *judging edges*, and the wrong answer here: aliases say which names resolve where, and a project can carry a complete set of them while every tier imports every other.
+**`tsconfig` path aliases are not a declaration**, and this is the substitution most likely to be made, because they are a legitimate fallback for *judging edges*, and the wrong answer here: aliases say which names resolve where, and a project can carry a complete set of them while every tier imports every other.
 
 ## A single-tier project is not a finding
 
@@ -139,7 +139,7 @@ This is the one place the check depends on the setup step it otherwise reports a
 
 ## The two neighbours, and where each line falls
 
-**`arch/layering` asks whether the code obeys the rule.** It takes the documented - or inferred and confirmed - rules as a rubric it is handed, and reports the edges that break them. It is silent on a project that documented nothing, because the rubric it was handed came from the audit. This check is the one that reports that.
+**`arch/layering` asks whether the code obeys the rule.** It judges the code against a rubric it is handed, and reports the edges that break it. Whether the project ever wrote that rule down is this check's question, and no layering row reports it.
 
 **`ci/gate-enforcement` asks whether the contract can block.** Its subject is whether intended gates are run and *required*, so a layering contract that exists and is not wired into a required job is a `ci` finding and a pass here. The row this record closes already cites that check and keeps it: the two answer different halves of the same sentence, the declaration and the enforcement.
 
@@ -147,7 +147,7 @@ This is the one place the check depends on the setup step it otherwise reports a
 
 **Minor** - no tier-import rule is written down, in any of the homes above, on a project whose tree has tiers to constrain. It is Minor and not higher because the clause's own cost is indirect: nothing is broken by the absence, and what it buys is the ability to enforce mechanically what is currently held in memory.
 
-There is deliberately **no Important or Critical tier**. This check asks whether a declaration exists and never what the rule says or whether the code follows it, so it has no violated boundary and no evaded gate to offer - those are `arch/layering`'s and `ci/gate-enforcement`'s, and each already has them. A row here that reached for a higher tier would be borrowing severity from a finding it did not make.
+There is deliberately **no Important or Critical tier**. This check asks whether a declaration exists and never what the rule says or whether the code follows it, so it has no violated boundary and no evaded gate to offer - those are `arch/layering`'s and `ci/gate-enforcement`'s. A row here that reached for a higher tier would be borrowing severity from a finding it did not make.
 
 ## Fix
 

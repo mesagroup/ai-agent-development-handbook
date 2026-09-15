@@ -19,7 +19,7 @@ The two bands about a **missing register** rest on personal data crossing to the
 
 **Important** - the same register gap where the code reaches a third party and nothing documents what crosses to it. Report an unregistered processor whose payload is undocumented, which is true and actionable, rather than an unaccounted transfer of personal data, which is the row `SKILL.md` withdraws.
 
-**Critical** also for a processor recorded with no retention window - a mechanism band, per the rule above. Part 10 makes that the test: a provider whose retention window you cannot state is a provider you have not accounted for, which is Part 9's dependency test asked about data instead of about code. This band is why the record also grounds Part 9's own AI-surface row, whose claim asks for exactly this: the pinning half of that row is `eval/reproducibility`'s and the retention-terms half is read here.
+**Critical** also for a processor recorded with no retention window - a mechanism band, per the rule above. Part 10 makes that the test: a provider whose retention window you cannot state is a provider you have not accounted for, which is Part 9's dependency test asked about data instead of about code. This band is why the record also grounds Part 9's own AI-surface row, whose claim asks for exactly this, and the retention-terms half is read here.
 
 **Important** - a register whose fields are all present but which records no reconciliation date, so nobody can say when it last matched the code. The fields are the easy half; the date is what makes the register a claim about the current system rather than about the day it was written.
 
@@ -45,4 +45,4 @@ The audit can supply the list of who is called, from `data-protection/provider-s
 
 **Term precision** - the row is about the processor's agreement, its training position and its retention window. Never the controller's legal basis, which is a different obligation and not the audited project's vendor paperwork; and never the lawful transfer route, which belongs to `data-protection/residency-pinning` and its own row, so a transfer-route claim here has no band to land in and duplicates that check.
 
-**Enumeration provenance** - a processor the row reports as unregistered is cited from the derived personal-data surface rather than named from the auditor's own reading, so the two checks over this section cannot disagree about who is called.
+**Enumeration provenance** - a processor the row reports as unregistered is cited from the derived personal-data surface rather than named from the auditor's own reading, so this row and the derivation cannot disagree about who is called.
