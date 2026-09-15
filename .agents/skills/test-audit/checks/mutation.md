@@ -110,8 +110,7 @@ routes:
       `ERR_MODULE_NOT_FOUND: Cannot find package 'typescript'` whether or not
       the compiler was named, and whether or not it was pinned. **Install
       Stryker and its matching runner plugin into a copy of the target this
-      check owns and run there**, which is the same move `test/coverage-reach`
-      needs for a missing coverage provider and is not an install into the
+      check owns and run there**, which is not an install into the
       target - nor into the shared reconstructed tree a sweep hands every
       domain, for the reason `audit-core` gives: these are packages the target
       does not declare, so they belong in a copy this check owns rather than in

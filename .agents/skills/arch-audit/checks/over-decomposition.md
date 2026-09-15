@@ -23,8 +23,7 @@ routes:
       threading through pass-through units - is computed from the same
       edge set built for layering, rather than by a command run for this
       check specifically. A pass-through unit is a module whose functions
-      only forward, and the same one-caller count `arch/over-abstraction`
-      takes finds it: call sites per single-function module or one-method
+      only forward, and a one-caller count finds it: call sites per single-function module or one-method
       wrapper class, from `grimp` refs or a scoped grep, where one is the
       trigger.
     alone_insufficient: >-

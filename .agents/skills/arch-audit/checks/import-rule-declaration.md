@@ -20,9 +20,8 @@ routes:
     kind: procedure
     note: >-
       The binding-rules file, whatever the partition's language. Resolve it the
-      way `arch/runtime-declaration` does and do not invent a second rule: that
-      record resolves it **by role rather than by path**, because the handbook
-      defines it as the file a team and its coding agents both read as
+      way `arch/runtime-declaration` does and do not invent a second rule. The
+      handbook defines it **by role rather than by path**, as the file a team and its coding agents both read as
       authoritative and deliberately does not name it - `CLAUDE.md` in one
       project, `AGENTS.md`, `CONTRIBUTING.md` or a file under `docs/` in
       another. Read it for a statement of **which tier may import which**, in
@@ -81,8 +80,7 @@ routes:
       can enforce it, so a project that went straight to the linter has
       satisfied it without a prose sentence anywhere. Neither tool is run
       here and no command is prescribed for either: whether the code obeys the
-      contract is `arch/layering`'s question and that record already
-      prescribes both tools for it.
+      contract is `arch/layering`'s question.
       **Finding nothing here is not the finding** either, for the mirror of
       the reason above: the rule may be stated in the binding-rules file,
       which the `lang: any` route reads.
@@ -101,9 +99,8 @@ routes:
       **not**: they say which names resolve where, and a project can carry a
       full set of aliases while permitting every tier to import every other,
       so reading them as a declaration is how this check passes a project that
-      never made one. `arch/layering` does read those aliases as the declared
-      boundaries where no config exists, which is the right fallback for
-      judging edges against *something* - and it is exactly the substitution
+      never made one. They are a legitimate fallback for judging edges against
+      *something*, and exactly the substitution
       this check must not make, because the question here is whether the
       project stated a rule rather than whether the audit can find a rubric.
       **Finding nothing here is not the finding**, for the same reason as the
@@ -139,9 +136,9 @@ This is the one place the check depends on the setup step it otherwise reports a
 
 ## The two neighbours, and where each line falls
 
-**`arch/layering` asks whether the code obeys the rule.** It judges the code against a rubric it is handed, and reports the edges that break it. Whether the project ever wrote that rule down is this check's question, and no layering row reports it.
+**`arch/layering` asks whether the code obeys the rule.** It judges the code against a rubric it is handed, and reports the edges that break it. Whether the project ever wrote that rule down is this check's question.
 
-**`ci/gate-enforcement` asks whether the contract can block.** Its subject is whether intended gates are run and *required*, so a layering contract that exists and is not wired into a required job is a `ci` finding and a pass here. The row this record closes already cites that check and keeps it: the two answer different halves of the same sentence, the declaration and the enforcement.
+**`ci/gate-enforcement` asks whether the contract can block.** Its subject is whether intended gates are run and *required*, so a layering contract that exists and is not wired into a required job is a `ci` finding and a pass here.
 
 ## Severity
 

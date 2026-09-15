@@ -9,8 +9,7 @@ evidence: >-
   any partition where it runs, so do not read an empty or absent licence
   field on an SBOM those produce as a permissive or unlicensed finding. That
   is a claim about those three forms rather than about this record: the
-  `npm sbom` route below does populate licences, which is why `deps/licenses`
-  prescribes the same command, and whether `cyclonedx-py environment`
+  `npm sbom` route below does populate licences, and whether `cyclonedx-py environment`
   does is measured nowhere in this repository. Licence *findings* are
   `deps/licenses`' and `deps/transitive-licenses`' to make, whatever produced
   the document.

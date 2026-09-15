@@ -4,9 +4,8 @@ domain: deps
 locality: global
 optin: true
 evidence: >-
-  The routes below are the same tools in the same precedence as
-  `deps/licenses`' routes, because this check differs in how far down the
-  graph the answer has to hold, not in what produces it. Each of them already
+  The routes below differ from a direct-dependency licence pass only in how
+  far down the graph the answer has to hold, not in what produces it. Each of them already
   reports the whole resolved graph rather than the declared direct set, so the
   depth is a property of how the output is read, and a run that answers only
   for direct dependencies has not run this check.
@@ -25,9 +24,8 @@ routes:
     in_env: true
     needs: resolved-tree
     note: >-
-      The route `deps/licenses` prescribes for this tool, read for the whole
-      resolved graph rather than for the direct set. Its tier and its
-      alternative forms are that record's and hold here unchanged.
+      This tool, read for the whole resolved graph rather than for the direct
+      set.
   - lang: python
     kind: procedure
     applies_when: >-
@@ -44,8 +42,7 @@ routes:
     tool: npm sbom
     argv: [npm, sbom, "--package-lock-only", "--sbom-format", cyclonedx]
     note: >-
-      The npm-partition route `deps/licenses` records, and it answers this
-      check's depth: an npm lockfile pins the transitive graph *and* carries
+      The npm partition answers this check's depth directly: an npm lockfile pins the transitive graph *and* carries
       each package's `license`, so `npm sbom --package-lock-only` answers on a
       read-only clone - 945 components rather than the 51 the manifest
       declares directly, on the target it was run against.
@@ -55,9 +52,8 @@ routes:
     argv: [pnpm, licenses, list]
     needs: resolved-tree
     note: >-
-      The route `deps/licenses` prescribes for this tool, read for the whole
-      resolved graph rather than for the direct set. Its tier is that record's
-      and holds here unchanged.
+      This tool, read for the whole resolved graph rather than for the direct
+      set.
   - lang: typescript
     kind: command
     tool: yarn licenses list
@@ -67,14 +63,13 @@ routes:
       The partition is on Yarn Classic, as `deps/licenses` states for the same
       route.
     note: >-
-      The route `deps/licenses` prescribes for this tool, read for the whole
-      resolved graph rather than for the direct set. Its tier is that record's
-      and holds here unchanged.
+      This tool, read for the whole resolved graph rather than for the direct
+      set.
   - lang: typescript
     kind: procedure
     tool: "@cyclonedx/cdxgen"
     note: >-
-      The route `deps/licenses` prescribes for this tool, read for the whole
+      This tool, read for the whole
       resolved graph rather than for the direct set. What it needs, and the
       environment it needs it in, are that record's and hold here unchanged.
 ---
