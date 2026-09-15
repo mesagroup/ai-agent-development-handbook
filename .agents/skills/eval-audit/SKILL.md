@@ -11,7 +11,7 @@ A domain specialization of **[audit-core](../audit-core/SKILL.md)** - read that 
 
 **Announce:** "I'm using the eval-audit skill (on the audit-core engine) to audit the evals, prompts, and smoke tests."
 
-**Not for:** deterministic unit-test coverage and quality (use `test-audit`); a one-off "how good is this output" spot check (just run it). Prompt-*injection as an application-security* concern overlaps `security-audit`; here the lens is behavioral robustness, and the two cross-link.
+**Not for:** deterministic unit-test coverage and quality (use `test-audit`); a one-off "how good is this output" spot check (just run it). Prompt-*injection as an application-security* concern overlaps `security-audit`; here the lens is behavioral robustness, and this skill sends the application-security half there rather than covering it.
 
 **Subject:** the project's evaluation assets and the behaviors they are meant to measure. Establish first:
 
