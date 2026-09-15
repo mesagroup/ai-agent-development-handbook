@@ -1,6 +1,6 @@
-# Coverage-floor clause design (lidia-tech/lidia-agents#551)
+# Coverage-floor clause design (`<origin-repo>#551`)
 
-**Status:** approved 2026-07-30. Implements wave 0 of #1, after [lidia-tech/lidia-agents#552](https://github.com/lidia-tech/lidia-agents/issues/552).
+**Status:** approved 2026-07-30. Implements wave 0 of #1, after `<origin-repo>#552`.
 
 ## Problem
 
@@ -53,7 +53,7 @@ Answered by construction: the clause requires stating a floor, so its absence vi
 
 `fail_under = 65` in `[tool.coverage.report]`, against a measured 66.67% in CI and 66.88% locally. That spread between environments is itself part of the argument below.
 
-Shipping a normative clause the originating project violates is the precise "aspirational, not enforced" failure the clause exists to prevent. Dogfooding also tests that the clause is adoptable at all. CI already runs `pytest --cov=lidia_agents` under `set -o pipefail`, and pytest-cov honours `fail_under`, so this is one config line with no workflow change. Our `omit` is already tests-only, so the denominator is honest as-is.
+Shipping a normative clause the originating project violates is the precise "aspirational, not enforced" failure the clause exists to prevent. Dogfooding also tests that the clause is adoptable at all. CI already runs `pytest --cov=<origin-package>` under `set -o pipefail`, and pytest-cov honours `fail_under`, so this is one config line with no workflow change. Our `omit` is already tests-only, so the denominator is honest as-is.
 
 Set at 65 rather than at the measured value, giving about 563 statements of headroom (`14610/0.65 - 21914`). A floor pinned tight against current coverage reddens CI on ordinary variation rather than on a real regression, and a gate that fires on noise gets raised or ignored, which is how a floor becomes aspirational. The shoulder buys room for the clause to be adopted without immediately fighting in-flight work.
 

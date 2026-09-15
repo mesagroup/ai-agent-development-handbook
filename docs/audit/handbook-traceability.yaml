@@ -1,4 +1,4 @@
-# Handbook traceability matrix (lidia-tech/lidia-agents#543) - hand-maintained source of truth.
+# Handbook traceability matrix (<origin-repo>#543) - hand-maintained source of truth.
 #
 # Maps every "##" section of docs/engineering/ onto the *-audit skill family.
 # Render the committed Markdown view after every edit:

@@ -1,6 +1,6 @@
-# The audit family on a checks database (lidia-tech/lidia-agents#559)
+# The audit family on a checks database (`<origin-repo>#559`)
 
-**Status:** draft 2026-07-31. Restructures wave 1 of [#1](https://github.com/lidia-tech/lidia-agents/issues/542), delivering [#7](https://github.com/lidia-tech/lidia-agents/issues/544), [#5](https://github.com/lidia-tech/lidia-agents/issues/519) and [#8](https://github.com/lidia-tech/lidia-agents/issues/545) by a different mechanism than the eight-file sweep those issues describe.
+**Status:** draft 2026-07-31. Restructures wave 1 of [#1](https://github.com/`<origin-repo>`/issues/542), delivering [#7](https://github.com/`<origin-repo>`/issues/544), [#5](https://github.com/`<origin-repo>`/issues/519) and [#8](https://github.com/`<origin-repo>`/issues/545) by a different mechanism than the eight-file sweep those issues describe.
 
 ## Problem
 
@@ -41,7 +41,7 @@ The consequence is that the same five attributes are re-authored eight times, in
 
 ## The unlock
 
-`docs/audit/handbook-traceability.yaml` already stores `checks: [{skill, dimension}]` on 41 of its 125 rows: **80 foreign keys into a checks table that does not exist**. [lidia-tech/lidia-agents#543](https://github.com/lidia-tech/lidia-agents/issues/543)'s validator resolves that key by parsing bolded lead phrases out of `## N. Dimensions` markdown bullets.
+`docs/audit/handbook-traceability.yaml` already stores `checks: [{skill, dimension}]` on 41 of its 125 rows: **80 foreign keys into a checks table that does not exist**. `<origin-repo>#543`'s validator resolves that key by parsing bolded lead phrases out of `## N. Dimensions` markdown bullets.
 
 Making the table real turns a markdown-parse heuristic into genuine referential integrity, and collapses the three wave-1 issues from prose sweeps into schema fields:
 
@@ -135,7 +135,7 @@ The list need not be exhaustive - the matrix is the authoritative edge set - but
 
 The matrix migrates from `checks: [{skill: arch-audit, dimension: "Layering / dependency-rule conformance"}]` to `checks: [arch/layering]`: 80 references, scripted. `skill_dimensions()` is replaced by a frontmatter index, and the renderer resolves the id to its display name from the check file.
 
-The compound natural key works today, but it is prose text: renaming a dimension churns matrix rows. A stable id decouples the two, and [#9](https://github.com/lidia-tech/lidia-agents/issues/546)'s issue emitter needs stable ids to emit from anyway.
+The compound natural key works today, but it is prose text: renaming a dimension churns matrix rows. A stable id decouples the two, and [#9](https://github.com/`<origin-repo>`/issues/546)'s issue emitter needs stable ids to emit from anyway.
 
 ### 4. A check produces findings-matrix rows; a deliverable does not
 
@@ -195,7 +195,7 @@ Keeping the per-domain file is a deliberate departure from full collapse into a 
 
 ## Sequencing
 
-**PR 1 - schema and pilot.** Define the frontmatter schema, write the validator and the loader, migrate `arch` end to end (11 checks), rewire its 7 matrix references, and reduce `arch-audit/SKILL.md` to its header. Verify by running `/arch-audit` on this repo and diffing the findings against the [lidia-tech/lidia-agents#508](https://github.com/lidia-tech/lidia-agents/issues/508) baseline.
+**PR 1 - schema and pilot.** Define the frontmatter schema, write the validator and the loader, migrate `arch` end to end (11 checks), rewire its 7 matrix references, and reduce `arch-audit/SKILL.md` to its header. Verify by running `/arch-audit` on this repo and diffing the findings against the `<origin-repo>#508` baseline.
 
 `arch` is the right pilot: the most checks, the densest prose, and both localities. A schema that survives `arch` survives the rest.
 
@@ -207,7 +207,7 @@ Keeping the per-domain file is a deliberate departure from full collapse into a 
 
 `superpowers:writing-skills` states an Iron Law: no skill edit without a failing test first. Eight rewrites have no test budget, and these are reference and technique skills rather than discipline skills, so the appropriate test form is retrieval and application rather than pressure scenarios.
 
-The pilot is the answer. Running `/arch-audit` against the lidia-tech/lidia-agents#508 baseline before the other seven domains move is a real application test at one eighth the cost of discovering the schema is wrong after 68 records. #8's criterion 3 (a Mesa PoC run in report-only mode) and [#10](https://github.com/lidia-tech/lidia-agents/issues/547)'s dry run remain the end-to-end gates.
+The pilot is the answer. Running `/arch-audit` against the `<origin-repo>#508` baseline before the other seven domains move is a real application test at one eighth the cost of discovering the schema is wrong after 68 records. #8's criterion 3 (a Mesa PoC run in report-only mode) and [#10](https://github.com/`<origin-repo>`/issues/547)'s dry run remain the end-to-end gates.
 
 New code (validator, loader, id rewiring) ships with unit tests. `scripts/` is not exempt: follow the `importlib.util.spec_from_file_location` pattern in `tests/reference_extraction/test_sweep.py`, with `scripts/` on `sys.path` via a package `conftest.py`.
 

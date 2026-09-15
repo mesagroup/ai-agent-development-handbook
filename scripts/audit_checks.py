@@ -1,4 +1,4 @@
-"""Load and validate the audit check records (lidia-tech/lidia-agents#559).
+"""Load and validate the audit check records (<origin-repo>#559).
 
 `.agents/skills/<domain>-audit/checks/<check>.md` holds one record per
 auditable check: the machine-checkable attributes in YAML frontmatter, the

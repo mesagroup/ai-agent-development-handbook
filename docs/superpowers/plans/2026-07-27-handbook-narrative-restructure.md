@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Restructure the AI Agent Development Handbook (`docs/engineering/`) around a narrative spine (the life of one change), with four named throughlines, a throughline x part matrix, per-part bridges, and a single part reorder (three-layer model 6 -> 3), per the approved spec `docs/superpowers/specs/2026-07-27-handbook-narrative-restructure-design.md` (issue lidia-tech/lidia-agents#531).
+**Goal:** Restructure the AI Agent Development Handbook (`docs/engineering/`) around a narrative spine (the life of one change), with four named throughlines, a throughline x part matrix, per-part bridges, and a single part reorder (three-layer model 6 -> 3), per the approved spec `docs/superpowers/specs/2026-07-27-handbook-narrative-restructure-design.md` (issue `<origin-repo>#531`).
 
 **Architecture:** Pure documentation work plus one mechanical script edit. Six tasks: (1) renumber and reorder the parts everywhere, (2) rewrite the README, (3) add bridges and hand-offs to all eight parts, (4) rework Part 1 internally, (5) rework the observability part internally, (6) final verification sweep. All prose that a task inserts is given verbatim in this plan; the implementer transcribes it.
 
@@ -18,7 +18,7 @@
 - **Part bodies are untouched** except: the renumbering edits in Task 1, the scoped Task 4 edits (lifecycle), and the scoped Task 5 edits (observability). Do not "improve" other prose in passing.
 - **Insert all plan-provided text verbatim.** If an old_string given here does not match the file, stop and report; do not improvise a similar edit.
 - **Renumbering map (old -> new):** harness 3 -> 4, observability 4 -> 5, evaluation 5 -> 6, three-layer 6 -> 3. Parts 1, 2, 7, 8 keep their numbers.
-- **Commit message prefix:** `docs(lidia-tech/lidia-agents#531): ...`, one commit per task, with the trailer `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
+- **Commit message prefix:** `docs(<origin-repo>#531): ...`, one commit per task, with the trailer `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
 - **Verification gates** (used repeatedly): `uv run scripts/render_handbook_artifact.py --out /tmp/handbook.html` must report `sections: 9`, `em-dashes: 0`, `residual .md hrefs: 0`; `uv run python scripts/check_docs.py` must pass; `uv run pytest tests/scripts/test_render_handbook_artifact.py -q` must pass.
 
 ---
@@ -214,7 +214,7 @@ Expected: render reports `sections: 9` and `residual .md hrefs: 0` and `em-dashe
 
 ```bash
 git add docs/engineering/ scripts/render_handbook_artifact.py
-git commit -m "docs(lidia-tech/lidia-agents#531): renumber handbook parts; three-layer model moves 6 -> 3
+git commit -m "docs(<origin-repo>#531): renumber handbook parts; three-layer model moves 6 -> 3
 
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ```
@@ -343,7 +343,7 @@ Expected: render reports `sections: 9`, `em-dashes: 0`, `residual .md hrefs: 0`;
 
 ```bash
 git add docs/engineering/README.md scripts/render_handbook_artifact.py docs/README.md
-git commit -m "docs(lidia-tech/lidia-agents#531): rewrite handbook README: the story of a change, four throughlines, matrix
+git commit -m "docs(<origin-repo>#531): rewrite handbook README: the story of a change, four throughlines, matrix
 
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ```
@@ -490,7 +490,7 @@ Expected: `sections: 9`, `em-dashes: 0`, `residual .md hrefs: 0`; docs check pas
 
 ```bash
 git add docs/engineering/
-git commit -m "docs(lidia-tech/lidia-agents#531): add you-are-here bridges and hand-offs to all handbook parts
+git commit -m "docs(<origin-repo>#531): add you-are-here bridges and hand-offs to all handbook parts
 
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ```
@@ -593,7 +593,7 @@ Expected: `sections: 9`, `em-dashes: 0`, `residual .md hrefs: 0`; docs check pas
 
 ```bash
 git add docs/engineering/lifecycle.md
-git commit -m "docs(lidia-tech/lidia-agents#531): order Part 1 sections along the spine; add connectors; fix comma splices
+git commit -m "docs(<origin-repo>#531): order Part 1 sections along the spine; add connectors; fix comma splices
 
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ```
@@ -649,7 +649,7 @@ Expected: `sections: 9`, `em-dashes: 0`, `residual .md hrefs: 0`; docs check pas
 
 ```bash
 git add docs/engineering/observability.md
-git commit -m "docs(lidia-tech/lidia-agents#531): connect Part 5 sections into one argument; fix comma splices
+git commit -m "docs(<origin-repo>#531): connect Part 5 sections into one argument; fix comma splices
 
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ```
@@ -698,7 +698,7 @@ Only if Steps 1 to 4 surfaced problems:
 
 ```bash
 git add docs/engineering/ scripts/render_handbook_artifact.py
-git commit -m "docs(lidia-tech/lidia-agents#531): fix-ups from the final verification sweep
+git commit -m "docs(<origin-repo>#531): fix-ups from the final verification sweep
 
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ```

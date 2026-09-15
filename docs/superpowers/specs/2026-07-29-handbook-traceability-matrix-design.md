@@ -1,6 +1,6 @@
-# Handbook traceability matrix — design (lidia-tech/lidia-agents#543)
+# Handbook traceability matrix — design (`<origin-repo>#543`)
 
-**Issue:** [lidia-tech/lidia-agents#543](https://github.com/lidia-tech/lidia-agents/issues/543), first sub-issue of the external-audit epic [#1](https://github.com/lidia-tech/lidia-agents/issues/542).
+**Issue:** `<origin-repo>#543`, first sub-issue of the external-audit epic [#1](https://github.com/`<origin-repo>`/issues/542).
 
 **Goal:** map every part of the engineering handbook (`docs/engineering/`) onto the `*-audit` skill family, clause by clause, so that "do the skills cover the handbook?" is answered by evidence rather than opinion. The matrix's gap list re-scopes the downstream issues (#2 observability domain, #4 data-protection domain, #5 TypeScript support, #7 citation binding).
 
@@ -8,7 +8,7 @@
 
 - The handbook is ~24k words across 12 files with 89 `##` sections total.
 - The stable referenceable unit on the skill side is the **dimension**: each domain skill declares its findings-matrix columns under a `## Dimensions` heading (e.g. `security-audit` → "Injection"). `audit-core` defines the shared matrix shape (item × dimension × status × severity).
-- As of today the `*-audit` skills contain **zero references to the handbook** — they were built in lidia-tech/lidia-agents#499 from generic quality domains, in parallel to the handbook. Nobody has mapped one onto the other before.
+- As of today the `*-audit` skills contain **zero references to the handbook** — they were built in `<origin-repo>#499` from generic quality domains, in parallel to the handbook. Nobody has mapped one onto the other before.
 
 ## Decisions
 
@@ -83,7 +83,7 @@ Slugging matches the handbook's own heading-anchor convention (GitHub-style: low
 3. **Gap list** — the consolidated section that re-scopes downstream work: all `gap` entries grouped by `recommendation` (`extend-skill` / `new-domain` / `report-only`), each with its row ID (linked to the handbook section) and target issue.
 4. **Coverage summary** — row counts per class, then the auditable rows split three ways: fully mapped (checks, no gap), partially mapped (checks *and* a residual gap), and unmapped. Counting a partial row as mapped would overstate coverage, so the headline percentage is the fully-mapped one. Closes with the non-auditable `process` + `informative` counts — the honest record of what cannot be audited from a snapshot.
 
-Handbook links are absolute GitHub URLs (`https://github.com/lidia-tech/lidia-agents/blob/main/docs/engineering/…`), not repo-relative ones: `mkdocs.yml` excludes `docs/engineering/` from the built site, so a relative link resolves on GitHub but 404s on the site. `mkdocs build --strict` logs that at INFO rather than failing, so the guard is `scripts/check_site_links.py`, which CI runs separately.
+Handbook links are absolute GitHub URLs (`https://github.com/<origin-repo>/blob/main/docs/engineering/…`), not repo-relative ones: `mkdocs.yml` excludes `docs/engineering/` from the built site, so a relative link resolves on GitHub but 404s on the site. `mkdocs build --strict` logs that at INFO rather than failing, so the guard is `scripts/check_site_links.py`, which CI runs separately.
 
 ## Content rules for the walk
 
@@ -99,7 +99,7 @@ Handbook links are absolute GitHub URLs (`https://github.com/lidia-tech/lidia-ag
 - Any edit to `docs/engineering/` prose.
 - Automation beyond the renderer + check (no CI workflow changes; pytest already runs in CI).
 
-## Acceptance criteria (from lidia-tech/lidia-agents#543)
+## Acceptance criteria (from `<origin-repo>#543`)
 
 - Every part of `docs/engineering/` covered clause by clause with a classification — enforced mechanically by the renderer's coverage check.
 - Each auditable clause mapped to a concrete existing check or flagged as a gap — enforced by the schema validation rule.

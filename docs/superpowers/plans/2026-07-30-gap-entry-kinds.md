@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - **Do not change `docs/audit/handbook-traceability.yaml`.** No row's data is wrong; only the renderer's reporting is. A task that edits the YAML has misread the spec.
-- **Do not add or tighten any `validate()` rule.** In particular, do NOT forbid `gap` on a `process` row and do NOT require `report-only` on one. The spec rejects both explicitly; lidia-tech/lidia-agents#554 says "Do not fix this by forbidding the shape."
+- **Do not add or tighten any `validate()` rule.** In particular, do NOT forbid `gap` on a `process` row and do NOT require `report-only` on one. The spec rejects both explicitly; `<origin-repo>#554` says "Do not fix this by forbidding the shape."
 - **No em-dashes (U+2014) anywhere.** This codebase writes ` - ` (space hyphen space) in rendered prose. Match the surrounding strings exactly.
 - **Google-style docstrings** on every new function, with `Args:` / `Returns:` sections. No reStructuredText roles or directives. This is a CLAUDE.md rule.
 - **No environment-specific values** in any committed file (no absolute machine paths, personal profiles, hostnames).
@@ -286,7 +286,7 @@ Expected: both clean. If `ruff format --check` reports the script or the test fi
 
 ```bash
 git add scripts/render_handbook_traceability.py tests/scripts/test_render_handbook_traceability.py
-git commit -m "fix(lidia-tech/lidia-agents#553): tag every gap entry with its kind"
+git commit -m "fix(<origin-repo>#553): tag every gap entry with its kind"
 ```
 
 The body must say why a tag rather than ordering alone (an entry extracted by #9 loses its position but keeps its tag), and why `_critical_purity_note` is removed rather than kept (the per-band count states the same fact for all three bands, so keeping both would print it twice in two shapes).
@@ -340,7 +340,7 @@ def test_render_reconciles_the_gap_total_when_no_process_row_gaps():
 
 
 def test_render_reconciles_the_gap_total_when_a_process_row_gaps():
-    # The case lidia-tech/lidia-agents#554 names: the closing total counted a population the
+    # The case <origin-repo>#554 names: the closing total counted a population the
     # components above it never included. It is absent from today's matrix,
     # so only a fixture can hold the arithmetic honest.
     rows = _valid_rows()
@@ -416,7 +416,7 @@ Then append this to the end of `tests/scripts/test_render_handbook_traceability.
 
 ```python
 def test_real_matrix_band_unchecked_counts_match_the_cross_tab():
-    # lidia-tech/lidia-agents#553's second criterion, made mechanical rather than a counting
+    # <origin-repo>#553's second criterion, made mechanical rather than a counting
     # exercise: a band's printed unchecked figure is the same number as its
     # Unmapped column, and stays so as rows are added. Both are read out of
     # the rendered page, so a renderer that drifts them apart fails here.
@@ -478,7 +478,7 @@ Expected: both clean.
 
 ```bash
 git add scripts/render_handbook_traceability.py tests/scripts/test_render_handbook_traceability.py docs/audit/handbook-traceability.md
-git commit -m "fix(lidia-tech/lidia-agents#554): reconcile the gap total with the coverage components"
+git commit -m "fix(<origin-repo>#554): reconcile the gap total with the coverage components"
 ```
 
 The body must say that the old total drew on a different population from the components above it, that the mismatch is invisible today only because no process row carries a gap, and that a fixture rather than the live matrix is what holds the arithmetic honest.

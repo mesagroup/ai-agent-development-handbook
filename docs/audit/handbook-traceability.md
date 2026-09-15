@@ -2,7 +2,7 @@
 
 # Handbook traceability matrix
 
-Maps every `##` section of the [engineering handbook](../engineering/README.md) onto the `*-audit` skill family. Source of truth: [`handbook-traceability.yaml`](handbook-traceability.yaml). Issue: lidia-tech/lidia-agents#543.
+Maps every `##` section of the [engineering handbook](../engineering/README.md) onto the `*-audit` skill family. Source of truth: [`handbook-traceability.yaml`](handbook-traceability.yaml). Issue: `<origin-repo>#543`.
 
 Section links are relative to this file. The audit skills, which do ship as a Claude Code plugin and run against other repositories, emit absolute URLs for the same targets, because a relative path out of a plugin cache resolves to nothing; this document is not shipped in that plugin, so it does not inherit the constraint.
 

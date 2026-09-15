@@ -3,7 +3,7 @@ name = "ai-agent-development-handbook"
 version = "0.1.0"
 description = "Engineering handbook for agentic systems, and the audit skill family that checks a codebase against it"
 requires-python = ">=3.11"
-# markdown is used by scripts/render_handbook_artifact.py. In lidia-agents it
+# markdown is used by scripts/render_handbook_artifact.py. In the origin repository it
 # arrived transitively via mkdocs; here it is a direct dependency.
 dependencies = ["pyyaml>=6.0", "markdown>=3.5"]
 
@@ -41,7 +41,7 @@ known_first_party = [
     "run_python_fixture_lens",
 ]
 
-# Carried over from lidia-agents, where this code was written and linted. A
+# Carried over from the origin repository, where this code was written and linted. A
 # different config here would flag the migrated files on arrival, which reads
 # as a defect in the extraction rather than as a change of house style.
 [tool.ruff]

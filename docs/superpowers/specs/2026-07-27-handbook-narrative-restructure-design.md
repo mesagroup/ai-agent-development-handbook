@@ -1,10 +1,10 @@
 # AI Agent Development Handbook: Narrative Restructure. Design Spec
 
-**Issue:** [lidia-tech/lidia-agents#531](https://github.com/lidia-tech/lidia-agents/issues/531) · **Date:** 2026-07-27 · **Status:** approved design, pending implementation plan
+**Issue:** `<origin-repo>#531` · **Date:** 2026-07-27 · **Status:** approved design, pending implementation plan
 
 ## Context
 
-The AI Agent Development Handbook (`docs/engineering/`, authored in lidia-tech/lidia-agents#501) is a project-agnostic guide of nine files: a README (overview and stance) plus eight numbered parts. It is excluded from the MkDocs site (lidia-tech/lidia-agents#529) and ships as a single self-contained HTML page rendered by `scripts/render_handbook_artifact.py`, whose `PARTS` list fixes the section order.
+The AI Agent Development Handbook (`docs/engineering/`, authored in `<origin-repo>#501`) is a project-agnostic guide of nine files: a README (overview and stance) plus eight numbered parts. It is excluded from the MkDocs site (`<origin-repo>#529`) and ships as a single self-contained HTML page rendered by `scripts/render_handbook_artifact.py`, whose `PARTS` list fixes the section order.
 
 ## Problem
 
@@ -93,7 +93,7 @@ Derived from the author's personal technical-writing style guidelines (provided 
 
 - **Voice split by register.** Narrative tissue (README story, bridges): "we" when walking through the process, "you" for what the reader experiences, occasional rhetorical-question pivots ("The change is merged. Is the product better?"), an occasional short conversational pace-changer. Directive bodies: the existing clipped imperative.
 - **No em-dashes anywhere** (already a handbook-wide rule, enforced by the render script's counter).
-- **No comma splices in new or retouched prose.** Where the em-dash removal in lidia-tech/lidia-agents#501 left comma splices, prefer a colon, parentheses, or a restructured sentence. Scope: all new prose, plus Parts 1 and 4 (reworked anyway). Other parts: out of scope, possible follow-up.
+- **No comma splices in new or retouched prose.** Where the em-dash removal in `<origin-repo>#501` left comma splices, prefer a colon, parentheses, or a restructured sentence. Scope: all new prose, plus Parts 1 and 4 (reworked anyway). Other parts: out of scope, possible follow-up.
 - **Italicize key domain terms on first introduction; bold sparingly** (list lead-ins and feature names).
 - Not imported (wrong genre for an internal handbook): About-the-author, header images, external-link generosity, "Stay tuned" closings, acronym-spell-out retrofits.
 

@@ -1,4 +1,4 @@
-"""Render and verify the handbook traceability matrix (lidia-tech/lidia-agents#543).
+"""Render and verify the handbook traceability matrix (<origin-repo>#543).
 
 `docs/audit/handbook-traceability.yaml` is the hand-maintained source of
 truth mapping every `##` section of the engineering handbook
@@ -9,7 +9,7 @@ view `docs/audit/handbook-traceability.md`.
 
 A row's `checks` list carries one entry per check that reaches the clause.
 An entry is a check id (`arch/layering`) resolved against the check records
-under `.agents/skills/<domain>-audit/checks/` (lidia-tech/lidia-agents#559). The two views of an
+under `.agents/skills/<domain>-audit/checks/` (<origin-repo>#559). The two views of an
 edge are checked against each other: a record may not cite a clause no row
 connects it to, and a cited record may not declare itself ungrounded.
 
@@ -364,7 +364,7 @@ def validate(
                 cited.setdefault(entry, set()).add(rid)
                 continue
             # The legacy `{skill, dimension}` pair is diagnosed by name rather
-            # than as a generic type error: it is what a branch predating lidia-tech/lidia-agents#559
+            # than as a generic type error: it is what a branch predating <origin-repo>#559
             # carries, and "expected a string" would send its author looking
             # for a typo instead of for the record that replaced the pair.
             if isinstance(entry, dict) and "skill" in entry:
@@ -437,7 +437,7 @@ _HEADER = f"""<!-- GENERATED FILE - do not edit. Source: handbook-traceability.y
 
 # Handbook traceability matrix
 
-Maps every `##` section of the [engineering handbook]({HANDBOOK_URL}/README.md) onto the `*-audit` skill family. Source of truth: [`handbook-traceability.yaml`](handbook-traceability.yaml). Issue: lidia-tech/lidia-agents#543.
+Maps every `##` section of the [engineering handbook]({HANDBOOK_URL}/README.md) onto the `*-audit` skill family. Source of truth: [`handbook-traceability.yaml`](handbook-traceability.yaml). Issue: `<origin-repo>#543`.
 
 Section links are relative to this file. The audit skills, which do ship as a Claude Code plugin and run against other repositories, emit absolute URLs for the same targets, because a relative path out of a plugin cache resolves to nothing; this document is not shipped in that plugin, so it does not inherit the constraint.
 

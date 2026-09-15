@@ -12,11 +12,11 @@
 
 `validate()` ignores unknown keys and `render()` emits only the fields it knows, so adding `severity:` to YAML rows is invisible to both until the renderer changes. That means the five sweep tasks can land one at a time with `pytest`, `--check` and every docs gate staying green, and the schema change in Task 6 arrives when all 108 rows already satisfy it.
 
-The reverse order would need the field to be optional-then-required, or would redden CI on every intermediate commit. lidia-tech/lidia-agents#549's review removed exactly that kind of staged scaffolding (`--allow-pending-parts`) under the repo's no-stubs rule; this ordering avoids needing it at all.
+The reverse order would need the field to be optional-then-required, or would redden CI on every intermediate commit. `<origin-repo>#549`'s review removed exactly that kind of staged scaffolding (`--allow-pending-parts`) under the repo's no-stubs rule; this ordering avoids needing it at all.
 
 ## Global Constraints
 
-These bind every task. Copied from lidia-tech/lidia-agents#552 and the repo's conventions.
+These bind every task. Copied from `<origin-repo>#552` and the repo's conventions.
 
 **The scale is audit-core's, not a new one.** `critical` | `important` | `minor`, lowercase in YAML. audit-core's loop already hard-codes those three (step 4.3: "fix Critical/Important before advancing; apply easy correct Minor fixes"), so any other vocabulary needs a translation layer at every seam where a clause becomes a finding.
 
@@ -84,7 +84,7 @@ Note that a coupled test is not a false-passing test: a test that transitively d
 
 **Deletion candidates.** A clause that is **`minor` *and* contingent on one execution environment** is a deletion candidate — it does not belong in a handbook whose value is that everything in it is normative and universal. Contingent means: a different but legitimate setup (a cloud harness, a different OS, another agent runtime) makes the clause meaningless rather than merely differently-implemented. Record candidates; never delete anything during a sweep task.
 
-**Repo conventions.** Markdown source is never hard-wrapped — one paragraph is one line. No em-dashes anywhere under `docs/engineering/`. Never commit environment-specific values (personal paths, profile names, hostnames). New code ships with tests. Run `uv run ruff check .`, `uv run ruff format --check .` and `uv run pyright` before every commit. Reference the issue as `Refs lidia-tech/lidia-agents#552` in commit messages.
+**Repo conventions.** Markdown source is never hard-wrapped — one paragraph is one line. No em-dashes anywhere under `docs/engineering/`. Never commit environment-specific values (personal paths, profile names, hostnames). New code ships with tests. Run `uv run ruff check .`, `uv run ruff format --check .` and `uv run pyright` before every commit. Reference the issue as `Refs <origin-repo>#552` in commit messages.
 
 ## File structure
 
@@ -153,9 +153,9 @@ In the report file, under a heading `## Severity assignments`, list every row as
 
 ```bash
 git add docs/audit/handbook-traceability.yaml
-git commit -m "docs(lidia-tech/lidia-agents#552): assign severity to the README spine and Part 1 rows
+git commit -m "docs(<origin-repo>#552): assign severity to the README spine and Part 1 rows
 
-Refs lidia-tech/lidia-agents#552"
+Refs <origin-repo>#552"
 ```
 
 ---
@@ -207,9 +207,9 @@ Same three headings as Task 1 Step 5: `## Severity assignments`, `## Deletion ca
 
 ```bash
 git add docs/audit/handbook-traceability.yaml
-git commit -m "docs(lidia-tech/lidia-agents#552): assign severity to the Part 2 and Part 3 rows
+git commit -m "docs(<origin-repo>#552): assign severity to the Part 2 and Part 3 rows
 
-Refs lidia-tech/lidia-agents#552"
+Refs <origin-repo>#552"
 ```
 
 ---
@@ -261,9 +261,9 @@ Same three headings as Task 1 Step 5.
 
 ```bash
 git add docs/audit/handbook-traceability.yaml
-git commit -m "docs(lidia-tech/lidia-agents#552): assign severity to the Part 4, 5 and 6 rows
+git commit -m "docs(<origin-repo>#552): assign severity to the Part 4, 5 and 6 rows
 
-Refs lidia-tech/lidia-agents#552"
+Refs <origin-repo>#552"
 ```
 
 ---
@@ -321,9 +321,9 @@ Same three headings as Task 1 Step 5.
 
 ```bash
 git add docs/audit/handbook-traceability.yaml
-git commit -m "docs(lidia-tech/lidia-agents#552): assign severity to the Part 7 and Part 8 rows
+git commit -m "docs(<origin-repo>#552): assign severity to the Part 7 and Part 8 rows
 
-Refs lidia-tech/lidia-agents#552"
+Refs <origin-repo>#552"
 ```
 
 ---
@@ -386,9 +386,9 @@ The three headings from Task 1 Step 5, plus `## Distribution`: the Counter outpu
 
 ```bash
 git add docs/audit/handbook-traceability.yaml
-git commit -m "docs(lidia-tech/lidia-agents#552): assign severity to the Part 9, troubleshooting and coda rows
+git commit -m "docs(<origin-repo>#552): assign severity to the Part 9, troubleshooting and coda rows
 
-Refs lidia-tech/lidia-agents#552"
+Refs <origin-repo>#552"
 ```
 
 ---
@@ -728,9 +728,9 @@ Expected: all green. Read the regenerated `docs/audit/handbook-traceability.md` 
 
 ```bash
 git add scripts/render_handbook_traceability.py tests/scripts/test_render_handbook_traceability.py docs/audit/handbook-traceability.yaml docs/audit/handbook-traceability.md
-git commit -m "feat(lidia-tech/lidia-agents#552): validate and render the matrix severity axis
+git commit -m "feat(<origin-repo>#552): validate and render the matrix severity axis
 
-Refs lidia-tech/lidia-agents#552"
+Refs <origin-repo>#552"
 ```
 
 ---
@@ -749,7 +749,7 @@ Refs lidia-tech/lidia-agents#552"
 - Consumes: the completed sweep and renderer from Tasks 1-6.
 - Produces: the sidecar the deletion-candidate batch from later reviews will extend.
 
-Scope: **only** the keep-awake clause, which lidia-tech/lidia-agents#552 pre-confirms for deletion. Deletion candidates surfaced by Tasks 1-5 are reported, not acted on — they need approval first.
+Scope: **only** the keep-awake clause, which `<origin-repo>#552` pre-confirms for deletion. Deletion candidates surfaced by Tasks 1-5 are reported, not acted on — they need approval first.
 
 - [ ] **Step 1: Read the clause in place**
 
@@ -770,7 +770,7 @@ Each entry names the practice, the environment it applies to, and why it is not 
 
 This file is deliberately outside `docs/engineering/`. Inside, it would need matrix rows for advisory content and would ride into the standalone handbook artifact as if it carried equal weight.
 
-**Not for obsolete practices.** Contingent goes here; obsolete stays deleted. The rule against passing hash-comments to an agent's Bash tool (removed repo-wide in lidia-tech/lidia-agents#549) is not recorded here, because it is not true anywhere any more - it worked around a tool-permission gate that no longer exists.
+**Not for obsolete practices.** Contingent goes here; obsolete stays deleted. The rule against passing hash-comments to an agent's Bash tool (removed repo-wide in <origin-repo>#549) is not recorded here, because it is not true anywhere any more - it worked around a tool-permission gate that no longer exists.
 
 ## Keep the host awake during a long agent run
 
@@ -778,7 +778,7 @@ This file is deliberately outside `docs/engineering/`. Inside, it would need mat
 
 **Environment.** A laptop or workstation running the agent harness locally, where the OS suspends the machine on an idle timer and a suspended host kills an in-flight run.
 
-**Why it is not normative.** It is contingent on where the harness runs. A cloud harness, a CI runner, or a server with no idle suspension makes the clause meaningless, and the handbook is not the place to encode one execution environment's power management. The failure it prevents is real but recoverable - you rerun the batch - which puts it at Minor even where it applies. Removed from Part 1 in lidia-tech/lidia-agents#552.
+**Why it is not normative.** It is contingent on where the harness runs. A cloud harness, a CI runner, or a server with no idle suspension makes the clause meaningless, and the handbook is not the place to encode one execution environment's power management. The failure it prevents is real but recoverable - you rerun the batch - which puts it at Minor even where it applies. Removed from Part 1 in <origin-repo>#552.
 ```
 
 - [ ] **Step 3: Delete the clause from the handbook**
@@ -821,7 +821,7 @@ Collect the `## Deletion candidates` sections from all five sweep reports into o
 
 ```bash
 git add docs/engineering-notes.md docs/engineering/lifecycle.md docs/engineering/README.md docs/README.md docs/audit/handbook-traceability.yaml docs/audit/handbook-traceability.md
-git commit -m "docs(lidia-tech/lidia-agents#552): move the keep-awake clause out of the handbook into a sidecar
+git commit -m "docs(<origin-repo>#552): move the keep-awake clause out of the handbook into a sidecar
 
 The clause is Minor and contingent on one execution environment: a cloud
 harness or CI runner has no idle suspension to defeat, so it encodes one
@@ -829,14 +829,14 @@ setup's power management as a universal rule. Recorded in
 docs/engineering-notes.md with the environment it applies to and why it is
 not normative, so it is not re-proposed later.
 
-Refs lidia-tech/lidia-agents#552"
+Refs <origin-repo>#552"
 ```
 
 ---
 
 ## Self-review
 
-**Spec coverage** against lidia-tech/lidia-agents#552's seven acceptance criteria:
+**Spec coverage** against `<origin-repo>#552`'s seven acceptance criteria:
 
 | Criterion | Task |
 |---|---|
