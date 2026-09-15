@@ -231,7 +231,7 @@ What it prevents is a verdict the audit invented. This domain's own status scale
 
 ## The three neighbours, and where each line falls
 
-**`test/coverage-reach` measures reach, and reads the threshold as context for its own number.** That record's `evidence` says what a project excluded from measurement and the threshold it set for itself are part of what it asks - and they are, as the thing its measured number is read against. Two questions stay there and not here: whether the reported coverage is adequate, and whether the floor measures the right thing, which is that record's `fail_under`-without-`branch = true` finding. What is here is whether the decision exists at all and whether it has an executable home. A project with no floor is silent in that record and a finding in this one.
+**`test/coverage-reach` measures reach, and reads the threshold as context for its own number.** What a project excluded from measurement and the threshold it set for itself are context for that measured number, which is why they are read there as well as declared here. Two questions stay there and not here: whether the reported coverage is adequate, and whether the floor measures the right thing, which is that record's `fail_under`-without-`branch = true` finding. What is here is whether the decision exists at all and whether it has an executable home. A project with no floor is silent in that record and a finding in this one.
 
 **`ci/gate-enforcement` owns whether an intended gate can actually block** - its own subject is whether the intended quality gates are run and *required*, and a workflow that is skippable, scheduled-only or absent from branch protection is a gate in name only. So a floor written into a job nobody requires is a `ci` finding and a pass here: the decision was taken and recorded executably, and what failed is the mechanism carrying it. Do not read branch protection to answer this check.
 
@@ -243,7 +243,7 @@ What it prevents is a verdict the audit invented. This domain's own status scale
 
 **Minor** - the whole-project floor was decided and the changed-lines one was not, or the floor is executable but its exclusions remove load-bearing deterministic logic from the denominator. The decision exists; it is incomplete, or it is measured over less than the project ships.
 
-There is deliberately **no Critical tier**. The check asks whether a decision was recorded and never what the code's coverage is, so it has no untested scorer and no evaded gate to offer - those belong to `test/coverage-reach` and `ci/gate-enforcement`, which have them.
+There is deliberately **no Critical tier**. The check asks whether a decision was recorded and never what the code's coverage is, so it has no untested scorer and no evaded gate to offer - those belong to `test/coverage-reach` and `ci/gate-enforcement`.
 
 ## Fix
 

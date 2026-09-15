@@ -1,6 +1,6 @@
 # Authoring a new auditing skill
 
-Read this when writing or restructuring a `<domain>-audit` skill. No audit run does that: a run consumes records it did not write, so nothing here has an addressee inside one, which is why [the sweep-obligations ledger](https://github.com/mesagroup/ai-agent-development-handbook/blob/main/docs/audit/sweep-obligations.md) dispositions this reference's own obligation `out of scope`.
+Read this when writing or restructuring a `<domain>-audit` skill. No audit run does that: a run consumes records it did not write, so nothing here has an addressee inside one, which is why [the sweep-obligations ledger](https://github.com/mesagroup/ai-agent-development-handbook/blob/main/docs/audit/sweep-obligations.md) dispositions every obligation in this reference `out of scope`.
 
 A `<domain>-audit` skill is thin: it states the lens and defers the loop in `SKILL.md` to this engine.
 
