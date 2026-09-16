@@ -38,7 +38,7 @@ The rule is deliberately mechanical rather than semantic. An emitter that cluste
 
 The emitter prints the full tree by default and creates nothing. Creation requires an explicit flag, and the label-creation path is part of that flag rather than a separate convenience: creating a label is a write to the target repository, and a tool that writes on its default path is one a reader will run against the wrong repository once.
 
-Nothing in this change exercises the creation path, and no test does either. That is the whole of the caution: writes go to a repository this project does not own, and an unattended loop is not the thing that should first perform one.
+Nothing in this change exercises the creation path against a real repository, and no test does either: the writes go to a repository this project does not own, and an unattended loop is not the thing that should first perform one. What the executor does around those writes is tested through a double - the order, and what it reports when one fails partway through - because a partial run leaves issues in that repository and a report is the only thing the operator gets.
 
 ## Verification
 
