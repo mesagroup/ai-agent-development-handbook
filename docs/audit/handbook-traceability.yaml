@@ -667,7 +667,7 @@
   severity: minor
   gap:
     recommendation: extend-skill
-    note: eval-audit is the owner, since model identity is its surface, but no check scans call sites for inline provider model IDs; its `eval/reproducibility` check is the nearest and wants a run's model version pinned and recorded, which an inline ID satisfies perfectly well - the worked example of the near-miss rule, mapping it would pass exactly what the handbook forbids - and security-audit's `security/secrets-in-code` sees only the credentials half of what the catalog centralizes.
+    note: No check asks for the indirection this claim is about. `deps/model-pinning-and-eol` is now the nearest, and reads model identifiers wherever the application names them, but it asks whether the identifier is pinned and still supported rather than whether it is reached through a catalog - a concrete pinned ID inline satisfies that check and is exactly what this claim forbids, which makes it the worked example of the near-miss rule rather than a mapping. `eval/reproducibility` fails the same way on the eval surface, and security-audit's `security/secrets-in-code` sees only the credentials half of what the catalog centralizes. Ownership follows the surface rather than the domain - the application-side identifier is read in deps-audit now, so a check for the catalog indirection belongs beside it.
 
 - id: agent-harness/expose-model-parameters-as-optional-defaulted-flags
   section: "Expose model parameters as optional, defaulted flags"
@@ -1184,11 +1184,7 @@
   checks:
     - eval/reproducibility
     - data-protection/processor-register
-  gap:
-    recommendation: extend-skill
-    target: "#6"
-    note: "partial - the claim has three parts and two of them are now checked. `eval/reproducibility` asks for a pinned, recorded model version, which covers the eval surface exactly. `data-protection/processor-register` reads the retention window per processor and flags at Critical a provider whose window the register does not state, which is this claim's data-retention-terms part, so the row maps it under the near-miss rule rather than gapping it. The sentence this note used to carry - that a model or a provider never enters the surface anything accounts for - stopped being true when `data-protection/provider-surface` began deriving the provider list from SDK imports, configured base URLs, MCP and tool endpoints and credential names. deps-audit's inventory is still the package graph, and it is no longer the only lens that sees a provider. The residue is the pinning asked of the provider rather than of the eval: whether a model version is pinned where the provider allows it, and whether a model or an endpoint is approaching end of life. No check reads either, and that is the target issue's scope."
-
+    - deps/model-pinning-and-eol
 - id: security-supply-chain/treat-the-pipeline-as-a-privileged-environment
   section: "Treat the pipeline as a privileged environment"
   claim: Treat CI as a privileged runtime holding your secrets as well as the merge gate - default the pipeline token to read-only and widen only the single job that genuinely needs it, pin third-party actions to an immutable commit SHA rather than a mutable tag, never run untrusted pull-request code with secrets in scope, and prefer short-lived federated credentials over long-lived stored secrets.
