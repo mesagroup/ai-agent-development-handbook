@@ -2598,6 +2598,7 @@ def test_the_real_checks_tree_loads_clean():
         "deps/hygiene",
         "deps/inventory",
         "deps/licenses",
+        "deps/model-catalog-indirection",
         "deps/model-pinning-and-eol",
         "deps/transitive-licenses",
         "deps/vulnerabilities",
@@ -3108,7 +3109,7 @@ def test_a_record_may_not_write_a_prescription_in_a_fenced_block(tmp_path, fence
 def test_a_four_space_indented_block_is_not_a_fence(tmp_path, block):
     """The convention's escape, which the rule above must leave open.
 
-    No record body carries an indented block today - computed, zero of 85 - so
+    No record body carries an indented block today - computed, zero of 86 - so
     this is not protecting a use the tree makes. It is the place a record could
     show a tool's observed output, and the second parameter is why the allowance
     has to survive the fence rule rather than being incidental to it: a docs or
@@ -3231,7 +3232,7 @@ def test_the_tool_less_route_population_is_held():
     checks, errors = ac.load_checks(ac.SKILLS_DIR)
     assert errors == []
     tool_less = [(c.id, r) for c in checks.values() for r in c.routes if r.tool is None]
-    assert len(tool_less) >= 30, f"only {len(tool_less)} tool-less route(s)"
+    assert len(tool_less) >= 31, f"only {len(tool_less)} tool-less route(s)"
     assert all(r.kind == "procedure" for _, r in tool_less)
     assert all(r.note.strip() for _, r in tool_less)
 
