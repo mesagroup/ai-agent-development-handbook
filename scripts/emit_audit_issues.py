@@ -29,6 +29,17 @@ from typing import Any
 #: this module disagree about the scale, and ranking it anywhere is a guess.
 SEVERITIES = ("critical", "important", "minor")
 
+#: The mutation that attaches a child issue to its parent. GitHub exposes
+#: sub-issues only through GraphQL, so a link is not a ``gh issue`` subcommand
+#: and cannot be spelled as one. It is here rather than inline so a test can
+#: assert the plan carries it, which is the only way the link path is checked
+#: without writing to somebody's tracker.
+ADD_SUB_ISSUE = (
+    "mutation($parent: ID!, $child: ID!) "
+    "{ addSubIssue(input: {issueId: $parent, subIssueId: $child}) "
+    "{ clientMutationId } }"
+)
+
 #: Priority label per severity. The audited project may not use these names, so
 #: they are data rather than literals scattered through the rendering.
 PRIORITY_LABELS = {
@@ -326,7 +337,7 @@ def plan_labels(tree: Issue, existing: set[str], *, target: str) -> list[Action]
     return [
         Action(
             kind="create-label",
-            argv=("gh", "label", "create", name, "--repo", target, "--force"),
+            argv=("gh", "label", "create", name, "--repo", target),
         )
         for name in labels_used(tree)
         if name not in existing
@@ -370,7 +381,7 @@ def plan_issues(tree: Issue, *, target: str) -> list[Action]:
             actions.append(
                 Action(
                     kind="link-sub-issue",
-                    argv=(),
+                    argv=("gh", "api", "graphql", "-f", f"query={ADD_SUB_ISSUE}"),
                     parent_ref=parent_index,
                     self_ref=index,
                 )
@@ -455,38 +466,103 @@ def main(argv: list[str] | None = None) -> int:
 def _execute(tree: Issue, *, target: str) -> int:
     """Perform the plan against a real repository.
 
-    Untested by design and by necessity: every line here writes to a repository
-    this project does not own. The decisions it acts on are planned and tested
-    above; what is left is running them in order and mapping the issue numbers
-    the creates return onto the links that need them.
+    Untested by necessity: every line here writes to a repository this project
+    does not own. The decisions it acts on are planned and tested above; what is
+    left is running them in order and resolving the node ids the links need.
     """
     import subprocess
 
-    existing = set()
+    # `gh label list` pages at 30 by default, so a repository with more labels
+    # than that would report the rest as missing and this would try to create
+    # them. Ask for all of them, and refuse to proceed on a listing that failed
+    # rather than treating "no labels found" as "no labels exist".
     probe = subprocess.run(
-        ("gh", "label", "list", "--repo", target, "--json", "name", "--jq", ".[].name"),
+        (
+            "gh",
+            "label",
+            "list",
+            "--repo",
+            target,
+            "--limit",
+            "1000",
+            "--json",
+            "name",
+            "--jq",
+            ".[].name",
+        ),
         capture_output=True,
         text=True,
         check=False,
     )
-    if probe.returncode == 0:
-        existing = {line.strip() for line in probe.stdout.splitlines() if line.strip()}
+    if probe.returncode != 0:
+        print(
+            f"error: could not list labels in {target}: {probe.stderr.strip()}. "
+            "Refusing to create labels against an unknown set, because every "
+            "existing one would look missing.",
+            file=sys.stderr,
+        )
+        return 4
+    existing = {line.strip() for line in probe.stdout.splitlines() if line.strip()}
+
+    # A second run would open the whole tree again, and nothing about an issue
+    # says it was emitted by this tool, so the duplicate is invisible until
+    # somebody reads the tracker.
+    root = tree.title
+    seen = subprocess.run(
+        ("gh", "issue", "list", "--repo", target, "--search", root, "--json", "title"),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if seen.returncode == 0 and root in seen.stdout:
+        print(
+            f"error: {target} already has an issue titled {root!r}. "
+            "This tool does not reconcile with an existing tree, so a second "
+            "run would duplicate it. Close or rename the first, or file by hand.",
+            file=sys.stderr,
+        )
+        return 5
 
     for action in plan_labels(tree, existing, target=target):
         subprocess.run(action.argv, check=True)
 
-    numbers: dict[int, str] = {}
+    node_ids: dict[int, str] = {}
     for action in plan_issues(tree, target=target):
         if action.kind == "create-issue":
             done = subprocess.run(
                 action.argv, capture_output=True, text=True, check=True
             )
             url = done.stdout.strip().splitlines()[-1]
-            numbers[action.self_ref] = url.rsplit("/", 1)[-1]
+            number = url.rsplit("/", 1)[-1]
+            ident = subprocess.run(
+                (
+                    "gh",
+                    "issue",
+                    "view",
+                    number,
+                    "--repo",
+                    target,
+                    "--json",
+                    "id",
+                    "--jq",
+                    ".id",
+                ),
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            node_ids[action.self_ref] = ident.stdout.strip()
         elif action.kind == "link-sub-issue":
-            child = numbers[action.self_ref]
-            parent = numbers[action.parent_ref]
-            print(f"link: #{child} is a sub-issue of #{parent} (addSubIssue)")
+            subprocess.run(
+                (
+                    *action.argv,
+                    "-f",
+                    f"parent={node_ids[action.parent_ref]}",
+                    "-f",
+                    f"child={node_ids[action.self_ref]}",
+                ),
+                check=True,
+            )
     return 0
 
 
