@@ -514,7 +514,16 @@ def _execute(tree: Issue, *, target: str) -> int:
         text=True,
         check=False,
     )
-    if seen.returncode == 0 and root in seen.stdout:
+    if seen.returncode != 0:
+        print(
+            f"error: could not search {target} for an existing tree: "
+            f"{seen.stderr.strip()}. Refusing to proceed. A search that failed "
+            "is not a search that found nothing, and the difference between "
+            "them is whether this run duplicates the whole tree.",
+            file=sys.stderr,
+        )
+        return 4
+    if root in seen.stdout:
         print(
             f"error: {target} already has an issue titled {root!r}. "
             "This tool does not reconcile with an existing tree, so a second "
