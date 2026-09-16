@@ -665,9 +665,11 @@
   claim: Never name a concrete provider model inline - take a short alias whose prefix encodes the provider and resolve it through a central catalog that stays the single place knowing real model IDs, regions and credentials - so switching the model a run uses is a one-token change and screening a dozen candidates never touches the agent.
   class: static
   severity: minor
+  checks:
+    - deps/model-catalog-indirection
   gap:
     recommendation: extend-skill
-    note: No check asks for the indirection this claim is about. `deps/model-pinning-and-eol` is now the nearest, and reads model identifiers wherever the application names them, but it asks whether the identifier is pinned and still supported rather than whether it is reached through a catalog - a concrete pinned ID inline satisfies that check and is exactly what this claim forbids, which makes it the worked example of the near-miss rule rather than a mapping. `eval/reproducibility` fails the same way on the eval surface, and security-audit's `security/secrets-in-code` sees only the credentials half of what the catalog centralizes. Ownership follows the surface rather than the domain - the application-side identifier is read in deps-audit now, so a check for the catalog indirection belongs beside it.
+    note: "`deps/model-catalog-indirection` reads the model-identifier half of the claim: whether a catalog exists, whether every application-path site resolves through it, and whether the alias prefix encodes the provider. What remains unread is the clause that the catalog is also the single place knowing regions and credentials. `data-protection/residency-pinning` reads where the region is pinned and `security/secrets-in-code` reads where a credential is written, and neither asks whether those live in the catalog beside the model identifier or are scattered across call sites of their own. The residue is deps-audit's, as an extension of `deps/model-catalog-indirection`, which already holds the catalog's `file:line`."
 
 - id: agent-harness/expose-model-parameters-as-optional-defaulted-flags
   section: "Expose model parameters as optional, defaulted flags"
@@ -1174,7 +1176,7 @@
     - deps/vulnerabilities
     - deps/freshness
     - deps/hygiene
-  note: An exact fit - the handbook's four axes are the four package-graph checks cited here, transitivity is the resolved graph the skill takes as ground truth, and unpinned floating direct dependencies sit inside `deps/freshness`. The domain's other non-opt-in check, `deps/model-pinning-and-eol`, answers the `-b` row's AI surface rather than any axis of this one.
+  note: An exact fit - the handbook's four axes are the four package-graph checks cited here, transitivity is the resolved graph the skill takes as ground truth, and unpinned floating direct dependencies sit inside `deps/freshness`. The domain's two other non-opt-in checks, `deps/model-pinning-and-eol` and `deps/model-catalog-indirection`, answer the `-b` row's AI surface and Part 5's alias row respectively, rather than any axis of this one.
 
 - id: security-supply-chain/depend-only-on-what-you-can-account-for-b
   section: "Depend only on what you can account for"

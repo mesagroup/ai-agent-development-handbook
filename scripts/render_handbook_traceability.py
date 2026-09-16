@@ -476,7 +476,7 @@ Two rules keep the walk reproducible. Apply them when adding or revising a row.
 
 **Gap taxonomy.** `extend-skill` when an existing skill is the natural owner and the fix is one new check record inside it - or a declaration of coverage it already has outside its check records. `new-domain` when no existing skill is a natural owner and the capability itself is missing; a note that says the claim "belongs to the domain the target issue creates" is `new-domain`, never `extend-skill`. `report-only` when the claim is auditable but belongs in report prose against the handbook's own checklist rather than in any skill's matrix. Every `extend-skill` gap names its owning skill in the note; every `new-domain` gap carries the issue that would create the domain, or says explicitly that none exists yet.
 
-**Near-miss mappings.** Map a check that only partly reaches a claim when it would *flag* the handbook's violation, and record the residue as a gap on the same row. Refuse it - and gap the whole claim - when it would *pass* the violation. Worked example: an inline hard-coded model ID is more pinned than an alias, so `eval/reproducibility` is satisfied by exactly what Part 5 forbids; that row maps nothing and gaps everything.
+**Near-miss mappings.** Map a check that only partly reaches a claim when it would *flag* the handbook's violation, and record the residue as a gap on the same row. Refuse it - and gap the whole claim - when it would *pass* the violation. Worked example: an inline hard-coded model ID is more pinned than an alias, so `eval/reproducibility` and `deps/model-pinning-and-eol` are both satisfied by exactly what Part 5 forbids; that row was refused both and stayed wholly gapped until a check that flags the inline ID existed.
 """
 
 

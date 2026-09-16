@@ -575,9 +575,10 @@ def render_manifests(partition: str) -> dict[str, str]:
     )
 
 
-# The `deps` records are the ones every partition runs, because a dependency
-# lens reads the partition's own manifest and lock format and so answers a
-# different question in each of the five. Listed here rather than derived from
+# The package-graph `deps` records are the ones every partition runs, because a
+# dependency lens reads the partition's own manifest and lock format and so
+# answers a different question in each of the five; the domain's model-surface
+# records prescribe no command and have no fixture row. Listed here rather than derived from
 # the `deps/` prefix in EXPECTATIONS so that the thin-partition scoping has a
 # name to be written against; a test holds the two views equal.
 DEPS_CHECKS = (
