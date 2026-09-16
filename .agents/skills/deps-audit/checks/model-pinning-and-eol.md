@@ -9,11 +9,14 @@ evidence: >-
   name along: the model identifier and API version as the application
   configures them - a settings value, an environment template, a deployment
   manifest, the argument that constructs an SDK client, or a prompt or agent
-  definition - with the `file:line` of each, and beside it whether the provider publishes a pinnable form of
-  that identifier and an end-of-life date for it. A run that cannot reach
-  the provider's schedule has the first half of that evidence and not the
-  second, which is a `no-evidence` on the lifetime half rather than an `ok`
-  on the whole check.
+  definition - with the `file:line` of each, and beside it two facts that
+  live at the provider rather than in the target: whether the provider
+  publishes a pinnable form of that identifier, and its end-of-life date.
+  A run that cannot reach the provider has the declarations and neither
+  provider fact, and **both halves then report `no-evidence` with that as
+  the reason**. Neither collapses to `ok`: a pin that was never looked up is
+  not a pin known to be absent, and a sunset that was never looked up is not
+  a sunset known not to exist.
 routes:
   - lang: any
     kind: procedure
@@ -25,7 +28,14 @@ routes:
       environment templates such as `.env.example`, deployment manifests,
       the arguments to SDK client construction, and any prompt or agent
       definition that names a model. For each, ask whether the provider
-      publishes a pinnable form and whether the project uses it. An alias
+      publishes a pinnable form and whether the project uses it. **Where the
+      provider cannot be reached, this half reports `no-evidence` with that
+      reason too**, and not a status: the declaration says whether the
+      identifier carries a version, and only the provider says whether a
+      version was on offer, which is the whole difference between the `ok`
+      below and the Important band. Record the identifiers found either way,
+      because that half of the evidence stands and the next run starts from
+      it. An alias
       that resolves to whatever the *provider* currently points it at is the
       unpinned case, and it is unpinned however stable it has been so far.
       **A project's own alias is not that.** The handbook asks for a short
@@ -64,7 +74,7 @@ Does the project pin the model versions it depends on where the provider allows 
 
 **`not-applicable` where the project configures no model provider at all**, with the homes searched recorded beside it. That is a claim about the whole surface rather than the first place looked in: a project may name its model in a config module, a deployment manifest, an environment template or an agent definition, and finding none in the first of those settles nothing.
 
-**`ok` where the provider publishes no pinnable form**, with that fact recorded. A project cannot pin what the provider does not version, and reporting it as a finding asks for a fix that does not exist. What is recorded is the absence, so the next audit does not re-derive it.
+**`ok` where the provider publishes no pinnable form**, with that fact recorded and with the provider actually consulted. A project cannot pin what the provider does not version, and reporting it as a finding asks for a fix that does not exist. What is recorded is the absence, so the next audit does not re-derive it.
 
 **The two routes are one procedure in two halves, run in the order they appear**, because the second reads the identifiers the first collected. They report separately: a pin finding and a lifetime finding are different findings with different fixes, and a run that answered the first and not the second says so rather than letting one status stand for both. Neither is a tool, because no scanner in this domain reads a model identifier - the pin lives in the project's configuration and the lifetime lives at the provider - so the routes carry the whole prescription.
 
