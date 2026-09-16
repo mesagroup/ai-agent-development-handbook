@@ -55,15 +55,23 @@ routes:
       The finding is a provider-side moving pointer wherever it is finally
       named, which on a project that has a catalog means inside the catalog,
       and on one that has none means at every site that names a model.
-      Record the `file:line` of each declaration, and the identifier as
-      written.
+      Record the `file:line` of each declaration and the identifier as
+      written, and where a catalog resolves that name, the identifier it
+      resolves to and the `file:line` of the catalog entry - the second is
+      what the lifetime route reads, and a run that collected only the first
+      cannot answer it.
   - lang: any
     kind: procedure
     disposition: runs
     note: >-
       **The lifetime, which the repository does not contain.** Compare each
-      identifier collected above against the provider's own published
-      deprecation or end-of-life schedule. That schedule lives at the
+      *provider-side* identifier collected above against the provider's own
+      published deprecation or end-of-life schedule - on a project with a
+      catalog that is what the catalog resolves its alias to, never the
+      internal alias itself. A provider publishes no schedule for a name it
+      has never heard of, so looking one up returns nothing and reads exactly
+      like a model with no sunset announced: the lifetime question is asked
+      of the target the alias points at, the same way the pin question is. That schedule lives at the
       provider and nowhere in the target, so this half needs the network the
       way `deps/transitive-licenses` needs the registry, and a run without
       it reports `no-evidence` on the lifetime with that as the reason. It
