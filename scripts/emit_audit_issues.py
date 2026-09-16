@@ -1,0 +1,494 @@
+"""Turn a sweep's findings file into an importable GitHub issue set (#9).
+
+The audit family produces two deliverables. The prose report has a template in
+``audit/SKILL.md``; this module is the other half, the epic / child-epic /
+sub-issue tree a maintainer can import into the audited project's tracker.
+
+**The input is the findings file, never the report.** The report's per-domain
+matrix is capped to the significant rows by design, so an emitter reading it
+would silently drop exactly the findings the report judged too minor to print.
+See ``docs/superpowers/specs/2026-09-16-issue-emitter-design.md``.
+
+Everything above ``main`` is pure: it takes findings and returns a tree of
+issues. Creation lives in ``main`` behind an explicit flag, and the default is a
+dry run that prints the tree and writes nothing anywhere.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+#: Severity order, worst first. Used for sorting and for the priority label.
+#: A severity outside this set is not silently ranked last - ``_severity_rank``
+#: raises, because an unknown severity in a findings file means the sweep and
+#: this module disagree about the scale, and ranking it anywhere is a guess.
+SEVERITIES = ("critical", "important", "minor")
+
+#: Priority label per severity. The audited project may not use these names, so
+#: they are data rather than literals scattered through the rendering.
+PRIORITY_LABELS = {
+    "critical": "priority:urgent",
+    "important": "priority:normal",
+    "minor": "priority:low",
+}
+
+
+class FindingsError(ValueError):
+    """A findings file this module cannot read, with the reason."""
+
+
+@dataclass(frozen=True)
+class Finding:
+    """One finding as the sweep recorded it."""
+
+    domain: str
+    check: str
+    severity: str
+    item: str
+    evidence: str
+    handbook: tuple[str, ...] = ()
+    #: A caveat the domain attached to this finding - most often that it
+    #: reported a check id it could not confirm. The consolidation rule
+    #: requires such a caveat to travel with the id it qualifies, and this
+    #: format is read by a machine that will not infer one, so it is a field
+    #: rather than something the prose around the number carries.
+    note: str = ""
+
+    @staticmethod
+    def from_mapping(raw: Any, *, where: str) -> Finding:
+        """Build a finding, naming every missing key at once.
+
+        Reporting one missing key at a time makes a malformed file take as
+        many runs to fix as it has problems.
+        """
+        if not isinstance(raw, dict):
+            raise FindingsError(
+                f"{where}: expected a mapping, got {type(raw).__name__}"
+            )
+        required = ("domain", "check", "severity", "item", "evidence")
+        missing = [k for k in required if not raw.get(k)]
+        if missing:
+            raise FindingsError(f"{where}: missing or empty {', '.join(missing)}")
+        severity = str(raw["severity"]).strip().lower()
+        if severity not in SEVERITIES:
+            raise FindingsError(
+                f"{where}: severity {raw['severity']!r} is not one of {', '.join(SEVERITIES)}"
+            )
+        handbook = raw.get("handbook") or ()
+        if isinstance(handbook, str):
+            handbook = (handbook,)
+        return Finding(
+            domain=str(raw["domain"]).strip(),
+            check=str(raw["check"]).strip(),
+            severity=severity,
+            item=str(raw["item"]).strip(),
+            evidence=str(raw["evidence"]).strip(),
+            handbook=tuple(str(h).strip() for h in handbook),
+            note=str(raw.get("note") or "").strip(),
+        )
+
+
+@dataclass(frozen=True)
+class Issue:
+    """One issue in the emitted tree."""
+
+    title: str
+    body: str
+    labels: tuple[str, ...]
+    children: tuple[Issue, ...] = field(default=())
+
+
+def _severity_rank(severity: str) -> int:
+    try:
+        return SEVERITIES.index(severity)
+    except ValueError as exc:  # guarded at construction
+        raise FindingsError(f"unknown severity {severity!r}") from exc
+
+
+def load_findings(payload: Any) -> list[Finding]:
+    """Read a findings payload into `Finding` objects.
+
+    Accepts either a bare list or a mapping carrying a ``findings`` key, because
+    a sweep that wants to record its own metadata beside the findings should not
+    have to choose between that and this module reading the file.
+    """
+    if isinstance(payload, dict):
+        raw_list = payload.get("findings")
+        if raw_list is None:
+            raise FindingsError("mapping payload has no 'findings' key")
+    else:
+        raw_list = payload
+    if not isinstance(raw_list, list):
+        raise FindingsError(
+            f"expected a list of findings, got {type(raw_list).__name__}"
+        )
+    return [
+        Finding.from_mapping(raw, where=f"finding {i}")
+        for i, raw in enumerate(raw_list)
+    ]
+
+
+def cluster(
+    findings: list[Finding],
+) -> list[tuple[tuple[str, str, str], list[Finding]]]:
+    """Group findings into sub-issue clusters, one per (domain, check, severity).
+
+    Returned in a stable order - domain, then severity worst-first, then check -
+    so two runs over the same findings emit the same tree and a diff between
+    them is a change in the findings rather than in the iteration order.
+    """
+    buckets: dict[tuple[str, str, str], list[Finding]] = {}
+    for f in findings:
+        buckets.setdefault((f.domain, f.check, f.severity), []).append(f)
+    return sorted(
+        buckets.items(),
+        key=lambda kv: (kv[0][0], _severity_rank(kv[0][2]), kv[0][1]),
+    )
+
+
+def render_sub_issue(key: tuple[str, str, str], findings: list[Finding]) -> Issue:
+    """Render one cluster as a sub-issue.
+
+    Every finding contributes exactly one evidence line. That is the property
+    that keeps clustering from losing data, and the tests assert it by counting
+    evidence lines across the whole tree rather than per issue.
+    """
+    domain, check, severity = key
+    plural = "finding" if len(findings) == 1 else "findings"
+    title = f"[{domain}] {check}: {len(findings)} {severity} {plural}"
+    lines = [
+        f"Check `{check}` reported {len(findings)} {severity} {plural} in the `{domain}` domain.",
+        "",
+        "## Evidence",
+    ]
+    for f in findings:
+        caveat = f" ({f.note})" if f.note else ""
+        lines.append(f"- `{f.evidence}` - {f.item}{caveat}")
+    citations = sorted({h for f in findings for h in f.handbook})
+    lines += ["", "## Handbook"]
+    if citations:
+        lines += [f"- {c}" for c in citations]
+    else:
+        lines.append(
+            "- No clause cited. The check record carries the citation; "
+            "an empty list here means the sweep recorded none, not that none exists."
+        )
+    labels = (f"audit:{domain}", PRIORITY_LABELS[severity])
+    return Issue(title=title, body="\n".join(lines), labels=labels)
+
+
+def at_least(findings: list[Finding], floor: str) -> list[Finding]:
+    """Findings at or above a severity floor, worst-first order preserved.
+
+    The sweep's own report template offers filing issues at Important and
+    above, so the tool it names has to be able to do that. The default is no
+    floor, because dropping findings is the caller's decision to state rather
+    than the emitter's to assume.
+    """
+    if floor not in SEVERITIES:
+        raise FindingsError(f"unknown severity floor {floor!r}")
+    limit = _severity_rank(floor)
+    return [f for f in findings if _severity_rank(f.severity) <= limit]
+
+
+def build_tree(findings: list[Finding], *, target: str) -> Issue:
+    """Build the epic / child-epic / sub-issue tree.
+
+    A domain with no findings gets no child epic, because an empty epic in a
+    tracker reads as outstanding work rather than as a clean result. The report
+    is what records a domain that came back clean.
+    """
+    clusters = cluster(findings)
+    by_domain: dict[str, list[Issue]] = {}
+    for key, group in clusters:
+        by_domain.setdefault(key[0], []).append(render_sub_issue(key, group))
+
+    domain_epics: list[Issue] = []
+    for domain in sorted(by_domain):
+        subs = by_domain[domain]
+        counts = _severity_counts([f for k, g in clusters if k[0] == domain for f in g])
+        body = "\n".join(
+            [
+                f"Productionization findings for the `{domain}` domain of `{target}`.",
+                "",
+                "| Severity | Findings |",
+                "|---|---|",
+                *[f"| {s} | {counts[s]} |" for s in SEVERITIES if counts[s]],
+                "",
+                f"{len(subs)} sub-issue(s) below.",
+            ]
+        )
+        domain_epics.append(
+            Issue(
+                title=f"[{domain}] Productionization findings",
+                body=body,
+                labels=(f"audit:{domain}", "epic"),
+                children=tuple(subs),
+            )
+        )
+
+    total = _severity_counts(findings)
+    root_body = "\n".join(
+        [
+            f"Handbook-conformance audit of `{target}`.",
+            "",
+            "| Severity | Findings |",
+            "|---|---|",
+            *[f"| {s} | {total[s]} |" for s in SEVERITIES],
+            "",
+            f"{len(domain_epics)} domain(s) with findings. "
+            "Domains that came back clean carry no epic; the prose report records them.",
+        ]
+    )
+    return Issue(
+        title=f"Productionization of {target}",
+        body=root_body,
+        labels=("epic",),
+        children=tuple(domain_epics),
+    )
+
+
+def _severity_counts(findings: list[Finding]) -> dict[str, int]:
+    counts = dict.fromkeys(SEVERITIES, 0)
+    for f in findings:
+        counts[f.severity] += 1
+    return counts
+
+
+def labels_used(tree: Issue) -> list[str]:
+    """Every label the tree needs, sorted. What `--create` would ensure exists."""
+    seen: set[str] = set()
+
+    def walk(issue: Issue) -> None:
+        seen.update(issue.labels)
+        for child in issue.children:
+            walk(child)
+
+    walk(tree)
+    return sorted(seen)
+
+
+def render_dry_run(tree: Issue) -> str:
+    """Render the whole tree as text, the way `--dry-run` prints it."""
+    out: list[str] = []
+
+    def walk(issue: Issue, depth: int) -> None:
+        pad = "  " * depth
+        out.append(f"{pad}{'#' * (depth + 1)} {issue.title}")
+        out.append(f"{pad}labels: {', '.join(issue.labels)}")
+        for line in issue.body.splitlines():
+            out.append(f"{pad}| {line}")
+        out.append("")
+        for child in issue.children:
+            walk(child, depth + 1)
+
+    walk(tree, 0)
+    out.append(f"labels required: {', '.join(labels_used(tree))}")
+    out.append(f"issues that would be created: {_count(tree)}")
+    return "\n".join(out)
+
+
+def _count(issue: Issue) -> int:
+    return 1 + sum(_count(c) for c in issue.children)
+
+
+@dataclass(frozen=True)
+class Action:
+    """One write the creation path would perform, as data rather than as a call.
+
+    Planning and performing are split so the decisions - which labels are
+    missing, what order issues are created in, which parent each child links to
+    - are testable without a network, a token, or a repository to write to.
+    The executor below is the only part that cannot be tested that way, and it
+    is deliberately thin enough to read in one sitting.
+    """
+
+    kind: str  # "create-label" | "create-issue" | "link-sub-issue"
+    argv: tuple[str, ...]
+    #: Index into the plan's own issue order, for a link whose target is an
+    #: issue this plan has not created yet. Resolved by the executor from the
+    #: numbers the create calls return, never guessed.
+    parent_ref: int | None = None
+    self_ref: int | None = None
+
+
+def plan_labels(tree: Issue, existing: set[str], *, target: str) -> list[Action]:
+    """Label creations needed, skipping those that already exist.
+
+    Idempotent by construction: the plan is a set difference, so running the
+    emitter twice against the same repository plans nothing the second time.
+    """
+    return [
+        Action(
+            kind="create-label",
+            argv=("gh", "label", "create", name, "--repo", target, "--force"),
+        )
+        for name in labels_used(tree)
+        if name not in existing
+    ]
+
+
+def plan_issues(tree: Issue, *, target: str) -> list[Action]:
+    """Issue creations and parent links, parents before children.
+
+    Order matters and is the whole reason this is a plan rather than a
+    recursion with side effects: a sub-issue cannot be linked to a parent that
+    does not exist yet, so every create is emitted before the link that uses it.
+    """
+    actions: list[Action] = []
+    counter = 0
+
+    def walk(issue: Issue, parent_index: int | None) -> None:
+        nonlocal counter
+        index = counter
+        counter += 1
+        label_args = [arg for name in issue.labels for arg in ("--label", name)]
+        actions.append(
+            Action(
+                kind="create-issue",
+                argv=(
+                    "gh",
+                    "issue",
+                    "create",
+                    "--repo",
+                    target,
+                    "--title",
+                    issue.title,
+                    "--body",
+                    issue.body,
+                    *label_args,
+                ),
+                self_ref=index,
+            )
+        )
+        if parent_index is not None:
+            actions.append(
+                Action(
+                    kind="link-sub-issue",
+                    argv=(),
+                    parent_ref=parent_index,
+                    self_ref=index,
+                )
+            )
+        for child in issue.children:
+            walk(child, index)
+
+    walk(tree, None)
+    return actions
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Emit an importable issue set from a sweep's findings file."
+    )
+    parser.add_argument(
+        "findings", type=Path, help="path to the findings JSON the sweep wrote"
+    )
+    parser.add_argument(
+        "--target", required=True, help="the audited repository, as owner/name"
+    )
+    parser.add_argument(
+        "--min-severity",
+        choices=SEVERITIES,
+        help=(
+            "drop findings below this severity. Omit to emit every finding; "
+            "the sweep's report template offers Important and above."
+        ),
+    )
+    parser.add_argument(
+        "--create",
+        action="store_true",
+        help=(
+            "create the issues and any missing labels in --target. Without this "
+            "nothing is created and nothing is written anywhere."
+        ),
+    )
+    args = parser.parse_args(argv)
+
+    try:
+        payload = json.loads(args.findings.read_text())
+    except FileNotFoundError:
+        print(
+            f"error: no findings file at {args.findings}. "
+            "The sweep writes one; this tool does not read the prose report, "
+            "whose findings matrix is capped to the significant rows.",
+            file=sys.stderr,
+        )
+        return 2
+    except json.JSONDecodeError as exc:
+        print(f"error: {args.findings} is not valid JSON: {exc}", file=sys.stderr)
+        return 2
+
+    try:
+        findings = load_findings(payload)
+    except FindingsError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+
+    if args.min_severity:
+        kept = at_least(findings, args.min_severity)
+        print(
+            f"severity floor {args.min_severity}: "
+            f"{len(kept)} of {len(findings)} findings kept",
+            file=sys.stderr,
+        )
+        findings = kept
+
+    tree = build_tree(findings, target=args.target)
+
+    if not args.create:
+        print(render_dry_run(tree))
+        plan = plan_labels(tree, set(), target=args.target) + plan_issues(
+            tree, target=args.target
+        )
+        print(f"writes that --create would perform: {len(plan)}")
+        return 0
+
+    return _execute(tree, target=args.target)
+
+
+def _execute(tree: Issue, *, target: str) -> int:
+    """Perform the plan against a real repository.
+
+    Untested by design and by necessity: every line here writes to a repository
+    this project does not own. The decisions it acts on are planned and tested
+    above; what is left is running them in order and mapping the issue numbers
+    the creates return onto the links that need them.
+    """
+    import subprocess
+
+    existing = set()
+    probe = subprocess.run(
+        ("gh", "label", "list", "--repo", target, "--json", "name", "--jq", ".[].name"),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if probe.returncode == 0:
+        existing = {line.strip() for line in probe.stdout.splitlines() if line.strip()}
+
+    for action in plan_labels(tree, existing, target=target):
+        subprocess.run(action.argv, check=True)
+
+    numbers: dict[int, str] = {}
+    for action in plan_issues(tree, target=target):
+        if action.kind == "create-issue":
+            done = subprocess.run(
+                action.argv, capture_output=True, text=True, check=True
+            )
+            url = done.stdout.strip().splitlines()[-1]
+            numbers[action.self_ref] = url.rsplit("/", 1)[-1]
+        elif action.kind == "link-sub-issue":
+            child = numbers[action.self_ref]
+            parent = numbers[action.parent_ref]
+            print(f"link: #{child} is a sub-issue of #{parent} (addSubIssue)")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -33,6 +33,7 @@ dev = ["pytest>=8.0", "ruff>=0.6", "deptry>=0.20"]
 known_first_party = [
     "audit_checks",
     "build_python_fixtures",
+    "emit_audit_issues",
     "grade_python_fixture_run",
     "python_fixture_spec",
     "render_handbook_artifact",
