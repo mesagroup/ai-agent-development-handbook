@@ -333,14 +333,22 @@ def plan_labels(tree: Issue, existing: set[str], *, target: str) -> list[Action]
 
     Idempotent by construction: the plan is a set difference, so running the
     emitter twice against the same repository plans nothing the second time.
+
+    **Compared case-insensitively**, because GitHub treats label names that way
+    for uniqueness. A tracker holding `Epic` already has this tree's `epic`, and
+    planning it anyway makes the creation 422 and take the whole run down with
+    it before a single issue is opened - the tree needs `epic` every time, so
+    that is not an edge case but the ordinary one on any repository that
+    capitalises its labels.
     """
+    have = {name.casefold() for name in existing}
     return [
         Action(
             kind="create-label",
             argv=("gh", "label", "create", name, "--repo", target),
         )
         for name in labels_used(tree)
-        if name not in existing
+        if name.casefold() not in have
     ]
 
 
@@ -507,9 +515,27 @@ def _execute(tree: Issue, *, target: str) -> int:
     # A second run would open the whole tree again, and nothing about an issue
     # says it was emitted by this tool, so the duplicate is invisible until
     # somebody reads the tracker.
+    # Listed rather than searched. `--search` hits the Search API, which is
+    # eventually consistent and tokenizes its query, so a tree created moments
+    # ago - which is exactly the retry case this guard exists for - can come
+    # back absent. A listing is read from the tracker itself, and the titles are
+    # compared exactly rather than by substring, because a substring test over
+    # raw JSON matches a title that merely contains this one.
     root = tree.title
     seen = subprocess.run(
-        ("gh", "issue", "list", "--repo", target, "--search", root, "--json", "title"),
+        (
+            "gh",
+            "issue",
+            "list",
+            "--repo",
+            target,
+            "--state",
+            "all",
+            "--limit",
+            "1000",
+            "--json",
+            "title",
+        ),
         capture_output=True,
         text=True,
         check=False,
@@ -523,7 +549,16 @@ def _execute(tree: Issue, *, target: str) -> int:
             file=sys.stderr,
         )
         return 4
-    if root in seen.stdout:
+    try:
+        titles = {row.get("title", "") for row in json.loads(seen.stdout or "[]")}
+    except json.JSONDecodeError:
+        print(
+            f"error: could not read the issue list from {target}. Refusing to "
+            "proceed rather than guessing whether a tree is already there.",
+            file=sys.stderr,
+        )
+        return 4
+    if root in titles:
         print(
             f"error: {target} already has an issue titled {root!r}. "
             "This tool does not reconcile with an existing tree, so a second "

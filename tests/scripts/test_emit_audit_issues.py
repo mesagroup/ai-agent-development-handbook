@@ -289,3 +289,15 @@ def test_a_label_is_never_created_with_force():
     tree = em.build_tree(_load(_finding()), target="t/t")
     for action in em.plan_labels(tree, set(), target="t/t"):
         assert "--force" not in action.argv
+
+
+def test_an_existing_label_in_another_case_is_not_planned_again():
+    """GitHub label names are case-insensitive for uniqueness.
+
+    The tree needs `epic` on every run, so a tracker that capitalises its
+    labels would 422 on the first creation and take the run down before a
+    single issue was opened.
+    """
+    tree = em.build_tree(_load(_finding()), target="t/t")
+    shouty = {name.upper() for name in em.labels_used(tree)}
+    assert em.plan_labels(tree, shouty, target="t/t") == []
