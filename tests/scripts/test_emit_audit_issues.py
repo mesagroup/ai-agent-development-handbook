@@ -301,3 +301,29 @@ def test_an_existing_label_in_another_case_is_not_planned_again():
     tree = em.build_tree(_load(_finding()), target="t/t")
     shouty = {name.upper() for name in em.labels_used(tree)}
     assert em.plan_labels(tree, shouty, target="t/t") == []
+
+
+def test_an_empty_findings_file_emits_nothing_rather_than_an_empty_epic(
+    tmp_path, capsys
+):
+    """An empty root epic is worse than no output.
+
+    It is titled from the target, so the duplicate guard would read it as an
+    existing tree and refuse the later run that actually had findings.
+    """
+    path = tmp_path / "findings.json"
+    path.write_text(json.dumps({"findings": []}))
+    assert em.main([str(path), "--target", "t/t"]) == 0
+    out = capsys.readouterr().out
+    assert "no findings to file" in out
+    assert "Productionization of" not in out
+
+
+def test_a_severity_floor_that_drops_everything_emits_nothing(tmp_path, capsys):
+    """The reachable case, and the one the report template names."""
+    path = tmp_path / "findings.json"
+    path.write_text(json.dumps({"findings": [_finding(severity="minor")]}))
+    assert em.main([str(path), "--target", "t/t", "--min-severity", "important"]) == 0
+    out = capsys.readouterr().out
+    assert "no findings to file at important or above" in out
+    assert "Productionization of" not in out
