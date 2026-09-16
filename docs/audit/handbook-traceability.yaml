@@ -1174,7 +1174,7 @@
     - deps/vulnerabilities
     - deps/freshness
     - deps/hygiene
-  note: An exact fit - the handbook's four axes are deps-audit's four core checks, transitivity is the resolved graph the skill takes as ground truth, and unpinned floating direct dependencies sit inside `deps/freshness`.
+  note: An exact fit - the handbook's four axes are the four package-graph checks cited here, transitivity is the resolved graph the skill takes as ground truth, and unpinned floating direct dependencies sit inside `deps/freshness`. The domain's other non-opt-in check, `deps/model-pinning-and-eol`, answers the `-b` row's AI surface rather than any axis of this one.
 
 - id: security-supply-chain/depend-only-on-what-you-can-account-for-b
   section: "Depend only on what you can account for"
@@ -1185,6 +1185,7 @@
     - eval/reproducibility
     - data-protection/processor-register
     - deps/model-pinning-and-eol
+
 - id: security-supply-chain/treat-the-pipeline-as-a-privileged-environment
   section: "Treat the pipeline as a privileged environment"
   claim: Treat CI as a privileged runtime holding your secrets as well as the merge gate - default the pipeline token to read-only and widen only the single job that genuinely needs it, pin third-party actions to an immutable commit SHA rather than a mutable tag, never run untrusted pull-request code with secrets in scope, and prefer short-lived federated credentials over long-lived stored secrets.
