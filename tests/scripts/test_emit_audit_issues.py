@@ -256,3 +256,36 @@ def test_a_caveat_travels_with_the_finding_it_qualifies():
     findings = _load(_finding(note="check id unconfirmed by the domain"))
     sub = em.build_tree(findings, target="t/t").children[0].children[0]
     assert "check id unconfirmed by the domain" in sub.body
+
+
+def test_a_link_action_carries_the_mutation_that_performs_it():
+    """The link is the tree.
+
+    A plan whose link actions carry no command produces a flat dump of issues
+    with no parent anywhere, which is the deliverable's whole shape lost while
+    every individual issue looks right.
+    """
+    tree = em.build_tree(
+        _load(
+            _finding(),
+            _finding(
+                domain="deps", check="deps/licenses", severity="minor", evidence="u:1"
+            ),
+        ),
+        target="t/t",
+    )
+    links = [
+        a for a in em.plan_issues(tree, target="t/t") if a.kind == "link-sub-issue"
+    ]
+    assert links
+    for action in links:
+        assert action.argv, "a link action with no argv performs no link"
+        assert "addSubIssue" in " ".join(action.argv)
+
+
+def test_a_label_is_never_created_with_force():
+    """`--force` overwrites an existing label's colour and description, which
+    turns a listing that missed a page into silent edits to somebody's repo."""
+    tree = em.build_tree(_load(_finding()), target="t/t")
+    for action in em.plan_labels(tree, set(), target="t/t"):
+        assert "--force" not in action.argv
