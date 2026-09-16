@@ -14,6 +14,7 @@ uv run python scripts/render_python_fixture_expectations.py --check   # integrit
 uv run python scripts/render_python_fixture_expectations.py           # regenerate the fixture expectations
 uv run deptry .                                                       # dependency hygiene gate
 uv run python scripts/build_python_fixtures.py --all                  # generate the five gitignored fixture trees
+uv run python scripts/emit_audit_issues.py <findings.json> --target <owner/repo>   # dry-run the issue set a sweep would file
 ```
 
 Run `ruff check` AND `ruff format --check` before committing. CI runs both.

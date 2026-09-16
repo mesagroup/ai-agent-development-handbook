@@ -31,6 +31,7 @@ uv run python scripts/render_python_fixture_expectations.py --check  # integrity
 uv run deptry .                                                # dependency hygiene gate
 uv run python scripts/render_handbook_traceability.py          # regenerate the matrix Markdown
 uv run python scripts/render_handbook_artifact.py              # render the handbook to one HTML file
+uv run python scripts/emit_audit_issues.py <findings.json> --target <owner/repo>  # dry-run the issue set a sweep would file
 ```
 
 The matrix Markdown is generated. Edit [`handbook-traceability.yaml`](docs/audit/handbook-traceability.yaml), never the `.md`.
