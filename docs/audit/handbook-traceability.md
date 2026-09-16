@@ -4,7 +4,7 @@
 
 Maps every `##` section of the [engineering handbook](../engineering/README.md) onto the `*-audit` skill family. Source of truth: [`handbook-traceability.yaml`](handbook-traceability.yaml). Issue: `<origin-repo>#543`.
 
-Section links are relative to this file. The audit skills, which do ship as a Claude Code plugin and run against other repositories, emit absolute URLs for the same targets, because a relative path out of a plugin cache resolves to nothing; this document is not shipped in that plugin, so it does not inherit the constraint.
+Section links are relative to this file. The audit skills, which ship as a Claude Code plugin and run against other repositories, emit absolute URLs for the same targets, because their output is copied into reports whose readers hold neither this repository nor the plugin cache; this document is read where a relative link resolves, and an absolute one would bake the org and repository name into every copy.
 
 | Class | Meaning |
 |---|---|
