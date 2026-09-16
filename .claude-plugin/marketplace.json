@@ -8,7 +8,7 @@
     {
       "name": "handbook-audit",
       "source": "./",
-      "description": "Handbook-conformance audit skill family: nine domains, 84 check records, each citing the handbook clause it enforces.",
+      "description": "Handbook-conformance audit skill family: nine domains, 85 check records, each citing the handbook clause it enforces.",
       "homepage": "https://github.com/mesagroup/ai-agent-development-handbook"
     }
   ]
