@@ -321,6 +321,11 @@ class Action:
 
     kind: str  # "create-label" | "create-issue" | "link-sub-issue"
     argv: tuple[str, ...]
+    #: What this action does, in words, for the executor to name when it fails.
+    #: The argv cannot stand in: it carries the issue body, so a failure that
+    #: printed it would bury the message under the whole document - 70 KB of it
+    #: in the run that found this, which is why the field exists.
+    describes: str = ""
     #: Index into the plan's own issue order, for a link whose target is an
     #: issue this plan has not created yet. Resolved by the executor from the
     #: numbers the create calls return, never guessed.
@@ -346,6 +351,7 @@ def plan_labels(tree: Issue, existing: set[str], *, target: str) -> list[Action]
         Action(
             kind="create-label",
             argv=("gh", "label", "create", name, "--repo", target),
+            describes=f"creating the label {name!r}",
         )
         for name in labels_used(tree)
         if name.casefold() not in have
@@ -383,6 +389,7 @@ def plan_issues(tree: Issue, *, target: str) -> list[Action]:
                     *label_args,
                 ),
                 self_ref=index,
+                describes=f"creating the issue {issue.title!r}",
             )
         )
         if parent_index is not None:
@@ -392,6 +399,7 @@ def plan_issues(tree: Issue, *, target: str) -> list[Action]:
                     argv=("gh", "api", "graphql", "-f", f"query={ADD_SUB_ISSUE}"),
                     parent_ref=parent_index,
                     self_ref=index,
+                    describes=f"linking {issue.title!r} under its parent",
                 )
             )
         for child in issue.children:
@@ -488,9 +496,16 @@ def main(argv: list[str] | None = None) -> int:
 def _execute(tree: Issue, *, target: str) -> int:
     """Perform the plan against a real repository.
 
-    Untested by necessity: every line here writes to a repository this project
-    does not own. The decisions it acts on are planned and tested above; what is
-    left is running them in order and resolving the node ids the links need.
+    The writes themselves cannot be tested here - every one of them writes to a
+    repository this project does not own - so what this function does around
+    them is the part that is tested: the order, the node ids the links need,
+    and what it reports when a write fails partway through.
+
+    That last one is why this is no longer thin. A run that dies on its third
+    write has already put a root epic and a domain epic in somebody else's
+    tracker, and the duplicate guard will then refuse every retry, so failing
+    silently and letting the exception out leaves the operator with orphan
+    issues, a stack trace, and no way to tell which issue is blocking them.
     """
     import subprocess
 
@@ -574,18 +589,70 @@ def _execute(tree: Issue, *, target: str) -> int:
         )
         return 5
 
+    #: Every issue this run has opened, in creation order, as (number, title).
+    #: The first is the root epic, which is what the duplicate guard reads, so
+    #: a partial run can tell the operator exactly which issue is blocking the
+    #: retry rather than leaving them to work it out.
+    created: list[tuple[str, str]] = []
+
+    def stopped(action: Action, stderr: str) -> int:
+        """Report a write that failed, and what it left behind.
+
+        The argv is never printed. It carries the issue body, so the traceback
+        this replaces buried the message under the whole document. What the
+        operator needs instead is three things: which write failed, what the
+        tool said about it, and what is now sitting in a repository this
+        project does not own.
+        """
+        print(f"error: {action.describes} failed: {stderr}", file=sys.stderr)
+        if not created:
+            print(f"Nothing was created in {target}.", file=sys.stderr)
+            return 6
+        print(
+            f"{len(created)} issue(s) were created in {target} before this "
+            "failed, and they are still there:",
+            file=sys.stderr,
+        )
+        for number, title in created:
+            print(f"  #{number} {title}", file=sys.stderr)
+        root_number, root_title = created[0]
+        print(
+            f"The tree is partial, and re-running will not resume it: the "
+            f"duplicate guard reads #{root_number}, {root_title!r}, as a tree "
+            "already filed and refuses. Closing it does not clear that, for "
+            "the same reason. Rename or delete it to file the whole tree "
+            "again, or file the rest by hand against the part that is there.",
+            file=sys.stderr,
+        )
+        return 6
+
+    def run(argv: tuple[str, ...]) -> subprocess.CompletedProcess[str]:
+        """One write, with its output captured rather than printed.
+
+        Captured because the link is a GraphQL mutation whose response is a
+        line of JSON per call, and printing those told the operator nothing
+        while hiding what had actually been created.
+        """
+        return subprocess.run(argv, capture_output=True, text=True, check=False)
+
     for action in plan_labels(tree, existing, target=target):
-        subprocess.run(action.argv, check=True)
+        done = run(action.argv)
+        if done.returncode != 0:
+            return stopped(action, done.stderr.strip())
 
     node_ids: dict[int, str] = {}
     for action in plan_issues(tree, target=target):
         if action.kind == "create-issue":
-            done = subprocess.run(
-                action.argv, capture_output=True, text=True, check=True
-            )
+            done = run(action.argv)
+            if done.returncode != 0:
+                return stopped(action, done.stderr.strip())
             url = done.stdout.strip().splitlines()[-1]
             number = url.rsplit("/", 1)[-1]
-            ident = subprocess.run(
+            # Keyed on the flag rather than on a position, so adding an
+            # argument ahead of it does not silently record the wrong string.
+            title = action.argv[action.argv.index("--title") + 1]
+            created.append((number, title))
+            ident = run(
                 (
                     "gh",
                     "issue",
@@ -597,23 +664,29 @@ def _execute(tree: Issue, *, target: str) -> int:
                     "id",
                     "--jq",
                     ".id",
-                ),
-                capture_output=True,
-                text=True,
-                check=True,
+                )
             )
+            if ident.returncode != 0:
+                return stopped(action, ident.stderr.strip())
             node_ids[action.self_ref] = ident.stdout.strip()
         elif action.kind == "link-sub-issue":
-            subprocess.run(
+            done = run(
                 (
                     *action.argv,
                     "-f",
                     f"parent={node_ids[action.parent_ref]}",
                     "-f",
                     f"child={node_ids[action.self_ref]}",
-                ),
-                check=True,
+                )
             )
+            if done.returncode != 0:
+                return stopped(action, done.stderr.strip())
+
+    # A dry run tells the operator exactly what it would do; without this the
+    # real run told them less than that, and gave them no numbers to check.
+    print(f"created {len(created)} issue(s) in {target}:")
+    for number, title in created:
+        print(f"  #{number} {title}")
     return 0
 
 

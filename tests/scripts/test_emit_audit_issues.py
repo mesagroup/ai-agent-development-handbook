@@ -7,10 +7,14 @@ lost. The last one is the conservation property, and it is asserted over the
 whole tree rather than per issue, because a clustering bug that drops a finding
 would otherwise pass every per-issue assertion.
 
-The creation path is planned as data and executed elsewhere. What is testable
-is the plan - which labels are missing, what order the creates go in, which
-parent each link points at - and that is what is tested here. Nothing in this
-file performs a write or reaches a network.
+The creation path is planned as data and performed separately. The plan is
+testable directly - which labels are missing, what order the creates go in,
+which parent each link points at - and so is what the executor does around the
+writes: the order it runs them in, and what it reports when one fails partway
+through and leaves a tree half-filed in somebody else's tracker. The writes
+themselves are not, so the executor's tests drive it through a double that
+answers each `gh` call. Nothing in this file performs a write or reaches a
+network.
 """
 
 from __future__ import annotations
@@ -327,3 +331,142 @@ def test_a_severity_floor_that_drops_everything_emits_nothing(tmp_path, capsys):
     out = capsys.readouterr().out
     assert "no findings to file at important or above" in out
     assert "Productionization of" not in out
+
+
+def _gh_double(fail_on=None):
+    """A `subprocess.run` that answers the executor's calls without a network.
+
+    `fail_on` is a predicate over the argv: the first call it matches comes back
+    non-zero. Everything else succeeds, so a test names the one write it wants
+    to break and says nothing about the rest.
+    """
+    import subprocess
+
+    calls: list[list[str]] = []
+    issue_number = [0]
+
+    def run(argv, *_args, **_kwargs):
+        argv = list(argv)
+        calls.append(argv)
+        if fail_on is not None and fail_on(argv):
+            return subprocess.CompletedProcess(argv, 1, "", "gh: the API said no")
+        if argv[:3] == ["gh", "label", "list"]:
+            return subprocess.CompletedProcess(argv, 0, "", "")
+        if argv[:2] == ["gh", "api"] and "issues?state=all" in argv[2]:
+            return subprocess.CompletedProcess(argv, 0, "", "")
+        if argv[:3] == ["gh", "issue", "create"]:
+            issue_number[0] += 1
+            return subprocess.CompletedProcess(
+                argv, 0, f"https://github.com/t/t/issues/{issue_number[0]}\n", ""
+            )
+        if argv[:3] == ["gh", "issue", "view"]:
+            return subprocess.CompletedProcess(argv, 0, f"NODE{argv[3]}\n", "")
+        return subprocess.CompletedProcess(argv, 0, '{"data":{}}', "")
+
+    return run, calls
+
+
+def _tree_of_two_domains() -> em.Issue:
+    return em.build_tree(
+        _load(
+            _finding(),
+            _finding(
+                domain="docs", check="docs/runbook", severity="minor", evidence="d:1"
+            ),
+        ),
+        target="t/t",
+    )
+
+
+def test_a_write_that_fails_names_what_was_already_created(monkeypatch, capsys):
+    """A partial run leaves issues in a repository this project does not own.
+
+    Letting the exception out printed a stack trace carrying the whole failing
+    argv - the issue body included - and said nothing about the tree already
+    half-created. The operator needs the opposite: no argv, and the list of
+    issues now sitting in their target.
+    """
+    run, _ = _gh_double(
+        fail_on=lambda a: a[:3] == ["gh", "issue", "create"] and "docs" in " ".join(a)
+    )
+    monkeypatch.setattr("subprocess.run", run)
+
+    code = em._execute(_tree_of_two_domains(), target="t/t")
+
+    assert code == 6
+    err = capsys.readouterr().err
+    assert "were created in t/t before this failed" in err
+    assert "#1 " in err, "the root epic is named so the operator can find it"
+    assert "gh: the API said no" in err, "the tool's own message is passed through"
+
+
+def test_the_failure_report_names_the_issue_that_blocks_the_retry(monkeypatch, capsys):
+    """The duplicate guard reads the root epic, so the retry is blocked by a
+    specific issue. Saying "rename or delete the epic" without saying which one
+    sends the operator to look for it."""
+    run, _ = _gh_double(
+        fail_on=lambda a: a[:3] == ["gh", "issue", "create"] and "docs" in " ".join(a)
+    )
+    monkeypatch.setattr("subprocess.run", run)
+
+    em._execute(_tree_of_two_domains(), target="t/t")
+
+    err = capsys.readouterr().err
+    assert "re-running will not resume it" in err
+    assert "Closing it does not clear that" in err
+
+
+def test_a_failure_before_anything_was_created_says_so(monkeypatch, capsys):
+    """ "Nothing was created" and "some of it was" need different next steps, and
+    a report that cannot tell them apart sends the operator to check by hand."""
+    run, _ = _gh_double(fail_on=lambda a: a[:3] == ["gh", "label", "create"])
+    monkeypatch.setattr("subprocess.run", run)
+
+    code = em._execute(_tree_of_two_domains(), target="t/t")
+
+    assert code == 6
+    err = capsys.readouterr().err
+    assert "Nothing was created in t/t." in err
+    assert "before this failed" not in err
+
+
+def test_a_completed_run_reports_what_it_created(monkeypatch, capsys):
+    """The dry run names every write it would perform. Without this the real
+    run said less than the dry run did, and left no numbers to check."""
+    run, _ = _gh_double()
+    monkeypatch.setattr("subprocess.run", run)
+
+    code = em._execute(_tree_of_two_domains(), target="t/t")
+
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "created 5 issue(s) in t/t:" in out
+    assert "Productionization of t/t" in out
+
+
+def test_the_mutation_responses_are_not_printed(monkeypatch, capsys):
+    """Each link is a GraphQL call whose response is a line of JSON. Printing
+    them told the operator nothing and hid the summary among them."""
+    run, _ = _gh_double()
+    monkeypatch.setattr("subprocess.run", run)
+
+    em._execute(_tree_of_two_domains(), target="t/t")
+
+    captured = capsys.readouterr()
+    assert "clientMutationId" not in captured.out
+    assert '"data"' not in captured.out
+
+
+def test_no_failure_report_prints_the_argv_it_failed_on(monkeypatch, capsys):
+    """The argv carries the issue body. The run that found this printed 70 KB
+    of it in a traceback, which is how the message got lost."""
+    run, _ = _gh_double(
+        fail_on=lambda a: a[:3] == ["gh", "issue", "create"] and "docs" in " ".join(a)
+    )
+    monkeypatch.setattr("subprocess.run", run)
+
+    em._execute(_tree_of_two_domains(), target="t/t")
+
+    err = capsys.readouterr().err
+    assert "## Evidence" not in err, "the body reached the operator's terminal"
+    assert "--body" not in err
