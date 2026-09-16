@@ -23,19 +23,29 @@ routes:
     disposition: runs
     note: >-
       **The pin, read from the project's own configuration.** Collect every
-      model identifier and provider API version the application declares,
-      not the ones its evals declare: settings and config modules,
+      model identifier and provider API version the application declares:
+      settings and config modules,
       environment templates such as `.env.example`, deployment manifests,
       the arguments to SDK client construction, and any prompt or agent
       definition that names a model. For each, ask whether the provider
-      publishes a pinnable form and whether the project uses it. **Where the
-      provider cannot be reached, this half reports `no-evidence` with that
-      reason too**, and not a status: the declaration says whether the
-      identifier carries a version, and only the provider says whether a
-      version was on offer, which is the whole difference between the `ok`
-      below and the Important band. Record the identifiers found either way,
-      because that half of the evidence stands and the next run starts from
-      it. An alias
+      publishes a pinnable form and whether the project uses it. **Collect
+      the eval-side identifiers too, as comparison evidence rather than as
+      findings**: the review lens below turns on whether the evals pin a
+      version the production path does not, and that comparison has no
+      evidence if only one side was read. The finding stays on the
+      application path, because that is the model the product answers with;
+      `eval/reproducibility` owns whether the eval recorded its own.
+      **Where the
+      provider cannot be reached, `no-evidence` covers exactly the question
+      the provider would have answered** - whether a pinnable form exists,
+      which is the whole difference between the `ok` below and the Important
+      band - **and nothing else**. Everything decidable from the declarations
+      already in the clone still reports: a provider configured with no model
+      named, and two declaration sites that disagree about which model runs.
+      Neither needed the network to begin with, and folding them into one
+      `no-evidence` suppresses a finding nothing was missing to make. Record
+      the identifiers found either way, because that half of the evidence
+      stands and the next run starts from it. An alias
       that resolves to whatever the *provider* currently points it at is the
       unpinned case, and it is unpinned however stable it has been so far.
       **A project's own alias is not that.** The handbook asks for a short
@@ -72,7 +82,9 @@ Does the project pin the model versions it depends on where the provider allows 
 
 **That shared surface is often absent, and this check still runs.** It is built inside a data-protection run, so a direct `deps-audit` invocation never has it, and a sweep whose operator answered that the target processes no personal data has removed that domain from scope entirely while this check is not opt-in and runs anyway. In that case derive the provider list here, from the same homes the pin is read from, and say in the report that it was derived rather than consumed. Reporting `no-evidence` because a sibling domain did not run would make a check about model versions depend on a question about personal data, which is not a relationship either claim has.
 
-**A project that configures no model provider at all gets this domain's clean value, with what was read recorded beside it** - the homes searched and the absence found. Not `not-applicable`, which `audit-core` reserves for a check with no lens in a partition's languages: this check reads declarations, has a lens everywhere, and an empty surface is it running and finding nothing. That is a claim about the whole surface rather than the first place looked in: a project may name its model in a config module, a deployment manifest, an environment template or an agent definition, and finding none in the first of those settles nothing.
+**Two absences look alike and are opposites, so separate them before reporting either.** A project that configures **no model provider at all** - no SDK client, no base URL, no model credential - gets this domain's clean value, with what was read recorded beside it: the homes searched and the absence found. A project that **configures a provider and names no model** is not empty at all: it is running the provider's default, which is the least pinned state there is, and it reports the unpinned finding rather than a clean value. Find the providers first and the identifiers second, because only the first of those tells you which kind of absence you are looking at.
+
+The clean value here is not `not-applicable`, which `audit-core` reserves for a check with no lens in a partition's languages: this check reads declarations, has a lens everywhere, and a genuinely empty surface is it running and finding nothing. Either absence is a claim about the whole surface rather than the first place looked in: a project may name its model in a config module, a deployment manifest, an environment template or an agent definition, and finding none in the first of those settles nothing.
 
 **`ok` where the provider publishes no pinnable form**, with that fact recorded and with the provider actually consulted. A project cannot pin what the provider does not version, and reporting it as a finding asks for a fix that does not exist. What is recorded is the absence, so the next audit does not re-derive it.
 
@@ -83,6 +95,8 @@ Does the project pin the model versions it depends on where the provider allows 
 **Critical** - a model or API version the project depends on is past the provider's announced end-of-life date. The break is scheduled and the date has passed.
 
 **Important** - a model identifier is unpinned where the provider publishes a pinnable form. This is the silent-upgrade case, and it is the one the handbook clause names.
+
+**Important** - a provider is configured and no model is named anywhere on the application path, so the provider's own default answers. This is the strongest form of the band above rather than an absence: the project has not merely failed to pin a version, it has not recorded which model it runs, and a report that reads the missing declaration as an empty surface hands back a clean result for the case this check most exists to catch.
 
 **Important** - a model or API version is approaching its announced end of life. Report the date rather than a distance, because a distance read from a report is stale the day after it is written.
 
