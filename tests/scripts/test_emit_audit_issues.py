@@ -501,3 +501,49 @@ def test_the_duplicate_guard_matches_a_target_in_another_case(monkeypatch, capsy
 
     assert code == 5, "a differently-cased target is the same repository"
     assert "already has an issue titled" in capsys.readouterr().err
+
+
+def test_the_recovery_text_does_not_advise_removing_only_the_root(monkeypatch, capsys):
+    """GitHub keeps a sub-issue when its parent is deleted.
+
+    So "rename or delete the epic, then re-run" leaves every child this run
+    created in place, and the retry files a second copy of them beside the
+    originals - a duplicate produced by following the recovery advice of the
+    guard that exists to prevent duplicates.
+    """
+    run, _ = _gh_double(
+        fail_on=lambda a: a[:3] == ["gh", "issue", "create"] and "docs" in " ".join(a)
+    )
+    monkeypatch.setattr("subprocess.run", run)
+
+    em._execute(_tree_of_two_domains(), target="t/t")
+
+    err = capsys.readouterr().err
+    assert "delete every issue listed above and not only the root" in err
+    assert "second copy" in err
+
+
+def test_the_duplicate_guard_does_not_advise_a_rename_and_retry(monkeypatch, capsys):
+    """Same defect, other message. An existing tree is complete, so removing
+    its epic and re-running reproduces every child beside the ones still
+    there."""
+    import subprocess
+
+    def run(argv, *_args, **_kwargs):
+        argv = list(argv)
+        if argv[:3] == ["gh", "label", "list"]:
+            return subprocess.CompletedProcess(argv, 0, "", "")
+        if argv[:2] == ["gh", "api"] and "issues?state=all" in argv[2]:
+            return subprocess.CompletedProcess(
+                argv, 0, "Productionization of t/t\n", ""
+            )
+        raise AssertionError("the guard should have stopped this run")
+
+    monkeypatch.setattr("subprocess.run", run)
+
+    code = em._execute(em.build_tree(_load(_finding()), target="t/t"), target="t/t")
+
+    assert code == 5
+    err = capsys.readouterr().err
+    assert "delete the whole existing tree, epic and children" in err
+    assert "Rename or delete it, or" not in err

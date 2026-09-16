@@ -590,8 +590,12 @@ def _execute(tree: Issue, *, target: str) -> int:
             "This tool does not reconcile with an existing tree, so a second "
             "run would duplicate it. Closing that epic does not clear this: "
             "the check reads open and closed alike, because a closed epic "
-            "still means the tree was filed. Rename or delete it, or file the "
-            "rest by hand against the tree that is already there.",
+            "still means the tree was filed. Removing that epic alone does not "
+            "make the repository ready either: GitHub keeps a sub-issue when "
+            "its parent goes, so the children stay and the next run files a "
+            "second copy of them beside the originals. Either delete the whole "
+            "existing tree, epic and children, or leave it in place and add "
+            "what is missing by hand.",
             file=sys.stderr,
         )
         return 5
@@ -627,8 +631,11 @@ def _execute(tree: Issue, *, target: str) -> int:
             f"The tree is partial, and re-running will not resume it: the "
             f"duplicate guard reads #{root_number}, {root_title!r}, as a tree "
             "already filed and refuses. Closing it does not clear that, for "
-            "the same reason. Rename or delete it to file the whole tree "
-            "again, or file the rest by hand against the part that is there.",
+            "the same reason. To file the whole tree again, delete every issue "
+            "listed above and not only the root: GitHub keeps a sub-issue when "
+            "its parent goes, so removing the epic alone leaves the rest in "
+            "place and the retry files a second copy of them. Otherwise file "
+            "what is missing by hand against the part that is there.",
             file=sys.stderr,
         )
         return 6
