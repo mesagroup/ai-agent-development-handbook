@@ -577,7 +577,14 @@ def _execute(tree: Issue, *, target: str) -> int:
         )
         return 4
     titles = {line.strip() for line in seen.stdout.splitlines() if line.strip()}
-    if root in titles:
+    # Compared case-insensitively, for the same reason `plan_labels` is. The
+    # root title embeds `--target` verbatim and GitHub resolves `owner/repo`
+    # case-insensitively, so `Owner/Repo` and `owner/repo` are one repository
+    # whose two runs produce two differently-cased titles. An exact match reads
+    # the second as a new tree and files the whole thing again, which is a
+    # duplicate in the tracker this guard exists to protect - worse than the
+    # 422 the label rule avoids, and silent where that one is loud.
+    if root.casefold() in {title.casefold() for title in titles}:
         print(
             f"error: {target} already has an issue titled {root!r}. "
             "This tool does not reconcile with an existing tree, so a second "

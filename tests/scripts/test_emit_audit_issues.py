@@ -470,3 +470,34 @@ def test_no_failure_report_prints_the_argv_it_failed_on(monkeypatch, capsys):
     err = capsys.readouterr().err
     assert "## Evidence" not in err, "the body reached the operator's terminal"
     assert "--body" not in err
+
+
+def test_the_duplicate_guard_matches_a_target_in_another_case(monkeypatch, capsys):
+    """GitHub resolves `owner/repo` case-insensitively, and the root title
+    embeds the target verbatim.
+
+    So a second run spelling the same repository differently produces a title
+    the guard would not recognise, and files the whole tree again into the
+    tracker the guard exists to protect. `plan_labels` already compares this
+    way; this is the second and last place in the module that compares against
+    a string GitHub supplied.
+    """
+    import subprocess
+
+    def run(argv, *_args, **_kwargs):
+        argv = list(argv)
+        if argv[:3] == ["gh", "label", "list"]:
+            return subprocess.CompletedProcess(argv, 0, "", "")
+        if argv[:2] == ["gh", "api"] and "issues?state=all" in argv[2]:
+            return subprocess.CompletedProcess(
+                argv, 0, "Productionization of t/t\n", ""
+            )
+        raise AssertionError(f"the guard should have stopped before {argv[:3]}")
+
+    monkeypatch.setattr("subprocess.run", run)
+    tree = em.build_tree(_load(_finding()), target="T/T")
+
+    code = em._execute(tree, target="T/T")
+
+    assert code == 5, "a differently-cased target is the same repository"
+    assert "already has an issue titled" in capsys.readouterr().err
