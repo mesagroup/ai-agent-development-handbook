@@ -458,6 +458,20 @@ def main(argv: list[str] | None = None) -> int:
         )
         findings = kept
 
+    if not findings:
+        # An empty tree is a root epic with no children, and creating one is
+        # worse than doing nothing: it is titled from --target, so the
+        # duplicate guard would read it as an existing tree and refuse the
+        # later run that actually has findings to file. The reachable case is
+        # the documented one - --min-severity important over a sweep whose
+        # findings are all Minor - rather than an empty findings file.
+        print(
+            "no findings to file"
+            + (f" at {args.min_severity} or above" if args.min_severity else "")
+            + ". Nothing emitted, and nothing would be created."
+        )
+        return 0
+
     tree = build_tree(findings, target=args.target)
 
     if not args.create:
