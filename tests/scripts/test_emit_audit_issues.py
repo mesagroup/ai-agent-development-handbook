@@ -547,3 +547,57 @@ def test_the_duplicate_guard_does_not_advise_a_rename_and_retry(monkeypatch, cap
     err = capsys.readouterr().err
     assert "delete the whole existing tree, epic and children" in err
     assert "Rename or delete it, or" not in err
+
+
+def _huge_cluster() -> dict[str, object]:
+    """One cluster whose rendered body exceeds what GitHub accepts."""
+    return {
+        "findings": [
+            _finding(item="X" * 400, evidence=f"a.py:{n}")
+            for n in range(em.MAX_BODY // 400 + 4)
+        ]
+    }
+
+
+def test_an_oversized_body_is_refused_before_the_first_write(tmp_path, capsys):
+    """Discovered at the write, this fails after the epics already exist, and
+    the duplicate guard then refuses every retry. So it is answered from the
+    tree, where nothing has been created yet and nothing needs undoing."""
+    path = tmp_path / "f.json"
+    path.write_text(json.dumps(_huge_cluster()))
+
+    code = em.main([str(path), "--target", "t/t", "--create"])
+
+    assert code == 7
+    err = capsys.readouterr().err
+    assert "GitHub refuses anything over 65536" in err
+    assert "Nothing was created." in err
+
+
+def test_the_dry_run_reports_an_oversized_body_rather_than_promising_writes(
+    tmp_path, capsys
+):
+    """A dry run exists to say what --create would do. Printing a write count
+    for a run that would be refused is the one answer worse than silence."""
+    path = tmp_path / "f.json"
+    path.write_text(json.dumps(_huge_cluster()))
+
+    code = em.main([str(path), "--target", "t/t"])
+
+    assert code == 7
+    out = capsys.readouterr()
+    assert "writes that --create would perform: 0" in out.out
+    assert "GitHub refuses anything over" in out.err
+
+
+def test_a_body_within_the_limit_is_not_reported(tmp_path, capsys):
+    """The guard has to be silent on the ordinary case, or the dry run cries
+    wolf on every run and the operator stops reading it."""
+    path = tmp_path / "f.json"
+    path.write_text(json.dumps({"findings": [_finding()]}))
+
+    code = em.main([str(path), "--target", "t/t"])
+
+    assert code == 0
+    assert "GitHub refuses" not in capsys.readouterr().err
+    assert em.oversized(em.build_tree(_load(_finding()), target="t/t")) == []
