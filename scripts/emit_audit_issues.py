@@ -48,6 +48,12 @@ PRIORITY_LABELS = {
     "minor": "priority:low",
 }
 
+#: The longest issue body GitHub accepts. The command line is not the binding
+#: constraint and is deliberately not guarded: a body at this limit is about 3%
+#: of `ARG_MAX` on the platforms this runs on, so an argv long enough to be
+#: refused by the kernel carries a body the API would have refused first.
+MAX_BODY = 65536
+
 
 class FindingsError(ValueError):
     """A findings file this module cannot read, with the reason."""
@@ -284,6 +290,22 @@ def labels_used(tree: Issue) -> list[str]:
     return sorted(seen)
 
 
+def oversized(tree: Issue) -> list[tuple[str, int]]:
+    """Every issue whose body GitHub would refuse, with the length it refuses.
+
+    Clustering puts every finding of one `(domain, check, severity)` group into
+    one body, so a check with enough findings at one severity produces a body
+    no API call will accept. That is answered here rather than at the write,
+    because a cluster discovered mid-run fails after the epics are already in
+    the target and the duplicate guard then refuses every retry - the shape
+    that costs the operator a half-filed tree in a repository they do not own.
+    """
+    found = [(tree.title, len(tree.body))] if len(tree.body) > MAX_BODY else []
+    for child in tree.children:
+        found += oversized(child)
+    return found
+
+
 def render_dry_run(tree: Issue) -> str:
     """Render the whole tree as text, the way `--dry-run` prints it."""
     out: list[str] = []
@@ -481,13 +503,35 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     tree = build_tree(findings, target=args.target)
+    too_long = oversized(tree)
 
     if not args.create:
         print(render_dry_run(tree))
         plan = plan_labels(tree, set(), target=args.target) + plan_issues(
             tree, target=args.target
         )
-        print(f"writes that --create would perform: {len(plan)}")
+        # Counted as what --create would do, which is nothing at all when a
+        # body is over the limit. A dry run that promised 24 writes and was
+        # then refused would have been the misleading half of this.
+        print(f"writes that --create would perform: {0 if too_long else len(plan)}")
+
+    if too_long:
+        for title, length in too_long:
+            print(
+                f"error: the body for {title!r} is {length} characters and "
+                f"GitHub refuses anything over {MAX_BODY}.",
+                file=sys.stderr,
+            )
+        print(
+            "Nothing was created. A severity floor does not reduce one of "
+            "these: a cluster is one severity by construction, so --min-"
+            "severity either keeps it whole or drops it entirely. File that "
+            "cluster by hand, or raise the floor above it and file the rest.",
+            file=sys.stderr,
+        )
+        return 7
+
+    if not args.create:
         return 0
 
     return _execute(tree, target=args.target)
