@@ -529,26 +529,24 @@ def _execute(tree: Issue, *, target: str) -> int:
     # A second run would open the whole tree again, and nothing about an issue
     # says it was emitted by this tool, so the duplicate is invisible until
     # somebody reads the tracker.
-    # Listed rather than searched. `--search` hits the Search API, which is
-    # eventually consistent and tokenizes its query, so a tree created moments
-    # ago - which is exactly the retry case this guard exists for - can come
-    # back absent. A listing is read from the tracker itself, and the titles are
-    # compared exactly rather than by substring, because a substring test over
-    # raw JSON matches a title that merely contains this one.
+    # Listed rather than searched, and paginated rather than capped.
+    # `--search` hits the Search API, which is eventually consistent and
+    # tokenizes its query, so a tree created moments ago - the retry case this
+    # guard exists for - can come back absent. `gh issue list` is consistent but
+    # pages newest-first under a limit, and a truncated page still exits 0, so
+    # an epic old enough to fall off the end reads as absent through the very
+    # branch that refuses a failed listing. `--paginate` walks every page, and
+    # pull requests are filtered out because that endpoint returns them too and
+    # a PR sharing the title is not the tree.
     root = tree.title
     seen = subprocess.run(
         (
             "gh",
-            "issue",
-            "list",
-            "--repo",
-            target,
-            "--state",
-            "all",
-            "--limit",
-            "1000",
-            "--json",
-            "title",
+            "api",
+            f"repos/{target}/issues?state=all&per_page=100",
+            "--paginate",
+            "--jq",
+            ".[] | select(.pull_request == null) | .title",
         ),
         capture_output=True,
         text=True,
@@ -563,15 +561,7 @@ def _execute(tree: Issue, *, target: str) -> int:
             file=sys.stderr,
         )
         return 4
-    try:
-        titles = {row.get("title", "") for row in json.loads(seen.stdout or "[]")}
-    except json.JSONDecodeError:
-        print(
-            f"error: could not read the issue list from {target}. Refusing to "
-            "proceed rather than guessing whether a tree is already there.",
-            file=sys.stderr,
-        )
-        return 4
+    titles = {line.strip() for line in seen.stdout.splitlines() if line.strip()}
     if root in titles:
         print(
             f"error: {target} already has an issue titled {root!r}. "
