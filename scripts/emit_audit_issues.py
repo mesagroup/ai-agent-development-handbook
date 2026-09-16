@@ -566,7 +566,10 @@ def _execute(tree: Issue, *, target: str) -> int:
         print(
             f"error: {target} already has an issue titled {root!r}. "
             "This tool does not reconcile with an existing tree, so a second "
-            "run would duplicate it. Close or rename the first, or file by hand.",
+            "run would duplicate it. Closing that epic does not clear this: "
+            "the check reads open and closed alike, because a closed epic "
+            "still means the tree was filed. Rename or delete it, or file the "
+            "rest by hand against the tree that is already there.",
             file=sys.stderr,
         )
         return 5
