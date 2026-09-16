@@ -31,13 +31,12 @@ its own split. A band's unchecked count is by construction the same number
 as its Unmapped column in the severity x coverage cross-tab.
 
 Handbook links are rendered relative (`../engineering/<part>.md`). This
-file is read in the repository or on GitHub, where a relative path resolves,
-and it is not one of the files the plugin ships - `plugin.json` points only
-at `.agents/skills/`. The skills themselves still emit absolute URLs,
-because a relative path out of a plugin cache in another repository resolves
-to nothing; that constraint is theirs and does not reach this file. Keeping
-the org and repository name out of a generated document also keeps it out of
-every report and artifact the document is copied into.
+file is read in the repository or on GitHub, where a relative path resolves.
+The skills themselves emit absolute URLs, because what they emit is copied
+into reports whose readers hold neither this repository nor the plugin cache;
+that constraint is theirs and does not reach this file. Keeping the org and
+repository name out of a generated document also keeps it out of every report
+and artifact the document is copied into.
 
 Usage:
     uv run python scripts/render_handbook_traceability.py          # validate + write the md
@@ -439,7 +438,7 @@ _HEADER = f"""<!-- GENERATED FILE - do not edit. Source: handbook-traceability.y
 
 Maps every `##` section of the [engineering handbook]({HANDBOOK_URL}/README.md) onto the `*-audit` skill family. Source of truth: [`handbook-traceability.yaml`](handbook-traceability.yaml). Issue: `<origin-repo>#543`.
 
-Section links are relative to this file. The audit skills, which do ship as a Claude Code plugin and run against other repositories, emit absolute URLs for the same targets, because a relative path out of a plugin cache resolves to nothing; this document is not shipped in that plugin, so it does not inherit the constraint.
+Section links are relative to this file. The audit skills, which ship as a Claude Code plugin and run against other repositories, emit absolute URLs for the same targets, because their output is copied into reports whose readers hold neither this repository nor the plugin cache; this document is read where a relative link resolves, and an absolute one would bake the org and repository name into every copy.
 
 | Class | Meaning |
 |---|---|
