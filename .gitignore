@@ -14,3 +14,10 @@ test-reports/
 # in scripts/python_fixture_spec.py are the real record of. Rebuild them rather
 # than reading them from history.
 fixtures/
+
+# Where a sweep against an audit target writes its report, findings JSON, baseline
+# diff and emitter dry run. Those files carry the target's file paths and package
+# name, which no tracked file here may carry: this repository names no other
+# project in its own organisation or its origin's. They stay on the host that ran
+# the sweep; the pull request carries counts and placeholder terms instead.
+sweeps/
