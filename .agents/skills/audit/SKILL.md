@@ -54,7 +54,7 @@ Dispatch all selected domains **concurrently** (a barrier - collect the matrices
 
 One subagent per domain; do not split a single domain across subagents here (that's the domain skill's own internal concern).
 
-**Partial results.** If a subagent dies, times out, or returns null/unusable output, do **not** stall the sweep: consolidate the domains that returned, and mark each missing one as `errored / incomplete` (with the reason) in the roll-up. A broken domain degrades the report; it does not block it.
+**Partial results.** If a subagent dies, times out, or returns null/unusable output, do **not** stall the sweep: consolidate the domains that returned, and mark each missing one as `errored / incomplete` (with the reason) in the roll-up. **A domain whose coverage triple is 0 / 0 / 0 is missing too, whatever its section says came back**: a placeholder that arrived is not a matrix, a zero triple beside a non-zero `total_checks_loaded` means nothing ran, and a verdict column that reads `pass` over it is the false clean at domain granularity that the coverage column exists to make visible. One sweep reported two such domains as pass with the contradiction sitting two lines below in its own caveats. A broken domain degrades the report; it does not block it.
 
 ### 2. Consolidate - into the report template
 
