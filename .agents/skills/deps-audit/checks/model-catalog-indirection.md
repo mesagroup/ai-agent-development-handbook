@@ -29,9 +29,12 @@ routes:
       provider identifier is not a catalog, however central: it holds no
       alias and contains no churn, so it counts as a naming site. Then
       collect every site on the application path that names a provider
-      model - the argument that constructs an SDK client or issues a call,
-      an agent or prompt definition, a deployment manifest, an environment
-      template's default value - and for each, follow the name back: an
+      model - a literal identifier in the argument that constructs an SDK
+      client, an agent or prompt definition, a deployment manifest, an
+      environment template's default value - and for each, follow the name
+      back. A call that passes on a name it received names nothing and is
+      not a site; that is the sibling's rule too, so the two records
+      enumerate the same homes. For each site: an
       alias resolved through a catalog is the claim being met, a provider
       identifier written where it is used is the claim being missed. Where
       `deps/model-pinning-and-eol` has already collected those sites in this
@@ -42,8 +45,15 @@ routes:
       provider API versions, which name no model and never count as a naming
       site, and the eval-side identifiers the sibling gathered as comparison
       evidence, which this record reads once, below, and never counts toward
-      the application-path total. A project with one production model, one
-      API version and one eval pin has one naming site, not three. **What
+      the application-path total. Drop its catalog-entry rows too: where the
+      sibling followed an alias into a catalog it recorded the identifier the
+      catalog resolves to with the catalog's own `file:line`, and a row whose
+      `file:line` lies inside a catalog is that catalog's entry, found in
+      the first step above, never an inline site. Read unfiltered, a project
+      whose every call goes through its catalog would count each catalog
+      row as a bypass and take the Important band for having done exactly
+      what the clause asks. A project with one production model, one API
+      version and one eval pin has one naming site, not three. **What
       this reads is the path to the name, not the name**: whether the
       identifier at the end of it is pinned or sunset is
       `deps/model-pinning-and-eol`'s question, run over the same sites, and
