@@ -60,8 +60,12 @@ routes:
       this record takes none of it back. Count the inline sites and read the
       verdict from the count and the catalogs together, using the definitions
       in the body below rather than judging the project's size. Then read the
-      eval side's naming sites, once, from the sibling's comparison list
-      where it has them, and report an eval config that names a
+      eval side's naming sites, once: from the sibling's comparison list
+      where this run already holds it, and otherwise collected here from
+      the eval configs, runners and screening scripts, the same homes the
+      sibling reads, because each global check runs as its own agent and
+      this one cannot assume the sibling went first. Report an eval config
+      that names a
       provider model directly while a catalog exists as its own line, because
       pointing one agent at a dozen candidates by varying an alias is the case
       the handbook clause names, and an eval that bypasses the catalog is the
