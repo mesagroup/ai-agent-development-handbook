@@ -37,14 +37,21 @@ routes:
       `deps/model-pinning-and-eol` has already collected those sites in this
       run, start from its list rather than building a second free to
       disagree with it, and where it has not, collect them here from the same
-      homes and say in the report that this record derived them. **What
+      homes and say in the report that this record derived them. Take from
+      that list only the application-path model identifiers: it also carries
+      provider API versions, which name no model and never count as a naming
+      site, and the eval-side identifiers the sibling gathered as comparison
+      evidence, which this record reads once, below, and never counts toward
+      the application-path total. A project with one production model, one
+      API version and one eval pin has one naming site, not three. **What
       this reads is the path to the name, not the name**: whether the
       identifier at the end of it is pinned or sunset is
       `deps/model-pinning-and-eol`'s question, run over the same sites, and
       this record takes none of it back. Count the inline sites and read the
       verdict from the count and the catalogs together, using the definitions
-      in the body below rather than judging the project's size. Collect the
-      eval side's naming sites too, and report an eval config that names a
+      in the body below rather than judging the project's size. Then read the
+      eval side's naming sites, once, from the sibling's comparison list
+      where it has them, and report an eval config that names a
       provider model directly while a catalog exists as its own line, because
       pointing one agent at a dozen candidates by varying an alias is the case
       the handbook clause names, and an eval that bypasses the catalog is the
