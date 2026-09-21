@@ -3672,3 +3672,36 @@ def test_alternatives_for_one_axis_share_its_value(tmp_path):
     )
     assert errors == [], errors
     assert sorted({r.answers for r in check.routes}) == ["lifetime", "pin"]
+
+
+def test_a_universal_route_carrying_one_axis_beside_concrete_languages_is_accepted(
+    tmp_path,
+):
+    """`test/isolation`'s shape: per-runner timing routes and one `lang: any`
+    grep for real I/O. The `any` route is judged inside the Python scope,
+    where it is one of two axes; judging it again under its own key would
+    demand a second axis of a route that carries exactly the one the
+    concrete languages leave to it.
+    """
+    check, errors = _two_route_record(
+        tmp_path,
+        "lang: python\n    kind: command\n    tool: a\n    argv: [a]\n    answers: timing",
+        "lang: any\n    kind: procedure\n    answers: io\n    note: read the tests",
+    )
+    assert errors == [], errors
+    assert [r.answers for r in check.routes] == ["timing", "io"]
+
+
+def test_a_record_with_only_universal_routes_is_held_to_the_rules_as_a_language(
+    tmp_path,
+):
+    """`deps/model-pinning-and-eol` is two `lang: any` routes and nothing else,
+    so the universal key is the record's whole scope and a lone value there
+    is refused like anywhere else.
+    """
+    _, errors = _two_route_record(
+        tmp_path,
+        "lang: any\n    kind: procedure\n    answers: pin\n    note: read the pin",
+        "lang: any\n    kind: procedure\n    answers: pin\n    note: read it again",
+    )
+    assert any("lone value" in e and "lang: any" in e for e in errors), errors
