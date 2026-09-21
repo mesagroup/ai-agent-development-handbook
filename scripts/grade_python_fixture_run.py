@@ -22,8 +22,8 @@ dict (confirmed against `fixtures/python/results/pip-none.json`, a real written
 run). So `observations_for` looks the stream up from the harness's own enumeration
 rather than defaulting to stdout - the default that scores deptry, which writes
 its whole report to stderr, as having found nothing. The enumeration is both of
-the harness's sources, `INVOCATIONS` for the checks whose fallback lives in
-prose and the routes read from the records that declare them, because a lookup
+the harness's sources, `INVOCATIONS`, the legacy slot, empty today, and the
+routes read from the records that declare them, because a lookup
 built from one of the two resolves nothing for every row of the other. Reading
 only the table would leave every migrated check's row unresolved on every run,
 which is not the rare staleness the sentinel below exists for.

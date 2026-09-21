@@ -3,10 +3,11 @@
 The harness reads a row from one of two places, and that split is what most of
 these tests are about. A record declaring its commands as `routes:` data is read
 directly, so there is no transcription to guard: the record is what runs. A
-record whose fallback still lives in prose is transcribed into the harness's own
-table, and the guards on that transcription are the bulk of this file - an
-invocation that had to be edited to run is the finding the round exists to
-produce, and it only shows up as one if the transcription is held to the record.
+record whose fallback still lived in prose was transcribed into the harness's own
+table; that table is empty since the docs and security migration, the guards on
+the transcription were dissolved with it (see the note where they stood), and
+what remains here is the routed-row properties, the engine-owned tables, and the
+prose extractor's example tests over synthetic text.
 
 So a property here reads one of three things, and says which: the transcribed
 rows, every row the harness runs, or - where the two sides of a comparison would
@@ -1611,7 +1612,7 @@ def test_the_harness_runs_exactly_the_checks_the_expectations_declare():
     missing from another is either a check nobody grades or a claim nobody
     tests, and both look like a complete run.
 
-    The harness's view is now a union: hand-written entries for the checks
+    The harness's view is a union whose hand-written half is empty: entries for the checks
     whose fallback lives in prose, routed rows for the records that declare
     their routes. A check dropped by the enumeration, invented by it, or
     claimed by both paths fails here.
@@ -2688,7 +2689,7 @@ def test_no_prescribed_command_is_never_classified_as_a_tool_failure(
     `invocations_for` scopes to, and read that way rather than over the routed
     side alone even though every row it finds is routed today: measured, all 18
     rows prescribing no command come from records that declare their routes, and
-    no hand-written entry is one - all 15 carry an argv. A hand-written entry of
+    no hand-written entry is one - the table is empty. A hand-written entry of
     this shape is a thing the table can still express, so narrowing the property
     to where its subjects happen to live would make the narrowing the claim.
     """
