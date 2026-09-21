@@ -4,8 +4,55 @@ domain: security
 locality: local
 handbook:
   - security-supply-chain/secrets-never-commit-them-and-rotate-dont-just-delete-a
-tooling:
-  any: [detect-secrets, gitleaks, trufflehog]
+routes:
+  - lang: any
+    kind: command
+    tool: detect-secrets
+    registry: pypi
+    argv: [detect-secrets, scan]
+    note: >-
+      The default, because it is the one of the three that a one-shot runner
+      supplies: `detect-secrets` is a PyPI package, so `uvx detect-secrets scan`
+      obtains it whatever the partition's language. Scans the working tree only,
+      which is this check's subject. Every candidate must be verified by reading
+      the line: a variable named `api_key` read from the environment is not a
+      leaked secret.
+  - lang: any
+    kind: command
+    tool: gitleaks
+    argv: [gitleaks, detect, "--no-git"]
+    own_runner: true
+    note: >-
+      A standalone binary in no language registry, so no runner supplies it and it
+      has to be installed in advance; `npx gitleaks` resolves a package that
+      declares no bin and reports `could not determine executable to run`, which
+      reads as a missing tool rather than the wrong one. The `--no-git` is
+      load-bearing, not a default being spelled out: `gitleaks detect` scans
+      history unless told otherwise, and history is `security/secret-history`'s
+      subject. A run here that scans it answers the other check under this one's
+      name, and leaves the report saying a working-tree pass covered ground it did
+      not. Every candidate must be verified by reading the line: a variable named
+      `api_key` read from the environment is not a leaked secret.
+  - lang: any
+    kind: procedure
+    tool: trufflehog
+    note: >-
+      Named beside the two above and prescribed no working-tree command here:
+      `trufflehog git` scans history, which is `security/secret-history`'s, and
+      `uvx trufflehog` silently runs PyPI's `trufflehog` 2.2.1, the superseded
+      Python v2 line rather than the Go v3 this record means, so a runner does not
+      obtain it either. Where the v3 binary is installed, its filesystem mode
+      answers this check; where it is not, do not reach for the runner. A
+      procedure rather than a command because the record prescribes no
+      working-tree command line for it.
+  - lang: any
+    kind: procedure
+    note: >-
+      With none of the three, a targeted grep for high-signal patterns (`api_key`,
+      `secret`, `-----BEGIN * PRIVATE KEY-----`, provider token prefixes) over the
+      working tree, at lower recall than a scanner and reported as such. Every
+      candidate must be verified by reading the line: a variable named `api_key`
+      read from the environment is not a leaked secret.
 ---
 
 # Secrets in code
@@ -17,12 +64,6 @@ Hardcoded API keys, tokens, passwords, private keys, connection strings; secrets
 **Critical** - a live secret committed to the repo. A confirmed secret is never "suppressed": it must be **rotated**, not just removed.
 
 **Important** - a secret in a test/fixture that is (or was) valid.
-
-## Tooling fallback
-
-**The three tools are not the same kind, and only one is fetchable.** `detect-secrets` is a PyPI package, so `uvx detect-secrets scan` obtains it whatever the partition's language and it is the default here. `gitleaks` and `trufflehog` are standalone binaries no runner supplies, and each fails misleadingly if one is asked to: `npx gitleaks` reports `could not determine executable to run`, and `uvx trufflehog` silently runs PyPI's `trufflehog` 2.2.1, the superseded Python v2 line rather than the Go v3 - see `security/secret-history` for `gitleaks` and `trufflehog`.
-
-**Secrets (working tree):** `detect-secrets scan`, `gitleaks detect --no-git`, or a targeted grep for high-signal patterns (`api_key`, `secret`, `-----BEGIN * PRIVATE KEY-----`, provider token prefixes). Every candidate must be **verified by reading the line** - a variable named `api_key` read from the environment is not a leaked secret. **The `--no-git` is load-bearing, not a default being spelled out**: `gitleaks detect` and `trufflehog git` scan history unless told otherwise, and history is `security/secret-history`'s subject. A run here that scans it answers the other check under this one's name, and leaves the report saying a working-tree pass covered ground it did not.
 
 ## Fix
 

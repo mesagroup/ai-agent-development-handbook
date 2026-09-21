@@ -13,17 +13,47 @@ handbook_note: >-
   still violating the clause's quality bar, which is exactly the near-miss
   the matrix's mapping rule forbids - the quality half is
   `docs/docstring-standard`'s to reach, not this check's.
-tooling:
-  python: [ruff, pydocstyle, interrogate]
+routes:
+  - lang: python
+    kind: command
+    tool: ruff
+    argv: [ruff, check, "--select", D]
+    note: >-
+      Docstring presence per module and public symbol, reported per file so the
+      row names what is undocumented rather than a percentage over the tree. `ruff
+      check --select D` selects the pydocstyle rules ruff carries; the record
+      names the `D` rules and this is the command that turns them on.
+  - lang: python
+    kind: command
+    tool: pydocstyle
+    argv: [pydocstyle]
+    note: >-
+      Docstring presence per module and public symbol, reported per file so the
+      row names what is undocumented rather than a percentage over the tree.
+      `pydocstyle` defaults to the working directory, so the bare name is
+      runnable.
+  - lang: python
+    kind: command
+    tool: interrogate
+    argv: [interrogate]
+    note: >-
+      Docstring presence per module and public symbol, reported per file so the
+      row names what is undocumented rather than a percentage over the tree.
+      `interrogate` defaults to the working directory too and reports a coverage
+      percentage beside the per-file list; record the list, and record the
+      percentage at the run rather than predicting it.
+  - lang: any
+    kind: procedure
+    note: >-
+      With none of the three present, an AST or grep sweep over module and
+      public-symbol definitions answers the same question in either language: a
+      definition with no docstring node is the finding, and the sweep needs
+      nothing installed and nothing resolved.
 ---
 
 # Docstring coverage
 
 Which public modules/classes/functions lack docstrings. Report per package.
-
-## Tooling fallback
-
-`ruff` `D` rules / `pydocstyle` / `interrogate` if present, else an AST/grep sweep.
 
 ## Fix
 
