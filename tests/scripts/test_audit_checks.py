@@ -3059,9 +3059,9 @@ def test_a_routes_record_may_not_carry_a_fallback_section(tmp_path):
 def test_a_record_may_not_write_a_prescription_in_a_fenced_block(tmp_path, fence):
     """The shape that hides a command from every reader of one.
 
-    The form extractor reads inline backtick spans out of the prescribing
-    paragraph, so a command in a fence is invisible to it and the suite stays
-    green over a prescription nothing holds against what ran. A fence is also
+    The form extractor reads inline backtick spans out of a record's body, so
+    a command in a fence is invisible to it and the suite stays green over a
+    prescription nothing holds against what ran. A fence is also
     the most idiomatic Markdown way to write a command, which is why the
     convention needs enforcing rather than assuming - no record uses one today,
     and nothing but this stops the next one.

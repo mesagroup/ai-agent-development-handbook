@@ -125,9 +125,9 @@ The body is validated too, which the split above understates: it must carry
 an `# ` title, being the check's display name, and it may not carry a fenced
 code block in either spelling. Every command a record prescribes appears in
 an inline backtick span, because that is the only place the form extractor
-reads: it sweeps every record's spans for the glued-placeholder rule, and it
-would hold a legacy record's transcription against its prose if one entered
-the harness again, so a command in a fence is invisible to it. A four-space indented block is
+reads: it sweeps every record's spans for the glued-placeholder rule, over the
+records on `routes:` and the ones still on `tooling:` alike, so a command in a
+fence is invisible to it. A four-space indented block is
 legal - its content is literal text, so a record may show a tool's output
 there even where that output prints a fence.
 
@@ -1530,9 +1530,8 @@ def _load_one(
             f"{where}: body carries a fenced code block. Every command a record "
             "prescribes appears in an inline backtick span, because that is the "
             "only place the form extractor reads, for the glued-placeholder "
-            "sweep over every record and for any legacy record's transcription: "
-            "a command in a fence is invisible to it, and the suite stays green "
-            "over it. Write the "
+            "sweep over every record on either schema: a command in a fence is "
+            "invisible to it, and the suite stays green over it. Write the "
             "command in a span in its own paragraph. A four-space indented "
             "block is not this: its content is literal text, so a record may "
             "show a tool's output there even where that output prints a fence"
@@ -1636,15 +1635,15 @@ def fallback_lives_in_prose(check: Check) -> bool:
     """Whether this record's `## Tooling fallback` prose is its source of truth.
 
     A record declaring `tooling:` states what to run instead in that section and
-    nowhere else, so a property holding a transcription against the record reads
-    it there. A record declaring `routes:` states the same thing per route - the
-    `note`, the `alone_insufficient` and the `needs` - and carries no such
-    section at all, so the same property has no prose to read and its subject is
-    the routes.
+    nowhere else. A record declaring `routes:` states the same thing per route -
+    the `note`, the `alone_insufficient` and the `needs` - and carries no such
+    section at all. The record suite scopes two properties by this: a legacy
+    record naming no tool must say in its body what to read instead, and a
+    legacy record classifying a tool under `needs` must state a fallback; on a
+    routed record both questions are answered by the routes and the loader.
 
     Keyed on the declared schema rather than on whether the section is present.
-    Presence is what the properties that used to scope on this existed to check, and a scope
-    keyed on it would switch each one off on exactly the record it was written
-    to catch.
+    Presence is what those properties check, and a scope keyed on it would
+    switch each one off on exactly the record it was written to catch.
     """
     return not check.routes
