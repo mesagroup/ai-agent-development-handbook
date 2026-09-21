@@ -20,7 +20,7 @@ stays self-contained under a strict CSP.
 
 Usage::
 
-    # standalone (uv fetches `markdown` from the inline dependency header)
+    # standalone (uv fetches `markdown` and `pyyaml` from the inline dependency header)
     uv run scripts/render_handbook_artifact.py
     uv run scripts/render_handbook_artifact.py --out /tmp/handbook.html
     uv run scripts/render_handbook_artifact.py --docs-dir docs/engineering --out build/handbook.html
@@ -38,6 +38,7 @@ wrapped in the same ``<figure>``.
 NOT a CI test. Everything except ``run_d2`` is unit-tested in
 ``tests/scripts/``: the pure transforms (``unlink_out_of_tree``,
 ``heading_id``, ``add_heading_ids``, ``rewrite_links``, ``wrap_tables``,
+``heading_ids`` and ``render_part`` through ``build`` and the id-set tests,
 ``mark_task_items``, ``extract_diagram_blocks``, ``parse_funnel``,
 ``wrap_label``, ``group_digits``, ``funnel_svg``, ``prepare_svg``,
 ``diagram_figure``, ``substitute_diagrams``, ``count_em_dashes``), the
@@ -832,39 +833,15 @@ def heading_ids(docs_dir: Path, parts: list[tuple[str, str, str]] = PARTS) -> se
 
     The part anchors plus every heading id, computed the way `build` computes
     them and without reaching for the d2 CLI, which is what lets the citation
-    check run where no renderer can. A rendered page carries exactly this set,
-    plus the figure captions' ids, and a test holds the two together.
+    check run where no renderer can. A rendered page carries exactly this set
+    plus the figure captions' ids and the two ids of the page chrome, the
+    sidebar and the theme button, and a test holds the two together.
     """
     ids = {anchor for anchor, _, _ in parts}
     for _, stem, _ in parts:
         _, part_ids, _ = render_part(docs_dir, stem)
         ids.update(part_ids)
     return ids
-
-
-def render_doc(
-    docs_dir: Path,
-    stem: str,
-    linkmap: dict[str, str],
-    ids: frozenset[str] | set[str] = frozenset(),
-) -> tuple[str, list[str], list[str]]:
-    """Convert one markdown doc to post-processed HTML (lazy-imports markdown).
-
-    `build` runs `render_part` over every part first and hands the union of
-    their ids in as `ids`; called alone, a fragment link into another part
-    reports as unmapped, which is the truth about a page holding one part.
-    """
-    html, _, blocks = render_part(docs_dir, stem)
-    html, unmapped, unlinked = post_process(html, linkmap, ids)
-    if blocks:
-        html = substitute_diagrams(
-            html,
-            {
-                block.index: diagram_figure(stem, block, *render_variants(block, stem))
-                for block in blocks
-            },
-        )
-    return html, unmapped, unlinked
 
 
 def render_variants(block: DiagramBlock, stem: str) -> tuple[str, str]:
@@ -920,9 +897,13 @@ def build(docs_dir: Path, parts: list[tuple[str, str, str]] = PARTS) -> str:
             this artifact, and nothing else in this repository looks at the
             handbook's links, so a warning here would be a silent pass.
             This raise is the only check there is. Absolute URLs are
-            unmapped by design and pass, which is why the one link out of
-            the handbook tree (`engineering-notes.md`, from the README's
-            parts table) has to be absolute.
+            unmapped by design and pass; the one link out of the handbook
+            tree (`engineering-notes.md`, from the README's parts table) is
+            relative and is unlinked by `unlink_out_of_tree` before the
+            rewrite sees it. Also raised when two headings of one part
+            slugify alike (from `add_heading_ids`) or a heading id collides
+            with an id the page already carries, because either would send a
+            citation to the wrong element.
     """
     linkmap = {stem + ".md": "#" + anchor for anchor, stem, _ in parts}
     rendered = {stem: render_part(docs_dir, stem) for _, stem, _ in parts}

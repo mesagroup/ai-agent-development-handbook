@@ -249,7 +249,8 @@ def test_heading_ids_are_the_ids_a_built_page_carries(tmp_path: Path):
 
     So the set it computes has to be the set the page carries: every part
     anchor and every heading id, and nothing the page has that this lacks
-    except a diagram caption, which none of these parts draws.
+    except a diagram caption, which none of these parts draws, and the two
+    ids of the page chrome, subtracted below.
     """
     pytest.importorskip("markdown")
     (tmp_path / "README.md").write_text("# Handbook\n\n## One\n\n### Two\n")

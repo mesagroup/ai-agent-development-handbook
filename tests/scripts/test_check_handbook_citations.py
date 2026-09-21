@@ -30,7 +30,13 @@ def test_a_whole_part_url_targets_the_part_anchor(tmp_path: Path):
     assert any(t.startswith("<no part") for t in targets)  # an unknown stem reports
 
 
-def test_a_row_targets_its_section_slug_without_the_split_suffix():
+def test_a_row_targets_its_section_slug_not_the_slug_in_its_id():
+    """The heading is named by the row's `section:` title, and the id's slug is ignored.
+
+    On the live matrix the two agree once the id's split letter is dropped,
+    because the matrix validator holds each id against its heading; deriving
+    from `section:` is what keeps this check true if a row id ever diverges.
+    """
     assert (
         chc.row_target(
             "lifecycle/fan-work-out-b",
