@@ -9,14 +9,13 @@ the transcription were dissolved with it (see the note where they stood), and
 what remains here is the routed-row properties, the engine-owned tables, and the
 prose extractor's example tests over synthetic text.
 
-So a property here reads one of three things, and says which: the transcribed
-rows, every row the harness runs, or - where the two sides of a comparison would
-be the same data for a routed row - the transcribed rows again, because widening
-it would add an assertion that cannot fail.
+So a property here reads every row the harness runs, over both enumeration
+paths, and the two guards about the table itself read `INVOCATIONS` by name:
+that it is empty, and that no migrated record has a row in it.
 
 **What the extractor reads, and the one thing it accepts not seeing.** A
-prescription is found in the inline backtick spans of the prescribing paragraph,
-so two other shapes escape it. A command in a fenced block is refused by the
+prescription is found in a record's inline backtick spans, so two other shapes
+escape it. A command in a fenced block is refused by the
 loader rather than read here, because a fence is the idiomatic way to write a
 command and would hide one in plain sight. A command written in prose with no
 backticks at all is an accepted limit: reading unbackticked prose is not
@@ -107,14 +106,15 @@ def _record_path(check: str) -> Path:
 
 
 def _tokens(text: str) -> list[str]:
-    """The words of a quote or a command, with Markdown's decoration removed.
+    """The words of a record span or a command, with Markdown's decoration removed.
 
     A record writes a command inside backticks and inside a sentence, so the raw
     split never matches: ``` `cyclonedx-py`'s ``` has to reduce to the command
     name and `metadata,` to the word. A token that strips to nothing keeps its
     raw form instead, because `.` is `deptry .`'s argument rather than
-    punctuation, and dropping it would let that completion fold into the argv
-    unnoticed - which is the one thing this tokenizer exists to prevent.
+    punctuation, and dropping it would make `deptry .` and `deptry` one
+    command, so a completion the round added would read as the record's own
+    prescription.
     """
     out = []
     for raw in text.split():
@@ -278,8 +278,8 @@ def _command_forms(paragraph: str, lead: str) -> set[str]:
 
     The lead word is a tool's name for most entries, and a runner's wherever the
     record prescribes a command led by something other than the tool being
-    checked - which is what `_lead_words` supplies, one call per word. Held to one
-    word either way: a rule matching the name anywhere in the span would
+    checked - which is what `_lead_words` supplies, one call per word, in the
+    example tests that exercise the pair. Held to one word either way: a rule matching the name anywhere in the span would
     attribute a neighbour's command to the wrong entry.
     """
     return {
@@ -296,8 +296,8 @@ def _lead_words(inv: Invocation) -> set[str]:
     command it wants run, and that command's first word is often a runner rather
     than the tool being checked - `pytest --randomly-seed=<n>` for
     `pytest-randomly`, `coverage run -m pytest` for `coverage.py`. Keyed on the
-    tool's name alone, the extractor returns nothing for those and an empty
-    declaration then passes as though the record prescribed nothing at all.
+    tool's name alone, `_command_forms` returns nothing for those, which reads
+    as a record that prescribed nothing at all.
     Keyed on the argv's own first token, it stays anchored to one word, so it
     still cannot pull a neighbour's command in: `deps/freshness` prescribes both
     `uv pip list --outdated` and `pip list --outdated`, and the `pip` entry's
@@ -313,7 +313,10 @@ def _flag_spans(paragraph: str) -> set[str]:
     Pooled across the paragraph rather than attributed to a tool, because a
     record prescribing a flag does not repeat the command it belongs to:
     `arch/cycles` wrote "Append `--show-dot` to that `pydeps` invocation", and
-    a rule keyed on the tool's name would miss the very drift this guards.
+    a rule keyed on the tool's name would miss exactly that flag. Reached by
+    its example test alone since the flag property was dissolved, and kept as
+    part of the extractor the backtick convention cites, whose next subject is
+    #58's prose-command gate.
     """
     return {span for span in _spans(paragraph) if span.startswith("-")}
 
@@ -323,8 +326,8 @@ def _concrete(tokens: list[str]) -> list[str]:
 
     A record writes `<requirements>` where the caller supplies a path, so the
     placeholder can never occur in a command and the token goes. Dropping it is
-    what lets the coverage property watch the entry whose placeholder forced the
-    anchor guard to be switched off for it.
+    what lets the coverage property watch a form that writes one, `pip-audit -r
+    <requirements>` being the case it was written for.
 
     Where the placeholder is glued to the rest of a token, the token is *reduced*
     rather than dropped: each placeholder collapses to a bare `<` and everything
@@ -342,7 +345,7 @@ def _concrete(tokens: list[str]) -> list[str]:
     Dropping the whole token instead reopens the drift this file exists to catch
     - a paragraph that grows `--cov-config=<file>` would reduce to nothing at
     all, `all([])` is vacuously true, and a newly prescribed flag nothing
-    transcribes would pass the flag property in silence. It also degrades the
+    transcribes would have passed the flag property, while it stood, in silence. It also degrades the
     coverage property to a check on the lead word alone, since `pytest
     --randomly-seed=<n>` would reduce to `pytest` and be satisfied by an argv
     running the suite bare.
@@ -372,8 +375,7 @@ def _concrete(tokens: list[str]) -> list[str]:
         collapsed = "".join(reduced)
         # A token that is only holes says nothing a command can be held to, and
         # a standalone `<requirements>` is exactly that: dropping it is what lets
-        # the coverage property watch the entry whose placeholder forced the
-        # anchor guard off.
+        # the coverage property watch a form that writes one.
         if not collapsed.startswith("<"):
             out.append(collapsed)
     return out
@@ -387,9 +389,10 @@ def every_invocation() -> tuple[Invocation, ...]:
     a row names, whether a placeholder reaches a command, how a tool is
     launched, whether the engine can grade its exit code - has to read this
     to still cover the checks that migrated; reading `INVOCATIONS` alone
-    would silently stop watching them while staying green. The two guards
-    that read `INVOCATIONS` directly are the ones about the table itself:
-    that it is empty, and that no migrated record has a row in it.
+    would silently stop watching them while staying green. The tests that name
+    `INVOCATIONS` directly are the two about the table itself, that it is
+    empty and that no migrated record has a row in it, and the set unions that
+    spell both paths by hand.
     """
     return tuple(INVOCATIONS) + routed_invocations()
 
@@ -403,9 +406,8 @@ def _prescribed_commands(inv: Invocation) -> list[tuple[str, tuple[str, ...]]]:
     message an entry with a shared argv produces.
 
     A supplied route is not here. It is authored round-side rather than
-    transcribed from a record - in the `SUPPLIED` overlay for a migrated record,
-    in this table for one still transcribed - so it answers to no declaration
-    the record makes:
+    transcribed from a record - in the `SUPPLIED` overlay, keyed `(check, tool)`
+    - so it answers to no declaration the record makes:
     `deps/vulnerabilities` declares `pip-audit -r <requirements>` `superseded`
     truthfully while the uv partition's supplied route runs that form. Excluding
     it is what keeps that from reading as a contradiction, rather than what stops
@@ -487,9 +489,9 @@ def test_flag_spans_are_pooled_across_the_paragraph():
 def test_a_placeholder_token_is_dropped_before_matching_an_argv():
     """A record writes what the caller supplies; an argv writes what it supplied.
 
-    This is what lets the coverage property watch a form whose placeholder had
-    once bought its entry an exception from the anchor guard, `<requirements>`
-    on `deps/vulnerabilities` being the case it was written for.
+    This is what lets the coverage property watch a form that writes a
+    placeholder as its own token, `<requirements>` on `deps/vulnerabilities`
+    being the case it was written for.
     """
     assert _concrete(_tokens("pip-audit -r <requirements> --no-deps")) == [
         "pip-audit",
@@ -974,12 +976,18 @@ def test_a_tool_answering_several_checks_is_invoked_once_per_check():
 # quote-is-a-sentence, command-in-the-quote and tool-its-record-offers
 # guards, the one-transcription split, and the two-command order held against
 # the quote - went with it, the last restated below against the routes. The
-# prose extractor itself - `_spans`, `_command_forms`, `_flag_spans` - stays,
-# tested by the example tests beside it, because
-# `test_a_glued_placeholder_needs_a_value_delimiter_before_its_mark` sweeps
-# every record's spans through it, the forty-one records outside the
-# harness's reach included, and the backtick convention `CLAUDE.md` states
-# cites that sweep as its reason.
+# prose extractor itself stays. `_spans` is reached by
+# `test_a_glued_placeholder_needs_a_value_delimiter_before_its_mark`, which
+# sweeps every record's spans through it, the records still on `tooling:`
+# included, and the backtick convention `CLAUDE.md` states cites that sweep
+# as its reason. `_command_forms`, `_lead_words` and `_flag_spans` are
+# reached by their example tests alone, and are kept on the reading the
+# migration recorded for a helper an example test exercises, because they are
+# the form extractor the convention names and #58's prose-command gate, which
+# #69 ticks, is their next subject. What separates them from the nine deleted
+# above is what they read: a span in any paragraph, rather than a
+# transcription or a `## Tooling fallback` section, subjects that cannot
+# return without `record_quote`.
 
 
 def test_classify_maps_a_missing_tool_to_no_evidence():
@@ -1189,7 +1197,7 @@ def test_a_missing_probe_and_a_stale_reason_are_both_drift():
     )
 
 
-# --- the transcription itself --------------------------------------------------
+# --- completions and routed rows -----------------------------------------------
 
 
 def test_a_completed_argv_says_why_it_had_to_be_completed():
@@ -1202,8 +1210,8 @@ def test_a_completed_argv_says_why_it_had_to_be_completed():
     `Invocation.__post_init__` raises on a completion with no note for any
     instance, routed or hand-written, so no loop over either population can
     observe a violation; the `pytest.raises` call is the whole exercise, and
-    the loop that used to precede it over the hand-written table was dropped
-    when that table emptied rather than kept to hold nothing.
+    the loop that used to precede it over the hand-written table went with
+    `record_quote` rather than staying to hold nothing over an empty table.
     """
     with pytest.raises(ValueError, match="completion"):
         Invocation(
@@ -1330,11 +1338,13 @@ def test_a_route_in_the_tree_still_carries_a_then():
 def test_every_form_the_harness_runs_appears_in_an_argv():
     """The other half: a form declared `runs` that no command carries.
 
-    The declaration property compares sets of spans, so it passes on a form
-    declared `runs` beside an argv that has stopped matching it, and the flag
-    property never reads a disposition at all. This one holds the two together,
+    The declaration and flag properties, while they stood, compared sets of
+    spans and never read a disposition, so each passed on a form declared
+    `runs` beside an argv that had stopped matching it. This one holds a
+    declared form against the commands the row runs.
     The entry that first needed it was `deps/vulnerabilities`, whose
-    placeholder had put it in an exception set the anchor guard then carried, so
+    placeholder had put it in an exception set the anchor guard, since
+    dissolved, then carried, so
     the guard that would have noticed a flag pair being added to the prescribed
     form was switched off for exactly that entry. Dropping the placeholder token
     instead of excusing the entry is what let this property watch it, and the
@@ -1350,10 +1360,10 @@ def test_every_form_the_harness_runs_appears_in_an_argv():
     that token instead, and a flag with a glued placeholder would go invisible.
     No form in the tree needs that today - see the paragraph below on what still
     takes the `supplied` branch - so this reads as the mechanism it is rather
-    than as an entry to go and look at. Reading two fields of the table is not
-    the folding the provenance guard forbids: that one forbids a completion
-    hiding inside the `argv` field, where nothing could tell it from what the
-    record prescribed.
+    than as an entry to go and look at. Reading two fields of the row is not
+    folding a completion into the `argv` field, where nothing could tell it
+    from what the record prescribed: the two stay separate fields, and the
+    results row renders the prescribed one as `record_argv` on its own.
 
     Order is held among the tokens the record writes in full, and presence only
     for a token whose tail the caller supplies. That split is what keeps the
@@ -1384,22 +1394,16 @@ def test_every_form_the_harness_runs_appears_in_an_argv():
     `alone_insufficient`, which derives no form.
 
     So no form on either path takes the `supplied` branch today, and it stays
-    because a transcribed entry can take one: a record writes the token it
+    because the shape is legal for a row: a record writes the token it
     supplies inside the form, and `_concrete` keeps a glued placeholder as a
     prefix `_marked` honours, where its head ends at a value delimiter, while
     dropping a standalone one - which is why `bandit -r <pkg>` does
     not take it and `pytest --randomly-seed=<n>` would, were its disposition not
-    `alternative`. Deleting the branch would leave the relaxation unavailable to
-    the next entry of that shape, and it is the transcription that still has
-    entries of any shape.
+    `alternative`. The assertion beneath refuses the branch on a routed row, so
+    what it is kept for is a hand-written row, and the table that would hold
+    one is empty.
 
-    The guard that traces a transcribed command through the record's sentence
-    reads every partition's route, but it never reads `then`, and where it
-    excepts an entry it asserts the *absence* of an anchor rather than skipping
-    it. It excepts none today - the set emptied when the record that needed it
-    migrated - so this property is the only order check on every form, and it
-    is the one that has to keep working when an exception comes back with the
-    next entry that needs one. A form reachable only through `then` is held
+    A form reachable only through `then` is held
     here, and this is the only property that holds one: a routed row's `argv`
     and `then` are two fields of one route, read in that order, so their order
     is true of it by construction and nothing else reads it.
@@ -1457,8 +1461,8 @@ def test_no_prescribed_command_is_exactly_a_form_the_record_warns_against():
     which differ by the completion. Reading the prescribed half alone leaves the
     executed form unwatched: an entry whose completion supplies exactly the
     tokens its record warns against runs that form as written while its
-    prescribed half equals nothing, and the flag property passes it too, because
-    those tokens do occur in a declared form. The two are labelled apart in the
+    prescribed half equals nothing, and the flag property, while it stood,
+    passed it too, because those tokens did occur in a declared form. The two are labelled apart in the
     failure message, since a form the record prescribes and a form a completion
     built are different corrections to make.
 
@@ -1512,10 +1516,10 @@ def test_an_entry_declaring_forms_declares_one_it_runs():
     Held with no exception set at all, which is strictly stronger than the one
     exception that used to stand here: any entry declaring forms and none it
     runs fails. That exception belonged to the transcription rather than to the
-    schema. A transcribed entry can truthfully declare a single `alternative`
+    schema. A transcribed entry could truthfully declare a single `alternative`
     form and no other - the record's only *named* form being one the harness
-    deliberately does not run, with the plain command it runs instead carried by
-    the anchor guard rather than declared as a form of its own. A routed row
+    deliberately does not run, with the plain command it ran instead anchored in
+    the record's sentence rather than declared as a form of its own. A routed row
     cannot take that shape: `_forms_for` derives a form from every command route
     the row carries, and the route whose argv the row runs is the `runs` one by
     construction. So only a transcribed entry of that shape brings the exception
@@ -1551,8 +1555,8 @@ def test_every_disposition_in_the_vocabulary_is_used():
     `routed_invocations` says the same where it raises on the value, and that is
     the statement to trust: this vocabulary is the lens's own, not the loader's.
 
-    Records do warn against multi-token forms, and where the record is still
-    transcribed the prose extractor reads those spans as forms. `arch/cycles`
+    Records do warn against multi-token forms, and a routed row's `superseded`
+    and `alternative` forms come from the routes that name them. `arch/cycles`
     warns against `pydeps --show-cycles`, declared `superseded` because the
     record narrows the same command, and `deps/inventory` says it has no route
     through `cyclonedx-py poetry`, declared `runs` because the harness runs that

@@ -3039,8 +3039,8 @@ def test_the_prose_fallback_predicate_follows_the_declared_schema():
 def test_a_routes_record_may_not_carry_a_fallback_section(tmp_path):
     """The direction the scoping cannot catch.
 
-    Scoping the prose properties, while they stood, to records declaring `tooling:` stopped them
-    reading a section that is not there. It says nothing about a section coming
+    Scoping this suite's legacy-schema properties by `fallback_lives_in_prose`
+    stops them reading a section that is not there. It says nothing about a section coming
     back: a migrated record that grows one again carries a second copy of its
     routes that no property reads and nothing holds against them, which is the
     state this whole change exists to end.

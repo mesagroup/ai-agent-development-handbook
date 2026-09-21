@@ -4,7 +4,7 @@ A row is one check record's prescribed way of running one tool, keyed by the
 (check, tool) pair, and the rows come from two places. A record that declares
 its commands as `routes:` data is read directly, by `routed_invocations`. A
 record whose fallback still lived in prose was **transcribed verbatim** into the
-table below, with the record's own sentence quoted beside it; the table is
+table below; the table is
 empty since the docs and security migration, and is the slot a legacy record
 would fill if the harness invoked one again. `invocations_for` returns both
 populations, the second being empty today.
@@ -436,13 +436,11 @@ class Invocation:
             `coverage run -m pytest` followed by `coverage report --show-missing`
             is one route, not two, and dropping the half that prints the report
             would leave the route looking like a tool that produced nothing.
-            The order is the record's and is held against it rather than against
-            a literal in the suite: the two commands concatenated trace through
-            the quote in the order the record writes them, so swapping them
-            fails as a reversed route rather than as a tuple somebody needs to
-            update.
-        note: Why the completion was needed, or what the transcription found
-            missing. Required whenever `completion` is non-empty.
+            The order is the route's: `argv` and `then` are two fields of one
+            route, read in that order by `routed_invocations`, and the suite
+            holds that some route in the tree still carries one.
+        note: Why the completion was needed. Required whenever `completion`
+            is non-empty.
         in_env: Whether the tool has to run from inside the materialized
             environment rather than through a one-shot runner.
         findings_stream: Which stream this tool writes its report to, and so
@@ -460,14 +458,11 @@ class Invocation:
             this field - `grep findings_stream` over the check tree is the
             answer, and a third record adding one must not have to find this
             sentence.
-        forms: Every command form this record's prescribing paragraph names for
-            this route, as `(form, disposition)` pairs, taken by reading it. The
-            declaration is what the record-to-harness guards compare: the
-            older guards that ran the other way, holding the transcription
-            against the record, are dissolved with the table they read; while
-            they stood, a record that *grows* a prescription leaves
-            them green while the harness quietly stops running what it says it
-            runs.
+        forms: Every command form this record prescribes for this route, as
+            `(form, disposition)` pairs, derived by `_forms_for` from the
+            route's `argv`, `argv_by_partition` and `then`. The declaration is
+            what the coverage and disposition properties compare against the
+            commands the row runs.
 
             A form is not always led by this entry's tool, so the declaration is
             keyed on the route rather than on the name: the record prescribes
