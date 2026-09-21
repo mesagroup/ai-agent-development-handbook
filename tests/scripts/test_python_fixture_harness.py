@@ -451,7 +451,7 @@ def _route_anchoring(inv: Invocation) -> list[tuple[str, tuple[str, ...], bool]]
     record has since migrated and no transcribed entry carries four commands
     today, so the rule is held on the entry built below rather than on the tree.
 
-    Separated from the property so the stopping-early defect can be tested on an
+    Separated from the property that read it, since dissolved, so the stopping-early defect can be tested on an
     entry built to carry it, the tree by then having none.
     """
     quote = _tokens(inv.record_quote)
@@ -530,7 +530,7 @@ def every_invocation() -> tuple[Invocation, ...]:
 
 
 def test_the_prose_fallback_scope_is_not_empty_and_holds_no_migrated_record():
-    """The set every property below narrows to, held against both ways it fails.
+    """The scope a legacy record entering the harness would need, held both ways it fails; no property narrows to it today.
 
     Empty is the dangerous direction: each property scoped by this set would
     iterate nothing, assert nothing and pass, so the whole file would go green
@@ -593,7 +593,8 @@ def _is_sibling_lens(label: str) -> bool:
 def _watched_paragraphs_in(check: str, text: str, quote: str) -> list[str]:
     """Every paragraph of a `## Tooling fallback` a Python prescription can land in.
 
-    The flag property reads this rather than the quoted line alone. A correction
+    The flag property read this rather than the quoted line alone while it
+    stood; the example test beside this is what exercises it now. A correction
     that appends a whole *paragraph* carrying only a flag - "Append
     `--max-bacon=2` to that `pydeps` invocation" - is the append shape
     `arch/cycles` drifted by, and the containment property below cannot see it:
@@ -619,7 +620,7 @@ def _watched_paragraphs_in(check: str, text: str, quote: str) -> list[str]:
 def _unaccounted_flags(paragraphs: list[str], pooled: list[str]) -> set[str]:
     """The flag spans no declared form on the record accounts for.
 
-    Separated from the property so that pooling across paragraphs can be tested
+    Separated from the property that read it, since dissolved, so that pooling across paragraphs can be tested
     on paragraphs rather than only on the tree, where the shape it exists to
     catch is by construction absent.
     """
@@ -1161,9 +1162,9 @@ def test_the_prescribing_paragraph_is_the_line_holding_the_quote():
     which builds both sides as literals with the same reason in its docstring.
 
     What the literal costs is that this one example no longer comes from the
-    tree. What still pays it is the file-reading wrapper: every property scoped
-    by `PROSE_FALLBACK_CHECKS` calls it over every record whose fallback lives
-    in prose, so nothing stops reading the tree - only the example moved.
+    tree. Nothing pays it against the tree any more: the file-reading wrapper was
+    dissolved with the properties that called it, so this example is the
+    selector's only exercise.
     """
     paragraph = _prescribing_paragraph_in(
         "demo/thing", _THREE_LABEL_SECTION, _THREE_LABEL_QUOTE
@@ -1217,9 +1218,8 @@ def test_the_watched_paragraphs_are_the_python_side_of_the_section():
     Written here rather than read off a record for the reason the test above
     gives: a record carrying all three is a record a later stage migrates, and
     re-pointing this at the next one buys one stage of green. The cost and what
-    still pays it are the same - the file-reading wrapper stays exercised over
-    every record in `PROSE_FALLBACK_CHECKS`, and only the three-label example
-    is a literal.
+    still pays it are the same - the selector's exercise is these examples alone, now that the
+    file-reading wrapper and the properties that called it are gone.
     """
     watched = _watched_paragraphs_in(
         "demo/thing", _THREE_LABEL_SECTION, _THREE_LABEL_QUOTE
@@ -1804,12 +1804,12 @@ def test_a_quote_is_a_sentence_rather_than_a_fragment():
     """Short fragments collide, and a colliding quote fails for the wrong reason.
 
     `C901` occurred in `arch/complexity-gate`'s fallback and again in its Fix
-    section, so a quote that short would fail the verbatim guard on a record
+    section, so a quote that short would have failed the verbatim guard, since dissolved, on a record
     nobody had changed.
 
     A length floor alone does not say this, though: a quote silently truncated
     to a mid-sentence fragment stays over any floor and stays unique, so the
-    verbatim guard keeps passing while what it compares has stopped being the
+    verbatim guard, while it stood, kept passing while what it compares has stopped being the
     record's prescription. Ending at a sentence boundary is what a truncation
     breaks, so that is what is held.
 
@@ -1828,7 +1828,8 @@ def test_a_quote_is_a_sentence_rather_than_a_fragment():
 
 
 def test_a_transcribed_command_occurs_in_the_sentence_that_prescribes_it():
-    """Otherwise the verbatim guard watches prose the command is not in.
+    """Otherwise a transcription's quote names prose the command is not in. Holds
+    nothing today, the table being empty, and stays for a legacy row.
 
     The guard's whole value is that a record whose prescription changes breaks
     the transcription. Anchored off a sentence that never named the command,
@@ -2244,14 +2245,12 @@ def test_every_disposition_in_the_vocabulary_is_used():
     tuple is already rejected by `Invocation`.
 
     Read over both enumeration paths, and the union is load-bearing now rather
-    than as insurance. Measured: the hand-written table's forms carry `runs` and
-    nothing else, so an equality over `INVOCATIONS` alone would **fail**,
-    missing `alternative` and `superseded` - both of which survive only on the
-    routed side. The reason is the one this property was written for, arrived
+    than as insurance. Measured: the hand-written table carries no forms at all, so every
+    value survives only on the routed side. The reason is the one this property was written for, arrived
     at: a value's users migrate, every record that declares its routes moves its
     forms out of this table, and the day the last hand-written user of a value
     goes the version reading one population starts failing on a vocabulary still
-    in use. That day has passed for two of the three values.
+    in use. That day has passed for all three values.
     """
     assert {d for inv in every_invocation() for _, d in inv.forms} == set(DISPOSITIONS)
 

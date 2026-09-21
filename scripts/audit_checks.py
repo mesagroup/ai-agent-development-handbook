@@ -1643,7 +1643,7 @@ def fallback_lives_in_prose(check: Check) -> bool:
     the routes.
 
     Keyed on the declared schema rather than on whether the section is present.
-    Presence is what several of those properties exist to check, and a scope
+    Presence is what the properties that used to scope on this existed to check, and a scope
     keyed on it would switch each one off on exactly the record it was written
     to catch.
     """

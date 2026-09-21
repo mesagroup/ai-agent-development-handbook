@@ -336,7 +336,7 @@ NO_VERSION_ROUTE: dict[str, str] = {}
 
 # What a declared command form is for. A disposition says what the *record* names
 # a form for, and `runs` is the only value the harness acts on. Each of the other
-# two says a different thing about a form the transcription did not take:
+# two says a different thing about a form the harness does not run:
 #
 # * `superseded` - the record names the form and then narrows the same command,
 #   the way the `--no-deps --disable-pip` pair narrows `pip-audit -r
@@ -463,10 +463,10 @@ class Invocation:
             sentence.
         record_quote: The record's own **prescribing sentence** for this route,
             occurring exactly once in the record, taken by reading it. This is
-            what the verbatim guard compares, so it is the half that fails when
-            a record's prescription changes under the table - and it only fails
-            there if it is anchored off the sentence that names the command,
-            which is why the guard also holds the transcribed tokens against it.
+            what the verbatim guard compared while transcribed rows existed; the
+            guard was dissolved with the last of them, and the field stays for
+            a legacy row that may yet be written, anchored off the sentence
+            that names the command.
 
             A quote spanning two adjacent sentences reads as an oversight and
             is not: its entry runs a command the record splits across both, so
@@ -478,8 +478,7 @@ class Invocation:
             sentence saying what a record prescribes *instead* of a command
             belonged to an entry prescribing none; a quote naming no command at
             all belonged to a record that prescribed by delegating to a
-            sibling's fallback section. Every remaining transcribed row
-            prescribes a command and quotes a sentence naming it, and the
+            sibling's fallback section. No transcribed row remains, and the
             routed side cannot supply an instance either, for the reason the
             next paragraph gives. So a quote of either shape arriving here is a
             transcription nobody has read against its record, not a case this
@@ -492,9 +491,10 @@ class Invocation:
             value from spreading to a hand-written entry.
         forms: Every command form this record's prescribing paragraph names for
             this route, as `(form, disposition)` pairs, taken by reading it. The
-            declaration is what the record-to-harness guards compare: the three
-            older guards all run the other way, holding the transcription
-            against the record, so a record that *grows* a prescription leaves
+            declaration is what the record-to-harness guards compare: the
+            older guards that ran the other way, holding the transcription
+            against the record, are dissolved with the table they read; while
+            they stood, a record that *grows* a prescription leaves
             them green while the harness quietly stops running what it says it
             runs.
 
@@ -967,7 +967,7 @@ def tools_named_in_records() -> set[str]:
     """Every tool any record offers for Python.
 
     Read from the records rather than listed here, so a tool added to a record
-    and forgotten in `INVOCATIONS` fails the exact-set guard instead of going
+    and missing from its routes fails the exact-set guard instead of going
     unexercised behind a full-looking run.
     """
     return {
@@ -1386,7 +1386,7 @@ def invocations_for(
     Scoped by the expectations rather than by a second list, so the harness
     cannot run a set the published record does not grade. The rows come from
     two places: the records for those that declare their routes, and this
-    file for those whose fallback is still prose.
+    file's `INVOCATIONS`, the legacy slot, empty today.
 
     Args:
         partition: Which partition's scope to read.
@@ -1532,7 +1532,7 @@ def launcher(
 #
 # Every tool a partition could ever hand `classify` a non-zero exit for is
 # named here; the exact-set guard in the tests is what holds that, so a tool
-# added to `INVOCATIONS` without an entry fails loudly rather than defaulting.
+# a record's route names without an entry here fails loudly rather than defaulting.
 NONZERO_EXIT_KINDS = ("findings", "failure", "ambiguous")
 
 NONZERO_EXIT_MEANING: dict[str, str] = {
