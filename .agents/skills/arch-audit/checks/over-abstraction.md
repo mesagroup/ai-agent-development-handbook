@@ -7,7 +7,11 @@ evidence: >-
   concrete subclass, one call site, one registrant or arm, one distinct
   bound value - or zero - is the trigger, and more than one is not. Record
   the count and the `file:line` of both the abstraction and its lone
-  consumer.
+  consumer. The shim axis is the other half of this check's evidence, and it
+  is not a count: the forbidden-shim marker hit with its `file:line`, beside
+  the contributor guide's stated policy, read by the Python procedure route
+  below. TypeScript carries no shim route, so there the evidence is the
+  counts alone and the shim half is unread rather than clean.
 handbook:
   - implementation-disciplines/coding-hygiene-rules-that-surface-at-review-b
   - codebase-structure/why-the-rule-matters-a

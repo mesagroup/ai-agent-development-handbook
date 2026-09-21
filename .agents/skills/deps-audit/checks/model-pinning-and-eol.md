@@ -13,10 +13,14 @@ evidence: >-
   live at the provider rather than in the target: whether the provider
   publishes a pinnable form of that identifier, and its end-of-life date.
   A run that cannot reach the provider has the declarations and neither
-  provider fact, and **both halves then report `no-evidence` with that as
-  the reason**. Neither collapses to `ok`: a pin that was never looked up is
-  not a pin known to be absent, and a sunset that was never looked up is not
-  a sunset known not to exist.
+  provider fact, and **both axes then report `no-evidence` with that as the
+  reason**: the pin axis for the pinnable-form question and the lifetime
+  axis whole. What the declarations alone decide - a provider with no model
+  named, two sites that disagree - is still a finding in its own row, as the
+  pin route's note says; the axis's status is about the provider question,
+  not about those. Neither axis collapses to `ok`: a pin that was never
+  looked up is not a pin known to be absent, and a sunset that was never
+  looked up is not a sunset known not to exist.
 routes:
   - lang: any
     kind: procedure
