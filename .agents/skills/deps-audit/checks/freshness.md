@@ -29,7 +29,11 @@ routes:
       Name the interpreter explicitly on the `uv` route, as
       `uv pip list --outdated --python <path-to-venv-python>`; the path is the
       caller's to resolve, which is why the argv stops where the placeholder
-      starts.
+      starts. And an outdated list answers the outdated half of this check
+      alone: whether a direct dependency is unpinned, and whether a pinned
+      release is yanked, are the lockfile scan and the registry comparison
+      the procedure route below carries, so a clean list beside an unread
+      lockfile is not this check answered.
   - lang: python
     kind: command
     tool: uv
@@ -55,6 +59,12 @@ routes:
       lockfile, so it needs the tree resolved. It needs no interpreter flag;
       it introspects whichever interpreter it is running under rather than
       depending on venv-discovery logic.
+    alone_insufficient: >-
+      An outdated list answers the outdated half of this check alone. Whether
+      a direct dependency is unpinned, and whether a pinned release is yanked,
+      are the lockfile scan and the registry comparison the procedure route
+      below carries, so a clean list beside an unread lockfile is not this
+      check answered.
   - lang: python
     kind: procedure
     note: >-
@@ -89,6 +99,12 @@ routes:
       `MISSING`, and its own source drops any non-production dependency that
       is missing from the output entirely, so devDependencies vanish rather
       than being reported as outdated.
+    alone_insufficient: >-
+      An outdated list answers the outdated half of this check alone. Whether
+      a direct dependency is unpinned, and whether a pinned release is yanked,
+      are the lockfile scan and the registry comparison the procedure route
+      below carries, so a clean list beside an unread lockfile is not this
+      check answered.
   - lang: typescript
     kind: command
     tool: pnpm outdated
@@ -107,6 +123,12 @@ routes:
       `pnpm outdated --json` writes registry warnings to stdout ahead of the
       JSON, so a run that pipes it straight into a parser fails on output the
       command considers successful.
+    alone_insufficient: >-
+      An outdated list answers the outdated half of this check alone. Whether
+      a direct dependency is unpinned, and whether a pinned release is yanked,
+      are the lockfile scan and the registry comparison the procedure route
+      below carries, so a clean list beside an unread lockfile is not this
+      check answered.
   - lang: typescript
     kind: procedure
     tool: npm-check-updates
