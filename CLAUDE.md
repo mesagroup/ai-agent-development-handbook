@@ -10,6 +10,7 @@ uv run ruff check . && uv run ruff format --check .
 uv run python scripts/render_handbook_traceability.py --check   # integrity gate
 uv run python scripts/render_handbook_traceability.py           # regenerate the matrix Markdown
 uv run python scripts/render_handbook_artifact.py               # needs the d2 CLI
+uv run python scripts/check_handbook_citations.py               # every citation a report emits resolves to an anchor in the page
 uv run python scripts/render_python_fixture_expectations.py --check   # integrity gate
 uv run python scripts/render_python_fixture_expectations.py           # regenerate the fixture expectations
 uv run deptry .                                                       # dependency hygiene gate
@@ -27,6 +28,7 @@ Run `ruff check` AND `ruff format --check` before committing. CI runs both.
 - `docs/audit/handbook-traceability.yaml` — the matrix. Source of truth.
 - `docs/audit/handbook-traceability.md` — generated. Never edit it; edit the YAML and re-render.
 - `docs/audit/sweep-obligations.md` — hand-maintained, unlike its neighbour: one row per `audit-core` obligation, recording how the `audit` sweep discharges it. Editing `audit-core/SKILL.md`, a file under `audit-core/references/`, or `audit/SKILL.md` means checking it. `tests/test_sweep_obligations.py` catches a row whose anchor no longer occurs in `audit-core` exactly once, a quotation that is no longer verbatim, and a row that has slipped out of the checked set; it cannot judge whether a disposition is still true, which is a reading pass over the whole of `audit-core`.
+- `docs/handbook-handover.md` — the note that travels with the rendered handbook page: which report it accompanies, how a recipient opens it and follows a citation into it, and where the artefact lives, the last a placeholder the maintainer fills. It names no recipient; a copy that does goes with the artefact, not here.
 - `docs/audit/python-fixture-expectations.md` — generated. Never edit it; edit `scripts/python_fixture_spec.py` and re-render. The seeded fixture trees and this record come from that one module on purpose: expectations kept in a second file are free to drift, and a seed present in the tree but missing from the expectations reads exactly like a tool that correctly found nothing.
 - `.agents/skills/` — the audit skill family: `audit`, `audit-core`, and nine `<domain>-audit` skills.
 - `.agents/skills/<domain>-audit/checks/<slug>.md` — one check record per auditable check.
@@ -64,7 +66,7 @@ Path-based history surgery matches *historical* paths. A file renamed out of a d
 
 - ruff's `extend-exclude = ["docs"]` is load-bearing. Recent ruff formats Python inside Markdown fences, and specs, plans and stories are a record of what was written at the time; reformatting their samples edits that record.
 - `scripts/render_handbook_artifact.py` imports `markdown` lazily, so a missing dependency surfaces when the renderer runs rather than at import. It is declared in `pyproject.toml`; a lazy import is not a reason to leave one undeclared, and `deptry` now fails CI on one - that import is the case the gate's non-vacuity test undeclares, because a function-level import is exactly what a reader might expect the tool to miss.
-- The artifact renderer reports `residual .md hrefs: 0`. A relative `.md` link out of the handbook tree (only `engineering-notes.md` today) is *unlinked* rather than mapped - it prints a `NOTE`, keeps the link text and drops the anchor, because a self-contained page cannot link to a file it does not contain. A *sibling* `.md` link naming no part still raises.
+- The artifact renderer reports `residual .md hrefs: 0`. Every heading in the page carries `id="<stem>-<slug>"`, the slug being `render_handbook_traceability.slugify` over the heading text, so a report citation written as `<stem>.md#<slug>` and a matrix row id written as `<stem>/<slug>[-letter]` both name one element; the stem is in front because ten parts end in a `See also` heading. A sibling link's fragment is preserved onto that id, and a fragment naming no heading raises, as does a *sibling* `.md` link naming no part. A relative `.md` link out of the handbook tree (only `engineering-notes.md` today) is *unlinked* rather than mapped - it prints a `NOTE`, keeps the link text and drops the anchor, because a self-contained page cannot link to a file it does not contain. `scripts/check_handbook_citations.py` holds every citation the skills carry and every matrix row against those ids, from the markdown by default and from a rendered page with `--page`, and `tests/scripts/test_check_handbook_citations.py` runs the markdown form on every push.
 - Diagrams need the `d2` CLI.
 
 ## Check records
