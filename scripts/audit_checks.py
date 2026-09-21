@@ -138,9 +138,11 @@ states the precedence; two with different values are complements, and the
 check is answered in that language only when every distinct value has a
 route that ran, a missing axis reporting `no-evidence` with the reason on
 that axis's routes rather than `ok`. `_load_routes` holds the field to all
-or none per language, over the same scope `_routes_answering_ungranted`
-reads, and to at least two distinct values where it appears; a record whose
-every route answers the whole check carries it nowhere.
+or none per language, over the language grouping `_routes_answering_ungranted`
+uses without its tier filter, a universal key judged alone only where the
+record has no concrete language, and to at least two distinct values where
+it appears; a record whose every route answers the whole check carries it
+nowhere.
 
 `answers_ungranted` is `ungranted_note`'s counterpart under `routes`: where
 every answering-kind route (`command`, `library`, `procedure`) a language

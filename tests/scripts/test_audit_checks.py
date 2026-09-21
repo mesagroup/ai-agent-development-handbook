@@ -3606,8 +3606,8 @@ def test_a_half_axised_language_is_rejected(tmp_path):
 def test_a_universal_route_is_in_every_languages_scope(tmp_path):
     """A `lang: any` route applies to a Python partition at run time, so an
     axised Python pair beside an unaxised `any` route is the half-axised
-    record the rule forbids, filed under two keys. The scoping is the one
-    `_routes_answering_ungranted` already uses.
+    record the rule forbids, filed under two keys. The language grouping is the
+    one `_routes_answering_ungranted` already uses, without its tier filter.
     """
     _, errors = _two_route_record(
         tmp_path,
@@ -3717,7 +3717,9 @@ def test_the_answers_pass_is_not_vacuous():
     pass marked as complements, with no slack, the way the `needs` floor
     above holds its sweep: adding a complement record raises it, and a
     failure here means a record dropped its axes rather than a number to
-    lower. Computed on `main` at `ae41836` over 28 multi-route records: 5.
+    lower. Computed on this branch: 5, over the 28 records that on `main` at
+    `ae41836` have a language with more than one answering non-`forbidden`
+    route.
     """
     checks, errors = ac.load_checks(ac.SKILLS_DIR)
     assert errors == []
