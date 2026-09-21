@@ -3,10 +3,11 @@
 A row is one check record's prescribed way of running one tool, keyed by the
 (check, tool) pair, and the rows come from two places. A record that declares
 its commands as `routes:` data is read directly, by `routed_invocations`. A
-record whose fallback still lives in prose is **transcribed verbatim** into the
-table below, with the record's own sentence quoted beside it. `invocations_for`
-returns both, and the properties in the test module say which population each
-of them reads.
+record whose fallback still lived in prose was **transcribed verbatim** into the
+table below, with the record's own sentence quoted beside it; the table is
+empty since the docs and security migration, and is the slot a legacy record
+would fill if the harness invoked one again. `invocations_for` returns both
+populations, the second being empty today.
 
 Either way the point is the same, and it is the mechanism rather than the
 decoration: somebody running these by hand repairs a broken command as they go
@@ -16,7 +17,7 @@ what the record says, `completion` is what had to be added for the command to
 run at all, and `note` says why - and the set of rows carrying a completion is
 a finding list before any tool has spoken. What changes between the two
 populations is only where `argv` is read from, which is why a transcribed row
-carries `record_quote` to anchor it and a routed row has nothing to anchor.
+would carry `record_quote` to anchor it while a routed row has nothing to anchor.
 
 A route the record does not prescribe at all is a third thing, and it is held
 apart from both: `supplied_by_partition` carries a command **this round

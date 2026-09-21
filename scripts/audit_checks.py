@@ -125,8 +125,9 @@ The body is validated too, which the split above understates: it must carry
 an `# ` title, being the check's display name, and it may not carry a fenced
 code block in either spelling. Every command a record prescribes appears in
 an inline backtick span, because that is the only place the form extractor
-reads, so a command in a fence is invisible to every property holding a
-record's prescription against what ran. A four-space indented block is
+reads: it sweeps every record's spans for the glued-placeholder rule, and it
+would hold a legacy record's transcription against its prose if one entered
+the harness again, so a command in a fence is invisible to it. A four-space indented block is
 legal - its content is literal text, so a record may show a tool's output
 there even where that output prints a fence.
 
@@ -1528,9 +1529,10 @@ def _load_one(
         errors.append(
             f"{where}: body carries a fenced code block. Every command a record "
             "prescribes appears in an inline backtick span, because that is the "
-            "only place the form extractor reads: a command in a fence is "
-            "invisible to every property that holds a record's prescription "
-            "against what ran, and the suite stays green over it. Write the "
+            "only place the form extractor reads, for the glued-placeholder "
+            "sweep over every record and for any legacy record's transcription: "
+            "a command in a fence is invisible to it, and the suite stays green "
+            "over it. Write the "
             "command in a span in its own paragraph. A four-space indented "
             "block is not this: its content is literal text, so a record may "
             "show a tool's output there even where that output prints a fence"
