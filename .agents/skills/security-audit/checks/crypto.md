@@ -18,52 +18,57 @@ routes:
       `bandit -r <pkg>` captures test id like `B602`, severity, confidence and
       `file:line`; record test id and `file:line` per hit. `<pkg>` is the caller's
       to resolve, so the argv stops at the flag and the package is the operand the
-      record leaves open. Grep the codebase for `verify=False` and `md5(` even
-      where the scanner is silent, and read each hit.
+      record leaves open.
   - lang: python
     kind: command
     tool: ruff
     argv: [ruff, check, "--select", S]
+    applies_when: >-
+      The project standardizes on ruff.
     note: >-
-      `ruff check --select S` where the project standardizes on ruff: the `S`
-      ruleset is bandit's rules carried by ruff, so a hit is recorded and triaged
-      the same way.
+      `ruff check --select S`, the same recording per hit.
   - lang: python
     kind: command
     tool: semgrep
     argv: [semgrep, "--config", p/python]
     note: >-
-      `semgrep --config p/python` for dataflow-aware rules, where a scanner that
-      follows a value from source to sink is worth the fetch.
+      `semgrep --config p/python` for dataflow-aware rules, the same recording per
+      hit.
+  - lang: python
+    kind: procedure
+    note: >-
+      Grep the codebase for `verify=False` and `md5(` even where the scanner is
+      silent, whichever scanner ran, and read each hit.
   - lang: any
     kind: command
     tool: semgrep
     registry: pypi
-    argv: [semgrep, scan, "--config", p/javascript]
+    argv: [semgrep, scan, "--config", p/javascript, "--config", p/typescript]
     applies_when: >-
-      A TypeScript or JavaScript partition; the Python partition's semgrep route
-      is the `p/python` one above.
+      A TypeScript partition; the Python partition's semgrep route is the
+      `p/python` one above.
     note: >-
-      `semgrep scan --config p/javascript`, with `--config p/typescript` added for
-      the TypeScript-specific rules; both are Semgrep Registry rulesets. Record
-      rule id and `file:line` per hit. Semgrep is a Python-registry package, which
-      is why this route is `lang: any` with the registry named: fetch it with `uvx
-      semgrep` or `pipx run semgrep` whatever the partition's language is, and do
-      not reach for the partition's own one-shot runner. An npm package named
-      `semgrep` does exist, a 2020 placeholder whose `latest` is `0.0.1` and which
-      declares no `bin`, so `npx semgrep` does not fail cleanly: it pulls unvetted
-      third-party code into the audit environment and then has nothing to run. Do
-      not read a clean pass as this check answered on its own: run against a real
-      TypeScript target, `p/javascript` plus `p/typescript` came to 74 rules and 0
-      findings across 339 files where `eslint-plugin-security` returned 557 hits
-      on the same tree, so on that target semgrep alone would have reported every
-      check in this domain clean. Semgrep also reports that its scan is limited to
-      files tracked by git, so an untracked file is skipped with no hit and no
-      error. Run this and the ESLint route both, or say in the report which one
-      produced the absence.
+      `semgrep scan --config p/javascript --config p/typescript`, the second
+      config for the TypeScript-specific rules; both are Semgrep Registry
+      rulesets. Record rule id and `file:line` per hit. Semgrep is a
+      Python-registry package, which is why this route is `lang: any` with the
+      registry named: fetch it with `uvx semgrep` or `pipx run semgrep` whatever
+      the partition's language is, and do not reach for the partition's own
+      one-shot runner. An npm package named `semgrep` does exist, a 2020
+      placeholder whose `latest` is `0.0.1` and which declares no `bin`, so `npx
+      semgrep` does not fail cleanly: it pulls unvetted third-party code into the
+      audit environment and then has nothing to run. Do not read a clean pass as
+      this check answered on its own: run against a real TypeScript target,
+      `p/javascript` plus `p/typescript` came to 74 rules and 0 findings across
+      339 files where `eslint-plugin-security` returned 557 hits on the same tree,
+      so on that target semgrep alone would have reported every check in this
+      domain clean. Semgrep also reports that its scan is limited to files tracked
+      by git, so an untracked file is skipped with no hit and no error. Run this
+      and the ESLint route both, or say in the report which one produced the
+      absence.
   - lang: typescript
     kind: procedure
-    tool: eslint-plugin-security
+    tool: eslint
     note: >-
       ESLint with `eslint-plugin-security`, whose `recommended` flat config turns
       on the `detect-*` rules, run under a flat config the audit supplies rather
@@ -93,17 +98,16 @@ routes:
       value for, so there is no argv to declare.
   - lang: typescript
     kind: procedure
-    tool: eslint-plugin-security
+    tool: eslint
     needs: target-execution
     note: >-
-      The same plugin under the target's own flat config, which is what the grant
-      buys: the project's own rule selection. That config loads its plugins from
-      the target's own `node_modules`, and without it ESLint aborts with
-      `ERR_MODULE_NOT_FOUND` rather than reporting a hit. It is the same tool as
-      the route above and a different invocation mode, which is the whole
-      distinction between them; the tier is the only machine-readable thing that
-      tells the modes apart, and the untiered route above is the one that keeps
-      this record answering when the grant is withheld.
+      ESLint under the target's own flat config, which is what the grant buys: the
+      project's own rule selection, with `eslint-plugin-security` where the
+      project loads it. It is the same tool as the route above and a different
+      invocation mode, which is the whole distinction between them; the tier is
+      the only machine-readable thing that tells the modes apart, and the untiered
+      route above is the one that keeps this record answering when the grant is
+      withheld.
   - lang: typescript
     kind: procedure
     note: >-

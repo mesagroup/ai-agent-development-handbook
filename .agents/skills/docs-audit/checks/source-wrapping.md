@@ -18,14 +18,14 @@ routes:
     kind: procedure
     note: >-
       No tool answers this as asked, so read the source. `markdownlint`'s `MD013`
-      is the opposite rule and must not be substituted - see above. Resolve the
+      is the opposite rule and must not be substituted - see the body below. Resolve the
       blocks with whatever CommonMark parser the project already has (a docs
       site's own renderer, a Markdown library in the test environment), with its
-      table and front-matter extensions enabled for the reason above.
+      table and front-matter extensions enabled for the reason the body gives below.
 
-      **This section says what to run. It does not say what counts as a finding,
+      **This route says what to run. It does not say what counts as a finding,
       and it deliberately does not restate the rule that does.** That rule is
-      `What counts as a paragraph, and what does not` above, and it is one rule
+      `What counts as a paragraph, and what does not` below, and it is one rule
       rather than a headline with qualifications: the hard-break exception and the
       per-paragraph marker guard are clauses of it, not footnotes to it. The
       separation is here because a paraphrase in this section is the form an agent

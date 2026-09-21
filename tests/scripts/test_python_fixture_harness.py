@@ -5091,10 +5091,10 @@ def test_the_multi_route_no_command_groups_are_the_ones_the_rule_was_written_for
     assert multi == {
         "arch/complexity/eslint",
         "arch/hidden-coupling/eslint",
-        "security/crypto/eslint-plugin-security",
-        "security/dangerous-calls/eslint-plugin-security",
-        "security/injection/eslint-plugin-security",
-        "security/unsafe-io/eslint-plugin-security",
+        "security/crypto/eslint",
+        "security/dangerous-calls/eslint",
+        "security/injection/eslint",
+        "security/unsafe-io/eslint",
         "test/coverage-reach/c8",
         "test/mutation/@stryker-mutator/core",
     }, multi

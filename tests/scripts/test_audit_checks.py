@@ -2904,6 +2904,9 @@ def test_the_classification_is_not_vacuous():
 
 
 _NO_TYPESCRIPT_LENS = {
+    # Python docstring tooling with nothing on the other side; the record's
+    # sweep is `lang: python` because TypeScript has no docstring node.
+    "docs/docstring-coverage",
     # arch/martin-metrics and docs/docstring-coverage are the debt this sweep
     # did not clear: #5 scoped its remaining half to test-audit and
     # security-audit. Both are python-only and both are real gaps.
