@@ -25,6 +25,7 @@ handbook:
 routes:
   - lang: python
     kind: command
+    answers: measurement
     tool: pytest-cov
     argv: [pytest, "--cov-branch", "--cov-report=term-missing"]
     in_env: true
@@ -37,6 +38,7 @@ routes:
       why the argv stops short of the placeholder.
   - lang: python
     kind: command
+    answers: measurement
     tool: coverage.py
     argv: [coverage, run, "-m", pytest]
     then: [coverage, report, "--show-missing"]
@@ -50,6 +52,7 @@ routes:
       own.
   - lang: python
     kind: procedure
+    answers: configuration
     note: >-
       What is excluded from measurement is readable with nothing installed.
       `[tool.coverage.run]`'s `source` and `omit`, and
@@ -68,6 +71,7 @@ routes:
       leaves.
   - lang: typescript
     kind: command
+    answers: measurement
     tool: vitest
     argv: [vitest, run, "--coverage"]
     needs: target-execution
@@ -94,6 +98,7 @@ routes:
       all while otherwise looking like a run that worked.
   - lang: typescript
     kind: command
+    answers: measurement
     tool: jest
     argv: [jest, "--coverage"]
     needs: target-execution
@@ -104,6 +109,7 @@ routes:
       `jest --coverage` reports branch coverage.
   - lang: typescript
     kind: procedure
+    answers: measurement
     tool: c8
     needs: target-execution
     applies_when: >-
@@ -125,6 +131,7 @@ routes:
       schema carries only on a `kind: command` route.
   - lang: typescript
     kind: procedure
+    answers: measurement
     tool: c8
     needs: target-execution
     applies_when: >-
@@ -145,6 +152,7 @@ routes:
       one would invent the command being wrapped.
   - lang: typescript
     kind: procedure
+    answers: configuration
     note: >-
       What is excluded from measurement is readable with nothing installed:
       `coverage.include` and `coverage.exclude` in `vitest.config.*` or in the
