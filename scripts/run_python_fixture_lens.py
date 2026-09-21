@@ -16,8 +16,7 @@ make a tool work is a diff against what the record prescribes. So `argv` is
 what the record says, `completion` is what had to be added for the command to
 run at all, and `note` says why - and the set of rows carrying a completion is
 a finding list before any tool has spoken. What changes between the two
-populations is only where `argv` is read from, which is why a transcribed row
-would carry `record_quote` to anchor it while a routed row has nothing to anchor.
+populations is only where `argv` is read from.
 
 A route the record does not prescribe at all is a third thing, and it is held
 apart from both: `supplied_by_partition` carries a command **this round
@@ -461,34 +460,6 @@ class Invocation:
             this field - `grep findings_stream` over the check tree is the
             answer, and a third record adding one must not have to find this
             sentence.
-        record_quote: The record's own **prescribing sentence** for this route,
-            occurring exactly once in the record, taken by reading it. This is
-            what the verbatim guard compared while transcribed rows existed; the
-            guard was dissolved with the last of them, and the field stays for
-            a legacy row that may yet be written, anchored off the sentence
-            that names the command.
-
-            A quote spanning two adjacent sentences reads as an oversight and
-            is not: its entry runs a command the record splits across both, so
-            quoting either alone would leave half the prescription unwatched.
-
-            Two further shapes are documented here as unreachable rather than
-            as permitted, because both were live at this branch's base and the
-            migration took the last instance of each. A quote that is the
-            sentence saying what a record prescribes *instead* of a command
-            belonged to an entry prescribing none; a quote naming no command at
-            all belonged to a record that prescribed by delegating to a
-            sibling's fallback section. No transcribed row remains, and the
-            routed side cannot supply an instance either, for the reason the
-            next paragraph gives. So a quote of either shape arriving here is a
-            transcription nobody has read against its record, not a case this
-            field already handles.
-
-            Empty on a row built from a record's `routes`, where there is no
-            transcription to anchor: the prescription is read from the record
-            each run rather than copied here, so there is nothing for a quote
-            to hold it against. The property above is what keeps the empty
-            value from spreading to a hand-written entry.
         forms: Every command form this record's prescribing paragraph names for
             this route, as `(form, disposition)` pairs, taken by reading it. The
             declaration is what the record-to-harness guards compare: the
@@ -532,7 +503,6 @@ class Invocation:
 
     check: str
     tool: str
-    record_quote: str = ""
     argv: tuple[str, ...] = ()
     argv_by_partition: tuple[tuple[str, tuple[str, ...]], ...] = ()
     supplied_by_partition: tuple[tuple[str, tuple[tuple[str, ...], ...]], ...] = ()
