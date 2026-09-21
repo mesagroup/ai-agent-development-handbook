@@ -552,8 +552,9 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
     language are its own answering-kind, non-forbidden routes plus the
     universal ones (`lang: any`, `lang: none`), which apply to every
     language at run time - the same scoping `_routes_answering_ungranted`
-    uses - and where any route in that scope carries `answers`, every route
-    in it must, and the values must be at least two distinct ones, because
+    uses, a universal key being scoped on its own only where the record has
+    no concrete language - and where any route in that scope carries
+    `answers`, every route in it must, and the values must be at least two distinct ones, because
     a lone value says nothing the field's absence does not already say and
     a schema that accepts a behavioural no-op is a field a future author
     fills without thinking.
@@ -1017,8 +1018,17 @@ def _answers_scopes(routes: tuple[Route, ...]) -> dict[str, tuple[Route, ...]]:
     Python partition running an axised route and an unaxised one together,
     which is the half-axised record the rule forbids. The same scoping
     `_routes_answering_ungranted` uses, without its tier filter, because
-    which axis a route answers does not depend on what it needs. A
-    universal language key scopes to the universal routes alone.
+    which axis a route answers does not depend on what it needs.
+
+    A universal key is scoped only where the record has no concrete
+    language at all, as `deps/model-pinning-and-eol` has two `lang: any`
+    routes and nothing else: there the universal routes are the whole
+    record and are held to the rules as a language. Where a concrete
+    language exists, every universal route is already inside that
+    language's scope and judged there, and judging it again under its own
+    key would demand two axes of a single `any` route that carries the one
+    axis the concrete languages leave to it - `test/isolation`'s grep for
+    real I/O beside its per-runner timing routes.
     """
     by_lang: dict[str, list[Route]] = {}
     for route in routes:
@@ -1030,9 +1040,11 @@ def _answers_scopes(routes: tuple[Route, ...]) -> dict[str, tuple[Route, ...]]:
         if lang in UNIVERSAL_ROUTE_LANGS
         for route in lang_routes
     ]
+    concrete = {lang for lang in by_lang if lang not in UNIVERSAL_ROUTE_LANGS}
     return {
         lang: tuple(lang_routes + [r for r in universal if r.lang != lang])
         for lang, lang_routes in by_lang.items()
+        if not concrete or lang in concrete
     }
 
 
