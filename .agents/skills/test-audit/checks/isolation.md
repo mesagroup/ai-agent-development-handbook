@@ -5,9 +5,11 @@ locality: local
 evidence: >-
   The duration reported per test is the timing evidence, and the calls a test
   makes are the real-I/O evidence. The timing pass runs the target's own suite,
-  so without the `target-execution` grant the duration evidence is missing and
-  this check is answered on the I/O axis the untiered route below carries
-  rather than `no-evidence` as a whole, in either language.
+  so without the `target-execution` grant the duration evidence is missing: the
+  timing axis is `no-evidence (not-permitted)`, the I/O axis is still answered
+  by the untiered route below, and the check reports as half-answered, its
+  evidence naming both, never as `ok` because the I/O reading was clean, in
+  either language.
 handbook:
   - implementation-disciplines/tdd-b
 routes:
