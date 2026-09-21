@@ -14,6 +14,7 @@ handbook:
 routes:
   - lang: python
     kind: library
+    answers: fan-in
     tool: grimp
     note: >-
       The fan-in-to-abstraction signal - subclasses per abstraction, call
@@ -41,6 +42,7 @@ routes:
       with its reason."
   - lang: python
     kind: procedure
+    answers: shims
     note: >-
       Grep the project's forbidden-shim markers (`backward compat`,
       `deprecated`, `re-export`, a function body that is a single call to a
