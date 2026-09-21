@@ -3530,3 +3530,145 @@ def test_the_docstring_s_no_fetch_count_is_the_tree_s():
         "both want updating together - and a large move here means the taxonomy "
         "shifted rather than the count drifting"
     )
+
+
+# --- the `answers` route field (#89) -------------------------------------------
+
+
+def _two_route_record(tmp_path, first: str, second: str, third: str | None = None):
+    """Write a record whose frontmatter carries two or three routes, each built
+    from a route body already indented to sit under a `- ` list item, and
+    return the error list.
+    """
+    routes = [first, second] + ([third] if third else [])
+    body = "\n  - ".join(routes)
+    _write(tmp_path, "demo-audit/checks/thing.md", _routes_frontmatter(body))
+    checks, errors = ac.load_checks(tmp_path)
+    return checks.get("demo/thing"), errors
+
+
+def test_two_axes_in_one_language_load_and_are_carried_on_the_routes(tmp_path):
+    """The shape the field exists for: two routes answering different halves.
+
+    `deps/model-pinning-and-eol` is the live instance, one route reading the
+    pin from the project's configuration and one comparing identifiers
+    against the provider's schedule; a run that does the first and cannot do
+    the second has answered half the check, and the field is what lets the
+    engine say which half.
+    """
+    check, errors = _two_route_record(
+        tmp_path,
+        "lang: any\n    kind: procedure\n    answers: pin\n    note: read the pin",
+        "lang: any\n    kind: procedure\n    answers: lifetime\n    note: read the schedule",
+    )
+    assert errors == [], errors
+    assert [r.answers for r in check.routes] == ["pin", "lifetime"]
+
+
+def test_a_record_with_no_answers_anywhere_carries_none(tmp_path):
+    """Absence is the ordinary case and means every route answers the whole check."""
+    check = _one_route_record(
+        tmp_path, "lang: python\n    kind: command\n    tool: t\n    argv: [t]"
+    )
+    assert check.routes[0].answers is None
+
+
+def test_a_lone_answers_value_in_a_language_is_rejected(tmp_path):
+    """One value declares nothing the field's absence does not already say.
+
+    A schema that accepts a behavioural no-op is a field a future author fills
+    without thinking, and a single-axis marker is exactly the read-and-judged
+    stamp the design session weighed and dropped.
+    """
+    _, errors = _two_route_record(
+        tmp_path,
+        "lang: python\n    kind: command\n    tool: a\n    argv: [a]\n    answers: pin",
+        "lang: python\n    kind: command\n    tool: b\n    argv: [b]\n    answers: pin",
+    )
+    assert any("lone value" in e and "python" in e for e in errors), errors
+
+
+def test_a_half_axised_language_is_rejected(tmp_path):
+    """All or none per language: a route with no axis beside axised ones has a
+    result the engine cannot place on either axis.
+    """
+    _, errors = _two_route_record(
+        tmp_path,
+        "lang: python\n    kind: command\n    tool: a\n    argv: [a]\n    answers: pin",
+        "lang: python\n    kind: command\n    tool: b\n    argv: [b]\n    answers: lifetime",
+        "lang: python\n    kind: command\n    tool: c\n    argv: [c]",
+    )
+    assert any(
+        "all or none" in e and "python" in e and "python/c" in e for e in errors
+    ), errors
+
+
+def test_a_universal_route_is_in_every_languages_scope(tmp_path):
+    """A `lang: any` route applies to a Python partition at run time, so an
+    axised Python pair beside an unaxised `any` route is the half-axised
+    record the rule forbids, filed under two keys. The scoping is the one
+    `_routes_answering_ungranted` already uses.
+    """
+    _, errors = _two_route_record(
+        tmp_path,
+        "lang: python\n    kind: command\n    tool: a\n    argv: [a]\n    answers: pin",
+        "lang: python\n    kind: command\n    tool: b\n    argv: [b]\n    answers: lifetime",
+        "lang: any\n    kind: procedure\n    note: read the source",
+    )
+    assert any("all or none" in e and "lang: python" in e for e in errors), errors
+    assert not any("lang: any" in e and "all or none" in e for e in errors), errors
+
+
+def test_a_forbidden_or_subject_route_may_not_carry_answers(tmp_path):
+    """Neither answers anything, so neither has an axis to name."""
+    _, errors = _two_route_record(
+        tmp_path,
+        "lang: python\n    kind: command\n    tool: a\n    argv: [a]\n    answers: pin",
+        "lang: python\n    kind: command\n    tool: b\n    argv: [b]\n    answers: lifetime",
+        "lang: python\n    kind: command\n    tool: c\n    argv: [c]\n"
+        "    disposition: forbidden\n    answers: pin",
+    )
+    assert any("forbidden" in e and "answers" in e for e in errors), errors
+    errors = _errors_for_route(
+        tmp_path, "lang: python\n    kind: subject\n    tool: t\n    answers: pin"
+    )
+    assert any("subject" in e and "answers" in e for e in errors), errors
+
+
+@pytest.mark.parametrize(
+    ("value", "fragment"),
+    [
+        ("answers: none", "sentinel"),
+        ("answers: Pin Axis", "slug"),
+        ("answers: ''", "non-empty"),
+        ("answers:", "non-empty"),
+        ("answers: [pin]", "non-empty"),
+    ],
+)
+def test_a_malformed_answers_value_is_rejected_by_name(tmp_path, value, fragment):
+    """`none` is the neighbouring field's sentinel, a spaced or cased value is
+    two spellings of one axis waiting to happen, and an empty or non-string
+    value names nothing.
+    """
+    _, errors = _two_route_record(
+        tmp_path,
+        f"lang: python\n    kind: command\n    tool: a\n    argv: [a]\n    {value}",
+        "lang: python\n    kind: command\n    tool: b\n    argv: [b]\n    answers: lifetime",
+    )
+    assert any("answers" in e and fragment in e for e in errors), errors
+
+
+def test_alternatives_for_one_axis_share_its_value(tmp_path):
+    """Two routes with one value beside a third with another: the first two are
+    alternatives for their axis, with `disposition` stating the precedence,
+    and the pair is a complement of the third. No separate declaration.
+    """
+    check, errors = _two_route_record(
+        tmp_path,
+        "lang: python\n    kind: command\n    tool: a\n    argv: [a]\n    answers: pin",
+        "lang: python\n    kind: command\n    tool: b\n    argv: [b]\n"
+        "    disposition: alternative\n    answers: pin",
+        "lang: python\n    kind: command\n    tool: c\n    argv: [c]\n    answers: lifetime",
+    )
+    assert errors == [], errors
+    assert sorted({r.answers for r in check.routes}) == ["lifetime", "pin"]

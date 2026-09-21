@@ -131,6 +131,17 @@ fence is invisible to it. A four-space indented block is
 legal - its content is literal text, so a record may show a tool's output
 there even where that output prints a fence.
 
+A route may carry `answers`, the axis of the check it answers, where a
+record's routes in one language answer different halves of it. Two routes
+with the same value are alternatives for that axis and their `disposition`
+states the precedence; two with different values are complements, and the
+check is answered in that language only when every distinct value has a
+route that ran, a missing axis reporting `no-evidence` with the reason on
+that axis's routes rather than `ok`. `_load_routes` holds the field to all
+or none per language, over the same scope `_routes_answering_ungranted`
+reads, and to at least two distinct values where it appears; a record whose
+every route answers the whole check carries it nowhere.
+
 `answers_ungranted` is `ungranted_note`'s counterpart under `routes`: where
 every answering-kind route (`command`, `library`, `procedure`) a language
 offers needs a grant, the record must also carry an untiered route that
@@ -241,8 +252,13 @@ ROUTE_FIELDS = frozenset(
         "note",
         "then",
         "own_runner",
+        "answers",
     }
 )
+# `answers` values are slugs: lowercase words joined by hyphens. The shape is
+# held so that two routes meaning one axis cannot differ by case or
+# whitespace and read as two axes.
+_ANSWERS_RE = re.compile(r"^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$")
 FIELDS = frozenset(
     {
         "id",
@@ -337,6 +353,18 @@ class Route:
     partition list cannot name the shared command. No route in the tree is
     that shape, so it stays unexpressed rather than given a third spelling.
 
+    `answers` names the axis of the check this route answers, where a
+    record's routes in one language answer different halves of it. Two
+    routes in one language with the same value are alternatives for that
+    axis and their `disposition` states the precedence, as it does today;
+    two with different values are complements, and the check is answered in
+    that language only when every distinct value has a route that ran. A
+    record whose every route answers the whole check carries the field
+    nowhere, and nothing changes for it. `_load_routes` holds the field to
+    all-or-none per language and to at least two distinct values where it
+    appears, because a language half-axised or single-axised has declared
+    nothing the field's absence does not already say.
+
     Neither form is verifiable here, which is worth knowing before writing
     either. Whether a command needs a runner in front of it is a fact about
     the command, so the loader checks only that a named partition exists. `True`
@@ -367,6 +395,7 @@ class Route:
     note: str | None
     then: tuple[str, ...]
     own_runner: bool | tuple[str, ...]
+    answers: str | None
 
 
 @dataclass(frozen=True)
@@ -514,7 +543,20 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
     kind where nothing downstream stands in for it - a `kind: command`
     route missing a note still has its argv to say what to do. Checked only
     where `kind` is `procedure`, since a tool-less route of any other kind
-    is already rejected above and one mistake earns one message.
+    is already rejected above and one mistake earns one message. `answers`,
+    where written, is a slug (lowercase words joined by hyphens), never the
+    word `none`, which is `answers_ungranted`'s sentinel one line away and
+    would read as it, and never on a `kind: subject` or a
+    `disposition: forbidden` route, since neither answers anything. Then,
+    over the whole list, all-or-none per language: the routes in scope for a
+    language are its own answering-kind, non-forbidden routes plus the
+    universal ones (`lang: any`, `lang: none`), which apply to every
+    language at run time - the same scoping `_routes_answering_ungranted`
+    uses - and where any route in that scope carries `answers`, every route
+    in it must, and the values must be at least two distinct ones, because
+    a lone value says nothing the field's absence does not already say and
+    a schema that accepts a behavioural no-op is a field a future author
+    fills without thinking.
 
     The empty list is rejected rather than tolerated because `routes: []` and
     an absent `routes` key are indistinguishable to everything downstream:
@@ -891,6 +933,40 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
             )
             alone_insufficient = None
 
+        answers: str | None = None
+        if "answers" in entry:
+            raw_answers = entry.get("answers")
+            if not isinstance(raw_answers, str) or not raw_answers.strip():
+                errors.append(
+                    f"{loc}: answers must be a non-empty slug naming the axis this "
+                    f"route answers, got {raw_answers!r}"
+                )
+            elif raw_answers == UNGRANTED_NONE:
+                errors.append(
+                    f"{loc}: answers: none reads as answers_ungranted's sentinel and "
+                    "names no axis; a route that answers nothing does not carry "
+                    "answers at all"
+                )
+            elif not _ANSWERS_RE.match(raw_answers):
+                errors.append(
+                    f"{loc}: answers must be a slug of lowercase words joined by "
+                    f"hyphens, got {raw_answers!r}, so that two spellings of one "
+                    "axis cannot read as two axes"
+                )
+            elif kind == "subject":
+                errors.append(
+                    f"{loc}: answers on a kind: subject route - such a route names "
+                    "what the check inspects rather than what answers it, so it "
+                    "answers no axis"
+                )
+            elif disposition == "forbidden":
+                errors.append(
+                    f"{loc}: answers on a disposition: forbidden route - a route "
+                    "the record warns against running answers no axis"
+                )
+            else:
+                answers = raw_answers
+
         note = entry.get("note")
         if note is not None and not isinstance(note, str):
             errors.append(f"{loc}: note must be a string, got {note!r}")
@@ -923,10 +999,74 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
                 note=note,
                 then=then,
                 own_runner=own_runner,
+                answers=answers,
             )
         )
 
+    errors.extend(_answers_errors(tuple(routes), where))
     return tuple(routes), errors
+
+
+def _answers_scopes(routes: tuple[Route, ...]) -> dict[str, tuple[Route, ...]]:
+    """Group a record's answering routes by the language they answer for.
+
+    The scope of a language is its own answering-kind, non-forbidden routes
+    plus the universal ones (`lang: any`, `lang: none`), because a universal
+    route applies whatever the partition's language is: a `lang: python`
+    route carrying `answers: pin` beside an unaxised `lang: any` route is a
+    Python partition running an axised route and an unaxised one together,
+    which is the half-axised record the rule forbids. The same scoping
+    `_routes_answering_ungranted` uses, without its tier filter, because
+    which axis a route answers does not depend on what it needs. A
+    universal language key scopes to the universal routes alone.
+    """
+    by_lang: dict[str, list[Route]] = {}
+    for route in routes:
+        if route.kind in ANSWERING_ROUTE_KINDS and route.disposition != "forbidden":
+            by_lang.setdefault(route.lang, []).append(route)
+    universal = [
+        route
+        for lang, lang_routes in by_lang.items()
+        if lang in UNIVERSAL_ROUTE_LANGS
+        for route in lang_routes
+    ]
+    return {
+        lang: tuple(lang_routes + [r for r in universal if r.lang != lang])
+        for lang, lang_routes in by_lang.items()
+    }
+
+
+def _answers_errors(routes: tuple[Route, ...], where: str) -> list[str]:
+    """The per-language rules on `answers`: all or none, and two distinct values.
+
+    Returns one message per language that breaks either rule, naming the
+    routes with and without the field or the lone value, so a many-route
+    record says which language and which routes.
+    """
+    errors: list[str] = []
+    for lang, scope in sorted(_answers_scopes(routes).items()):
+        with_field = [r for r in scope if r.answers is not None]
+        if not with_field:
+            continue
+        without = [r for r in scope if r.answers is None]
+        if without:
+            errors.append(
+                f"{where}: answers is written on {len(with_field)} of the "
+                f"{len(scope)} answering routes in scope for lang: {lang} "
+                f"(missing on {sorted({f'{r.lang}/{r.tool or r.kind}' for r in without})}) "
+                "- the field is all or none per language, because a route with no "
+                "axis beside axised ones is a route whose result the engine cannot "
+                "place"
+            )
+        values = sorted({r.answers for r in with_field if r.answers is not None})
+        if len(values) == 1:
+            errors.append(
+                f"{where}: every answering route in scope for lang: {lang} carries "
+                f"answers: {values[0]} - a lone value declares nothing the field's "
+                "absence does not already say; name at least two axes or drop the "
+                "field"
+            )
+    return errors
 
 
 def registry_for(route: Route) -> str | None:

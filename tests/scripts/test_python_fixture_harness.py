@@ -3982,6 +3982,7 @@ def _fake_route(**kw):
         "then": (),
         "own_runner": False,
         "argv_by_partition": {},
+        "answers": None,
     }
     field.update(kw)
     # `package` defaults to `tool` in the loader, so it has to follow an
