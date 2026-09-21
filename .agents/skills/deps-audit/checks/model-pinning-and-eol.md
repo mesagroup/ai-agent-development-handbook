@@ -20,6 +20,7 @@ evidence: >-
 routes:
   - lang: any
     kind: procedure
+    answers: pin
     disposition: runs
     note: >-
       **The pin, read from the project's own configuration.** Collect every
@@ -62,6 +63,7 @@ routes:
       cannot answer it.
   - lang: any
     kind: procedure
+    answers: lifetime
     disposition: runs
     note: >-
       **The lifetime, which the repository does not contain.** Compare each
