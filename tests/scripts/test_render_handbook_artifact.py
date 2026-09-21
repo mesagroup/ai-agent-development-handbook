@@ -34,11 +34,64 @@ def test_rewrite_links_maps_known_targets():
     assert unmapped == []
 
 
-def test_rewrite_links_preserves_link_text_and_handles_fragment():
+def test_rewrite_links_preserves_a_fragment_that_names_a_heading():
+    """A section citation lands on the section, not on the top of its part.
+
+    Until the page carried heading ids, `evaluation.md#loop` collapsed to
+    `#p5` and every section-level citation a report emits opened the part
+    rather than the clause. The id is `<stem>-<fragment>`, and it has to be
+    in `ids` for the rewrite to trust it.
+    """
     html = '<a href="evaluation.md#loop">the loop</a>'
-    out, unmapped = rh.rewrite_links(html, {"evaluation.md": "#p5"})
-    assert out == '<a href="#p5">the loop</a>'  # anchor collapsed, text untouched
+    out, unmapped = rh.rewrite_links(
+        html, {"evaluation.md": "#p5"}, ids={"evaluation-loop"}
+    )
+    assert out == '<a href="#evaluation-loop">the loop</a>'  # text untouched
     assert unmapped == []
+
+
+def test_rewrite_links_reports_a_fragment_the_page_has_no_heading_for():
+    """A dead fragment is unmapped, not quietly collapsed to the part anchor.
+
+    Collapsing is what GitHub does for a fragment naming no heading (it
+    scrolls to the top of the file), and it is exactly the silent miss the
+    ids exist to end, so the href is left as written and reported, and
+    `build` raises on it as it does on any relative link it cannot resolve.
+    """
+    html = '<a href="evaluation.md#nowhere">x</a> <a href="evaluation.md">y</a>'
+    out, unmapped = rh.rewrite_links(
+        html, {"evaluation.md": "#p5"}, ids={"evaluation-loop"}
+    )
+    assert 'href="evaluation.md#nowhere"' in out
+    assert 'href="#p5"' in out  # the bare part link still maps
+    assert unmapped == ["evaluation.md#nowhere"]
+
+
+def test_heading_id_is_the_stem_and_the_github_slug_of_the_text():
+    r"""Tags and entities in the converter's heading HTML do not reach the slug.
+
+    The matrix side slugifies the markdown source (`Why \`x\` matters &
+    more`), the renderer sees the converted HTML; both must name one element.
+    """
+    assert (
+        rh.heading_id("lifecycle", "Why <code>x</code> matters &amp; more")
+        == "lifecycle-why-x-matters--more"
+    )
+    assert rh.heading_id("coda", "Coda") == "coda-coda"
+
+
+def test_add_heading_ids_marks_every_level_in_order():
+    html = "<h1>Part</h1><p>t</p><h2>One</h2><h3>Deep</h3><h2>Two</h2>"
+    out, ids = rh.add_heading_ids(html, "p")
+    assert ids == ["p-part", "p-one", "p-deep", "p-two"]
+    assert '<h1 id="p-part">Part</h1>' in out
+    assert '<h3 id="p-deep">Deep</h3>' in out
+    assert out.count(' id="') == 4
+
+
+def test_add_heading_ids_refuses_two_headings_with_one_slug():
+    with pytest.raises(ValueError, match="two headings slugify to 'p-same'"):
+        rh.add_heading_ids("<h2>Same</h2><h3>Same</h3>", "p")
 
 
 def test_rewrite_links_flags_unmapped_md_and_ignores_external():
@@ -157,12 +210,77 @@ def test_build_renders_verbatim_section(tmp_path: Path):
     )
     html = rh.build(tmp_path, parts=[("top", "README", "Overview")])
     assert '<section id="top" class="part intro">' in html
-    assert "<h1>Handbook</h1>" in html
+    assert '<h1 id="README-handbook">Handbook</h1>' in html
     assert 'href="#top"' in html  # self .md link rewritten
     assert '<div class="tablewrap"><table>' in html
     assert '<li class="task">first</li>' in html
     assert '<li class="task done">second</li>' in html
     assert 'href="README.md"' not in html  # no residual .md link
+
+
+def test_build_resolves_a_fragment_into_another_part(tmp_path: Path):
+    """The ids of every part exist before any part's links are rewritten.
+
+    `codebase-structure.md` links into a README section; rewriting links
+    part by part, as the renderer once did, would have had no README ids to
+    offer when the later part was rendered. The link lands on the heading,
+    and the heading carries the id.
+    """
+    pytest.importorskip("markdown")
+    (tmp_path / "later.md").write_text("# Later\n\nSee [rules](README.md#the-rules).\n")
+    (tmp_path / "README.md").write_text("# Handbook\n\n## The rules\n\ntext\n")
+    html = rh.build(
+        tmp_path, parts=[("later", "later", "Later"), ("top", "README", "Overview")]
+    )
+    assert '<h2 id="README-the-rules">The rules</h2>' in html
+    assert 'href="#README-the-rules"' in html
+    assert 'href="README.md' not in html
+
+
+def test_build_raises_on_a_fragment_that_names_no_heading(tmp_path: Path):
+    pytest.importorskip("markdown")
+    (tmp_path / "README.md").write_text("# Handbook\n\nSee [x](README.md#nowhere).\n")
+    with pytest.raises(ValueError, match=re.escape("README.md#nowhere")):
+        rh.build(tmp_path, parts=[("top", "README", "Overview")])
+
+
+def test_heading_ids_are_the_ids_a_built_page_carries(tmp_path: Path):
+    """The citation check reads `heading_ids` where no renderer can run.
+
+    So the set it computes has to be the set the page carries: every part
+    anchor and every heading id, and nothing the page has that this lacks
+    except a diagram caption, which none of these parts draws.
+    """
+    pytest.importorskip("markdown")
+    (tmp_path / "README.md").write_text("# Handbook\n\n## One\n\n### Two\n")
+    (tmp_path / "coda.md").write_text("# Coda\n\ntext\n")
+    parts = [("top", "README", "Overview"), ("coda", "coda", "Coda")]
+    html = rh.build(tmp_path, parts=parts)
+    in_page = set(re.findall(r' id="([^"]+)"', html)) - {"toc", "themeBtn"}
+    assert rh.heading_ids(tmp_path, parts) == in_page
+    assert "coda-coda" in in_page
+
+
+def test_every_matrix_heading_slug_is_a_heading_id_on_the_live_tree():
+    """One slug function, proven on the tree rather than assumed.
+
+    `render_handbook_traceability.handbook_headings` slugifies the markdown
+    source; the renderer slugifies the converter's HTML. For every `##`
+    heading of every part the two must agree, or a matrix row id resolves
+    in the matrix and not in the page.
+    """
+    pytest.importorskip("markdown")
+    from render_handbook_traceability import handbook_headings, slugify
+
+    docs = Path(__file__).resolve().parents[2] / "docs" / "engineering"
+    ids = rh.heading_ids(docs)
+    expected = {
+        f"{stem}-{slugify(h)}"
+        for stem, heads in handbook_headings(docs).items()
+        for h in heads
+    }
+    assert expected, "no ## heading found; the check would hold vacuously"
+    assert expected <= ids, sorted(expected - ids)
 
 
 def test_to_ascii_entities_escapes_non_ascii():
