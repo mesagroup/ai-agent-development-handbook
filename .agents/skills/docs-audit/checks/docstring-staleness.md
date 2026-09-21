@@ -13,15 +13,16 @@ handbook_note: >-
   (a new parameter added but not yet mentioned) contradicts nothing and so
   passes this check while still violating the handbook's timeliness ask,
   which is the near-miss the matrix's mapping rule forbids.
+routes:
+  - lang: any
+    kind: procedure
+    note: >-
+      Needs reading - use source-mapping subagents as in the prose audit.
 ---
 
 # Docstring staleness
 
 Docstrings that contradict the code (wrong parameter names, removed return types, "raises X" the code no longer raises, examples that would fail).
-
-## Tooling fallback
-
-Needs reading - use source-mapping subagents as in the prose audit.
 
 ## Fix
 

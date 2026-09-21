@@ -6,6 +6,12 @@ handbook:
   - documentation/aim-for-docs-that-stand-alone-drifted-docs-are-worse-than-none-a
   - documentation/keep-the-decision-trail-artifacts-b
   - documentation/audit-docs-like-a-test-suite-a
+routes:
+  - lang: any
+    kind: procedure
+    note: >-
+      Detection is the shared source-map pass the skill header builds ("Build the
+      source maps once, first") - no separate tool or fallback of its own.
 ---
 
 # Coverage
@@ -19,10 +25,6 @@ For every code component, the doc(s) covering it and a status: **documented** (a
 **Important** - an uncovered load-bearing component.
 
 **Minor** - a partial that has a passing mention.
-
-## Tooling fallback
-
-Detection is the shared source-map pass the skill header builds ("Build the source maps once, first") - no separate tool or fallback of its own.
 
 ## Fix
 

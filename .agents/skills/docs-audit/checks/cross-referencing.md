@@ -6,6 +6,13 @@ handbook:
   - documentation/aim-for-docs-that-stand-alone-drifted-docs-are-worse-than-none-a
   - documentation/keep-the-architecture-vs-research-split
   - documentation/audit-docs-like-a-test-suite-a
+routes:
+  - lang: any
+    kind: procedure
+    note: >-
+      If the project has a docs link-checker / index-completeness script, use it.
+      If not, do a dead-link + orphan scan yourself (every relative link resolves;
+      every doc reachable from an index).
 ---
 
 # Cross-referencing
@@ -17,10 +24,6 @@ Index → doc completeness, dead links, orphaned docs (reachable from nothing), 
 **Important** - a dead link in the index; an orphaned key doc.
 
 **Minor** - a missing reciprocal link.
-
-## Tooling fallback
-
-If the project has a docs link-checker / index-completeness script, use it. If not, do a dead-link + orphan scan yourself (every relative link resolves; every doc reachable from an index).
 
 ## Fix
 

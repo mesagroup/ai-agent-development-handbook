@@ -11,15 +11,16 @@ handbook_note: >-
   local convention would pass this check while still falling short of the
   handbook's fuller bar, which is the near-miss the matrix's mapping rule
   forbids.
+routes:
+  - lang: any
+    kind: procedure
+    note: >-
+      Needs reading - use source-mapping subagents as in the prose audit.
 ---
 
 # Docstring standard
 
 Each module/`__init__` and public symbol has a docstring describing what it does and how to use it, per the project's convention.
-
-## Tooling fallback
-
-Needs reading - use source-mapping subagents as in the prose audit.
 
 ## Fix
 

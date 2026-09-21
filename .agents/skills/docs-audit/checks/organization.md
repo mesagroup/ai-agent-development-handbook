@@ -5,6 +5,12 @@ locality: global
 handbook:
   - documentation/keep-the-architecture-vs-research-split
   - documentation/audit-docs-like-a-test-suite-a
+routes:
+  - lang: any
+    kind: procedure
+    note: >-
+      Detection is the shared source-map pass the skill header builds ("Build the
+      source maps once, first") - no separate tool or fallback of its own.
 ---
 
 # Organization
@@ -16,10 +22,6 @@ Is the folder structure right? Folders to split/merge/rename/archive, misfiled d
 ## Severity
 
 **Minor** - a stylistic inconsistency.
-
-## Tooling fallback
-
-Detection is the shared source-map pass the skill header builds ("Build the source maps once, first") - no separate tool or fallback of its own.
 
 ## Fix
 
