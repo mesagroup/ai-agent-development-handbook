@@ -3705,3 +3705,24 @@ def test_a_record_with_only_universal_routes_is_held_to_the_rules_as_a_language(
         "lang: any\n    kind: procedure\n    answers: pin\n    note: read it again",
     )
     assert any("lone value" in e and "lang: any" in e for e in errors), errors
+
+
+def test_the_answers_pass_is_not_vacuous():
+    """The reading pass over the multi-route records happened, and its result holds.
+
+    The loader enforces all-or-none and two-distinct-values, so nothing here
+    can be satisfied by stamping; what the loader cannot see is a record
+    quietly losing the field, which reads as the positive claim that every
+    route answers the whole check. The floor is the number of records the
+    pass marked as complements, with no slack, the way the `needs` floor
+    above holds its sweep: adding a complement record raises it, and a
+    failure here means a record dropped its axes rather than a number to
+    lower. Computed on `main` at `ae41836` over 28 multi-route records: 5.
+    """
+    checks, errors = ac.load_checks(ac.SKILLS_DIR)
+    assert errors == []
+    axised = sorted(c.id for c in checks.values() if any(r.answers for r in c.routes))
+    assert len(axised) >= 5, f"only {len(axised)} record(s) carry answers: {axised}"
+    assert all(
+        len({r.answers for r in checks[cid].routes if r.answers}) >= 2 for cid in axised
+    )
