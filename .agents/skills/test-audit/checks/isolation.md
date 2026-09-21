@@ -13,6 +13,7 @@ handbook:
 routes:
   - lang: python
     kind: command
+    answers: timing
     tool: pytest-timeout
     argv: [pytest, "--durations=25"]
     in_env: true
@@ -28,6 +29,7 @@ routes:
       yourself if you want that, because nothing above names it for you.
   - lang: typescript
     kind: command
+    answers: timing
     tool: vitest
     argv: [vitest, run]
     needs: target-execution
@@ -43,6 +45,7 @@ routes:
       of per-file isolation deliberately rather than by accident.
   - lang: typescript
     kind: procedure
+    answers: timing
     tool: jest
     needs: target-execution
     applies_when: >-
@@ -54,6 +57,7 @@ routes:
       declare and a `kind: command` route would have to invent one.
   - lang: any
     kind: procedure
+    answers: io
     note: >-
       Reading test source for calls that hit the network, the filesystem or a
       database answers the real-I/O axis with nothing installed, in either
