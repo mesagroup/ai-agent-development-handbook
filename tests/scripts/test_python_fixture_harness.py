@@ -45,7 +45,6 @@ from audit_checks import (
     Route,
     _project_needs,
     _project_tooling,
-    fallback_lives_in_prose,
     load_checks,
 )
 from build_python_fixtures import PINNED_MANAGERS
@@ -177,15 +176,13 @@ def _marked(wanted: str) -> bool:
 
     A token still carrying a `>` is refused outright, because only `_concrete`
     makes a mark and `_concrete` consumes every placeholder's `>`. What that
-    protects is a record's OWN tokens, which the anchor guards pass through
-    `_is_subsequence` raw on both sides: `--cov=<pkg>` has a delimited head, so
-    reading it as a mark would hole-fill it against the record's sentence and
-    let a quote writing `<pkg>` be satisfied by a paragraph writing `<mypkg>`,
-    whose placeholder name merely ends with it. Those two are different
-    prescriptions and telling them apart is what the anchor guards are for. The
-    invariant `_is_subsequence` names - that a record's own tokens close a
-    placeholder with `>` and so compare by equality - is stated there and
-    enforced here.
+    protects is a record's OWN tokens wherever a caller compares them
+    unreduced: `--cov=<pkg>` has a delimited head, so reading it as a mark
+    would hole-fill it and let a token writing `<pkg>` be satisfied by one
+    writing `<mypkg>`, whose placeholder name merely ends with it. Those two
+    are different prescriptions. The invariant `_is_subsequence` names - that
+    a record's own tokens close a placeholder with `>` and so compare by
+    equality - is stated there and enforced here.
 
     `test_a_glued_placeholder_needs_a_value_delimiter_before_its_mark` refuses
     every shape this returns False for in a record, so a False here never has to
@@ -216,8 +213,8 @@ def _matches(wanted: str, token: str) -> bool:
     it is a prefix of other options too.
 
     A record's own tokens never carry a bare `<`, because the placeholder it
-    writes closes with `>`, so the older guards passing raw tokens through
-    `_is_subsequence` still compare by equality.
+    writes closes with `>`, so a caller passing an unreduced record token
+    through `_is_subsequence` still gets equality.
 
     Each hole must consume at least one character. Two literals meeting is not a
     fill: `@stryker-mutator/-runner` satisfies both ends of
@@ -242,21 +239,19 @@ def _is_subsequence(needle: list[str], haystack: list[str]) -> bool:
     """Whether every token of `needle` occurs in `haystack`, in order.
 
     In order but not adjacent, because a record writes a placeholder where the
-    caller supplies a value: a transcription of `pytest --cov=<pkg> --cov-branch`
-    drops `--cov=<pkg>` from the middle, and a contiguity test would fail on that
-    correct entry. Non-contiguity stays load-bearing for the anchor guards
-    whatever forms the tree carries, because those trace a record's raw tokens
-    through the record's own sentence, where the prose between two tokens of a
-    command is exactly what a contiguity test would reject.
+    caller supplies a value: the form `pytest --cov=<pkg> --cov-branch` reduces
+    to the ordered tokens `pytest` and `--cov-branch` with the marked `--cov=<`
+    held separately, and the command that fills it carries `--cov=fixture_app`
+    between the two, so a contiguity test would fail on that correct entry.
 
     Token equality goes through `_matches` rather than `==`, but every caller
     passes unmarked tokens, so today that reduces to `==` on every comparison this
-    makes. The anchor guards pass `_tokens` output, and a record's own tokens close
-    a placeholder with `>` rather than the `<` that marks a truncation; the
-    coverage property passes the tokens it has already filtered to the unmarked
-    ones, holding order there and presence separately for the marked ones. Calling
-    `_matches` is what keeps a marked needle behaving as a prefix if a caller ever
-    hands one over, rather than silently demanding the mark be matched literally.
+    makes: the coverage property passes the tokens it has already filtered to the
+    unmarked ones, holding order there and presence separately for the marked
+    ones, and a record's own tokens close a placeholder with `>` rather than the
+    `<` that marks a truncation. Calling `_matches` is what keeps a marked needle
+    behaving as a prefix if a caller ever hands one over, rather than silently
+    demanding the mark be matched literally.
     """
     remaining = iter(haystack)
     return all(any(_matches(token, word) for word in remaining) for token in needle)
@@ -310,38 +305,6 @@ def _lead_words(inv: Invocation) -> set[str]:
     """
     argvs = [a for a in [inv.argv, *(a for _, a in inv.argv_by_partition)] if a]
     return {a[0] for a in argvs} | {inv.tool}
-
-
-def _unled_spans(
-    inv: Invocation, paragraph: str, siblings: list[Invocation]
-) -> set[str]:
-    """The spans naming one of this entry's runners that no entry on the record leads.
-
-    The rule the property below holds over the tree, and the example test beside
-    it holds over a paragraph written by hand. One definition rather than two,
-    because the failing branch has no instance among the records still
-    transcribed: a rule whose finding half is exercised only by a copy of itself
-    is a rule nothing checks.
-
-    `siblings` is every entry on the same record, this one included. It decides
-    what counts as led, so passing a narrower list makes a span look unled that
-    another entry accounts for - which is the benign shape, a neighbour's command
-    carrying this entry's tool name further along it.
-    """
-    led = {
-        form.split()[0]
-        for other in siblings
-        for lead in _lead_words(other)
-        for form in _command_forms(paragraph, lead)
-    }
-    leads = _lead_words(inv)
-    return {
-        span
-        for span in _spans(paragraph)
-        if len(span.split()) > 1
-        and any(lead in span.split()[1:] for lead in leads)
-        and span.split()[0] not in led
-    }
 
 
 def _flag_spans(paragraph: str) -> set[str]:
@@ -416,102 +379,6 @@ def _concrete(tokens: list[str]) -> list[str]:
     return out
 
 
-def _prescribing_paragraph_in(check: str, text: str, quote: str) -> str:
-    """The line of `text` the prescribing sentence sits in.
-
-    Markdown here is never hard-wrapped, so one paragraph is one line and the
-    quote's line is the whole prescribing paragraph. Anchoring on the quote
-    rather than on the `**Python**` review-lens line is what covers the records
-    carrying a python: entry and no such line at all.
-
-    Takes the text rather than reading a record, so a property about how a
-    section parses can be held on a section written in the test while every
-    caller that means a record keeps reading one through the wrapper below.
-    `check` is carried for the failure message alone.
-    """
-    lines = [line for line in text.splitlines() if quote in line]
-    if len(lines) != 1:
-        raise AssertionError(
-            f"{check}: its quote occurs in {len(lines)} source lines, so which "
-            "paragraph prescribes it is not decidable"
-        )
-    return lines[0]
-
-
-def _route_anchoring(inv: Invocation) -> list[tuple[str, tuple[str, ...], bool]]:
-    """Whether each partition's prescribed command traces through the quote.
-
-    Every route rather than the first one found. The case it was written for was
-    `deps/inventory`, which prescribes four commands - a subcommand per
-    dependency file and uv's native export - where a rule stopping at the first
-    held one of them while the other three anchored by luck. Which one was
-    enforced also moved when the uv route was promoted out of
-    `supplied_by_partition`, so the entry's coverage narrowed with no test
-    changing, which is the shape this file exists to make impossible. That
-    record has since migrated and no transcribed entry carries four commands
-    today, so the rule is held on the entry built below rather than on the tree.
-
-    Separated from the property that read it, since dissolved, so the stopping-early defect can be tested on an
-    entry built to carry it, the tree by then having none.
-    """
-    quote = _tokens(inv.record_quote)
-    out = []
-    for partition in PARTITIONS:
-        argv = inv.prescribed(partition)
-        if not argv:
-            continue
-        out.append((partition, argv, _is_subsequence(_tokens(" ".join(argv)), quote)))
-    return out
-
-
-def _fallback_paragraphs_in(check: str, text: str) -> list[tuple[str, str]]:
-    """Every paragraph of a `## Tooling fallback` section, with its lens label.
-
-    The label is what makes a paragraph this lens's business: records prefix each
-    review lens with `**<Label>** - `, so a span under another language's label is
-    that lens's prescription and not a correction this one lost. The label is the
-    empty string where the paragraph carries none, which is the case the
-    containment property must still watch - `arch/complexity-gate` prescribed
-    inside an unlabelled bolded directive.
-
-    A record with no such section raises rather than returning nothing: the
-    containment property would then watch no paragraph on it and report the same
-    silence as a record whose every paragraph is clean.
-
-    Takes the text for the reason `_prescribing_paragraph_in` does, and `check`
-    is likewise carried for the failure message alone.
-    """
-    lines = text.splitlines()
-    start = next(
-        (n for n, line in enumerate(lines) if line.startswith("## Tooling fallback")),
-        None,
-    )
-    if start is None:
-        raise AssertionError(
-            f"{check}: has no `## Tooling fallback` section, so a prescription "
-            "growing outside the quoted paragraph has nowhere this can see it"
-        )
-    end = next(
-        (n for n in range(start + 1, len(lines)) if lines[n].startswith("## ")),
-        len(lines),
-    )
-    out = []
-    for line in lines[start + 1 : end]:
-        if not line.strip():
-            continue
-        label = re.match(r"\*\*([^*]+)\*\* - ", line.strip())
-        out.append((label.group(1) if label else "", line))
-    return out
-
-
-_LOADED_CHECKS, _LOAD_ERRORS = load_checks(SKILLS_DIR)
-PROSE_FALLBACK_CHECKS = frozenset(
-    check_id
-    for check_id, check in _LOADED_CHECKS.items()
-    if fallback_lives_in_prose(check)
-)
-
-
 def every_invocation() -> tuple[Invocation, ...]:
     """Every row the harness runs, over both enumeration paths.
 
@@ -520,148 +387,11 @@ def every_invocation() -> tuple[Invocation, ...]:
     a row names, whether a placeholder reaches a command, how a tool is
     launched, whether the engine can grade its exit code - has to read this
     to still cover the checks that migrated; reading `INVOCATIONS` alone
-    would silently stop watching them while staying green. A caller that
-    wants only the hand-written rows - a fidelity property with nothing on
-    the routed side to hold against, because the row there carries no
-    transcription to drift from - reads `INVOCATIONS` directly and says why
-    in its own docstring.
+    would silently stop watching them while staying green. The two guards
+    that read `INVOCATIONS` directly are the ones about the table itself:
+    that it is empty, and that no migrated record has a row in it.
     """
     return tuple(INVOCATIONS) + routed_invocations()
-
-
-def test_the_prose_fallback_scope_is_not_empty_and_holds_no_migrated_record():
-    """The scope a legacy record entering the harness would need, held both ways it fails; no property narrows to it today.
-
-    Empty is the dangerous direction: each property scoped by this set would
-    iterate nothing, assert nothing and pass, so the whole file would go green
-    over a tree it had stopped reading. The other direction is a migrated
-    record left in the set, where a property looks for prose the record no
-    longer has and fails for a reason that is not drift.
-
-    Both halves read the declared schema rather than a domain prefix. A prefix
-    test passes for as long as the domains it names are exactly the migrated
-    ones, and migration runs domain by domain and record by record within one,
-    so it stops being a statement about migrated records without failing once -
-    the watched set it computes would quietly start including records that had
-    stopped carrying prose, and a half-migrated domain breaks it in both
-    directions at once.
-    """
-    assert _LOAD_ERRORS == []
-    assert PROSE_FALLBACK_CHECKS
-    migrated = {cid for cid, check in _LOADED_CHECKS.items() if check.routes}
-    assert migrated, (
-        "no record declares routes:, so this set is every record and the "
-        "scoping it performs is not a narrowing of anything"
-    )
-    assert not PROSE_FALLBACK_CHECKS & migrated
-    watched = {i.check for i in INVOCATIONS} - migrated
-    assert watched <= PROSE_FALLBACK_CHECKS, watched - PROSE_FALLBACK_CHECKS
-
-
-SIBLING_LENS_LANGUAGES = ("TypeScript", "JavaScript")
-
-
-def _is_sibling_lens(label: str) -> bool:
-    """Whether the label makes its paragraph another language lens's business.
-
-    Matched on the language the label names rather than on the label as a whole,
-    because the family writes the TypeScript lens under three labels - plain
-    `TypeScript`, `JavaScript/TypeScript`, and `TypeScript rules and greps for
-    this check` - and a set of whole labels covers whichever spellings were in
-    the tree the day somebody wrote it. Both directions of that miss are real: a
-    span under an unlisted spelling is a sibling lens's prescription reported as
-    this lens's drift, and the same unlisted spelling read the other way unwatches
-    a Python prescription written under it.
-
-    The pin moves to the language, so it still forces a read where it should: a
-    paragraph labelled for a language this tuple does not name fails the
-    containment property rather than being skipped, which is what the whole-label
-    set bought and this keeps.
-
-    A label naming a condition rather than a language is never a sibling lens.
-    `Both` labelled a paragraph binding every command above it, and `With none
-    of them installed` a Python fallback for exactly the case where no tool is
-    present; skipping either would unwatch a paragraph a correction is likely
-    to land in. Which of those spellings any record still carries is a fact
-    about the records rather than about this function, so
-    `test_a_sibling_lens_is_recognised_in_every_spelling_the_family_writes`
-    holds both of them directly rather than resting on one being there.
-    """
-    return any(language in label for language in SIBLING_LENS_LANGUAGES)
-
-
-def _watched_paragraphs_in(check: str, text: str, quote: str) -> list[str]:
-    """Every paragraph of a `## Tooling fallback` a Python prescription can land in.
-
-    The flag property read this rather than the quoted line alone while it
-    stood; the example test beside this is what exercises it now. A correction
-    that appends a whole *paragraph* carrying only a flag - "Append
-    `--max-bacon=2` to that `pydeps` invocation" - is the append shape
-    `arch/cycles` drifted by, and the containment property below cannot see it:
-    that one extracts command forms from a stray paragraph, and a bare flag is
-    not a form. Reading one line for flags and every paragraph for forms left the
-    two levels covering different shapes and reading as though they covered both.
-
-    The quoted paragraph is watched unconditionally rather than filtered with the
-    rest. A record whose prescription sits under a sibling lens's label is a
-    documented limit of this file, and it must not become a paragraph this
-    property silently stops reading as well.
-
-    Takes the text for the reason the two helpers it composes do.
-    """
-    quoted = _prescribing_paragraph_in(check, text, quote)
-    return [quoted] + [
-        paragraph
-        for label, paragraph in _fallback_paragraphs_in(check, text)
-        if paragraph != quoted and not _is_sibling_lens(label)
-    ]
-
-
-def _unaccounted_flags(paragraphs: list[str], pooled: list[str]) -> set[str]:
-    """The flag spans no declared form on the record accounts for.
-
-    Separated from the property that read it, since dissolved, so that pooling across paragraphs can be tested
-    on paragraphs rather than only on the tree, where the shape it exists to
-    catch is by construction absent.
-    """
-    out = set()
-    for paragraph in paragraphs:
-        for flag in _flag_spans(paragraph):
-            wanted = _concrete(_tokens(flag))
-            # A span that reduced to nothing would satisfy the `all` below
-            # vacuously, which is how a newly prescribed flag would pass in
-            # silence. `_concrete` truncates rather than drops for that reason,
-            # so this is unreachable while it does - and loud if it stops.
-            assert wanted, flag
-            if not all(any(_matches(w, t) for t in pooled) for w in wanted):
-                out.add(flag)
-    return out
-
-
-def _demoted_tokens(inv: Invocation) -> list[str]:
-    """The completion tokens the record's own sentence writes concretely.
-
-    A token the record writes in full is a token the record prescribes, so it
-    belongs in `argv`. Sitting in `completion` instead it inverts the round's
-    output: the results report a record that failed to prescribe a flag the
-    record prescribes, and since the deliverable is the list of records needing
-    correction, that is the output falsified while the executed command stays
-    byte-identical.
-
-    Compared against the quote's raw tokens rather than `_concrete`'s reduction
-    of them, which is what leaves a placeholder fill alone. The record writes
-    `--cov=<pkg>` and the completion supplies `--cov=fixture_app`; those are
-    never equal, so the canonical completion cannot hit this. Reduce the quote
-    first and `--cov=<pkg>` becomes the marked `--cov=<`, which `_matches`
-    satisfies with any `--cov=` token, and the one shape a completion exists for
-    reads as a demotion.
-
-    Equality is the whole comparison because a record's own tokens are never
-    marked: the placeholder a record writes closes with `>`, and only
-    `_concrete` leaves the bare `<` that `_marked` can read as a hole.
-    """
-    quote = _tokens(inv.record_quote)
-    return [token for token in inv.completion if token in quote]
 
 
 def _prescribed_commands(inv: Invocation) -> list[tuple[str, tuple[str, ...]]]:
@@ -723,30 +453,6 @@ def _runs_as_written(command: tuple[str, ...], form: str) -> bool:
         if not reduced or not _matches(reduced[0], token):
             return False
     return True
-
-
-def _follows_in_the_record(inv: Invocation) -> bool:
-    """Whether every prescribed command precedes its `then` in the quote.
-
-    A two-command route has an order, and the record writes it: `coverage run -m
-    pytest` before `coverage report --show-missing`. Nothing held that order
-    against the record - the anchor guard traces one command at a time and never
-    reads `then` - so the swap failed only tests pinning the tuples as literals,
-    which reads as a literal to update rather than as a route reversed.
-
-    An entry prescribing a second command and no first one answers `False` rather
-    than passing on `all([])`. Such an entry has no order to hold rather than an
-    order this satisfies, and a vacuous pass is the shape this file exists to
-    catch rather than an instance of it.
-    """
-    quote = _tokens(inv.record_quote)
-    commands = _prescribed_commands(inv)
-    if not commands:
-        return False
-    return all(
-        _is_subsequence(_tokens(" ".join((*argv, *inv.then))), quote)
-        for _, argv in commands
-    )
 
 
 # --- the extractor helpers ----------------------------------------------------
@@ -908,15 +614,13 @@ def test_a_record_token_that_still_closes_its_placeholder_is_not_a_mark():
     """The invariant `_is_subsequence` rests on, enforced rather than assumed.
 
     A mark is what `_concrete` leaves behind, and `_concrete` consumes every
-    placeholder's `>`. So a token still carrying one was never reduced, and the
-    anchor guards pass exactly those: they trace a record's raw quote tokens
-    through the record's own sentence, both sides unreduced.
+    placeholder's `>`. So a token still carrying one was never reduced, and a
+    caller comparing a record's own tokens unreduced is passing exactly those.
 
     Reading such a token as a mark is the false-clean direction. `--cov=<pkg>`
-    has a delimited head, so hole-filling it would let a quote writing `<pkg>` be
-    satisfied by a paragraph writing `<mypkg>` - a different prescription whose
-    placeholder name merely ends with the first. Telling those apart is the whole
-    job of the guards that compare them.
+    has a delimited head, so hole-filling it would let a token writing `<pkg>` be
+    satisfied by one writing `<mypkg>` - a different prescription whose
+    placeholder name merely ends with the first.
 
     Found by review on this branch: widening the mark from "ends with `<`" to
     "contains `<`" silently took the raw tokens in with the reduced ones.
@@ -1080,24 +784,20 @@ def test_a_form_led_by_a_runner_is_found_through_the_argvs_own_first_word():
     thing installed and the thing invoked are different names, and the record
     writes the invocation.
 
-    Both sides are built here rather than read out of a live record, for the
-    reason the property below gives: a routed row carries no `record_quote`, so
-    the paragraph half cannot be read off a record once that record migrates,
-    and re-pointing this at whichever record is still transcribed buys one
-    stage of green. The sentence is the one `test/determinism` carried while
-    its fallback lived in prose, and the entry carries that record's
-    `pytest-randomly` argv and tool - which is all `_lead_words` reads, so
-    the row's other fields are left off rather than transcribed. The
-    `record_quote` filler is this module's convention for a synthetic entry,
-    40 characters because that is the floor the transcription property holds a
-    real quote to; nothing here reads it.
+    Both sides are built here rather than read out of a live record: a routed
+    row carries no copy of its record's prose, so the paragraph half cannot be
+    read off a record once that record migrates, and re-pointing this at
+    whichever record is still on the legacy schema buys one stage of green.
+    The sentence is the one `test/determinism` carried while its fallback
+    lived in prose, and the entry carries that record's `pytest-randomly` argv
+    and tool - which is all `_lead_words` reads, so the row's other fields are
+    left off rather than transcribed.
     """
     inv = Invocation(
         check="test/determinism",
         tool="pytest-randomly",
         argv=("pytest",),
         in_env=True,
-        record_quote="x" * 40,
     )
     assert _lead_words(inv) == {"pytest", "pytest-randomly"}
     paragraph = (
@@ -1127,7 +827,6 @@ def test_a_lead_word_stays_one_word_so_a_neighbours_command_is_not_pulled_in():
         check="deps/freshness",
         tool="pip",
         argv=("pip", "list", "--outdated"),
-        record_quote="x" * 40,
     )
     assert _lead_words(inv) == {"pip"}
     paragraph = (
@@ -1139,168 +838,6 @@ def test_a_lead_word_stays_one_word_so_a_neighbours_command_is_not_pulled_in():
         extracted |= _command_forms(paragraph, lead)
     assert extracted == {"pip list --outdated"}
     assert all(not form.startswith("uv ") for form in extracted), extracted
-
-
-_THREE_LABEL_SECTION = """## Tooling fallback
-
-**Python** - run `demo-tool --flag` over the package.
-
-**Both** - the grant every command above needs.
-
-**TypeScript** - run `demo-ts --flag` over the same tree.
-"""
-_THREE_LABEL_QUOTE = "run `demo-tool --flag` over the package."
-
-
-def test_the_prescribing_paragraph_is_the_line_holding_the_quote():
-    """The quote's own line is the whole paragraph, one line and no more.
-
-    Held on a section written here rather than on a record, because a record
-    carrying the shape this needs is a record some later stage migrates, and
-    then this fails for a reason that is not the rule breaking. The precedent
-    is `test_a_command_form_is_attributed_by_its_own_lead_word` in this file,
-    which builds both sides as literals with the same reason in its docstring.
-
-    What the literal costs is that this one example no longer comes from the
-    tree. Nothing pays it against the tree any more: the file-reading wrapper was
-    dissolved with the properties that called it, so this example is the
-    selector's only exercise.
-    """
-    paragraph = _prescribing_paragraph_in(
-        "demo/thing", _THREE_LABEL_SECTION, _THREE_LABEL_QUOTE
-    )
-    assert _THREE_LABEL_QUOTE in paragraph
-    assert paragraph.count("\n") == 0
-    assert paragraph.startswith("**Python** - ")
-
-
-def test_a_sibling_lens_is_recognised_in_every_spelling_the_family_writes():
-    """Three labels, one lens.
-
-    A whole-label set covers the spellings in the tree the day it is written, and
-    the two it missed here point opposite ways: a TypeScript prescription reported
-    as Python drift, and a Python prescription under an unlisted label watched by
-    nothing. A label naming a language this file does not know still fails the
-    containment property, so a new lens forces a read rather than being skipped.
-    """
-    for spelling in (
-        "TypeScript",
-        "JavaScript/TypeScript",
-        "TypeScript rules and greps for this check",
-    ):
-        assert _is_sibling_lens(spelling), spelling
-    for held in ("Python", "Both", "With none of them installed", "Rust", ""):
-        assert not _is_sibling_lens(held), held
-
-
-def test_a_flag_only_a_second_paragraph_carries_is_unaccounted():
-    """The append shape, moved one paragraph down.
-
-    Reading the quoted line alone left this passing: the flag is in no declared
-    form, and the containment property that does read the whole section extracts
-    command forms, which a bare flag is not.
-    """
-    quoted = "Run `pydeps --show-cycles --show-dot`: the bare form prints nothing."
-    appended = "**Python, on a namespace layout** - Append `--max-bacon=2` to that `pydeps` invocation."
-    pooled = _tokens("pydeps --show-cycles --show-dot")
-    assert _unaccounted_flags([quoted], pooled) == set()
-    assert _unaccounted_flags([quoted, appended], pooled) == {"--max-bacon=2"}
-
-
-def test_the_watched_paragraphs_are_the_python_side_of_the_section():
-    """Every paragraph a Python correction can land in, and no sibling lens's.
-
-    The section carries all three cases at once: the `**Python**` paragraph the
-    quote sits in, a `**Both**` paragraph labelled for a condition rather than a
-    language and so watched, and a `**TypeScript**` paragraph that is another
-    lens's prescription.
-
-    Written here rather than read off a record for the reason the test above
-    gives: a record carrying all three is a record a later stage migrates, and
-    re-pointing this at the next one buys one stage of green. The cost and what
-    still pays it are the same - the selector's exercise is these examples alone, now that the
-    file-reading wrapper and the properties that called it are gone.
-    """
-    watched = _watched_paragraphs_in(
-        "demo/thing", _THREE_LABEL_SECTION, _THREE_LABEL_QUOTE
-    )
-    labels = {
-        label
-        for label, paragraph in _fallback_paragraphs_in(
-            "demo/thing", _THREE_LABEL_SECTION
-        )
-        if paragraph in watched
-    }
-    assert "Both" in labels
-    assert "TypeScript" not in labels
-    assert (
-        _prescribing_paragraph_in(
-            "demo/thing", _THREE_LABEL_SECTION, _THREE_LABEL_QUOTE
-        )
-        in watched
-    )
-
-
-def test_a_token_the_record_writes_concretely_is_not_a_completion():
-    """The demotion this file had no guard against.
-
-    `arch/cycles` prescribed `pydeps --show-cycles --show-dot` and the record
-    bolded `--show-dot`. Moved out of the argv and into the completion the run
-    stays correct, the shorter argv still traces through the quote, and the
-    round reports that the record failed to prescribe a flag the record
-    prescribes. Built here rather than asserted about the tree, because no entry
-    in the tree carries the demotion, so the tree cannot distinguish a rule that
-    catches it from one that does not.
-    """
-    quote = (
-        "Run `pydeps --show-cycles --show-dot`: `--show-cycles` alone has no "
-        "textual output channel at all."
-    )
-    honest = Invocation(
-        check="arch/cycles",
-        tool="pydeps",
-        argv=("pydeps", "--show-cycles", "--show-dot"),
-        completion=("src/fixture_app",),
-        note="pydeps takes the package to graph and the record names none",
-        record_quote=quote,
-    )
-    demoted = Invocation(
-        check="arch/cycles",
-        tool="pydeps",
-        argv=("pydeps", "--show-cycles"),
-        completion=("--show-dot", "src/fixture_app"),
-        note="pydeps takes the package to graph and the record names none",
-        record_quote=quote,
-    )
-    assert _demoted_tokens(honest) == []
-    assert _demoted_tokens(demoted) == ["--show-dot"]
-
-
-def test_a_placeholder_the_record_leaves_open_is_a_legitimate_completion():
-    """The shape the rule must not fire on, and why the quote stays raw.
-
-    Filling a placeholder is what a completion is for: the record writes
-    `--cov=<pkg>` and the caller supplies the package. The two are never equal,
-    so comparing the completion against the quote's own tokens leaves the
-    legitimate shape alone. Reducing the quote with `_concrete` first is what
-    would break it - `--cov=<pkg>` becomes the marked `--cov=<`, which
-    `_matches` satisfies with any `--cov=` token, so the canonical completion
-    would read as a demoted prescription.
-    """
-    inv = Invocation(
-        check="test/coverage-reach",
-        tool="pytest-cov",
-        argv=("pytest", "--cov-branch", "--cov-report=term-missing"),
-        completion=("--cov=fixture_app",),
-        note="`<pkg>` is a placeholder the record leaves to the caller",
-        record_quote=(
-            "`pytest --cov=<pkg> --cov-branch --cov-report=term-missing` (or "
-            "`coverage run -m pytest` + `coverage report --show-missing`)."
-        ),
-    )
-    assert _demoted_tokens(inv) == []
-    marked = _concrete(_tokens(inv.record_quote))
-    assert any(_matches(w, "--cov=fixture_app") for w in marked)
 
 
 def test_a_shared_argv_is_one_command_rather_than_one_per_partition():
@@ -1317,7 +854,6 @@ def test_a_shared_argv_is_one_command_rather_than_one_per_partition():
         argv=("deptry",),
         completion=(".",),
         note="deptry takes the path to scan and the record names none",
-        record_quote="Run `deptry` over the package to list unused declarations.",
     )
     assert _prescribed_commands(shared) == [("uv", ("deptry",))]
     split = Invocation(
@@ -1327,7 +863,6 @@ def test_a_shared_argv_is_one_command_rather_than_one_per_partition():
             ("uv", ("cyclonedx-py", "environment")),
             ("pip", ("cyclonedx-py", "requirements")),
         ),
-        record_quote="Run the subcommand matching the partition's own dependency file.",
     )
     assert _prescribed_commands(split) == [
         ("uv", ("cyclonedx-py", "environment")),
@@ -1370,84 +905,6 @@ def test_a_form_the_record_writes_with_a_placeholder_compares_as_written():
     )
     assert _runs_as_written(("pytest", "--cov=fixture_app"), "pytest --cov=<pkg>")
     assert not _runs_as_written(("pytest", "--cov"), "pytest --cov=<pkg>")
-
-
-def test_swapping_the_two_commands_breaks_the_records_order():
-    """The order the record writes, held against the record.
-
-    `coverage run -m pytest` then `coverage report --show-missing` is one route,
-    and swapped it prints the report before the suite that produces it. The
-    swap's only guard was a literal tuple pinned in a test, whose failure
-    message reads as a stale literal to update. Built on a synthetic entry
-    because the tree carries the order correctly, so it cannot tell a rule that
-    holds the order from one that does not.
-    """
-    quote = (
-        "`pytest --cov=<pkg> --cov-branch --cov-report=term-missing` (or `coverage "
-        "run -m pytest` + `coverage report --show-missing`)."
-    )
-    forward = Invocation(
-        check="test/coverage-reach",
-        tool="coverage.py",
-        argv=("coverage", "run", "-m", "pytest"),
-        then=("coverage", "report", "--show-missing"),
-        record_quote=quote,
-    )
-    swapped = Invocation(
-        check="test/coverage-reach",
-        tool="coverage.py",
-        argv=("coverage", "report", "--show-missing"),
-        then=("coverage", "run", "-m", "pytest"),
-        record_quote=quote,
-    )
-    assert _follows_in_the_record(forward)
-    assert not _follows_in_the_record(swapped)
-
-
-def test_a_second_command_with_no_first_one_is_not_an_order_this_can_hold():
-    """The vacuous pass, refused where `all([])` would grant it.
-
-    Unreachable in the tree, where the entry carrying a `then` carries a command
-    as well, and refused here so that an entry growing the combination fails
-    rather than reporting an order nothing read.
-    """
-    inv = Invocation(
-        check="test/coverage-reach",
-        tool="coverage.py",
-        then=("coverage", "report", "--show-missing"),
-        record_quote="`coverage run -m pytest` + `coverage report --show-missing`.",
-    )
-    assert not _follows_in_the_record(inv)
-
-
-def test_every_partitions_first_command_precedes_the_shared_second_one():
-    """A `then` is shared across partitions, so every first command answers to it.
-
-    Built rather than asserted about the tree, which carries no entry combining a
-    per-partition command with a `then`. Holding only the first route found would
-    leave the rest of them ordered by luck, which is the defect the anchor guard
-    had and this must not repeat.
-    """
-    quote = "Run `coverage run -m pytest` then `coverage report --show-missing`."
-    holds = Invocation(
-        check="test/coverage-reach",
-        tool="coverage.py",
-        argv_by_partition=(("uv", ("coverage", "run", "-m", "pytest")),),
-        then=("coverage", "report", "--show-missing"),
-        record_quote=quote,
-    )
-    one_route_adrift = Invocation(
-        check="test/coverage-reach",
-        tool="coverage.py",
-        argv_by_partition=(
-            ("uv", ("coverage", "run", "-m", "pytest")),
-            ("pip", ("coverage", "run", "--branch")),
-        ),
-        then=("coverage", "report", "--show-missing"),
-        record_quote=quote,
-    )
-    assert _follows_in_the_record(holds)
-    assert not _follows_in_the_record(one_route_adrift)
 
 
 def test_every_python_tool_in_the_family_is_invoked():
@@ -1507,12 +964,22 @@ def test_a_tool_answering_several_checks_is_invoked_once_per_check():
 # because a property scoped to an empty set passes over anything, and rather
 # than restated against the routes, because the routes side already carries
 # its own equalities (`test_the_harness_runs_exactly_the_checks_the_expectations_declare`,
-# `test_no_migrated_check_has_a_hand_written_entry`). The prose extractor they
-# read through - `_spans`, `_command_forms`, `_flag_spans` and the paragraph
-# selectors - stays, tested by the example tests beside it, because forty-one
-# records outside the harness's reach still carry their commands in prose until
-# #69 migrates them, and the backtick convention `CLAUDE.md` states cites the
-# extractor as its reason.
+# `test_no_migrated_check_has_a_hand_written_entry`). The field the quote
+# lived in, `record_quote`, then left `Invocation`, and with it went every
+# reader of a transcription: the anchor and order helpers that traced a
+# command through the quote, the completion-demotion helper, and the
+# paragraph selectors over a `## Tooling fallback` section, each reached by
+# nothing but its own example test once the properties were gone; the three
+# hand-written-table loops that had been left in place to hold nothing - the
+# quote-is-a-sentence, command-in-the-quote and tool-its-record-offers
+# guards, the one-transcription split, and the two-command order held against
+# the quote - went with it, the last restated below against the routes. The
+# prose extractor itself - `_spans`, `_command_forms`, `_flag_spans` - stays,
+# tested by the example tests beside it, because
+# `test_a_glued_placeholder_needs_a_value_delimiter_before_its_mark` sweeps
+# every record's spans through it, the forty-one records outside the
+# harness's reach included, and the backtick convention `CLAUDE.md` states
+# cites that sweep as its reason.
 
 
 def test_classify_maps_a_missing_tool_to_no_evidence():
@@ -1629,32 +1096,6 @@ def test_the_harness_runs_exactly_the_checks_the_expectations_declare():
     assert {e.check for e in EXPECTATIONS} == with_python
 
 
-def test_every_invocation_names_a_tool_its_own_record_offers():
-    """A tool transcribed onto the wrong check is invisible to the set guards.
-
-    The union over every record equals the union over every invocation whichever
-    check each tool landed on, so the exact-set guard on tool names passes on a
-    table that gives `bandit` to `arch/cycles`.
-
-    Left reading `INVOCATIONS` alone on purpose - bucket 1, not by omission.
-    A routed row's tool is `route.tool`, and `checks[check].tooling.python`
-    on a migrated record is `_project_tooling(routes)`, which keeps a route's
-    tool unless its disposition is `forbidden` - and a `forbidden` disposition
-    only ever occurs on a `kind: command` route (the loader rejects it
-    elsewhere), which `routed_invocations()` refuses to build a row from at
-    all before this property would ever see it. So a routed row's tool is
-    always a member of the same projection this checks it against; there is
-    no second copy for a mistranscription to drift from.
-    """
-    checks, errors = load_checks(SKILLS_DIR)
-    assert not errors, errors
-    for inv in INVOCATIONS:
-        assert inv.tool in checks[inv.check].tooling.get("python", ()), (
-            inv.check,
-            inv.tool,
-        )
-
-
 def test_every_python_tooling_entry_has_an_invocation():
     """One entry per (check, tool) pair, not per tool.
 
@@ -1758,21 +1199,18 @@ def test_a_completed_argv_says_why_it_had_to_be_completed():
     for. Completing it silently turns that finding into a clean run, so the
     dataclass refuses a completion with no note and this holds the refusal.
 
-    Left reading `INVOCATIONS` alone on purpose - bucket 1, not by omission.
-    `Invocation.__post_init__` already raises on a completion with no note
-    for any instance, routed or hand-written, so the loop below cannot
-    observe a violation from either population; it is the `pytest.raises`
-    call beneath it that actually exercises the refusal.
+    `Invocation.__post_init__` raises on a completion with no note for any
+    instance, routed or hand-written, so no loop over either population can
+    observe a violation; the `pytest.raises` call is the whole exercise, and
+    the loop that used to precede it over the hand-written table was dropped
+    when that table emptied rather than kept to hold nothing.
     """
-    for inv in INVOCATIONS:
-        assert bool(inv.completion) <= bool(inv.note), inv.check
     with pytest.raises(ValueError, match="completion"):
         Invocation(
             check="arch/cycles",
             tool="pydeps",
             argv=("pydeps",),
             completion=("src",),
-            record_quote="x",
         )
 
 
@@ -1798,139 +1236,6 @@ def test_a_routed_row_prescribing_no_command_carries_the_records_reason():
         if row.argv or row.argv_by_partition or row.completion:
             continue
         assert row.note, (row.check, row.tool)
-
-
-def test_a_quote_is_a_sentence_rather_than_a_fragment():
-    """Short fragments collide, and a colliding quote fails for the wrong reason.
-
-    `C901` occurred in `arch/complexity-gate`'s fallback and again in its Fix
-    section, so a quote that short would have failed the verbatim guard, since dissolved, on a record
-    nobody had changed.
-
-    A length floor alone does not say this, though: a quote silently truncated
-    to a mid-sentence fragment stays over any floor and stays unique, so the
-    verbatim guard, while it stood, kept passing while what it compares has stopped being the
-    record's prescription. Ending at a sentence boundary is what a truncation
-    breaks, so that is what is held.
-
-    Reads `INVOCATIONS` only: a routed row's `record_quote` is always `""`,
-    which fails both assertions outright rather than passing vacuously, so
-    there is no way to widen this loop that does not turn every migrated
-    check into a spurious failure of a property about a quote it never had.
-    """
-    for inv in INVOCATIONS:
-        assert len(inv.record_quote) >= 40, (inv.check, inv.tool, inv.record_quote)
-        assert re.search(r"[.!?)][`*]*$", inv.record_quote), (
-            inv.check,
-            inv.tool,
-            inv.record_quote[-40:],
-        )
-
-
-def test_a_transcribed_command_occurs_in_the_sentence_that_prescribes_it():
-    """Otherwise a transcription's quote names prose the command is not in. Holds
-    nothing today, the table being empty, and stays for a legacy row.
-
-    The guard's whole value is that a record whose prescription changes breaks
-    the transcription. Anchored off a sentence that never named the command,
-    it breaks only when unrelated prose is reworded, and stays silent through
-    exactly the edit it exists to catch.
-
-    Left reading `INVOCATIONS` alone on purpose - bucket 1, not by omission.
-    A routed row's command is the record's own data rather than a copy of it:
-    `record_quote` is always `""` there, so there is no second copy for this
-    anchor to hold the command against, and the assertion cannot fail no
-    matter what the record says.
-
-    Every entry left in the transcription satisfies it, so the rule carries no
-    exception list. The one it used to carry was for a record writing a
-    placeholder rather than a filename - `deps/vulnerabilities` prescribing
-    `pip-audit -r <requirements>` - and that entry now reads its command from
-    its record, where a placeholder is the record's own and no quote here is
-    holding a copy of it. An entry that cannot be anchored is a record that
-    writes a placeholder or delegates instead of naming a command, never one
-    that names no command at all, which is a record to correct; the exception
-    comes back with the entry that needs it rather than staying as a tolerance
-    nothing exercises.
-
-    Held for every partition's route, not for the first one that exists: see
-    `_route_anchoring` for what stopping at the first cost `deps/inventory`.
-    """
-    for inv in INVOCATIONS:
-        for partition, argv, anchored in _route_anchoring(inv):
-            assert anchored, (inv.check, inv.tool, partition, argv)
-
-
-def test_every_partitions_route_is_held_against_the_quote():
-    """Stopping at the first route leaves the rest anchored by luck.
-
-    `deps/inventory` was the case: four prescribed commands, one of which was
-    enforced, and which one moved when the uv route was promoted into
-    `argv_by_partition`. It has since migrated, so it is no longer even a
-    transcribed entry - which changes nothing here, because this was always
-    built rather than asserted about the tree: every route in the tree anchors
-    today, so the tree cannot distinguish a rule that checks all of them from
-    one that checks the first.
-    """
-    inv = Invocation(
-        check="deps/inventory",
-        tool="cyclonedx-py",
-        argv_by_partition=(
-            ("uv", ("cyclonedx-py", "environment")),
-            ("pip", ("cyclonedx-py", "requirements")),
-        ),
-        record_quote="Run `cyclonedx-py environment` on this partition." + " x" * 20,
-    )
-    rows = _route_anchoring(inv)
-    assert [(partition, anchored) for partition, _, anchored in rows] == [
-        ("uv", True),
-        ("pip", False),
-    ]
-
-
-def test_a_two_command_route_runs_them_in_the_records_order():
-    """Held against the record rather than against a pinned tuple.
-
-    Each entry carrying a `then`, whose order traces through its own quote. A
-    count is not asserted: an entry growing a `then` should be held by this
-    rather than fail an arithmetic claim about how many there are.
-
-    Reads `INVOCATIONS` only, and the reason is the routed row's shape rather
-    than the schema's: a route carries a `then`, and `routed_invocations`
-    sets it. What a routed row does not carry is a transcription for the order
-    to be held against. Its `argv` and its `then` are two fields of one route,
-    read in that order, so "the record writes them in this order" is true of it
-    by construction and an assertion saying so would restate the enumeration
-    rather than check it. The claim has a subject only where a hand-written
-    entry transcribes a sentence into two tuples, because only there can the
-    two be reversed against what the record actually says.
-
-    So the loop below holds nothing today, and that is stated rather than left
-    to be discovered: no hand-written entry carries a `then`, the one row that
-    did having moved to the routed side. It stays as the guard for a
-    transcribed entry that grows one while the table still holds entries at
-    all. What the emptiness must not be allowed to mean is that the shape left
-    the tree, so the premise is asserted instead of the population: a `then`
-    deleted from the record it was written for would empty both sides at once
-    and this would still pass, which is the vacuity the loop alone cannot
-    refuse.
-    """
-    assert [i for i in routed_invocations() if i.then], (
-        "no route carries a `then`, so the two-command shape this holds has "
-        "left the tree rather than moved to the routed side, and the loop "
-        "below would pass by having nothing to read on either path"
-    )
-    for inv in INVOCATIONS:
-        if not inv.then:
-            continue
-        assert _prescribed_commands(inv), (
-            f"{inv.check}/{inv.tool}: prescribes a second command and no first "
-            "one, so it has no order to hold rather than an order this holds"
-        )
-        assert _follows_in_the_record(inv), (
-            f"{inv.check}/{inv.tool}: the record writes {inv.then} before the "
-            "command this entry runs first, so the route is reversed against it"
-        )
 
 
 def test_an_invocation_names_a_check_that_exists_and_a_partition_that_does():
@@ -2002,6 +1307,24 @@ def test_the_placeholder_a_record_writes_never_reaches_a_command():
 
 
 # --- the record-to-harness direction -------------------------------------------
+
+
+def test_a_route_in_the_tree_still_carries_a_then():
+    """The two-command shape has not left the tree.
+
+    The order of a two-command route was once held against the record's
+    sentence; a routed row's `argv` and `then` are two fields of one route,
+    read in that order, so there is nothing to hold and that guard is gone.
+    What its emptiness must not be allowed to mean is that the shape left the
+    tree: a `then` deleted from the record it was written for would leave
+    every `then`-reading property passing over nothing. So the premise is
+    asserted here, and the order is the loader's and `routed_invocations`'s to
+    keep.
+    """
+    assert [i for i in routed_invocations() if i.then], (
+        "no route carries a `then`, so the two-command shape has left the tree "
+        "and every property reading `then` passes by having nothing to read"
+    )
 
 
 def test_every_form_the_harness_runs_appears_in_an_argv():
@@ -2076,13 +1399,10 @@ def test_every_form_the_harness_runs_appears_in_an_argv():
     it. It excepts none today - the set emptied when the record that needed it
     migrated - so this property is the only order check on every form, and it
     is the one that has to keep working when an exception comes back with the
-    next entry that needs one. A form reachable
-    only through `then` is held here. The property tracing a two-command route
-    through the quote reads `INVOCATIONS` only, for the reason its own docstring
-    gives - a routed row's `argv` and `then` are two fields of one route, so
-    their order is true of it by construction and there is no transcription to
-    hold it against - so that one covers such a form only where a hand-written
-    entry transcribes the sentence into two tuples.
+    next entry that needs one. A form reachable only through `then` is held
+    here, and this is the only property that holds one: a routed row's `argv`
+    and `then` are two fields of one route, read in that order, so their order
+    is true of it by construction and nothing else reads it.
 
     Reads both paths, and the reason it once read `INVOCATIONS` alone is worth
     keeping as a record of how the premise failed. It rested on a routed row
@@ -2253,59 +1573,6 @@ def test_every_disposition_in_the_vocabulary_is_used():
     in use. That day has passed for all three values.
     """
     assert {d for inv in every_invocation() for _, d in inv.forms} == set(DISPOSITIONS)
-
-
-def test_an_unled_span_is_found_and_a_neighbours_command_is_not():
-    """Both halves of `_unled_spans`, on paragraphs written here.
-
-    Built here rather than read off a record for the reason the property above
-    measures: no record still transcribed has a span the finding half reads, so
-    holding it against the tree exercises the empty case only. The precedent is
-    `test_a_lead_word_stays_one_word_so_a_neighbours_command_is_not_pulled_in`
-    in this file, which builds both sides as literals with the same reason.
-
-    The finding case is the one `arch/cycles`' prose invited: a one-shot runner
-    written in front of the tool, where the record declares no entry that leads
-    with the runner. The benign case is the one `deps/freshness` carried while
-    its fallback lived in prose - a neighbour's command carrying this entry's
-    tool name further along it - and it is benign only because the neighbour is
-    among the siblings, which is what the third argument decides. Dropping the
-    neighbour from that list turns the same paragraph into a finding, which is
-    the assertion that says the two cases differ by the data and not by the
-    rule.
-    """
-    pydeps = Invocation(
-        check="arch/cycles",
-        tool="pydeps",
-        argv=("pydeps", "--show-cycles"),
-        record_quote="x" * 40,
-    )
-    unled_paragraph = (
-        "run `pydeps --show-cycles` over the package, or "
-        "`uvx pydeps --show-cycles` where it is not installed."
-    )
-    assert _unled_spans(pydeps, unled_paragraph, [pydeps]) == {
-        "uvx pydeps --show-cycles"
-    }
-
-    pip = Invocation(
-        check="deps/freshness",
-        tool="pip",
-        argv=("pip", "list", "--outdated"),
-        record_quote="x" * 40,
-    )
-    uv = Invocation(
-        check="deps/freshness",
-        tool="uv",
-        argv=("uv", "pip", "list", "--outdated"),
-        record_quote="x" * 40,
-    )
-    neighbour_paragraph = (
-        "`uv pip list --outdated` / `pip list --outdated`, both of which read "
-        "the installed environment rather than the lockfile."
-    )
-    assert _unled_spans(pip, neighbour_paragraph, [pip, uv]) == set()
-    assert _unled_spans(pip, neighbour_paragraph, [pip]) == {"uv pip list --outdated"}
 
 
 # --- scoping and grant states --------------------------------------------------
@@ -2579,7 +1846,6 @@ def test_deptry_and_xenon_are_the_entries_that_report_on_stderr():
         Invocation(
             check="deps/hygiene",
             tool="deptry",
-            record_quote="x" * 40,
             argv=("deptry",),
             findings_stream="both",
         )
@@ -3073,10 +2339,7 @@ def _entry(check: str, tool: str) -> Invocation:
     helper's callers rest on. Reading both populations is what keeps a caller
     naming a row alive across that row's own migration: the pair is unique
     across the two, which
-    `test_no_check_invokes_the_same_tool_twice` holds. A caller that needs
-    the transcription itself - `record_quote`, and the record prose it
-    anchors in - cannot use this helper, because a routed row carries no
-    quote to read.
+    `test_no_check_invokes_the_same_tool_twice` holds.
     """
     return next(i for i in every_invocation() if (i.check, i.tool) == (check, tool))
 
@@ -3202,14 +2465,12 @@ def test_a_supplied_route_refuses_to_travel_without_its_reason():
         Invocation(
             check="deps/inventory",
             tool="cyclonedx-py",
-            record_quote="x" * 40,
             supplied_by_partition=(("uv", (("uv", "export"),)),),
         )
     with pytest.raises(ValueError, match="both a prescribed route and a supplied"):
         Invocation(
             check="deps/inventory",
             tool="cyclonedx-py",
-            record_quote="x" * 40,
             argv_by_partition=(("uv", ("cyclonedx-py", "requirements")),),
             supplied_by_partition=(("uv", (("uv", "export"),)),),
             supplied_note="why",
@@ -3218,7 +2479,6 @@ def test_a_supplied_route_refuses_to_travel_without_its_reason():
         Invocation(
             check="deps/inventory",
             tool="cyclonedx-py",
-            record_quote="x" * 40,
             supplied_by_partition=(("uv", (("a",),)), ("uv", (("b",),))),
             supplied_note="why",
         )
@@ -3226,7 +2486,6 @@ def test_a_supplied_route_refuses_to_travel_without_its_reason():
         Invocation(
             check="deps/hygiene",
             tool="deptry",
-            record_quote="x" * 40,
             in_env=True,
             supplied_by_partition=(("uv", (("deptry", "."),)),),
             supplied_note="why",
@@ -3245,7 +2504,6 @@ def test_an_own_runner_partition_needs_a_command_of_its_own_to_run():
         Invocation(
             check="deps/inventory",
             tool="cyclonedx-py",
-            record_quote="x" * 40,
             argv_by_partition=(("pip", ("cyclonedx-py", "requirements")),),
             own_runner=("uv",),
         )
@@ -3253,7 +2511,6 @@ def test_an_own_runner_partition_needs_a_command_of_its_own_to_run():
         Invocation(
             check="deps/inventory",
             tool="cyclonedx-py",
-            record_quote="x" * 40,
             own_runner=("uv",),
             supplied_by_partition=(("uv", (("uv", "export"),)),),
             supplied_note="why",
@@ -3262,7 +2519,6 @@ def test_an_own_runner_partition_needs_a_command_of_its_own_to_run():
         Invocation(
             check="deps/inventory",
             tool="cyclonedx-py",
-            record_quote="x" * 40,
             argv_by_partition=(("uv", ("uv", "export")),),
             own_runner=("uv",),
             supplied_by_partition=(("uv", (("uv", "export"),)),),
@@ -3272,7 +2528,6 @@ def test_an_own_runner_partition_needs_a_command_of_its_own_to_run():
         Invocation(
             check="deps/hygiene",
             tool="deptry",
-            record_quote="x" * 40,
             argv=("deptry", "."),
             in_env=True,
             own_runner=("uv",),
@@ -3284,7 +2539,6 @@ def test_a_form_carrying_an_unknown_disposition_is_rejected():
         Invocation(
             check="arch/cycles",
             tool="pydeps",
-            record_quote="x" * 40,
             forms=(("pydeps --show-cycles", "maybe"),),
         )
 
@@ -3294,7 +2548,6 @@ def test_an_empty_form_is_rejected():
         Invocation(
             check="arch/cycles",
             tool="pydeps",
-            record_quote="x" * 40,
             forms=(("   ", "runs"),),
         )
 
@@ -3304,7 +2557,6 @@ def test_the_same_form_declared_twice_is_rejected():
         Invocation(
             check="arch/cycles",
             tool="pydeps",
-            record_quote="x" * 40,
             forms=(
                 ("pydeps --show-cycles", "runs"),
                 ("pydeps --show-cycles", "superseded"),
@@ -3396,7 +2648,6 @@ def test_an_entry_cannot_hold_both_a_shared_and_a_per_partition_command():
         Invocation(
             check="deps/inventory",
             tool="cyclonedx-py",
-            record_quote="x" * 40,
             argv=("cyclonedx-py",),
             argv_by_partition=(("uv", ("uv", "export")),),
         )
@@ -3407,7 +2658,6 @@ def test_naming_one_partition_twice_is_rejected():
         Invocation(
             check="deps/inventory",
             tool="cyclonedx-py",
-            record_quote="x" * 40,
             argv_by_partition=(("uv", ("a",)), ("uv", ("b",))),
         )
 
@@ -4706,21 +3956,6 @@ def test_the_remaining_test_rows_survive_their_records_migration():
         "test/assertion-strength",
         "test/new-code-coverage",
     }
-
-
-def test_a_quote_belongs_to_a_transcription_and_only_to_one():
-    """The field is the prose population's, and the split is asserted.
-
-    Every hand-written entry carries the sentence it was transcribed from;
-    every routed row carries none, because there is no second copy for a quote
-    to drift from. Read together these two say which population a row belongs
-    to without a flag naming it, which is why they are one property and not
-    two.
-    """
-    assert all(i.record_quote for i in INVOCATIONS), sorted(
-        (i.check, i.tool) for i in INVOCATIONS if not i.record_quote
-    )
-    assert all(not r.record_quote for r in routed_invocations())
 
 
 def _fake_record(*routes):
