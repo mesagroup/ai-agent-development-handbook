@@ -12,6 +12,7 @@ handbook:
 routes:
   - lang: python
     kind: command
+    answers: order
     tool: pytest-randomly
     argv: [pytest]
     in_env: true
@@ -21,6 +22,7 @@ routes:
       order as soon as it is installed, so the command is `pytest` itself.
   - lang: python
     kind: command
+    answers: order
     tool: pytest-randomly
     argv: [pytest, "--randomly-seed=<n>"]
     disposition: alternative
@@ -32,6 +34,7 @@ routes:
       above has produced one.
   - lang: python
     kind: procedure
+    answers: repeats
     tool: pytest-rerunfailures
     in_env: true
     needs: target-execution
@@ -47,6 +50,7 @@ routes:
       never installed, on every partition and grant.
   - lang: typescript
     kind: command
+    answers: order
     tool: vitest
     argv: [vitest, run, "--sequence.shuffle", "--sequence.seed=<n>"]
     needs: target-execution
@@ -60,6 +64,7 @@ routes:
       flakiness.
   - lang: typescript
     kind: command
+    answers: order
     tool: jest
     argv: [jest, "--randomize", "--seed", "<n>"]
     needs: target-execution
@@ -72,6 +77,7 @@ routes:
       below carries this check on its own.
   - lang: any
     kind: procedure
+    answers: inputs
     note: >-
       Grepping tests for non-deterministic inputs answers that axis with
       nothing installed, in either language, and so is what a withheld grant
