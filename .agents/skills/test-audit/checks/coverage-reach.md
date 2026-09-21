@@ -128,7 +128,10 @@ routes:
       statements, which is honest and still measures nothing. The record
       prescribes no `c8` command line, so there is no argv to declare and the
       prohibition is stated here rather than as a `disposition`, which the
-      schema carries only on a `kind: command` route.
+      schema carries only on a `kind: command` route. It carries
+      `answers: measurement` because the field is all or none per language and
+      that is the axis the prohibited run would have falsified, not because
+      running it answers anything.
   - lang: typescript
     kind: procedure
     answers: measurement
