@@ -1,14 +1,16 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["markdown>=3.5"]
+# dependencies = ["markdown>=3.5", "pyyaml>=6.0"]
 # ///
 """Render the engineering handbook into a single self-contained HTML artifact.
 
 The prose is produced verbatim by a Markdown converter over
 ``docs/engineering/*.md``, so the HTML text is identical to the repo; only
-cross-links (``foo.md`` -> ``#anchor``), table / task-list markup, and ```d2
-fences are transformed, and the result is wrapped in a styled, single-page
-shell (sidebar nav, light/dark theme toggle, scroll-spy). Re-run after editing
+cross-links (``foo.md`` -> ``#<part anchor>``, ``foo.md#frag`` ->
+``#<stem>-<frag>``), heading ids (``<stem>-<slug>`` on every heading, so a
+report's citation resolves into the page), table / task-list markup, and
+```d2 fences are transformed, and the result is wrapped in a styled,
+single-page shell (sidebar nav, light/dark theme toggle, scroll-spy). Re-run after editing
 any doc to regenerate the shareable artifact; there is no hand-maintained copy
 to drift.
 
@@ -35,7 +37,7 @@ wrapped in the same ``<figure>``.
 
 NOT a CI test. Everything except ``run_d2`` is unit-tested in
 ``tests/scripts/``: the pure transforms (``unlink_out_of_tree``,
-``rewrite_links``, ``wrap_tables``,
+``heading_id``, ``add_heading_ids``, ``rewrite_links``, ``wrap_tables``,
 ``mark_task_items``, ``extract_diagram_blocks``, ``parse_funnel``,
 ``wrap_label``, ``group_digits``, ``funnel_svg``, ``prepare_svg``,
 ``diagram_figure``, ``substitute_diagrams``, ``count_em_dashes``), the
@@ -54,8 +56,11 @@ import tempfile
 from dataclasses import dataclass
 from functools import cache
 from html import escape as html_escape
+from html import unescape as html_unescape
 from itertools import pairwise
 from pathlib import Path
+
+from render_handbook_traceability import slugify
 
 # (anchor id, markdown stem, sidebar label). Order defines the page order;
 # README is the intro section (#top), the numbered parts follow, then the
@@ -667,20 +672,97 @@ def unlink_out_of_tree(html: str) -> tuple[str, list[str]]:
     return out, unlinked
 
 
-def rewrite_links(html: str, linkmap: dict[str, str]) -> tuple[str, list[str]]:
+_HEADING_RE = re.compile(r"<h([1-6])>(.*?)</h\1>", re.S)
+_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def heading_id(stem: str, heading_html: str) -> str:
+    """The id a heading gets in the page: the part's stem, a hyphen, the slug.
+
+    The slug is the GitHub-style one `render_handbook_traceability.slugify`
+    computes over the heading's text, so a report citation written as
+    ``<stem>.md#<slug>`` and a matrix row id written as ``<stem>/<slug>``
+    both name the same element as ``<stem>-<slug>``. The stem is in front
+    because a slug is unique within one part and not across the page:
+    ten parts end in a ``See also`` heading, and a bare-slug id would have
+    left nine of them unreachable.
+
+    Args:
+        stem: The part's markdown stem, ``lifecycle`` for ``lifecycle.md``.
+        heading_html: The heading's inner HTML as the converter wrote it,
+            tags and entities included; both are removed before slugifying,
+            so a heading carrying a code span or an ampersand slugs the way
+            its markdown source does.
+    """
+    text = html_unescape(_TAG_RE.sub("", heading_html))
+    return f"{stem}-{slugify(text)}"
+
+
+def add_heading_ids(html: str, stem: str) -> tuple[str, list[str]]:
+    """Put an ``id`` on every heading of one part's HTML.
+
+    Every level, not only ``##``: GitHub anchors all of them, the matrix's
+    whole-part rows resolve through a part's ``h1`` (``coda/coda``), and a
+    link into a ``###`` is a link the page would otherwise drop.
+
+    Returns:
+        The HTML with ids added, and the ids in document order.
+
+    Raises:
+        ValueError: Two headings of the part slugify to the same id. Such a
+            part has two headings a citation cannot tell apart, and a second
+            id silently winning would send the reader to the wrong one.
+    """
+    ids: list[str] = []
+
+    def repl(m: re.Match[str]) -> str:
+        hid = heading_id(stem, m.group(2))
+        if hid in ids:
+            raise ValueError(
+                f"{stem}.md: two headings slugify to {hid!r}, so a citation "
+                "naming it cannot say which one it means; reword one of them"
+            )
+        ids.append(hid)
+        return f'<h{m.group(1)} id="{hid}">{m.group(2)}</h{m.group(1)}>'
+
+    return _HEADING_RE.sub(repl, html), ids
+
+
+def rewrite_links(
+    html: str, linkmap: dict[str, str], ids: frozenset[str] | set[str] = frozenset()
+) -> tuple[str, list[str]]:
     """Rewrite ``*.md`` hrefs to in-page anchors.
 
+    A bare ``<stem>.md`` maps to the part's anchor. ``<stem>.md#<frag>`` maps
+    to the heading id ``<stem>-<frag>`` where the page has one, and is
+    reported as unmapped where it does not: a fragment naming no heading
+    resolved on GitHub only by scrolling to the top of the file, and here it
+    would silently do the same, which is the defect the ids exist to close.
+
+    Args:
+        html: Converted HTML for one part.
+        linkmap: ``<stem>.md`` to ``#<part anchor>``.
+        ids: Every heading id the whole page carries, from every part, since
+            a link may cross into a part rendered after this one.
+
     Returns the rewritten HTML and the list of hrefs that could not be mapped
-    (external links, or docs outside the handbook), so the caller can warn.
+    (external links, docs outside the handbook, or a fragment the page has
+    no heading for), so the caller can warn or raise.
     """
     unmapped: list[str] = []
 
     def repl(m: re.Match[str]) -> str:
         href = m.group(1)
-        base = href.split("#")[0]
+        base, _, fragment = href.partition("#")
         anchor = linkmap.get(base)
-        if anchor is not None:
+        if anchor is None:
+            unmapped.append(href)
+            return m.group(0)
+        if not fragment:
             return f'href="{anchor}"'
+        target = f"{base[: -len('.md')]}-{fragment}"
+        if target in ids:
+            return f'href="#{target}"'
         unmapped.append(href)
         return m.group(0)
 
@@ -707,31 +789,73 @@ def mark_task_items(html: str) -> str:
 
 
 def post_process(
-    html: str, linkmap: dict[str, str]
+    html: str, linkmap: dict[str, str], ids: frozenset[str] | set[str] = frozenset()
 ) -> tuple[str, list[str], list[str]]:
     """Apply all HTML transforms; return the result, unmapped and unlinked hrefs.
 
     Out-of-tree links are unwrapped before the in-tree rewrite, so they never
     reach `unmapped` - they were handled rather than skipped, and `build`
-    raises on an unmapped relative link.
+    raises on an unmapped relative link. Heading ids are not added here: they
+    are added per part before any link is rewritten, because `ids` has to
+    hold the whole page's for a cross-part fragment to resolve.
     """
     html, unlinked = unlink_out_of_tree(html)
-    html, unmapped = rewrite_links(html, linkmap)
+    html, unmapped = rewrite_links(html, linkmap, ids)
     html = wrap_tables(html)
     html = mark_task_items(html)
     return html, unmapped, unlinked
 
 
-def render_doc(
-    docs_dir: Path, stem: str, linkmap: dict[str, str]
-) -> tuple[str, list[str], list[str]]:
-    """Convert one markdown doc to post-processed HTML (lazy-imports markdown)."""
+def render_part(docs_dir: Path, stem: str) -> tuple[str, list[str], list[DiagramBlock]]:
+    """Convert one part to HTML with heading ids, links and diagrams untouched.
+
+    The first of `build`'s two passes: every part goes through this before
+    any link is rewritten, so the ids a cross-part fragment needs exist
+    before the link that needs them is read. Lazy-imports markdown, so the
+    pure helpers stay importable without the dependency.
+
+    Returns:
+        The HTML, the heading ids in document order, and the diagram blocks
+        lifted out of the source for the caller to render and substitute.
+    """
     import markdown  # lazy: keeps the pure helpers importable without the dep
 
     md = (docs_dir / f"{stem}.md").read_text()
     md, blocks = extract_diagram_blocks(md, stem)
     html = markdown.markdown(md, extensions=["tables", "fenced_code", "sane_lists"])
-    html, unmapped, unlinked = post_process(html, linkmap)
+    html, ids = add_heading_ids(html, stem)
+    return html, ids, blocks
+
+
+def heading_ids(docs_dir: Path, parts: list[tuple[str, str, str]] = PARTS) -> set[str]:
+    """Every id the page built from ``docs_dir`` carries, without rendering it.
+
+    The part anchors plus every heading id, computed the way `build` computes
+    them and without reaching for the d2 CLI, which is what lets the citation
+    check run where no renderer can. A rendered page carries exactly this set,
+    plus the figure captions' ids, and a test holds the two together.
+    """
+    ids = {anchor for anchor, _, _ in parts}
+    for _, stem, _ in parts:
+        _, part_ids, _ = render_part(docs_dir, stem)
+        ids.update(part_ids)
+    return ids
+
+
+def render_doc(
+    docs_dir: Path,
+    stem: str,
+    linkmap: dict[str, str],
+    ids: frozenset[str] | set[str] = frozenset(),
+) -> tuple[str, list[str], list[str]]:
+    """Convert one markdown doc to post-processed HTML (lazy-imports markdown).
+
+    `build` runs `render_part` over every part first and hands the union of
+    their ids in as `ids`; called alone, a fragment link into another part
+    reports as unmapped, which is the truth about a page holding one part.
+    """
+    html, _, blocks = render_part(docs_dir, stem)
+    html, unmapped, unlinked = post_process(html, linkmap, ids)
     if blocks:
         html = substitute_diagrams(
             html,
@@ -791,7 +915,8 @@ def build(docs_dir: Path, parts: list[tuple[str, str, str]] = PARTS) -> str:
 
     Raises:
         ValueError: If a page carries a relative `.md` link the linkmap
-            cannot resolve. Such a link resolves on GitHub and is dead in
+            cannot resolve, or a fragment on one that names no heading of
+            its part. Such a link resolves on GitHub and is dead in
             this artifact, and nothing else in this repository looks at the
             handbook's links, so a warning here would be a silent pass.
             This raise is the only check there is. Absolute URLs are
@@ -800,18 +925,41 @@ def build(docs_dir: Path, parts: list[tuple[str, str, str]] = PARTS) -> str:
             parts table) has to be absolute.
     """
     linkmap = {stem + ".md": "#" + anchor for anchor, stem, _ in parts}
+    rendered = {stem: render_part(docs_dir, stem) for _, stem, _ in parts}
+    ids = {anchor for anchor, _, _ in parts}
+    for stem, (_, part_ids, _) in rendered.items():
+        clash = ids & set(part_ids)
+        if clash:
+            raise ValueError(
+                f"{stem}.md: heading id(s) {sorted(clash)} collide with an id the "
+                "page already carries, so a link to one of them would land on "
+                "the other"
+            )
+        ids.update(part_ids)
     sections = []
     for anchor, stem, _ in parts:
         cls = "part intro" if anchor == "top" else "part"
-        html, unmapped, unlinked = render_doc(docs_dir, stem, linkmap)
+        html, _, blocks = rendered[stem]
+        html, unmapped, unlinked = post_process(html, linkmap, ids)
+        if blocks:
+            html = substitute_diagrams(
+                html,
+                {
+                    block.index: diagram_figure(
+                        stem, block, *render_variants(block, stem)
+                    )
+                    for block in blocks
+                },
+            )
         dead = [h for h in unmapped if not _SCHEME_RE.match(h)]
         if dead:
             raise ValueError(
                 f"{stem}.md: relative link(s) the artifact cannot resolve: "
                 + ", ".join(dead)
-                + ". A sibling link must name a part this artifact contains; a "
-                "target outside the handbook is written relatively and gets "
-                "unlinked here."
+                + ". A sibling link must name a part this artifact contains, and "
+                "a fragment on it must name a heading of that part; a target "
+                "outside the handbook is written relatively and gets unlinked "
+                "here."
             )
         for href in unmapped:
             print(f"  WARNING unmapped link in {stem}.md: {href}")
