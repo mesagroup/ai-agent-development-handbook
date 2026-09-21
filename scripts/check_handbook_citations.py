@@ -5,7 +5,12 @@ page has to be able to follow both into it. The skills spell absolute URLs of
 the form ``.../docs/engineering/<stem>.md#<fragment>``, whose fragment is the
 GitHub-style slug of a heading; the emitter lists matrix row ids of the form
 ``<stem>/<slug>[-letter]``, whose ``section:`` title slugifies to the same
-heading. The page gives every heading the id ``<stem>-<slug>``, so a URL
+heading. The first shape is read as every ``docs/engineering/<stem>.md`` path
+under the skills tree, absolute or relative and with or without a fragment,
+because a record's ``handbook_note`` is rendered into the matrix where its
+``handbook:`` list is empty, so a path written there as authoring provenance
+reaches a report as text too; the count therefore covers what a report can
+carry rather than only what a skill spells as a link. The page gives every heading the id ``<stem>-<slug>``, so a URL
 fragment resolves to ``<stem>-<fragment>`` and a row to
 ``<stem>-<slugify(section)>``, and this script computes both mappings over
 the whole tree and reports what does and does not resolve.
