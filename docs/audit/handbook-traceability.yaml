@@ -173,7 +173,7 @@
   claim: Partition the questions before partitioning the work - a whole-subject property (totals, cycles, ratios, report-this-once) goes to an agent holding the whole subject, because an agent holding one slice answers from the slice with no sign in its output that it did.
   class: process
   severity: important
-  note: How a run splits its questions is a property of the run. The repository-visible form of this rule is `audit-core`'s `local` and `global` localities, which this clause is the general statement of and which the engine cites here.
+  note: How a run splits its questions is a property of the run. The repository-visible form of this rule is `audit-core`'s `local` and `global` localities, which this clause is the general statement of and which the engine cites here; the graph scope `audit-core` states beside them, the unit a whole-graph property is computed over, is the audit's own refinement and has no general form in this clause.
 
 - id: lifecycle/fan-work-out-to-parallel-agents-and-merge-it-honestly-d
   section: "Fan work out to parallel agents, and merge it honestly"
