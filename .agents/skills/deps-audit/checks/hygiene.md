@@ -5,8 +5,12 @@ locality: global
 evidence: >-
   A scanner run without the tree gives a partial signal, and a row records it
   with that limit rather than at face value: on a partition whose
-  dependencies are not installed the scanner half of this check is
-  `no-evidence (not-permitted)` rather than a clean result.
+  dependencies are not installed the scanner's row is `no-evidence
+  (not-permitted)` rather than a clean result, and the check is carried by
+  the manifest and lockfile reading the untiered route below prescribes, at
+  lower recall than the scanner and reported as such. One answer at reduced
+  recall, not two halves: the reading is the scanner's alternative, and a
+  clean reading is not a clean scan.
 handbook:
   - security-supply-chain/depend-only-on-what-you-can-account-for-a
 routes:
