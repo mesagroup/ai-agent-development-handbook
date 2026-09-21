@@ -73,8 +73,9 @@ routes:
     note: >-
       `jest --randomize --seed <n>` shuffles order within a file, and is
       supported only on the default `jest-circus` runner, so a project on a
-      custom runner has no randomize flag at all and the untiered grep route
-      below carries this check on its own.
+      custom runner has no randomize flag at all: the order axis is
+      `no-evidence (not-prescribed)` there, and the untiered grep route below
+      answers the inputs axis, which is what the check still has.
   - lang: any
     kind: procedure
     answers: inputs
