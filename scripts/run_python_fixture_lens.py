@@ -744,6 +744,34 @@ COMPLETIONS: dict[tuple[str, str], Completion] = {
             "`--max-absolute B`"
         ),
     ),
+    ("security/crypto", "bandit"): Completion(
+        tokens=(f"src/{PACKAGE}",),
+        note=(
+            "`<pkg>` is a placeholder the record leaves to the caller and the route "
+            "stops at `-r`; the seeded package is at src/" + PACKAGE
+        ),
+    ),
+    ("security/dangerous-calls", "bandit"): Completion(
+        tokens=(f"src/{PACKAGE}",),
+        note=(
+            "`<pkg>` is a placeholder the record leaves to the caller and the route "
+            "stops at `-r`; the seeded package is at src/" + PACKAGE
+        ),
+    ),
+    ("security/injection", "bandit"): Completion(
+        tokens=(f"src/{PACKAGE}",),
+        note=(
+            "`<pkg>` is a placeholder the record leaves to the caller and the route "
+            "stops at `-r`; the seeded package is at src/" + PACKAGE
+        ),
+    ),
+    ("security/unsafe-io", "bandit"): Completion(
+        tokens=(f"src/{PACKAGE}",),
+        note=(
+            "`<pkg>` is a placeholder the record leaves to the caller and the route "
+            "stops at `-r`; the seeded package is at src/" + PACKAGE
+        ),
+    ),
     ("arch/cycles", "pydeps"): Completion(
         tokens=(f"src/{PACKAGE}",),
         note="pydeps takes the package to graph and the record names none",
@@ -910,108 +938,14 @@ SUPPLIED: dict[tuple[str, str], Supplied] = {
 }
 
 
-# The transcription. One entry per (check, tool) pair, because a tool answering
-# several checks needs a different invocation for each: ruff selects `C901` for
-# `arch/complexity`, the `S` ruleset for the four `security` checks and the `D`
-# ruleset for `docs/docstring-coverage`, and collapsing those into one entry
-# would test one rule selection and report it as evidence about every check that
-# names the tool.
-INVOCATIONS: tuple[Invocation, ...] = (
-    # --- docs ---------------------------------------------------------------
-    Invocation(
-        check="docs/docstring-coverage",
-        tool="ruff",
-        argv=("ruff",),
-        completion=("check", "--select", "D"),
-        note=(
-            "the record names ruff's `D` rules rather than a command line; "
-            "`ruff check --select D` is what selects them"
-        ),
-        record_quote=(
-            "`ruff` `D` rules / `pydocstyle` / `interrogate` if present, else an "
-            "AST/grep sweep."
-        ),
-        forms=(),
-    ),
-    Invocation(
-        check="docs/docstring-coverage",
-        tool="pydocstyle",
-        argv=("pydocstyle",),
-        record_quote=(
-            "`ruff` `D` rules / `pydocstyle` / `interrogate` if present, else an "
-            "AST/grep sweep."
-        ),
-        forms=(),
-    ),
-    Invocation(
-        check="docs/docstring-coverage",
-        tool="interrogate",
-        argv=("interrogate",),
-        record_quote=(
-            "`ruff` `D` rules / `pydocstyle` / `interrogate` if present, else an "
-            "AST/grep sweep."
-        ),
-        note=(
-            "the record's fallback is one line naming three tools and no arguments; "
-            "pydocstyle and interrogate both default to the working directory, so the "
-            "bare name is runnable for them"
-        ),
-        forms=(),
-    ),
-    # --- security -----------------------------------------------------------
-    *tuple(
-        entry
-        for check in (
-            "security/crypto",
-            "security/dangerous-calls",
-            "security/injection",
-            "security/unsafe-io",
-        )
-        for entry in (
-            Invocation(
-                check=check,
-                tool="bandit",
-                argv=("bandit", "-r"),
-                completion=(f"src/{PACKAGE}",),
-                note=(
-                    "`<pkg>` is a placeholder the record leaves to the caller; the "
-                    "seeded package is at src/" + PACKAGE
-                ),
-                record_quote=(
-                    "`bandit -r <pkg>` (captures test id like `B602`, severity, "
-                    "confidence, `file:line`), or `ruff check --select S` if the "
-                    "project standardizes on ruff, or `semgrep --config p/python` for "
-                    "dataflow-aware rules."
-                ),
-                forms=(("bandit -r <pkg>", "runs"),),
-            ),
-            Invocation(
-                check=check,
-                tool="ruff",
-                argv=("ruff", "check", "--select", "S"),
-                record_quote=(
-                    "`bandit -r <pkg>` (captures test id like `B602`, severity, "
-                    "confidence, `file:line`), or `ruff check --select S` if the "
-                    "project standardizes on ruff, or `semgrep --config p/python` for "
-                    "dataflow-aware rules."
-                ),
-                forms=(("ruff check --select S", "runs"),),
-            ),
-            Invocation(
-                check=check,
-                tool="semgrep",
-                argv=("semgrep", "--config", "p/python"),
-                record_quote=(
-                    "`bandit -r <pkg>` (captures test id like `B602`, severity, "
-                    "confidence, `file:line`), or `ruff check --select S` if the "
-                    "project standardizes on ruff, or `semgrep --config p/python` for "
-                    "dataflow-aware rules."
-                ),
-                forms=(("semgrep --config p/python", "runs"),),
-            ),
-        )
-    ),
-)
+# The transcription, one entry per (check, tool) pair, for a record whose command
+# lives in prose rather than in a route. Empty since the docs and security
+# migration: every record the Python fixture harness invokes now declares
+# `routes:`, so every row comes from `routed_invocations` and nothing here is
+# read from a `## Tooling fallback` section. The shape is kept, rather than the
+# name retired, because a record can still be authored on the legacy schema and
+# this is where its rows would go while it stayed there.
+INVOCATIONS: tuple[Invocation, ...] = ()
 
 
 @lru_cache(maxsize=1)

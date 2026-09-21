@@ -437,11 +437,6 @@ def _prescribing_paragraph_in(check: str, text: str, quote: str) -> str:
     return lines[0]
 
 
-def _prescribing_paragraph(check: str, quote: str) -> str:
-    """The source line the record's prescribing sentence sits in."""
-    return _prescribing_paragraph_in(check, _record_path(check).read_text(), quote)
-
-
 def _route_anchoring(inv: Invocation) -> list[tuple[str, tuple[str, ...], bool]]:
     """Whether each partition's prescribed command traces through the quote.
 
@@ -506,11 +501,6 @@ def _fallback_paragraphs_in(check: str, text: str) -> list[tuple[str, str]]:
         label = re.match(r"\*\*([^*]+)\*\* - ", line.strip())
         out.append((label.group(1) if label else "", line))
     return out
-
-
-def _fallback_paragraphs(check: str) -> list[tuple[str, str]]:
-    """Every paragraph of the record's `## Tooling fallback`, with its label."""
-    return _fallback_paragraphs_in(check, _record_path(check).read_text())
 
 
 _LOADED_CHECKS, _LOAD_ERRORS = load_checks(SKILLS_DIR)
@@ -623,11 +613,6 @@ def _watched_paragraphs_in(check: str, text: str, quote: str) -> list[str]:
         for label, paragraph in _fallback_paragraphs_in(check, text)
         if paragraph != quoted and not _is_sibling_lens(label)
     ]
-
-
-def _watched_paragraphs(check: str, quote: str) -> list[str]:
-    """Every paragraph of the record's section a Python prescription can land in."""
-    return _watched_paragraphs_in(check, _record_path(check).read_text(), quote)
 
 
 def _unaccounted_flags(paragraphs: list[str], pooled: list[str]) -> set[str]:
@@ -1504,21 +1489,29 @@ def test_a_tool_answering_several_checks_is_invoked_once_per_check():
     }
 
 
-def test_every_invocation_quotes_its_record_verbatim():
-    """`record_quote` is a citation, and this is what makes it one.
-
-    Read only over the records whose fallback lives in prose. A migrated record
-    has no second copy for the quote to drift from, and counting the quote in
-    its text would find zero occurrences of a prescription the routes carry
-    instead.
-    """
-    for inv in INVOCATIONS:
-        if inv.check not in PROSE_FALLBACK_CHECKS:
-            continue
-        text = _record_path(inv.check).read_text()
-        assert text.count(inv.record_quote) == 1, (
-            f"{inv.check}: {inv.record_quote[:40]}"
-        )
+# Five properties stood here until the docs and security migration: every
+# invocation quotes its record verbatim, every command form the record names is
+# declared, every flag the record names occurs in a declared form, a
+# prescription stays in the paragraph the guard watches, and a form naming a
+# lead word off the front is led by some invocation; and, further down, the two
+# completion-provenance guards, that folding a completion into the argv breaks
+# the anchor and that a token the record prescribes never hides in the
+# completion, which pinned a count of five completed rows and the one `D`
+# exception. Each held a hand-written
+# `INVOCATIONS` row against the `## Tooling fallback` prose it transcribed, and
+# each was scoped to `PROSE_FALLBACK_CHECKS`. That table is empty now: every
+# record the harness invokes declares `routes:`, so a row's command is read from
+# the record's own data by `routed_invocations` and there is no transcription
+# left to drift from. The properties were dissolved rather than kept vacuous,
+# because a property scoped to an empty set passes over anything, and rather
+# than restated against the routes, because the routes side already carries
+# its own equalities (`test_the_harness_runs_exactly_the_checks_the_expectations_declare`,
+# `test_no_migrated_check_has_a_hand_written_entry`). The prose extractor they
+# read through - `_spans`, `_command_forms`, `_flag_spans` and the paragraph
+# selectors - stays, tested by the example tests beside it, because forty-one
+# records outside the harness's reach still carry their commands in prose until
+# #69 migrates them, and the backtick convention `CLAUDE.md` states cites the
+# extractor as its reason.
 
 
 def test_classify_maps_a_missing_tool_to_no_evidence():
@@ -1592,31 +1585,21 @@ def test_no_migrated_check_has_a_hand_written_entry():
     )
 
 
-def test_the_hand_written_table_holds_only_the_domains_that_have_not_migrated():
-    """What is left in `INVOCATIONS`, named and counted, after this issue.
+def test_the_hand_written_table_is_empty_because_every_invoked_record_declares_routes():
+    """`INVOCATIONS` is empty, and the emptiness is the claim.
 
-    The set is the claim: these five records still declare `tooling:` and a
-    `## Tooling fallback` section, so the table is still where their commands
-    are written, and every other record the harness runs reads its own routes.
-    Naming them means the next migration deletes this test's own subject
-    rather than editing a number, which is the point of naming rather than
-    counting.
-
-    The count sits beside the set for a reason the set cannot carry: it is a
-    ratchet, not a description. A second entry for one of these five checks
-    would keep the set equal while adding a prescription the enumeration runs
-    twice, and its sibling above holds only the other direction - an entry for
-    a record that has migrated. Between them a row can be neither stale nor
-    unnamed and still be a duplicate, and that is the gap this number closes.
+    Until the docs and security migration this test named the five records
+    whose commands still lived in prose and pinned their row count as a
+    ratchet. Those five declare `routes:` now, and every record the harness
+    invokes reads its own routes through `routed_invocations`, so a
+    hand-written row would be a second copy of a command the record already
+    states as data - which `test_no_migrated_check_has_a_hand_written_entry`
+    refuses. Asserting emptiness rather than deleting the test keeps the
+    table's meaning stated: a record authored on the legacy schema and
+    invoked by the harness would have to add a row here, and this would fail
+    until whoever adds it says why the record is not on routes.
     """
-    assert {i.check for i in INVOCATIONS} == {
-        "docs/docstring-coverage",
-        "security/crypto",
-        "security/dangerous-calls",
-        "security/injection",
-        "security/unsafe-io",
-    }
-    assert len(INVOCATIONS) == 15
+    assert INVOCATIONS == ()
 
 
 def test_the_harness_runs_exactly_the_checks_the_expectations_declare():
@@ -1903,97 +1886,6 @@ def test_every_partitions_route_is_held_against_the_quote():
     ]
 
 
-def test_folding_a_completion_into_the_argv_breaks_the_anchor():
-    """The completion is this round's deliverable, so it may not hide in `argv`.
-
-    Folded in, the same command still runs and the results still say a tool
-    answered - what changes is the provenance, which stops distinguishing what
-    the record prescribed from what had to be added to make it run. Nothing
-    about the run looks different, so the guard has to be on the transcription:
-    the argv alone traces through the record's sentence and the argv carrying
-    its completion does not.
-
-    The other direction is held by
-    `test_a_token_the_record_prescribes_never_hides_in_the_completion` rather
-    than here, and neither implies the other: this one holds that a completion
-    has not been folded into `argv`, that one holds that a token the record
-    writes concretely has not been moved the other way. The move that way was
-    what left every property in this file green while inverting the published
-    provenance - the shorter argv still traces through the quote, and the
-    coverage property reads `argv_for`, which re-appends the completion before
-    matching - so the round would report that a record failed to prescribe a
-    flag the record bolds. A `note` claiming the record omitted a token the
-    record writes concretely is now checked against the record's own sentence.
-    One about a placeholder the record leaves to the caller is not, and stays a
-    claim to read against the record rather than one this file has verified.
-
-    Reads `INVOCATIONS` only, and the pinned count is one reason: a routed
-    row can carry a completion too (`COMPLETIONS` is keyed on `(check, tool)`
-    regardless of table), but its `record_quote` is always `""`, so the first
-    assertion below - that the uncompleted argv anchors in the quote - would
-    fail outright rather than vacuously for every one of them. The anchor
-    this property holds has nothing on the routed side to be held against.
-    """
-    completed = [i for i in INVOCATIONS if i.completion]
-    assert len(completed) == 5, len(completed)
-    for inv in completed:
-        quote = _tokens(inv.record_quote)
-        argv = inv.argv or next(a for _, a in inv.argv_by_partition if a)
-        assert _is_subsequence(_tokens(" ".join(argv)), quote), (inv.check, inv.tool)
-        assert not _is_subsequence(
-            _tokens(" ".join((*argv, *inv.completion))), quote
-        ), (inv.check, inv.tool, inv.completion)
-
-
-def test_a_token_the_record_prescribes_never_hides_in_the_completion():
-    """The direction the folding guard above does not run.
-
-    That one holds that a completion has not been folded into `argv`. This one
-    holds the opposite move, which leaves every other property in this file
-    green: a token the record writes concretely, sitting in `completion` as
-    though the record had omitted it.
-
-    One entry genuinely cannot satisfy it, and the reason is structural rather
-    than a judgement. `docs/docstring-coverage` runs `ruff check --select D`
-    against a record naming ruff's `D` rules, so `D` is prescribed - but a
-    completion is *appended*, and putting `D` in the argv would need `check
-    --select` inserted between `ruff` and it. The exception is asserted rather
-    than merely allowed, so a record that grows a real command line fails here
-    instead of carrying a dead exception.
-
-    The rule fails safe in the direction it does not guard. A future completion
-    token colliding with a word of its own quote's prose fails loudly and gets
-    named or corrected; nothing about that direction passes in silence. Named
-    down to the token, so a second demotion on that entry fails rather than
-    sheltering under the exception the first one earned.
-
-    Left reading `INVOCATIONS` alone on purpose - bucket 1, not by omission.
-    `_demoted_tokens` compares `completion` against `_tokens(inv.record_quote)`,
-    which is always `[]` for a routed row, so no completion token can ever be
-    found "in" it - the assertion cannot fail no matter what the record says,
-    because there is no quote there for a token to hide in.
-    """
-    demoted = {
-        # `ruff check --select D` against "`ruff` `D` rules": `D` is prescribed
-        # and cannot reach the argv, because `check --select` would have to be
-        # inserted rather than appended.
-        ("docs/docstring-coverage", "ruff"): ["D"],
-    }
-    seen = set()
-    for inv in INVOCATIONS:
-        hits = _demoted_tokens(inv)
-        if (inv.check, inv.tool) in demoted:
-            assert hits == demoted[(inv.check, inv.tool)], (inv.check, inv.tool, hits)
-            seen.add((inv.check, inv.tool))
-        else:
-            assert not hits, (
-                f"{inv.check}/{inv.tool}: {hits} sits in `completion` while the "
-                "record's own sentence writes it, so the round reports a "
-                "prescription the record makes as one it omitted"
-            )
-    assert seen == set(demoted), "an exception nothing exercises is a stale exception"
-
-
 def test_a_two_command_route_runs_them_in_the_records_order():
     """Held against the record rather than against a pinned tuple.
 
@@ -2108,92 +2000,6 @@ def test_the_placeholder_a_record_writes_never_reaches_a_command():
 
 
 # --- the record-to-harness direction -------------------------------------------
-
-
-def test_every_command_form_the_record_names_is_declared():
-    """The record-to-harness direction the three older guards do not run.
-
-    Those guards hold the transcription against the record, so a record that
-    *grows* a prescription leaves all three green. This one fails instead,
-    naming the span nothing declares.
-
-    Read only over the records whose fallback lives in prose. A migrated record
-    has no prose that could grow a form its routes do not carry: its
-    prescription is read from the record rather than transcribed into this
-    module, so there is no transcription left for this property to hold
-    against it. Nothing takes over in its place, and nothing needs to - the
-    record is what the harness runs. Whether the route it declares is *true*
-    is a different question, one this property never answered even before the
-    migration, and a fixture round answers it.
-    """
-    for inv in INVOCATIONS:
-        if inv.check not in PROSE_FALLBACK_CHECKS:
-            continue
-        paragraph = _prescribing_paragraph(inv.check, inv.record_quote)
-        extracted = set()
-        for lead in _lead_words(inv):
-            extracted |= _command_forms(paragraph, lead)
-        assert extracted == {f for f, _ in inv.forms}, (inv.check, inv.tool)
-
-
-def test_every_flag_the_record_names_occurs_in_a_declared_form():
-    """A flag in no declared form is a prescription nothing transcribed.
-
-    What the declaration property cannot see: a record that names a flag without
-    repeating the command it belongs to leaves the extracted set unchanged, so
-    that property stays green. This is the shape `arch/cycles` drifted in - the
-    record grew "Append `--show-dot` to that `pydeps` invocation" in a later
-    sentence of the same paragraph, and the flag belongs to a command the
-    sentence does not repeat.
-
-    Read over every paragraph `_watched_paragraphs` returns rather than the quoted
-    line alone, because the same append lands in a new paragraph just as easily as
-    in a new sentence, and the containment property below catches a stray form
-    while a bare flag is not one. Widening it costs no record edit: pooled over
-    the family as it stands, every flag span in every watched paragraph occurs in
-    some declared form on its record.
-
-    Pooled across every invocation sharing the record, because one paragraph
-    prescribes for several tools: a sentence writing `uv pip list --outdated
-    --python <path>` beside `pip list --outdated` gives `--python` to the
-    first alone. Held against one tool's own forms, every flag a neighbour's
-    command carries fails - not because the record drifted, but because the
-    flag was never that tool's to declare.
-
-    `_concrete` applies to the flag for the same reason it applies to a form, and
-    not because the form carries a concrete value where the flag carries a
-    placeholder: a record writing that span as `--python <path>` while its
-    declared form reads `--python <path-to-venv-python>` has written two
-    placeholders for the same hole, so neither side can ever match the other as
-    written. Dropping the placeholder from both is what leaves the flag itself
-    to match.
-
-    Read only over the records whose fallback lives in prose. A migrated record
-    names no flag anywhere but in the route that declares it, so there is no
-    second copy for this property to hold that flag against: the prescription
-    is read from the record rather than transcribed here. No other property
-    picks up the slack once a record leaves this scope, because none needs to
-    - the harness runs the route as the record states it. Whether the flag it
-    declares belongs to a command that actually carries it stays unanswered,
-    exactly as it was before the migration.
-    """
-    for inv in INVOCATIONS:
-        if inv.check not in PROSE_FALLBACK_CHECKS:
-            continue
-        pooled = _tokens(
-            " ".join(
-                form
-                for other in INVOCATIONS
-                if other.check == inv.check
-                for form, _ in other.forms
-            )
-        )
-        paragraphs = _watched_paragraphs(inv.check, inv.record_quote)
-        stray = _unaccounted_flags(paragraphs, pooled)
-        assert not stray, (
-            f"{inv.check}/{inv.tool}: {sorted(stray)} is prescribed in "
-            "`## Tooling fallback` and occurs in no declared form"
-        )
 
 
 def test_every_form_the_harness_runs_appears_in_an_argv():
@@ -2447,161 +2253,6 @@ def test_every_disposition_in_the_vocabulary_is_used():
     in use. That day has passed for two of the three values.
     """
     assert {d for inv in every_invocation() for _, d in inv.forms} == set(DISPOSITIONS)
-
-
-def test_a_prescription_stays_in_the_paragraph_the_guard_watches():
-    """Otherwise the blind spot moves up one level.
-
-    A correction that appends a whole new paragraph instead of a sentence lands
-    outside the paragraph holding `record_quote`, which is this same defect one
-    level up - and it is the shape `arch/complexity-gate` was found in, whose
-    whole fallback section was an unlabelled bolded directive rather than a
-    labelled lens paragraph.
-
-    This property carries one half of that: a stray *command form*. A stray bare
-    *flag* is not a form and never reaches here, so the flag property covers it,
-    reading the same paragraph set through `_watched_paragraphs`. Splitting it
-    that way is what the two levels were missing - forms were watched across the
-    section while flags were watched on one line, so the append shape this whole
-    file exists to catch escaped by moving one paragraph down.
-
-    Scoped by review-lens label rather than by naming the records that trip it.
-    `semgrep` is one tool named in both the Python and the TypeScript paragraph
-    of the `security` records, and `semgrep scan --config p/javascript` is a
-    sibling lens's prescription rather than drift; a set of excepted records
-    would list those records today and grow with every tool two language
-    paragraphs share. The label is the ecosystem-neutral instrument, and only a
-    label naming another language lens is skipped - a paragraph labelled for a
-    condition rather than a language, of which these sections carry several,
-    holds Python prescriptions too, so a blanket skip of every label that is not
-    `Python` would unwatch exactly where a Python correction would land. Which
-    labels those are is `_is_sibling_lens`'s judgement, keyed on the language
-    named rather than on the whole label, because the family writes three
-    spellings of the one lens.
-
-    The consequence of that exception, stated because a reader who sees the
-    skipped set would otherwise read it as a narrow one: a Python prescription
-    written inside a sibling lens's paragraph is watched by nothing at all. Both
-    properties that read the section skip such a paragraph - this one for a stray
-    form, the flag property through `_watched_paragraphs` for a stray flag - and
-    the remaining properties read the line holding `record_quote`, which that
-    paragraph is not. The label decides which lens a paragraph belongs to, so a
-    paragraph labelled for the wrong lens takes its contents out of reach with it.
-
-    A second limit, and it is not hypothetical. Every property in this file is
-    scoped either to the source line holding `record_quote` or to the paragraphs
-    of `## Tooling fallback`, so a prescription written in any other section of a
-    record is invisible to all of them. `arch/complexity-gate`
-    carries `ruff --select C901` in its `## Fix` section and `deps/freshness`
-    carries `uv lock` in its, each led by a tool the harness invokes, neither
-    declared in `forms`, and the suite is green over both. A command in `## Fix`
-    is unwatched: the section scoping is what buys the anchoring on `record_quote`
-    that lets a record with no `**Python**` line be watched at all, and it is paid
-    for in every section the scoping excludes.
-
-    One residual gap, and nothing closes it. A record that prescribes a tool in
-    prose without listing it under `tooling:` has no invocation here, so no lead
-    word of any entry leads its span and every property in this file passes over
-    it in silence. No other rule catches it either: `audit_checks` holds a
-    record's `needs` names against its `tooling` list, and nothing anywhere holds
-    its prose against either.
-
-    Read only over the records whose fallback lives in prose. A migrated record
-    has no `## Tooling fallback` section for a stray paragraph to appear in:
-    its prescription is a route read from the record directly, not a second
-    copy transcribed into this module for this property to hold against it.
-    Nothing takes over once a record leaves this scope, and nothing needs to -
-    the record is what the harness runs. Whether the route it declares matches
-    what the tool actually does is unanswered here, as it always was.
-    """
-    skipped = set()
-    for inv in INVOCATIONS:
-        if inv.check not in PROSE_FALLBACK_CHECKS:
-            continue
-        for label, paragraph in _fallback_paragraphs(inv.check):
-            if inv.record_quote in paragraph:
-                continue
-            stray: set[str] = set()
-            for lead in _lead_words(inv):
-                stray |= _command_forms(paragraph, lead)
-            if not stray:
-                continue
-            if _is_sibling_lens(label):
-                skipped.add(label)
-                continue
-            raise AssertionError(
-                f"{inv.check}/{inv.tool}: {sorted(stray)} sits in a "
-                f"{label or 'unlabelled'} paragraph of `## Tooling fallback` that "
-                "no property watches, because the quoted one is elsewhere"
-            )
-    assert skipped, (
-        "no paragraph was skipped for a sibling lens, so the exception "
-        "`_is_sibling_lens` grants is dead code rather than a live allowance"
-    )
-
-
-def test_a_form_naming_a_lead_word_off_the_front_is_led_by_some_invocation():
-    """A prescription no lead word leads must not vanish.
-
-    The declaration property compares what the lead words extract, so a span no
-    lead word leads is absent from both sides of that equality and it passes.
-    What must never happen is a span naming a tool that no invocation on that
-    record leads: a paragraph writing `uvx pydeps --show-cycles` beside the
-    plain command would be a prescription with no declaration and no failure.
-
-    Keyed on the entry's lead words rather than on its tool name, because the tool
-    name is not always a word any command carries. An entry named for the thing
-    installed while the record prescribes the thing invoked - a plugin, or a
-    distribution whose console script goes by another name - has no span starting
-    with its tool name at all, so a rule looking for that name off the front of a
-    span fires on none of its paragraphs and the entry gets none of this
-    protection while the docstring promises it. `_lead_words` already carries the
-    runner the record actually writes, so keying here on the same set is what
-    makes the promise hold for every entry: a span led by that runner rather than
-    by the tool's own name is what the tool-name rule passed over and this one
-    reads.
-
-    **Measured at zero when this was written, and the measurement is the point
-    rather than the reason.** Every entry in scope reaches the assertion below -
-    the loop reads each one's paragraph and holds `_unled_spans` against it,
-    which is what `watched` counts - and every set it produced was empty. Why
-    the records still transcribed happen to be written that way is not a claim
-    worth making here: it is a fact about which records have migrated, it moves
-    when the next one does, and nothing guards it. What follows from it is only
-    this - do not read a green run here as the finding half being exercised.
-    That half is covered by
-    `test_an_unled_span_is_found_and_a_neighbours_command_is_not`, which holds
-    the same `_unled_spans` against paragraphs written there, both the finding
-    and the benign direction, so the rule keeps a subject this file's own scope
-    no longer supplies.
-
-    Read only over the records whose fallback lives in prose. A migrated record
-    has no paragraph for an unled span to sit in, because there is no prose
-    prescription at all: the route is read from the record directly, and no
-    transcription of it exists here for this property to hold. Nothing stands
-    in for this property once a record leaves its scope, because there is
-    nothing left to hold - the harness runs the route the record declares.
-    Whether that route names the tool truthfully is a question this property
-    never reached, migrated or not.
-    """
-    watched = 0
-    for inv in INVOCATIONS:
-        if inv.check not in PROSE_FALLBACK_CHECKS:
-            continue
-        paragraph = _prescribing_paragraph(inv.check, inv.record_quote)
-        siblings = [other for other in INVOCATIONS if other.check == inv.check]
-        watched += 1
-        unled = _unled_spans(inv, paragraph, siblings)
-        assert not unled, (
-            f"{inv.check}/{inv.tool}: {sorted(unled)} names a runner this entry "
-            "leads with and starts with a word no entry on the record leads, so "
-            "it is a prescription the declaration property cannot see"
-        )
-    assert watched, (
-        "no entry was read, so this property held nothing - every record in "
-        "`PROSE_FALLBACK_CHECKS` has left `INVOCATIONS`, and the rule itself "
-        "now lives only in the example test beside this one"
-    )
 
 
 def test_an_unled_span_is_found_and_a_neighbours_command_is_not():
@@ -5440,6 +5091,10 @@ def test_the_multi_route_no_command_groups_are_the_ones_the_rule_was_written_for
     assert multi == {
         "arch/complexity/eslint",
         "arch/hidden-coupling/eslint",
+        "security/crypto/eslint-plugin-security",
+        "security/dangerous-calls/eslint-plugin-security",
+        "security/injection/eslint-plugin-security",
+        "security/unsafe-io/eslint-plugin-security",
         "test/coverage-reach/c8",
         "test/mutation/@stryker-mutator/core",
     }, multi
