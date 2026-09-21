@@ -1268,10 +1268,13 @@ def test_the_registry_requirement_is_not_vacuous():
         and route.lang in ac.UNIVERSAL_ROUTE_LANGS
         and route.own_runner is not True
     ]
-    assert len(required) == 2, (
+    assert len(required) == 7, (
         f"the registry requirement fires on {sorted(required)}; the tree carried "
         "two such routes when the rule was written - `arch/size`'s `cloc` and "
-        "`test/new-code-coverage`'s `diff-cover`. A change here means a universal "
+        "`test/new-code-coverage`'s `diff-cover` - and five more arrived with the "
+        "security migration, each a Python-registry scanner a TypeScript partition "
+        "fetches with a Python runner: `semgrep` on the four code checks and "
+        "`detect-secrets` on `security/secrets-in-code`. A change here means a universal "
         "command route arrived or left, and either way the rule and this floor "
         "want re-reading rather than the number being edited to match"
     )
@@ -2690,13 +2693,6 @@ RECORDS_DECLARING_NO_ROUTES = frozenset(
         "data-protection/residency-pinning",
         "data-protection/retention-limits",
         "data-protection/stored-artifact-pii",
-        "docs/coverage",
-        "docs/cross-referencing",
-        "docs/docstring-coverage",
-        "docs/docstring-staleness",
-        "docs/docstring-standard",
-        "docs/organization",
-        "docs/source-wrapping",
         "eval/adversarial",
         "eval/contamination",
         "eval/cost-latency",
@@ -2722,14 +2718,6 @@ RECORDS_DECLARING_NO_ROUTES = frozenset(
         "prompt/sop-naming",
         "prompt/sop-rfc2119",
         "prompt/sop-structure",
-        "security/agent-privilege-surface",
-        "security/crypto",
-        "security/dangerous-calls",
-        "security/injection",
-        "security/secret-history",
-        "security/secrets-in-code",
-        "security/sensitive-data",
-        "security/unsafe-io",
     }
 )
 
@@ -2920,7 +2908,6 @@ _NO_TYPESCRIPT_LENS = {
     # did not clear: #5 scoped its remaining half to test-audit and
     # security-audit. Both are python-only and both are real gaps.
     "arch/martin-metrics",
-    "docs/docstring-coverage",
 }
 
 
