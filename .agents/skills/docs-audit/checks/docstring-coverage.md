@@ -18,37 +18,39 @@ routes:
     kind: command
     tool: ruff
     argv: [ruff, check, "--select", D]
+    applies_when: >-
+      The project already carries the tool; the record prescribes one of the three
+      where present, and the sweep below otherwise.
     note: >-
-      Docstring presence per module and public symbol, reported per file so the
-      row names what is undocumented rather than a percentage over the tree. `ruff
-      check --select D` selects the pydocstyle rules ruff carries; the record
-      names the `D` rules and this is the command that turns them on.
+      `ruff check --select D` selects the pydocstyle rules ruff carries; the
+      record names the `D` rules and this is the command that turns them on.
   - lang: python
     kind: command
     tool: pydocstyle
     argv: [pydocstyle]
+    applies_when: >-
+      The project already carries the tool; the record prescribes one of the three
+      where present, and the sweep below otherwise.
     note: >-
-      Docstring presence per module and public symbol, reported per file so the
-      row names what is undocumented rather than a percentage over the tree.
-      `pydocstyle` defaults to the working directory, so the bare name is
-      runnable.
+      `pydocstyle` takes an optional file or directory operand and defaults to the
+      working directory, so the bare name is runnable.
   - lang: python
     kind: command
     tool: interrogate
     argv: [interrogate]
+    applies_when: >-
+      The project already carries the tool; the record prescribes one of the three
+      where present, and the sweep below otherwise.
     note: >-
-      Docstring presence per module and public symbol, reported per file so the
-      row names what is undocumented rather than a percentage over the tree.
-      `interrogate` defaults to the working directory too and reports a coverage
-      percentage beside the per-file list; record the list, and record the
-      percentage at the run rather than predicting it.
-  - lang: any
+      `interrogate` defaults to the working directory too, so the bare name is
+      runnable; its default output is a pass or fail line with a percentage, and
+      the per-file table needs `-v`, which the record does not prescribe.
+  - lang: python
     kind: procedure
     note: >-
       With none of the three present, an AST or grep sweep over module and
-      public-symbol definitions answers the same question in either language: a
-      definition with no docstring node is the finding, and the sweep needs
-      nothing installed and nothing resolved.
+      public-symbol definitions: a definition with no docstring node is the
+      finding, and the sweep needs nothing installed and nothing resolved.
 ---
 
 # Docstring coverage

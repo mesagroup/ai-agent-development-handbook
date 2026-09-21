@@ -27,7 +27,6 @@ routes:
     tool: trufflehog
     argv: [trufflehog, git]
     own_runner: true
-    disposition: alternative
     note: >-
       Both tools are standalone binaries in no language registry, so no one-shot
       runner supplies either: an audit environment expected to answer this check
@@ -37,8 +36,10 @@ routes:
       `trufflehog` 2.2.1, the original Python v2 line superseded by the Go
       TruffleHog v3 this record means. It runs, takes a `git_url` positional
       rather than v3's subcommands, and scans with v2's detectors, so it answers
-      the check with a weaker tool and no sign of the substitution. The repository
-      to scan is an operand the record names none for.
+      the check with a weaker tool and no sign of the substitution. Same publisher
+      lineage as the tool intended, so this is a stale genuine scanner rather than
+      unvetted code, which makes it a quietly weaker answer rather than a loud
+      failure. The repository to scan is an operand the record names none for.
   - lang: any
     kind: procedure
     note: >-
