@@ -149,12 +149,15 @@ routes:
       imports, and dynamic `import()` or runtime patching. Reading TypeScript
       source for them needs nothing installed, so the tells survive a withheld
       grant, and so does the cross-module confirmation when it is done by
-      reading the modules the tell reaches: for a mutable export or a
-      string-keyed lookup, the modules that import it and mutate the value it
-      exports or resolve through it, an import binding being read-only; for an
-      import-time side effect, a side-effect-only import, a dynamic `import()`
-      or runtime patching, the modules whose behaviour depends on it having
-      run. The `knip` route's grant adds a tool-backed answer to whether
+      reading the module on the other end of the channel the tell opens: for
+      an exported singleton or container, the importers that mutate the value
+      it exports, an import binding being read-only; for a rebindable
+      `export let`, the modules that call what reassigns it while others read
+      the live binding; for a string-keyed lookup, the module that registers
+      the key; for a dynamic `import()`, the module it loads; for an
+      import-time side effect, a side-effect-only import or runtime patching,
+      the modules whose behaviour depends on it having run. The `knip` route's
+      grant adds a tool-backed answer to whether
       another module references a flagged export at all. Record the
       `file:line` of the shared state / lookup / side effect, and name the two
       modules it couples.
