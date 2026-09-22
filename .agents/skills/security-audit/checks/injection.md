@@ -5,16 +5,9 @@ locality: local
 handbook:
   - security-supply-chain/first-party-code-trace-a-path-from-source-to-sink
 evidence: >-
-  Rule id and `file:line` per hit, and beside each the source-to-sink trace that
-  decides whether it is a finding: the untrusted source, the dangerous sink, and
-  the path between them in the real code. **Every route here reports candidates
-  rather than findings**, which is why each carries `alone_insufficient` and why
-  the trace belongs to the check rather than to any one of them. A `subprocess`
-  call on a hardcoded constant is not command injection, and a hit no trace was
-  run over is reported as an untriaged candidate rather than as either a finding
-  or a clean result. The trace answers nothing on its own: with no hit there is
-  nothing to trace, so it is the confirmation step of whichever route produced
-  the hit and never a way of answering the check.
+  The rule or test id and `file:line` of each hit, and beside it the
+  source-to-sink trace that decided it: the untrusted source, the dangerous
+  sink, and the attacker-reachable path between them in the real code.
 routes:
   - lang: python
     kind: command
@@ -26,9 +19,9 @@ routes:
       to resolve, so the argv stops at the flag and the package is the operand the
       record leaves open.
     alone_insufficient: >-
-      A hit is a candidate until the source-to-sink trace this record's
-      `evidence` states confirms it, so a clean run here is not the check
-      answered.
+      A hit is a candidate until a trace from source to sink in the real code
+      confirms an attacker-reachable path and rules out a false positive: a
+      `subprocess` call on a hardcoded constant is not command injection.
   - lang: python
     kind: command
     tool: ruff
@@ -38,9 +31,9 @@ routes:
     note: >-
       `ruff check --select S`, the same recording per hit.
     alone_insufficient: >-
-      A hit is a candidate until the source-to-sink trace this record's
-      `evidence` states confirms it, so a clean run here is not the check
-      answered.
+      A hit is a candidate until a trace from source to sink in the real code
+      confirms an attacker-reachable path and rules out a false positive: a
+      `subprocess` call on a hardcoded constant is not command injection.
   - lang: python
     kind: command
     tool: semgrep
@@ -49,9 +42,9 @@ routes:
       `semgrep --config p/python` for dataflow-aware rules, the same recording per
       hit.
     alone_insufficient: >-
-      A hit is a candidate until the source-to-sink trace this record's
-      `evidence` states confirms it, so a clean run here is not the check
-      answered.
+      A hit is a candidate until a trace from source to sink in the real code
+      confirms an attacker-reachable path and rules out a false positive: a
+      `subprocess` call on a hardcoded constant is not command injection.
   - lang: any
     kind: command
     tool: semgrep
@@ -80,9 +73,9 @@ routes:
       and the ESLint route both, or say in the report which one produced the
       absence.
     alone_insufficient: >-
-      A hit is a candidate until the source-to-sink trace this record's
-      `evidence` states confirms it, so a clean run here is not the check
-      answered.
+      A hit is a candidate until a trace from source to sink in the real code
+      confirms an attacker-reachable path and rules out a false positive: a
+      `subprocess` call on a hardcoded constant is not command injection.
   - lang: typescript
     kind: procedure
     tool: eslint
@@ -114,9 +107,9 @@ routes:
       prescribes no command line, and `--config` takes a path the record names no
       value for, so there is no argv to declare.
     alone_insufficient: >-
-      A hit is a candidate until the source-to-sink trace this record's
-      `evidence` states confirms it, so a clean run here is not the check
-      answered.
+      A hit is a candidate until a trace from source to sink in the real code
+      confirms an attacker-reachable path and rules out a false positive: a
+      `subprocess` call on a hardcoded constant is not command injection.
   - lang: typescript
     kind: procedure
     tool: eslint
@@ -130,9 +123,9 @@ routes:
       route above is the one that keeps this record answering when the grant is
       withheld.
     alone_insufficient: >-
-      A hit is a candidate until the source-to-sink trace this record's
-      `evidence` states confirms it, so a clean run here is not the check
-      answered.
+      A hit is a candidate until a trace from source to sink in the real code
+      confirms an attacker-reachable path and rules out a false positive: a
+      `subprocess` call on a hardcoded constant is not command injection.
   - lang: typescript
     kind: procedure
     note: >-
@@ -143,9 +136,9 @@ routes:
       particular fires on ordinary dynamic property access, so it is the rule most
       likely to produce volume without findings.
     alone_insufficient: >-
-      A hit is a candidate until the source-to-sink trace this record's
-      `evidence` states confirms it, so a clean run here is not the check
-      answered.
+      A hit is a candidate until a trace from source to sink in the real code
+      confirms an attacker-reachable path and rules out a false positive: a
+      `subprocess` call on a hardcoded constant is not command injection.
 ---
 
 # Injection
