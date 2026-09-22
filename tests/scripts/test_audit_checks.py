@@ -2724,6 +2724,7 @@ def test_the_real_checks_tree_loads_clean():
         "arch/coupling",
         "arch/cycles",
         "arch/dead-code",
+        "arch/harness-bounding",
         "arch/hidden-coupling",
         "arch/import-rule-declaration",
         "arch/layering",
@@ -3243,7 +3244,7 @@ def test_a_record_may_not_write_a_prescription_in_a_fenced_block(tmp_path, fence
 def test_a_four_space_indented_block_is_not_a_fence(tmp_path, block):
     """The convention's escape, which the rule above must leave open.
 
-    No record body carries an indented block today - computed, zero of 86 - so
+    No record body carries an indented block today - computed, zero of 87 - so
     this is not protecting a use the tree makes. It is the place a record could
     show a tool's observed output, and the second parameter is why the allowance
     has to survive the fence rule rather than being incidental to it: a docs or
@@ -3869,12 +3870,13 @@ def test_the_answers_pass_is_not_vacuous():
     non-`forbidden` route. Recomputed at the ci migration: 7, over 32 such
     records, `ci/workflow-correctness` (`well-formedness` and `injection`,
     the instance #89 named) and `ci/gate-enforcement` (`workflows` and
-    `protection`, read under the same rule) having joined.
+    `protection`, read under the same rule) having joined; and 8 when
+    `arch/harness-bounding` arrived with one axis per tell it reads.
     """
     checks, errors = ac.load_checks(ac.SKILLS_DIR)
     assert errors == []
     axised = sorted(c.id for c in checks.values() if any(r.answers for r in c.routes))
-    assert len(axised) >= 7, f"only {len(axised)} record(s) carry answers: {axised}"
+    assert len(axised) >= 8, f"only {len(axised)} record(s) carry answers: {axised}"
     assert all(
         len({r.answers for r in checks[cid].routes if r.answers}) >= 2 for cid in axised
     )
