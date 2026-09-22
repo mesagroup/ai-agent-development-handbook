@@ -26,4 +26,3 @@ routes:
 # Self-hosted-runner hardening
 
 If the project uses self-hosted runners, audit runner isolation, ephemerality, and exposure to untrusted PRs - ask the user; skip for hosted-runner-only projects.
-

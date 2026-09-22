@@ -26,25 +26,17 @@ routes:
     tool: gh
     answers: protection
     argv: [gh, api, "repos/{owner}/{repo}/branches/{branch}/protection"]
+    then: [gh, run, list]
     own_runner: true
     note: >-
       Check the repo's **branch protection** (`gh api
       repos/{owner}/{repo}/branches/{branch}/protection` or the settings UI)
-      to confirm the intended checks are actually *required*. Verify against
-      branch protection, not the workflow alone. `gh` is a standalone binary
-      in no language registry, installed in advance, and the endpoint needs a
-      token that can read protection rules.
-  - lang: any
-    kind: command
-    tool: gh
-    answers: history
-    argv: [gh, run, list]
-    own_runner: true
-    note: >-
-      Skim recent run history (`gh run list`) for chronically-skipped or
-      always-failing-but-ignored jobs: a gate that is required and never runs
-      green, or never runs at all, is a gate in name only whatever the
-      protection rules say.
+      to confirm the intended checks are actually *required*. A gate that is
+      green but not required does not block a merge - verify against branch
+      protection, not the workflow alone. Also skim recent run history
+      (`gh run list`) for chronically-skipped or always-failing-but-ignored
+      jobs. `gh` is a standalone binary in no language registry, installed in
+      advance.
 ---
 
 # Gate enforcement

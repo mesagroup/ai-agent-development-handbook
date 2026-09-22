@@ -31,4 +31,3 @@ Deploys without environment protection/approval, no rollback path, missing requi
 ## Severity
 
 **Important** - a deploy with no environment approval.
-

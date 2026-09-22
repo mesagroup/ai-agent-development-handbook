@@ -33,7 +33,7 @@ routes:
     argv: [actionlint]
     own_runner: true
     applies_when: >-
-      The CI platform is GitHub Actions: the tool reads `.github/workflows/*.yml` and nothing else.
+      The CI platform is GitHub Actions, whose workflow files are what the tool reads.
     note: >-
       `actionlint` catches syntax, expression, and shell-quoting errors; with
       no argument it finds every workflow file in the repository, and
@@ -43,7 +43,8 @@ routes:
       there is attacker-controlled, which is why this route answers the
       well-formedness axis and not the injection one: a run reaching for
       `actionlint` alone has answered the syntax and quoting halves and
-      reports nothing for the half this record calls Critical.
+      reports nothing for the half this record calls Critical - a tool that
+      ran and found nothing, which reads exactly like a clean workflow.
   - lang: any
     kind: procedure
     answers: well-formedness
@@ -60,17 +61,20 @@ routes:
     registry: pypi
     argv: [zizmor, "<workflow>"]
     applies_when: >-
-      The CI platform is GitHub Actions: the tool reads `.github/workflows/*.yml` and nothing else.
+      The CI platform is GitHub Actions, whose workflow and action definitions are what the tool reads.
     note: >-
       `zizmor <workflow>` for the injection half; capture the rule id +
       `file:line`. A PyPI package, so `uvx zizmor` obtains it whatever the
       partition's language. The two tools answer different questions rather
       than standing in for one another, which the two `answers` values carry:
       a status that covers both halves when one tool ran is the failure this
-      record exists to avoid, arriving by a different route.
+      record exists to avoid.
   - lang: any
     kind: procedure
     answers: injection
+    applies_when: >-
+      The CI platform is GitHub Actions: the positions and contexts below are
+      its expression syntax.
     note: >-
       Where `zizmor` cannot be obtained the injection half is still answerable
       by reading, so it is not `no-evidence` - but the reading is wider than

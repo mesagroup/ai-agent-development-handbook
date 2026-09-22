@@ -11,13 +11,12 @@ routes:
     registry: pypi
     argv: [zizmor, "<workflow>"]
     applies_when: >-
-      The CI platform is GitHub Actions: the tool reads `.github/workflows/*.yml` and nothing else.
+      The CI platform is GitHub Actions, whose workflow and action definitions are what the tool reads.
     note: >-
       `zizmor <workflow>` for trigger/injection/permission/pinning findings;
       capture the rule id + `file:line`. A PyPI package, so `uvx zizmor`
-      obtains it whatever the partition's language. This is the record's
-      one route: it prescribes no reading where the tool cannot be obtained,
-      so the check reports `no-evidence (tool-unavailable)` there.
+      obtains it whatever the partition's language. The record prescribes no
+      reading where the tool cannot be obtained.
 ---
 
 # Trigger safety

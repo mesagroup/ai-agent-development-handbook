@@ -11,11 +11,11 @@ routes:
     registry: pypi
     argv: [zizmor, "<workflow>"]
     applies_when: >-
-      The CI platform is GitHub Actions: the tool reads `.github/workflows/*.yml` and nothing else.
+      The CI platform is GitHub Actions, whose workflow and action definitions are what the tool reads.
     alone_insufficient: >-
-      A clean run does not settle least privilege or whether a secret is
-      reachable from an untrusted-code step; read the `permissions:` blocks
-      and the `secrets.` references as the route below says.
+      The record prescribes the reading as well as the scan: the `permissions:`
+      blocks and every `secrets.` reference are read whatever the scanner
+      reported, as the tool-less route says.
     note: >-
       `zizmor <workflow>` for trigger/injection/permission/pinning findings;
       capture the rule id + `file:line`. A PyPI package, so `uvx zizmor`
