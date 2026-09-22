@@ -5,7 +5,8 @@ locality: global
 evidence: >-
   The check reports once for the repository, one row per harness home read,
   naming the home and what it was resolved from, or one row for the
-  repository where two or more agents share no layer at all. For each of the
+  repository where two or more agents share no layer at all or where it runs
+  no agent. For each of the
   six bounds, and for each part of a bound that has parts, the row records one
   of four states, with the sites behind it: set in the
   harness, with the `file:line` of the site that constructs the thing it
@@ -129,7 +130,7 @@ Whether the project's harness sets six reliability bounds by default, so that no
 
 ## How each tell is read
 
-**The tell's state is read over every party that reaches the construct it bounds, and over every such construct a party has.** For most tells those parties are the agents; for the size strategy they are the tools, as that route says. A party with two HTTP clients or two loops is read for each, and an uncovered one is uncovered whatever the other does. A tell is **set in the harness** when a harness default covers every party and every construct that reaches it: record the constructing site's `file:line`. It is **not set there** when some party is not covered by a harness default: the row then names each party and whether it sets its own bound or none, and that is the finding - where every party sets its own, because the next one is the one that forgets, and where any party sets none, because that party is unbounded. A tell, or a part of one, has **nothing to bound** when the project has no such construct at all - no stream for the idle part of the turn timeouts, no tools for the size strategy, no external resource to close: record the search that showed it, which answers that tell or part, and it is not a finding. Every agent run has turns and a loop, so the wall-clock part and the loop budget always have something to bound.
+**The tell's state is read over every party that reaches the construct it bounds, and over every such construct a party has.** For most tells those parties are the agents; for the size strategy they are the tools, as that route says. A party with two HTTP clients or two loops is read for each, and an uncovered one is uncovered whatever the other does. A tell is **set in the harness** when a harness default covers every party and every construct that reaches it: record the constructing site's `file:line`. It is **not set there** when some party is not covered by a harness default: the row then names each party and whether it sets its own bound or none, and that is the finding - where every party sets its own, because the next one is the one that forgets, and where any party sets none, because that party is unbounded. A tell, or a part of one, has **nothing to bound** exactly when the construct it bounds does not exist in the project - no stream for the idle part of the turn timeouts, no tools for the size strategy, no external resource to close, and no agent at all for every tell: record the search that showed it, which answers that tell or part, and it is not a finding. The examples are not the set; the rule is the construct's absence. A repository that runs no agent therefore has nothing to bound on any tell and gets the domain's clean value with the search recorded.
 
 **A party overriding a harness default with another bound is not a repeated bound.** It inherited the default and chose a different value, which is the harness working; record the tell as set in the harness and name the override. An override that removes the bound - no timeout, no cap, an unlimited budget - leaves that party unbounded, and the tell is not set there.
 
