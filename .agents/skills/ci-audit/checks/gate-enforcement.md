@@ -10,8 +10,41 @@ handbook:
   - evaluation/grow-the-eval-into-a-gate
   - documentation/audit-docs-like-a-test-suite-b
   - security-supply-chain/turn-every-fix-into-a-gate
-tooling:
-  any: [gh]
+routes:
+  - lang: any
+    kind: procedure
+    answers: workflows
+    note: >-
+      Read each workflow's `on:`, `if:`, path filters, and
+      `continue-on-error`, and read the contributor guide (CLAUDE.md / README)
+      for what CI is *claimed* to enforce, then diff that against reality.
+      This half alone says which checks run and when; whether a check that
+      runs is *required* is the protection route's, and a gate that is green
+      but not required does not block a merge.
+  - lang: any
+    kind: command
+    tool: gh
+    answers: protection
+    argv: [gh, api, "repos/{owner}/{repo}/branches/{branch}/protection"]
+    own_runner: true
+    note: >-
+      Check the repo's **branch protection** (`gh api
+      repos/{owner}/{repo}/branches/{branch}/protection` or the settings UI)
+      to confirm the intended checks are actually *required*. Verify against
+      branch protection, not the workflow alone. `gh` is a standalone binary
+      in no language registry, installed in advance, and the endpoint needs a
+      token that can read protection rules.
+  - lang: any
+    kind: command
+    tool: gh
+    answers: history
+    argv: [gh, run, list]
+    own_runner: true
+    note: >-
+      Skim recent run history (`gh run list`) for chronically-skipped or
+      always-failing-but-ignored jobs: a gate that is required and never runs
+      green, or never runs at all, is a gate in name only whatever the
+      protection rules say.
 ---
 
 # Gate enforcement
@@ -21,12 +54,6 @@ Are the intended quality gates actually run and *required*? A workflow that is s
 ## Severity
 
 **Critical** - a claimed merge gate that is not actually required, so unreviewed/broken code can merge green.
-
-## Tooling fallback
-
-Read each workflow's `on:`, `if:`, path filters, and `continue-on-error`, then check the repo's **branch protection** (`gh api repos/{owner}/{repo}/branches/{branch}/protection` or the settings UI) to confirm the intended checks are actually *required*. A gate that is green but not required does not block a merge - verify against branch protection, not the workflow alone. Also skim recent run history (`gh run list`) for chronically-skipped or always-failing-but-ignored jobs.
-
-Read the contributor guide (CLAUDE.md / README) for what CI is *claimed* to enforce, and diff that against reality.
 
 ## Fix
 
