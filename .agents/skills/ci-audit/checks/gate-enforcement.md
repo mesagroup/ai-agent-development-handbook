@@ -14,6 +14,8 @@ routes:
   - lang: any
     kind: procedure
     answers: workflows
+    applies_when: >-
+      The CI platform is GitHub Actions, whose workflow syntax this reading names.
     note: >-
       Read each workflow's `on:`, `if:`, path filters, and
       `continue-on-error`, and read the contributor guide (CLAUDE.md / README)
@@ -28,6 +30,10 @@ routes:
     argv: [gh, api, "repos/{owner}/{repo}/branches/{branch}/protection"]
     then: [gh, run, list]
     own_runner: true
+    applies_when: >-
+      The repository is hosted on GitHub and its CI is GitHub Actions: `gh api`
+      reads the host's protection rules and `gh run list` its Actions runs, so
+      on a GitHub repository built elsewhere the second command lists nothing.
     note: >-
       Check the repo's **branch protection** (`gh api
       repos/{owner}/{repo}/branches/{branch}/protection` or the settings UI)

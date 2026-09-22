@@ -15,6 +15,8 @@ handbook_note: >-
 routes:
   - lang: any
     kind: procedure
+    applies_when: >-
+      The CI platform is GitHub Actions, whose workflow syntax this reading names.
     note: >-
       Needs reading - no tool in this domain's evidence pass targets pipeline
       efficiency; read each workflow's job/step definitions for a missing

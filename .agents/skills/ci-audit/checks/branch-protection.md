@@ -19,6 +19,8 @@ routes:
   - lang: any
     kind: procedure
     tool: gh
+    applies_when: >-
+      The repository is hosted on GitHub, whose API `gh` reads.
     note: >-
       The repository's branch-protection rules and deployment-environment
       approvals, read through the GitHub API with `gh`: review-count
