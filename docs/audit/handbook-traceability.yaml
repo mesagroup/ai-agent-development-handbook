@@ -657,7 +657,7 @@
   severity: minor
   gap:
     recommendation: extend-skill
-    note: arch-audit is the nearest owner but has no check for plumbing duplicated once per agent - the tell is repetition across applications, not a bad import - and nothing audits which tier the reliability defaults live in; the bounding half of the claim is carried by make-bounding-the-default.
+    note: arch-audit is the nearest owner but has no check for plumbing duplicated once per agent - the tell is repetition across applications, not a bad import; the bounding half of the claim, including which tier each reliability default lives in, is read by `arch/harness-bounding` through make-bounding-the-default.
 
 - id: agent-harness/resolve-models-through-aliases-never-hard-coded-ids
   section: "Resolve models through aliases, never hard-coded IDs"
