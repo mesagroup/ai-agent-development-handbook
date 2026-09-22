@@ -34,6 +34,8 @@ routes:
       with `--no-api`, so a `GITHUB_TOKEN` keeps it clear of the rate limit.
   - lang: any
     kind: procedure
+    applies_when: >-
+      The CI platform is GitHub Actions, whose workflow syntax this reading names.
     note: >-
       **Action pinning:** check each `uses:` for a full-SHA pin vs a tag.
 ---

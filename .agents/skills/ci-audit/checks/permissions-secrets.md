@@ -22,6 +22,8 @@ routes:
       obtains it whatever the partition's language.
   - lang: any
     kind: procedure
+    applies_when: >-
+      The CI platform is GitHub Actions, whose workflow syntax this reading names.
     note: >-
       Read the top-level and per-job `permissions:` and every `secrets.`
       reference; confirm least privilege and that no secret is reachable from
