@@ -38,13 +38,15 @@ routes:
     kind: procedure
     tool: trufflehog
     note: >-
-      Named beside the two above and prescribed no working-tree command here:
-      `trufflehog git` scans history, which is `security/secret-history`'s, and
-      `uvx trufflehog` silently runs PyPI's `trufflehog` 2.2.1, the superseded
-      Python v2 line rather than the Go v3 this record means, so a runner does not
-      obtain it either. A procedure rather than a command because the record
-      prescribes no working-tree command line for it; see
-      `security/secret-history` for both binaries.
+      Answers nothing on a working tree here, and is named so that a run does
+      not reach for it as a third scanner: `trufflehog git` scans history,
+      which is `security/secret-history`'s subject, and `uvx trufflehog`
+      silently runs PyPI's `trufflehog` 2.2.1, the superseded Python v2 line
+      rather than the Go v3 this record means, so a runner does not obtain it
+      either. The record prescribes no working-tree command line for it, which
+      is why this is a procedure route and not a command; the tool is
+      prescribed, for both binaries, in `security/secret-history`, and a run
+      wanting it goes there rather than running it under this check's name.
   - lang: any
     kind: procedure
     note: >-
