@@ -147,13 +147,21 @@ routes:
       singletons more than one module writes, string-keyed container /
       service-locator lookups, side-effectful top-level code and side-effect-only
       imports, and dynamic `import()` or runtime patching. Reading TypeScript
-      source for them needs nothing installed, so the single-module tells survive
-      a withheld grant; what the grant costs is the cross-module usage
-      confirmation above. Record the `file:line` of the shared state / lookup /
-      side effect, and name the two modules it couples.
+      source for them needs nothing installed, so the tells survive a withheld
+      grant, and so does the cross-module confirmation when it is done by
+      reading: follow the flagged binding into the modules that import it and
+      read whether a second one writes to or resolves through it. What the
+      grant buys is `knip`'s tool-backed form of that same confirmation, as the
+      `knip` route says, not the confirmation itself. Record the `file:line` of
+      the shared state / lookup / side effect, and name the two modules it
+      couples.
     alone_insufficient: >-
-      The same read requirement as the Python pass - the pattern is the trigger,
-      the coupling is the finding.
+      A hit says a tell is present in one module. The finding is that a second
+      module shares it, which this read confirms by reading the importing
+      modules, or `knip` confirms by tool under its grant, on the same split
+      the `eslint` route's `alone_insufficient` states. A tell confirmed in one
+      module only is reported as a tell, not as coupling: the pattern is the
+      trigger, the coupling is the finding.
 ---
 
 # Hidden coupling / implicit dependencies
