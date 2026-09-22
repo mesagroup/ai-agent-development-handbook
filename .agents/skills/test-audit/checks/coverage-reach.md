@@ -109,9 +109,8 @@ routes:
       `jest --coverage` reports branch coverage.
   - lang: typescript
     kind: procedure
-    answers: measurement
     tool: c8
-    needs: target-execution
+    disposition: forbidden
     applies_when: >-
       The command to be wrapped is a Vitest command - the case this route
       exists to refuse.
@@ -126,12 +125,13 @@ routes:
       format this check asks for, and it is worse than `no-evidence`. Pointed at
       the source tree with `--all --src`, the same `c8` run reports 0% of 47,306
       statements, which is honest and still measures nothing. The record
-      prescribes no `c8` command line, so there is no argv to declare and the
-      prohibition is stated here rather than as a `disposition`, which the
-      schema carries only on a `kind: command` route. It carries
-      `answers: measurement` because the field is all or none per language and
-      that is the axis the prohibited run would have falsified, not because
-      running it answers anything.
+      prescribes no `c8` command line, so there is no argv to declare, and the
+      prohibition is this route's `disposition`: a forbidden procedure route
+      names the tool it warns against and its note says why. It carries no
+      `answers` and no `needs`, because a route the record forbids running
+      answers no axis and needs nothing; the axis the prohibited run would
+      have falsified is `measurement`, which the two routes above and the one
+      below answer.
   - lang: typescript
     kind: procedure
     answers: measurement
