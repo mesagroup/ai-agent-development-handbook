@@ -29,12 +29,14 @@ routes:
       `asyncio.timeout()` or `asyncio.wait_for` around the turn and a deadline
       per chunk in the stream loop; in TypeScript, an `AbortSignal` from
       `AbortSignal.timeout()` passed to the call, or a timer that aborts when no
-      chunk arrives. These are examples, not the set: what counts is a deadline
-      the harness applies to every turn. A client read timeout belongs to the
+      chunk arrives. These are examples, not the set: what counts is a
+      wall-clock deadline on every turn and, wherever a turn streams, an idle
+      deadline on the stream. A client read timeout belongs to the
       `http-client` tell and does not answer this one, because it bounds one
       socket read and not a turn that keeps receiving slowly. A project with no
-      streaming loop has nothing for the idle half to bound, and the search
-      that shows so is recorded.
+      streaming loop has nothing for the idle part to bound, and the search
+      that shows so is recorded; the wall-clock part applies to every turn
+      there is, streamed or not.
   - lang: any
     kind: procedure
     answers: http-client
@@ -50,10 +52,14 @@ routes:
       sets no timeout by default; in TypeScript, a `fetch` wrapper that passes
       a `signal`, or an `undici` `Agent` with its connect, headers and body
       timeouts set rather than left at their defaults. The tell's parts are the
-      explicit timeouts, the retry bound, keep-alive and retry safety; a client
-      that leaves its timeouts at a library's default is bounded but not set
-      for the explicit-timeout part, and the row records the default it falls
-      back to. Then read every retry on the path
+      explicit timeouts, the retry bound, keep-alive and retry safety. A client
+      that leaves its timeouts at a library's default is read by what that
+      default is: a finite one, as `httpx` has, bounds the call but is not set
+      for the explicit-timeout part, and the row records its value; no default
+      at all, as with `requests`, leaves the call with no timeout, which is
+      the unbounded case. Read the default from the library's own
+      documentation for the version the project locks, since a default is a
+      fact about a release and not about the language. Then read every retry on the path
       for what it wraps, as `Retry safety is part of the client tell` below
       says. In Python, bandit's `B113` and ruff's `S113` flag a module-level
       `requests` call with no timeout and an `httpx` call whose timeout is set
@@ -123,7 +129,7 @@ Whether the project's harness sets six reliability bounds by default, so that no
 
 ## How each tell is read
 
-**The tell's state is read over every party that reaches the construct it bounds, and over every such construct a party has.** For most tells those parties are the agents; for the size strategy they are the tools, as that route says. A party with two HTTP clients or two loops is read for each, and an uncovered one is uncovered whatever the other does. A tell is **set in the harness** when a harness default covers every party and every construct that reaches it: record the constructing site's `file:line`. It is **not set there** when some party is not covered by a harness default: the row then names each party and whether it sets its own bound or none, and that is the finding - where every party sets its own, because the next one is the one that forgets, and where any party sets none, because that party is unbounded. A tell has **nothing to bound** when the project has no such construct at all - no streaming loop, no tools, no external resource to close: record the search that showed it, which answers the tell, and it is not a finding.
+**The tell's state is read over every party that reaches the construct it bounds, and over every such construct a party has.** For most tells those parties are the agents; for the size strategy they are the tools, as that route says. A party with two HTTP clients or two loops is read for each, and an uncovered one is uncovered whatever the other does. A tell is **set in the harness** when a harness default covers every party and every construct that reaches it: record the constructing site's `file:line`. It is **not set there** when some party is not covered by a harness default: the row then names each party and whether it sets its own bound or none, and that is the finding - where every party sets its own, because the next one is the one that forgets, and where any party sets none, because that party is unbounded. A tell, or a part of one, has **nothing to bound** when the project has no such construct at all - no stream for the idle part of the turn timeouts, no tools for the size strategy, no external resource to close: record the search that showed it, which answers that tell or part, and it is not a finding. Every agent run has turns and a loop, so the wall-clock part and the loop budget always have something to bound.
 
 **A party overriding a harness default with another bound is not a repeated bound.** It inherited the default and chose a different value, which is the harness working; record the tell as set in the harness and name the override. An override that removes the bound - no timeout, no cap, an unlimited budget - leaves that party unbounded, and the tell is not set there.
 
@@ -141,9 +147,9 @@ Whether the project's harness sets six reliability bounds by default, so that no
 
 ## Severity
 
-**Critical** - a call, a cycle count or a payload left unbounded for any party that reaches it: a turn or stream with no wall-clock or idle limit, an outbound call with no connect or read timeout, a loop with no cycle cap or no token budget, or tool results with no size strategy on their path. These are the three unbounded failures the handbook names, and it ranks them alike.
+**Critical** - a call, a cycle count or a payload left unbounded for any party that reaches it: a turn with no wall-clock limit, a stream with no idle limit, an outbound call with no connect or read timeout, a loop with no cycle cap or no token budget, or tool results with no size strategy on their path. These are the three unbounded failures the handbook names, and it ranks them alike.
 
-**Important** - a bound set separately by each party rather than in the harness; a retry wrapping a non-idempotent operation with no idempotency key or deduplicated write; a retry with no bound on its count; a client relying on a library's default timeout rather than an explicit one; a client with no TCP keep-alive; no circuit breaker in front of an external dependency a run calls; teardown of an external resource with no time limit.
+**Important** - a bound set separately by each party rather than in the harness; a retry wrapping a non-idempotent operation with no idempotency key or deduplicated write; a retry with no bound on its count; a client relying on a library's finite default timeout rather than an explicit one; a client with no TCP keep-alive; no circuit breaker in front of an external dependency a run calls; teardown of an external resource with no time limit.
 
 There is no **Minor** tier: every default the handbook lists guards a run against hanging, running away or leaking, and none of those is cosmetic.
 
