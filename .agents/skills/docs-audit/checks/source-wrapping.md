@@ -17,8 +17,8 @@ routes:
   - lang: any
     kind: procedure
     note: >-
-      No tool answers this as asked, so read the source. `markdownlint`'s `MD013`
-      is the opposite rule and must not be substituted - see the body below. Resolve the
+      No tool answers this as asked, so read the source; the one tool a run
+      might reach for is the route below, which forbids it. Resolve the
       blocks with whatever CommonMark parser the project already has (a docs
       site's own renderer, a Markdown library in the test environment), with its
       table and front-matter extensions enabled for the reason the body gives below.
@@ -39,6 +39,20 @@ routes:
 
       Detection needs nothing installed and nothing resolved: the files are in a
       read-only clone, and this check reads their bytes.
+  - lang: any
+    kind: procedure
+    tool: markdownlint
+    disposition: forbidden
+    note: >-
+      `markdownlint`'s `MD013` is the opposite rule and must not be substituted
+      for this check: it enforces a maximum line length, so it fails a
+      conforming tree on every paragraph long enough to be worth reading, and a
+      tree that satisfies it is hard-wrapped by construction. The record
+      prescribes no `markdownlint` command line, so there is no argv to
+      declare; the tool is named here as forbidden so that a run reaching for
+      the linter this check seems to lack finds the warning where it reads the
+      routes, and `The finding is never that a line is too long` below says
+      why the two rules are opposites.
 ---
 
 # Source wrapping
