@@ -520,8 +520,14 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
     command route carries at least one of the two, but not necessarily
     `argv` itself - it is absent exactly where a per-partition map says a
     partition the map does not name has no command, rather than inheriting
-    one from a shared argv that does not exist; a `disposition` other than
-    `runs` appears only where `kind` is `command`; `then`, a second command in
+    one from a shared argv that does not exist; a `disposition` names what
+    it applies to, so `alternative` and `superseded` appear only where `kind`
+    is `command`, there being nothing to run instead of on any other kind,
+    while `forbidden` appears on a `command` route, whose argv is what is
+    forbidden, or on a `procedure` route naming a `tool`, that tool being
+    what is forbidden - the shape a record takes to warn against a tool it
+    prescribes no invocation for, where a `library` or `subject` route
+    could name neither; `then`, a second command in
     sequence, is present only where `kind` is `command` and, where present, is
     a non-empty list of argv strings, because a route with no first command
     has none for a second to follow and an empty second command is the
@@ -545,7 +551,11 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
     kind where nothing downstream stands in for it - a `kind: command`
     route missing a note still has its argv to say what to do. Checked only
     where `kind` is `procedure`, since a tool-less route of any other kind
-    is already rejected above and one mistake earns one message. `answers`,
+    is already rejected above and one mistake earns one message. A
+    `forbidden` procedure route carries a non-empty `note` for the mirror
+    reason: with no argv to forbid, the note is what says what not to run
+    and why, and without it the route names a tool and warns of nothing.
+    `answers`,
     where written, is a slug (lowercase words joined by hyphens), never the
     word `none`, which is `answers_ungranted`'s sentinel one line away and
     would read as it, and never on a `kind: subject` or a
@@ -635,10 +645,17 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
                 f"{loc}: disposition must be one of {DISPOSITIONS}, got {disposition!r}"
             )
             disposition = "runs"
-        elif disposition != "runs" and kind != "command":
+        elif disposition in ("alternative", "superseded") and kind != "command":
             errors.append(
                 f"{loc}: disposition {disposition!r} needs kind: command - a "
                 f"{kind!r} route has nothing for the harness to run instead of"
+            )
+        elif disposition == "forbidden" and kind not in ("command", "procedure"):
+            errors.append(
+                f"{loc}: disposition 'forbidden' needs kind: command or kind: "
+                f"procedure - a forbidden route names what it forbids, the argv "
+                f"of a command route or the tool of a procedure route, and a "
+                f"{kind!r} route names neither as a thing to warn against"
             )
 
         findings_stream = entry.get("findings_stream", "stdout")
@@ -662,6 +679,13 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
             errors.append(
                 f"{loc}: tool is required - only a kind: procedure route may "
                 "name no tool"
+            )
+        elif tool is None and disposition == "forbidden":
+            errors.append(
+                f"{loc}: tool is required on a disposition: forbidden procedure "
+                "route - with no argv, the tool is the thing the route warns "
+                "against, and a route forbidding neither a command nor a tool "
+                "forbids nothing"
             )
 
         package = entry.get("package", tool)
@@ -982,6 +1006,18 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
                 "offers a way of answering the check that carries nothing an "
                 "agent or a consumer can act on, and reads through the "
                 "projected tooling/needs pair exactly like a route that works"
+            )
+        elif (
+            tool is not None
+            and kind == "procedure"
+            and disposition == "forbidden"
+            and not (note or "").strip()
+        ):
+            errors.append(
+                f"{loc}: a forbidden procedure route needs a note - with no argv "
+                "to forbid, the note is what says what not to run and why, and "
+                "without it the route names a tool and warns of nothing an agent "
+                "can act on"
             )
 
         routes.append(

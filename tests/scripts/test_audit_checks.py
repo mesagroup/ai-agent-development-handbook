@@ -835,6 +835,153 @@ def test_a_non_running_disposition_needs_a_command(tmp_path, disposition):
     assert any("disposition" in e for e in errors), errors
 
 
+@pytest.mark.parametrize("disposition", ["alternative", "superseded"])
+def test_an_offered_disposition_on_a_procedure_route_is_rejected(tmp_path, disposition):
+    """`alternative` and `superseded` offer something to run instead of the
+    default, and a procedure route hands the harness nothing to run, so the
+    rule stays command-only for those two even though `forbidden` no longer is.
+    """
+    errors = _errors_for_route(
+        tmp_path,
+        f"kind: procedure\n    tool: grimp\n    disposition: {disposition}\n"
+        "    note: read the graph",
+    )
+    assert any("needs kind: command" in e for e in errors), errors
+
+
+def test_a_forbidden_procedure_route_names_a_tool_and_a_note(tmp_path):
+    """The prohibition-with-no-invocation shape: a record warns against a
+    tool it prescribes no command line for - `markdownlint` on
+    `docs/source-wrapping`, `c8` around Vitest on `test/coverage-reach`. On a
+    command route the argv is what is forbidden; here the tool is, and the
+    note is what says why, so both are required and the route loads.
+    """
+    check = _one_route_record(
+        tmp_path,
+        "kind: procedure\n    tool: markdownlint\n    disposition: forbidden\n"
+        "    note: MD013 is the opposite rule and must not be substituted",
+    )
+    route = check.routes[0]
+    assert (route.kind, route.tool, route.disposition) == (
+        "procedure",
+        "markdownlint",
+        "forbidden",
+    )
+
+
+def test_a_forbidden_procedure_route_without_a_tool_is_rejected(tmp_path):
+    """A route forbidding neither a command nor a tool forbids nothing. One
+    mistake, one message: the missing tool is named and the note rule, which
+    would otherwise also fire on a tool-less procedure route, is not.
+    """
+    errors = _errors_for_route(
+        tmp_path, "kind: procedure\n    disposition: forbidden\n    note: never run it"
+    )
+    assert any("tool is required on a disposition: forbidden" in e for e in errors), (
+        errors
+    )
+    assert not any("needs a note" in e for e in errors), errors
+
+
+def test_a_forbidden_procedure_route_without_a_note_is_rejected(tmp_path):
+    """With no argv to forbid, the note is the whole of the warning."""
+    errors = _errors_for_route(
+        tmp_path, "kind: procedure\n    tool: c8\n    disposition: forbidden"
+    )
+    assert any("forbidden procedure route needs a note" in e for e in errors), errors
+    errors = _errors_for_route(
+        tmp_path,
+        "kind: procedure\n    tool: c8\n    disposition: forbidden\n    note: ''",
+    )
+    assert any("forbidden procedure route needs a note" in e for e in errors), errors
+
+
+def test_a_forbidden_procedure_route_is_excluded_from_both_projections(tmp_path):
+    """The exclusion is by disposition, so it holds on a procedure route as on
+    a command route - tested rather than inherited, because this is the shape
+    the #141 reading pass parked: putting the warned-against tool into the
+    record's projected tooling was the reason `markdownlint` stayed in prose.
+    """
+    text = """---
+id: demo/thing
+domain: demo
+locality: local
+handbook: []
+handbook_note: Fixture record for route tests.
+routes:
+  - lang: any
+    kind: procedure
+    tool: markdownlint
+    disposition: forbidden
+    note: the opposite rule
+  - lang: any
+    kind: procedure
+    note: read the source
+---
+
+# Thing
+
+Fixture body.
+"""
+    _write(tmp_path, "demo-audit/checks/thing.md", text)
+    checks, errors = ac.load_checks(tmp_path)
+    assert errors == [], errors
+    check = checks["demo/thing"]
+    assert check.tooling == {}
+    assert check.needs == {}
+
+
+def test_an_untiered_forbidden_procedure_route_does_not_satisfy_the_escape(tmp_path):
+    """The `arch/coupling` shape with the forbidden route as a procedure: a
+    tiered instrument beside a warned-against tool needing no grant is still a
+    silenced language, and the sentinel is still required.
+    """
+    errors = _errors_for_routes(
+        tmp_path,
+        [
+            {
+                "lang": "typescript",
+                "kind": "command",
+                "tool": "vitest",
+                "argv": ["vitest", "run", "--coverage"],
+                "needs": "target-execution",
+            },
+            {
+                "lang": "typescript",
+                "kind": "procedure",
+                "tool": "c8",
+                "disposition": "forbidden",
+                "note": "never around a Vitest command",
+            },
+        ],
+    )
+    assert any("answers_ungranted" in e and "typescript" in e for e in errors), errors
+
+
+def test_a_forbidden_procedure_route_is_outside_the_answers_scope(tmp_path):
+    """A forbidden route answers no axis, so an axised language may carry one
+    without the field and is not half-axised by it; the route may not carry
+    the field itself.
+    """
+    check, errors = _two_route_record(
+        tmp_path,
+        "lang: typescript\n    kind: command\n    tool: a\n    argv: [a]\n    answers: measurement",
+        "lang: typescript\n    kind: procedure\n    answers: configuration\n    note: read the config",
+        "lang: typescript\n    kind: procedure\n    tool: c8\n    disposition: forbidden\n"
+        "    note: never around a Vitest command",
+    )
+    assert errors == [], errors
+    assert [r.answers for r in check.routes] == ["measurement", "configuration", None]
+    _, errors = _two_route_record(
+        tmp_path,
+        "lang: typescript\n    kind: command\n    tool: a\n    argv: [a]\n    answers: measurement",
+        "lang: typescript\n    kind: procedure\n    answers: configuration\n    note: read the config",
+        "lang: typescript\n    kind: procedure\n    tool: c8\n    disposition: forbidden\n"
+        "    answers: measurement\n    note: never around a Vitest command",
+    )
+    assert any("forbidden" in e and "answers" in e for e in errors), errors
+
+
 def test_a_procedure_route_may_name_no_tool(tmp_path):
     check = _one_route_record(tmp_path, "kind: procedure\n    note: walk the edge set")
     assert check.routes[0].tool is None
