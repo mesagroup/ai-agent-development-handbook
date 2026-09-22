@@ -130,8 +130,8 @@ routes:
       names the tool it warns against and its note says why. It carries no
       `answers` and no `needs`, because a route the record forbids running
       answers no axis and needs nothing; the axis the prohibited run would
-      have falsified is `measurement`, which the two routes above and the one
-      below answer.
+      have falsified is `measurement`, which the `vitest`, `jest` and
+      plain-form `c8` routes answer.
   - lang: typescript
     kind: procedure
     answers: measurement

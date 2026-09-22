@@ -11,12 +11,12 @@ routes:
     registry: pypi
     argv: [zizmor, "<workflow>"]
     applies_when: >-
-      The CI platform is GitHub Actions: the tool reads `.github/workflows/*.yml` and nothing else.
+      The CI platform is GitHub Actions, whose workflow and action definitions are what the tool reads.
     note: >-
       `zizmor <workflow>` for trigger/injection/permission/pinning findings;
       capture the rule id + `file:line`. A PyPI package, so `uvx zizmor` obtains
       it whatever the partition's language; without a `GH_TOKEN` it runs in
-      offline mode, which is where its pinning audit lives.
+      offline mode.
   - lang: any
     kind: command
     tool: pinact
@@ -24,18 +24,18 @@ routes:
     own_runner: true
     disposition: alternative
     applies_when: >-
-      The CI platform is GitHub Actions: the tool reads `.github/workflows/*.yml` and nothing else.
+      The CI platform is GitHub Actions, whose workflow and action definitions are what the tool reads.
     note: >-
       `pinact run --check` reports every `uses:` not pinned to a full commit
       SHA and exits non-zero where something needs pinning; `pinact run`
       without the flag rewrites the pins, which is the fix rather than the
       measurement. A standalone binary in no language registry, installed in
-      advance.
+      advance; the check calls the GitHub API to resolve each tag unless run
+      with `--no-api`, so a `GITHUB_TOKEN` keeps it clear of the rate limit.
   - lang: any
     kind: procedure
     note: >-
-      **Action pinning:** check each `uses:` for a full-SHA pin vs a tag, and
-      record the `file:line` of each mutable reference.
+      **Action pinning:** check each `uses:` for a full-SHA pin vs a tag.
 ---
 
 # Action supply chain
