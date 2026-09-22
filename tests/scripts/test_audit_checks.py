@@ -3861,8 +3861,8 @@ def test_the_answers_pass_is_not_vacuous():
     `main` at `ae41836` had a language with more than one answering
     non-`forbidden` route. Recomputed at the ci migration: 7, over 32 such
     records, `ci/workflow-correctness` (`well-formedness` and `injection`,
-    the instance #89 named) and `ci/gate-enforcement` (`workflows`,
-    `protection` and `history`, read under the same rule) having joined.
+    the instance #89 named) and `ci/gate-enforcement` (`workflows` and
+    `protection`, read under the same rule) having joined.
     """
     checks, errors = ac.load_checks(ac.SKILLS_DIR)
     assert errors == []
