@@ -4,8 +4,10 @@ domain: arch
 locality: global
 evidence: >-
   The check reports once for the repository, one row per harness home read,
-  naming the home and what it was resolved from. For each of the six bounds
-  the row records one of four states, with the sites behind it: set in the
+  naming the home and what it was resolved from, or one row for the
+  repository where two or more agents share no layer at all. For each of the
+  six bounds, and for each part of a bound that has parts, the row records one
+  of four states, with the sites behind it: set in the
   harness, with the `file:line` of the site that constructs the thing it
   bounds; not set there, with each agent or tool that reaches the construct
   and whether it sets its own bound, at its `file:line`, or none; nothing to
@@ -47,9 +49,11 @@ routes:
       `requests` session behind a wrapper that supplies one, since `requests`
       sets no timeout by default; in TypeScript, a `fetch` wrapper that passes
       a `signal`, or an `undici` `Agent` with its connect, headers and body
-      timeouts set rather than left at their defaults. A client that relies on
-      a library's default timeout is bounded but not explicit, and the row
-      records the default it falls back to. Then read every retry on the path
+      timeouts set rather than left at their defaults. The tell's parts are the
+      explicit timeouts, the retry bound, keep-alive and retry safety; a client
+      that leaves its timeouts at a library's default is bounded but not set
+      for the explicit-timeout part, and the row records the default it falls
+      back to. Then read every retry on the path
       for what it wraps, as `Retry safety is part of the client tell` below
       says. In Python, bandit's `B113` and ruff's `S113` flag a module-level
       `requests` call with no timeout and an `httpx` call whose timeout is set
@@ -90,14 +94,17 @@ routes:
       this tell the parties that can repeat the bound are the tools rather than
       the agents, so a limit each tool applies to its own output is the
       repeated case, and a tool that returns whatever its upstream handed it,
-      with nothing on the path, is the unbounded one. A project whose agents
-      call no tools has nothing for this tell to bound.
+      with nothing on the path, is the unbounded one. A tool whose result is
+      bounded by construction - a count, a flag, a fixed-shape record - has
+      nothing for this tell to bound, and neither has a project whose agents
+      call no tools.
   - lang: any
     kind: procedure
     answers: teardown
     note: >-
       **Time-bounded teardown of external resources.** Read where the harness
-      closes what it opened - browsers, sessions, worker threads: each close
+      closes what it opened - browsers, sessions, worker threads, an HTTP
+      client's connection pool among the sessions: each close
       runs under a time limit, so a wedged close cannot hang the run or leak a
       billed resource. In Python, for example, the close or `aclose` awaited
       under `asyncio.timeout()`; in TypeScript, a close raced against a timer.
@@ -112,13 +119,15 @@ Whether the project's harness sets six reliability bounds by default, so that no
 
 ## What the harness is here
 
-**The harness is resolved by role, not by path.** It is the shared layer the handbook's `Build the harness, don't inline the plumbing` asks for: the module or package that constructs the model client, the outbound HTTP client, the agent loop, the path tool results take back to the model and the lifecycle of external resources, for more than one agent. Find it from the tiers the binding-rules file states or, where it states none, the tier map this domain inferred before measuring anything, and confirm it by reading which modules construct the model client and run the loop. Say in the row which home was read and what it was resolved from, because a reader cannot check the finding without knowing what was read. A repository can hold more than one such home, for example one per deployable, and each is a row of its own.
+**The harness is resolved by role, not by path.** It is the shared layer the handbook's `Build the harness, don't inline the plumbing` asks for: the module or package that constructs the model client, the outbound HTTP client, the agent loop, the path tool results take back to the model and the lifecycle of external resources, for more than one agent. Find it from the tiers the binding-rules file states or, where it states none, the tier map this domain inferred before measuring anything, and confirm it by reading which modules construct the model client and run the loop. Say in the row which home was read and what it was resolved from, because a reader cannot check the finding without knowing what was read. A repository can hold more than one such home, for example one per deployable, and each is a row of its own. **Two or more agents sharing no layer at all have no harness home, and that is not a reason for silence:** the row is then the repository, every tell is read over the agents as the next section says, and a bound each agent sets for itself is the repeated-bound finding this check exists for, not a clean result.
 
 ## How each tell is read
 
-**The tell's state is read over every party that reaches the construct it bounds.** For most tells those parties are the agents; for the size strategy they are the tools, as that route says. A tell is **set in the harness** when a harness default covers every party that reaches it: record the constructing site's `file:line`. It is **not set there** when some party is not covered by a harness default: the row then names each party and whether it sets its own bound or none, and that is the finding - where every party sets its own, because the next one is the one that forgets, and where any party sets none, because that party is unbounded. A tell has **nothing to bound** when the project has no such construct at all - no streaming loop, no tools, no external resource to close: record the search that showed it, which answers the tell, and it is not a finding.
+**The tell's state is read over every party that reaches the construct it bounds, and over every such construct a party has.** For most tells those parties are the agents; for the size strategy they are the tools, as that route says. A party with two HTTP clients or two loops is read for each, and an uncovered one is uncovered whatever the other does. A tell is **set in the harness** when a harness default covers every party and every construct that reaches it: record the constructing site's `file:line`. It is **not set there** when some party is not covered by a harness default: the row then names each party and whether it sets its own bound or none, and that is the finding - where every party sets its own, because the next one is the one that forgets, and where any party sets none, because that party is unbounded. A tell has **nothing to bound** when the project has no such construct at all - no streaming loop, no tools, no external resource to close: record the search that showed it, which answers the tell, and it is not a finding.
 
-**A party overriding a harness default is not a repeated bound.** It inherited the default and chose a different value, which is the harness working; record the tell as set in the harness and name the override.
+**A party overriding a harness default with another bound is not a repeated bound.** It inherited the default and chose a different value, which is the harness working; record the tell as set in the harness and name the override. An override that removes the bound - no timeout, no cap, an unlimited budget - leaves that party unbounded, and the tell is not set there.
+
+**A tell with parts records each part, and takes the least bounded of them.** The turn timeouts have a wall-clock and an idle part, the loop budget a cycle and a token part, and the client its explicit timeouts, retry bound, keep-alive and retry safety. The row names each part's state, and the tell's state is the least bounded one among them, a part with nothing to bound not counting against it.
 
 **Each tell is its own axis.** The routes carry one `answers` value per tell, so a run that read four of the six has not answered the check and says which two it did not read. A tell with nothing to bound has been read.
 
@@ -128,13 +137,13 @@ Whether the project's harness sets six reliability bounds by default, so that no
 
 ## A project with no harness tier
 
-**A single-agent application has no harness separate from its agent, and the check still runs.** A bound set anywhere in the one tier that exists is the domain's clean value for that tell, with the construction site recorded as evidence; a bound set nowhere is the finding; a tell with nothing to bound is read as above. The finding for a bound repeated across agents or tools needs a harness those parties could have shared, so it cannot arise here. The clean value is not `not-applicable`, which `audit-core` reserves for a check with no lens in a partition's languages: this check reads source in every language, so it has a lens everywhere.
+**A single-agent application has no harness separate from its agent, and the check still runs.** A bound that covers every construct of that kind in the one tier that exists is the domain's clean value for that tell, with the construction sites recorded as evidence; a construct it leaves uncovered is the finding; a tell with nothing to bound is read as above. The finding for a bound repeated across agents needs two or more agents, so it cannot arise here, and a limit each tool sets for itself in the one agent is read as that tier's bound for those tools. A project with two or more agents and no shared layer is not this case; the section above says how it is read. The clean value is not `not-applicable`, which `audit-core` reserves for a check with no lens in a partition's languages: this check reads source in every language, so it has a lens everywhere.
 
 ## Severity
 
 **Critical** - a call, a cycle count or a payload left unbounded for any party that reaches it: a turn or stream with no wall-clock or idle limit, an outbound call with no connect or read timeout, a loop with no cycle cap or no token budget, or tool results with no size strategy on their path. These are the three unbounded failures the handbook names, and it ranks them alike.
 
-**Important** - a bound set separately by each party rather than in the harness; a retry wrapping a non-idempotent operation with no idempotency key or deduplicated write; a retry with no bound on its count; a client relying on a library's default timeout rather than an explicit one; a client with no TCP keep-alive; no circuit breaker in front of an external dependency the harness calls; teardown of an external resource with no time limit.
+**Important** - a bound set separately by each party rather than in the harness; a retry wrapping a non-idempotent operation with no idempotency key or deduplicated write; a retry with no bound on its count; a client relying on a library's default timeout rather than an explicit one; a client with no TCP keep-alive; no circuit breaker in front of an external dependency a run calls; teardown of an external resource with no time limit.
 
 There is no **Minor** tier: every default the handbook lists guards a run against hanging, running away or leaking, and none of those is cosmetic.
 
