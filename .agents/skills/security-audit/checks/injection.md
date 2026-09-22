@@ -75,9 +75,10 @@ routes:
       and the ESLint route both, or say in the report which one produced the
       absence.
     alone_insufficient: >-
-      A clean run is not this check answered: run the ESLint route too, as the
-      note says, because on a real target these rulesets found nothing where
-      the ESLint rules found hits on the same tree. A hit is a candidate until
+      A clean run is not this check answered: run the untiered ESLint route
+      too, or say in the report which one produced the absence, as the note
+      says, because on a real target these rulesets found nothing where the
+      ESLint rules found hits on the same tree. A hit is a candidate until
       a trace from source to sink in the real code confirms an
       attacker-reachable path and rules out a false positive: a sink fed only
       a hardcoded constant is not an injection.
