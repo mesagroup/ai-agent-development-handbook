@@ -7,7 +7,9 @@ handbook:
 evidence: >-
   The rule or test id and `file:line` of each hit, and beside it the
   source-to-sink trace that decided it: the untrusted source, the dangerous
-  sink, and the attacker-reachable path between them in the real code.
+  sink, and the attacker-reachable path between them in the real code. The
+  trace is the load-bearing step, what separates a real finding from a scanner
+  artifact.
 routes:
   - lang: python
     kind: command
@@ -21,7 +23,7 @@ routes:
     alone_insufficient: >-
       A hit is a candidate until a trace from source to sink in the real code
       confirms an attacker-reachable path and rules out a false positive: a
-      `subprocess` call on a hardcoded constant is not command injection.
+      sink fed only a hardcoded constant is not an injection.
   - lang: python
     kind: command
     tool: ruff
@@ -33,7 +35,7 @@ routes:
     alone_insufficient: >-
       A hit is a candidate until a trace from source to sink in the real code
       confirms an attacker-reachable path and rules out a false positive: a
-      `subprocess` call on a hardcoded constant is not command injection.
+      sink fed only a hardcoded constant is not an injection.
   - lang: python
     kind: command
     tool: semgrep
@@ -44,7 +46,7 @@ routes:
     alone_insufficient: >-
       A hit is a candidate until a trace from source to sink in the real code
       confirms an attacker-reachable path and rules out a false positive: a
-      `subprocess` call on a hardcoded constant is not command injection.
+      sink fed only a hardcoded constant is not an injection.
   - lang: any
     kind: command
     tool: semgrep
@@ -73,9 +75,12 @@ routes:
       and the ESLint route both, or say in the report which one produced the
       absence.
     alone_insufficient: >-
-      A hit is a candidate until a trace from source to sink in the real code
-      confirms an attacker-reachable path and rules out a false positive: a
-      `subprocess` call on a hardcoded constant is not command injection.
+      A clean run is not this check answered: run the ESLint route too, as the
+      note says, because on a real target these rulesets found nothing where
+      the ESLint rules found hits on the same tree. A hit is a candidate until
+      a trace from source to sink in the real code confirms an
+      attacker-reachable path and rules out a false positive: a sink fed only
+      a hardcoded constant is not an injection.
   - lang: typescript
     kind: procedure
     tool: eslint
@@ -109,7 +114,7 @@ routes:
     alone_insufficient: >-
       A hit is a candidate until a trace from source to sink in the real code
       confirms an attacker-reachable path and rules out a false positive: a
-      `subprocess` call on a hardcoded constant is not command injection.
+      sink fed only a hardcoded constant is not an injection.
   - lang: typescript
     kind: procedure
     tool: eslint
@@ -125,7 +130,7 @@ routes:
     alone_insufficient: >-
       A hit is a candidate until a trace from source to sink in the real code
       confirms an attacker-reachable path and rules out a false positive: a
-      `subprocess` call on a hardcoded constant is not command injection.
+      sink fed only a hardcoded constant is not an injection.
   - lang: typescript
     kind: procedure
     note: >-
@@ -138,7 +143,7 @@ routes:
     alone_insufficient: >-
       A hit is a candidate until a trace from source to sink in the real code
       confirms an attacker-reachable path and rules out a false positive: a
-      `subprocess` call on a hardcoded constant is not command injection.
+      sink fed only a hardcoded constant is not an injection.
 ---
 
 # Injection

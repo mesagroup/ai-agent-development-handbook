@@ -149,23 +149,22 @@ routes:
       imports, and dynamic `import()` or runtime patching. Reading TypeScript
       source for them needs nothing installed, so the tells survive a withheld
       grant, and so does the cross-module confirmation when it is done by
-      reading: follow the flagged binding into the modules that import it and
-      read whether a second one mutates the value it exports or resolves
-      through it. An import binding is read-only, so mutating the exported
-      value is how a second module couples. The `knip` route's grant adds a
-      tool-backed answer to whether another module references the binding at
-      all; whether that module shares the state is still read. Record the
+      reading the modules the tell reaches: for a mutable export or a
+      string-keyed lookup, the modules that import it and mutate the value it
+      exports or resolve through it, an import binding being read-only; for an
+      import-time side effect, a side-effect-only import, a dynamic `import()`
+      or runtime patching, the modules whose behaviour depends on it having
+      run. The `knip` route's grant adds a tool-backed answer to whether
+      another module references a flagged export at all. Record the
       `file:line` of the shared state / lookup / side effect, and name the two
       modules it couples.
     alone_insufficient: >-
-      A hit says a tell is present in one module, and the finding is that a
-      second module shares it: this read confirms that by reading the
-      importing modules, on the split the `eslint` route's
-      `alone_insufficient` states, with `knip` showing the reference under its
-      grant and the read still deciding whether the state is shared. A
-      module-level constant or a logger is not hidden coupling, and a tell
-      present in one module only is not a finding: the pattern is the
-      trigger, the coupling is the finding.
+      A finding needs a read confirming the modules genuinely depend on each
+      other through the hit, on the split the `eslint` route's
+      `alone_insufficient` states: `knip` can show under its grant that
+      another module references a flagged export, and the read decides the
+      rest. A module-level constant or a logger is not hidden coupling. The
+      pattern is the trigger, the coupling is the finding.
 ---
 
 # Hidden coupling / implicit dependencies
