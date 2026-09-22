@@ -10,8 +10,10 @@ evidence: >-
   consumer. The shim axis is the other half of this check's evidence, and it
   is not a count: the forbidden-shim marker hit with its `file:line`, beside
   the contributor guide's stated policy, read by the Python procedure route
-  below. TypeScript carries no shim route, so there the evidence is the
-  counts alone and the shim half is unread rather than clean.
+  below. The shim axis is read per partition and each hit is carried on the
+  row of the scope that owns its module, so every scope row names both axes.
+  TypeScript declares no shim axis, so a TypeScript row is the counts' status,
+  with its evidence stating that the shim policy was not read there.
 handbook:
   - implementation-disciplines/coding-hygiene-rules-that-surface-at-review-b
   - codebase-structure/why-the-rule-matters-a
