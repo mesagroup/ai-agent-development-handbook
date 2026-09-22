@@ -568,7 +568,10 @@ def test_the_notes_are_not_all_sentinels():
     then re-measured and ratcheted onto. What stays a liability is treating
     the number written here as the count to expect: it records the
     population at the last ratchet, and the only way to know the current one
-    is to measure it.
+    is to measure it. Last ratcheted at the ci migration, where the count was
+    measured at 21 on the branch and on `main` alike: the slack under the
+    previous 17 predated that slice, and the ci records, none of which carries
+    a tier, added nothing to it.
     """
     checks, errors = ac.load_checks(ac.SKILLS_DIR)
     assert errors == []
@@ -581,7 +584,7 @@ def test_the_notes_are_not_all_sentinels():
         c.id for c in checks.values() if _languages_rescued_by_an_untiered_route(c)
     ]
     claims = sorted(prose + routed)
-    assert len(claims) >= 17, f"only {len(claims)} records answer anything: {claims}"
+    assert len(claims) >= 21, f"only {len(claims)} records answer anything: {claims}"
 
 
 def test_a_language_with_no_tools_is_not_fully_tiered(tmp_path):
@@ -2868,8 +2871,9 @@ def test_the_records_declaring_no_routes_are_the_ones_named():
     The set is every record the loader accepts without a `routes:` block, and
     that is two populations wearing one name: records the migration has not
     reached, and records authored on the non-routes schema after that schema
-    existed. `docs/source-wrapping` is one of the second kind - written deliberately
-    on the shape its domain already used, never migrated from anything. Both
+    existed. `eval/run-variance` and `eval/merge-coverage-assertion` are of the
+    second kind - created after the routes schema existed and declaring neither
+    schema, so never migrated from anything. Both
     have to be named somewhere, or the loader accepting them reads exactly like
     the loader having nothing left to accept.
 
