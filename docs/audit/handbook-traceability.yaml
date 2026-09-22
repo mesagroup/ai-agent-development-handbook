@@ -713,10 +713,8 @@
   claim: Bake six reliability defaults into the harness rather than into each agent - wall-clock and idle timeouts on turns and streaming loops, a hardened outbound HTTP client (explicit connect and read timeouts, bounded retries, keep-alive) whose retries wrap only operations safe to repeat, a circuit breaker on a dependency that keeps failing, a cycle and token budget cap on the agent loop, a size strategy for oversized tool results, and time-bounded teardown of external resources - because an unbounded call, cycle or payload each exhaust a resource.
   class: static
   severity: critical
-  gap:
-    recommendation: new-domain
-    target: "#2"
-    note: "production-reliability bounding has no owner anywhere in the family - no skill in it declares a check for timeouts, retry safety, circuit breakers, loop or payload caps. The planned performance/cost and observability lenses in #2 are the nearest: they would see the symptoms (a hung run, an unattributed spend, an undiagnosable failure) but their stated scope is measurement and diagnosability, not the harness-level bounds that prevent them. Folded into #2 by decision on 2026-07-29, widening that issue from measuring the symptom to auditing the bound - the alternative, a reliability domain of its own, would split one dependency call between two lenses."
+  checks:
+    - arch/harness-bounding
 
 - id: agent-harness/checklist-standing-up-a-new-agent
   section: "Checklist: standing up a new agent"
