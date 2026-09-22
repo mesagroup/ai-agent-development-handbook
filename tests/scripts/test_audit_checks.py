@@ -478,10 +478,10 @@ def test_the_notes_are_not_all_sentinels():
     record still on the legacy schema has a fully tiered language, so the
     loader's requirement fires on nothing and there is no shape a legacy
     record could be in today that would put it in this half. That is not a
-    reason to stop counting it: the records still declaring `tooling` include
-    several that declare `needs`, and one of those gaining a tier on its last
-    untiered tool would demand a note and refill this half without any
-    migration happening at all. What it does mean is that a floor resting on
+    reason to stop counting it: a record still declaring `tooling` that gains
+    a `needs` tier on its every tool in some language would demand a note and
+    refill this half without any migration happening at all, and two records
+    still declare `tooling` today. What it does mean is that a floor resting on
     the sum is, at this moment, a floor on the routed half, and that anything
     below arguing from the two halves moving against each other is describing
     what the guard is built to survive rather than what it is currently
@@ -1415,15 +1415,17 @@ def test_the_registry_requirement_is_not_vacuous():
         and route.lang in ac.UNIVERSAL_ROUTE_LANGS
         and route.own_runner is not True
     ]
-    assert len(required) == 7, (
+    assert len(required) == 11, (
         f"the registry requirement fires on {sorted(required)}; the tree carried "
         "two such routes when the rule was written - `arch/size`'s `cloc` and "
-        "`test/new-code-coverage`'s `diff-cover` - and five more arrived with the "
+        "`test/new-code-coverage`'s `diff-cover` - five more arrived with the "
         "security migration, each a Python-registry scanner a TypeScript partition "
         "fetches with a Python runner: `semgrep` on the four code checks and "
-        "`detect-secrets` on `security/secrets-in-code`. A change here means a universal "
-        "command route arrived or left, and either way the rule and this floor "
-        "want re-reading rather than the number being edited to match"
+        "`detect-secrets` on `security/secrets-in-code`, and four with the ci "
+        "migration, `zizmor` on each record that names it, a PyPI package a "
+        "workflow partition of any language fetches with `uvx`. A change here means "
+        "a universal command route arrived or left, and either way the rule and "
+        "this floor want re-reading rather than the number being edited to match"
     )
     assert all(
         route.registry is not None
@@ -2823,15 +2825,6 @@ def test_the_real_checks_tree_loads_clean():
 
 RECORDS_DECLARING_NO_ROUTES = frozenset(
     {
-        "ci/action-supply-chain",
-        "ci/branch-protection",
-        "ci/deploy-safety",
-        "ci/efficiency",
-        "ci/gate-enforcement",
-        "ci/permissions-secrets",
-        "ci/self-hosted-runners",
-        "ci/trigger-safety",
-        "ci/workflow-correctness",
         "data-protection/boundary-minimization",
         "data-protection/data-flow-map",
         "data-protection/deletion-path",
@@ -3369,7 +3362,7 @@ def test_the_tool_less_route_population_is_held():
     checks, errors = ac.load_checks(ac.SKILLS_DIR)
     assert errors == []
     tool_less = [(c.id, r) for c in checks.values() for r in c.routes if r.tool is None]
-    assert len(tool_less) >= 47, f"only {len(tool_less)} tool-less route(s)"
+    assert len(tool_less) >= 57, f"only {len(tool_less)} tool-less route(s)"
     assert all(r.kind == "procedure" for _, r in tool_less)
     assert all(r.note.strip() for _, r in tool_less)
 
@@ -3864,14 +3857,17 @@ def test_the_answers_pass_is_not_vacuous():
     pass marked as complements, with no slack, the way the `needs` floor
     above holds its sweep: adding a complement record raises it, and a
     failure here means a record dropped its axes rather than a number to
-    lower. Computed on this branch: 5, over the 28 records that on `main` at
-    `ae41836` have a language with more than one answering non-`forbidden`
-    route.
+    lower. Computed at the `answers` pass: 5, over the 28 records that on
+    `main` at `ae41836` had a language with more than one answering
+    non-`forbidden` route. Recomputed at the ci migration: 7, over 32 such
+    records, `ci/workflow-correctness` (`well-formedness` and `injection`,
+    the instance #89 named) and `ci/gate-enforcement` (`workflows`,
+    `protection` and `history`, read under the same rule) having joined.
     """
     checks, errors = ac.load_checks(ac.SKILLS_DIR)
     assert errors == []
     axised = sorted(c.id for c in checks.values() if any(r.answers for r in c.routes))
-    assert len(axised) >= 5, f"only {len(axised)} record(s) carry answers: {axised}"
+    assert len(axised) >= 7, f"only {len(axised)} record(s) carry answers: {axised}"
     assert all(
         len({r.answers for r in checks[cid].routes if r.answers}) >= 2 for cid in axised
     )

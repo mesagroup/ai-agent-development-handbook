@@ -1127,7 +1127,7 @@ def registry_for(route: Route) -> str | None:
     itself: it prescribes no command, or its command is complete as written.
 
     **It does not answer whether a fetch applies at all, and a caller must not
-    read it that way.** 26 of the 76 command routes that get an answer here
+    read it that way.** 26 of the 80 command routes that get an answer here
     need no fetch: a subcommand of the target's own package manager - `npm
     audit`, `pip list --outdated` - is run directly, and a route whose argv
     already leads with a runner has its fetch spelled out. Both are
