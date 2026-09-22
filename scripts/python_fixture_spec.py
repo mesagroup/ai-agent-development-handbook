@@ -907,13 +907,16 @@ EXPECTATIONS = (
         "since pytest-cov is tiered target-execution and answers nothing unless the "
         "tree resolved and the suite ran",
         ("uncovered-branch",),
-        "the reach measurement does not survive the withheld grant, but the check is "
-        "not no-evidence: what is excluded from measurement is readable in the clone, "
-        "and this fixture configures no [tool.coverage.run] source or omit and no "
-        "[tool.coverage.report] exclude_lines. So the expected ungranted answer is "
-        "that nothing is excluded, with the reach half unmeasured - and a run "
-        "recording no-evidence for the whole check has skipped the half the record "
-        "says survives",
+        "the reach measurement does not survive the withheld grant while the "
+        "exclusion axis does: what is excluded from measurement is readable in the "
+        "clone, and this fixture configures no [tool.coverage.run] source or omit and "
+        "no [tool.coverage.report] exclude_lines. So the expected ungranted answer is "
+        "a half-answered check - no-evidence (not-permitted) in status and in the "
+        "coverage count, its evidence naming the exclusion axis as answered clean and "
+        "the reach axis as unmeasured. A run reporting the check ok on the clean "
+        "exclusion reading alone has read one axis as the check, and one recording "
+        "no-evidence with no axis named has skipped the half the record says "
+        "survives",
     ),
     Expectation(
         "arch/complexity",
@@ -1085,8 +1088,11 @@ EXPECTATIONS = (
         "the grep axis answers without the tree, and finds nothing: the seeded suite "
         "calls no time.time(), no datetime.now(), no unseeded random. and no network. "
         "Order-dependence itself goes unmeasured, which the record names as exactly "
-        "the half a withheld grant costs - so the expected ungranted answer is a clean "
-        "grep axis and an unmeasured order axis, not no-evidence for the check",
+        "the half a withheld grant costs - so the expected ungranted answer is a "
+        "half-answered check, no-evidence (not-permitted) in status and in the "
+        "coverage count, its evidence naming the grep axis as answered clean and the "
+        "order axis as unmeasured. A run reporting the check ok on the clean grep "
+        "reading alone has read one axis as the check",
     ),
     Expectation(
         "test/isolation",
@@ -1100,9 +1106,11 @@ EXPECTATIONS = (
         ("slow-test",),
         "the I/O axis answers without the tree and finds nothing: the seeded suite "
         "makes no network, filesystem or database call, and raises no timeout in "
-        "configuration. The duration evidence is what the grant buys, so the record "
-        "prescribes answering on the I/O axis rather than reporting the check "
-        "no-evidence as a whole",
+        "configuration. The duration evidence is what the grant buys, so the expected "
+        "ungranted answer is a half-answered check, no-evidence (not-permitted) in "
+        "status and in the coverage count, its evidence naming the I/O axis as "
+        "answered clean and the timing axis as unmeasured. A run reporting the check "
+        "ok on the clean I/O reading alone has read one axis as the check",
     ),
     Expectation(
         "test/mutation",
