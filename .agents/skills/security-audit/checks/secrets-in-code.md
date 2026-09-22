@@ -11,7 +11,7 @@ routes:
     registry: pypi
     argv: [detect-secrets, scan]
     note: >-
-      The default, because it is the one of the three that a one-shot runner
+      The default, because it is the one of the two scanners here that a one-shot runner
       supplies: `detect-secrets` is a PyPI package, so `uvx detect-secrets scan`
       obtains it whatever the partition's language. Scans the working tree only,
       which is this check's subject. Every candidate must be verified by reading
@@ -45,12 +45,13 @@ routes:
       rather than the Go v3 this record means, so a runner does not obtain it
       either. The record prescribes no working-tree command line for it, which
       is why this is a procedure route and not a command; the tool is
-      prescribed, for both binaries, in `security/secret-history`, and a run
-      wanting it goes there rather than running it under this check's name.
+      prescribed in the opt-in `security/secret-history`, which names the Go
+      v3 binary, and a run wanting it goes there rather than running it under
+      this check's name.
   - lang: any
     kind: procedure
     note: >-
-      With none of the three, a targeted grep for high-signal patterns (`api_key`,
+      With neither scanner, a targeted grep for high-signal patterns (`api_key`,
       `secret`, `-----BEGIN * PRIVATE KEY-----`, provider token prefixes) over the
       working tree, at lower recall than a scanner and reported as such. Every
       candidate must be verified by reading the line: a variable named `api_key`

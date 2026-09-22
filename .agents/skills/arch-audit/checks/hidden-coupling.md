@@ -150,17 +150,21 @@ routes:
       source for them needs nothing installed, so the tells survive a withheld
       grant, and so does the cross-module confirmation when it is done by
       reading: follow the flagged binding into the modules that import it and
-      read whether a second one writes to or resolves through it. What the
-      grant buys is `knip`'s tool-backed form of that same confirmation, as the
-      `knip` route says, not the confirmation itself. Record the `file:line` of
-      the shared state / lookup / side effect, and name the two modules it
-      couples.
+      read whether a second one mutates the value it exports or resolves
+      through it. An import binding is read-only, so mutating the exported
+      value is how a second module couples. The `knip` route's grant adds a
+      tool-backed answer to whether another module references the binding at
+      all; whether that module shares the state is still read. Record the
+      `file:line` of the shared state / lookup / side effect, and name the two
+      modules it couples.
     alone_insufficient: >-
-      A hit says a tell is present in one module. The finding is that a second
-      module shares it, which this read confirms by reading the importing
-      modules, or `knip` confirms by tool under its grant, on the same split
-      the `eslint` route's `alone_insufficient` states. A tell confirmed in one
-      module only is reported as a tell, not as coupling: the pattern is the
+      A hit says a tell is present in one module, and the finding is that a
+      second module shares it: this read confirms that by reading the
+      importing modules, on the split the `eslint` route's
+      `alone_insufficient` states, with `knip` showing the reference under its
+      grant and the read still deciding whether the state is shared. A
+      module-level constant or a logger is not hidden coupling, and a tell
+      present in one module only is not a finding: the pattern is the
       trigger, the coupling is the finding.
 ---
 
