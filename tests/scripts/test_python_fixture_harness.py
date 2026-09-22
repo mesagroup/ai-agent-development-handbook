@@ -1550,8 +1550,9 @@ def test_every_disposition_in_the_vocabulary_is_used():
     No other property here reads the vocabulary as a whole: each reads the
     disposition on a form it already has. So a value could sit in `DISPOSITIONS`
     with no user, and `forbidden` did. What keeps `forbidden` out of this module
-    is not that no record declares one - six do - but that every one of them is
-    on a `lang: typescript` route, and this module's selection is python-only.
+    is not that no record declares one - eight do - but that every one of them
+    is on a `lang: typescript` or a `lang: any` route, and this module's
+    selection is `lang: python` literally, so neither is reached.
     `routed_invocations` says the same where it raises on the value, and that is
     the statement to trust: this vocabulary is the lens's own, not the loader's.
 
@@ -4300,10 +4301,12 @@ def test_the_multi_route_no_command_groups_are_the_ones_the_rule_was_written_for
     the rule settles - `needs`, `applies_when` and `disposition` - rather than
     discovered by a crash in whoever widens the selection.
 
-    Each group is discriminated by exactly one of those axes, and the set holds
-    a worked example of each: `test/coverage-reach/c8` splits on
-    `applies_when`, `test/mutation/@stryker-mutator/core` on `disposition`,
-    and the two ESLint groups on `needs` - an audit-owned flat config that
+    Seven groups are discriminated by exactly one of those axes -
+    `test/mutation/@stryker-mutator/core` on `disposition`, the six ESLint
+    groups on `needs` - and `test/coverage-reach/c8` differs on `needs`,
+    `applies_when` and `disposition` together, since its Vitest route is
+    `forbidden` and carries neither tier nor axis; no group in the tree splits
+    on `applies_when` alone. The ESLint groups are an audit-owned flat config that
     carries no tier beside the target's own config that carries
     `target-execution`. `arch/hidden-coupling/eslint` was read against the
     three when it arrived and is a second instance of the `needs` axis rather

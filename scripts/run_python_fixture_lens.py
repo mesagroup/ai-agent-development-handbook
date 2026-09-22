@@ -353,9 +353,9 @@ NO_VERSION_ROUTE: dict[str, str] = {}
 #   record, which is the one thing a disposition never is.
 #
 # There is no value here for a form a record names in order to warn against, and
-# the reason is this module's own scope rather than the family's. Six records do
-# declare `disposition: forbidden`, and every one of those routes is
-# `lang: typescript`, which this selection never reaches - `routed_invocations`
+# the reason is this module's own scope rather than the family's. Eight records
+# do declare `disposition: forbidden`, on `lang: typescript` routes and one
+# `lang: any` route, none of which a `lang: python` selection reaches - `routed_invocations`
 # says so where it raises on the value, and that is the statement to trust over
 # any count kept here.
 #
@@ -1146,18 +1146,20 @@ def _reason_for_no_command(check: str, tool: str, routes: Sequence[Route]) -> st
     wrong explanation to a run - but its premise, that a tool prescribing no
     command has at most one route explaining why, is one the record set has
     outgrown in three different ways at once. `test/coverage-reach`'s `c8`
-    routes differ by `applies_when` (refuse it around a Vitest command, keep
-    its plain form for a runner it can observe), `test/mutation`'s Stryker
-    routes by `disposition`, and `arch/complexity`'s two `eslint` routes only
-    by `needs` - the same two rules under an audit-owned flat config or under
-    the target's own.
+    routes differ by `disposition`, `applies_when` and `needs` together (the
+    refusal around a Vitest command is `forbidden` and carries neither, the
+    plain form for a runner it can observe runs under `target-execution`),
+    `test/mutation`'s Stryker routes by `disposition`, and `arch/complexity`'s
+    two `eslint` routes only by `needs` - the same two rules under an
+    audit-owned flat config or under the target's own.
 
     Requiring records to merge such notes into one route was the cheaper
     alternative and is not available: a route carries one `needs`, so merging
     `arch/complexity`'s pair means dropping one of its two tiers, and the
     untiered one is exactly what keeps `typescript` out of
     `_silenced_languages` for that record. Reading the disposition alone
-    reaches only Stryker, and `applies_when` alone only `c8`.
+    reaches Stryker and `c8`; `applies_when` distinguishes nothing on its own
+    today.
 
     A composed note prefixes each candidate's note with its `applies_when`
     where it has one, because the precondition is what tells the modes apart
@@ -1281,8 +1283,9 @@ def routed_invocations() -> tuple[Invocation, ...]:
                         "not carry, so nothing here decides whether the harness "
                         "may offer it as a form. `forbidden` is the live case: "
                         "the loader's vocabulary carries it and records declare "
-                        "it on typescript routes, which this selection never "
-                        "reaches. Giving it a slot means deciding whether a form "
+                        "it on typescript and universal routes, neither of which "
+                        "a python-only selection reaches. Giving it a slot means "
+                        "deciding whether a form "
                         "the record warns against is one the guards should see, "
                         "and that is a decision rather than a widened tuple"
                     )
