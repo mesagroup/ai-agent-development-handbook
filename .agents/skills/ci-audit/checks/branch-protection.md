@@ -15,8 +15,16 @@ handbook_note: >-
   same clause a second time for this broader sweep would be the near miss
   the matrix's own rule forbids; the handbook never asks for that full
   sweep on its own terms.
-tooling:
-  any: [gh]
+routes:
+  - lang: any
+    kind: procedure
+    tool: gh
+    note: >-
+      The repository's branch-protection rules and deployment-environment
+      approvals, read through the GitHub API with `gh`: review-count
+      requirements, admin bypass, who can push directly, environment-level
+      approvers. Needs repo-admin API access, which is why the check is
+      opt-in; the record prescribes no command line for it.
 ---
 
 # Branch-protection & environment review

@@ -12,6 +12,14 @@ handbook_note: >-
   looks for. Same word, unrelated subject, so it is not a near miss of an
   existing clause; the handbook simply never discusses workflow runtime,
   matrix sizing, or run-cancellation.
+routes:
+  - lang: any
+    kind: procedure
+    note: >-
+      Needs reading - no tool in this domain's evidence pass targets pipeline
+      efficiency; read each workflow's job/step definitions for a missing
+      dependency-cache action, an absent `concurrency:` block, and a matrix
+      whose dimensions do not earn their added runtime.
 ---
 
 # Efficiency
@@ -21,10 +29,6 @@ Missing dependency caching, no concurrency cancellation for superseded runs, an 
 ## Severity
 
 **Minor** - missing caching / concurrency cancellation, an over-broad matrix.
-
-## Tooling fallback
-
-Needs reading - no tool in this domain's evidence pass targets pipeline efficiency; read each workflow's job/step definitions for a missing dependency-cache action, an absent `concurrency:` block, and a matrix whose dimensions do not earn their added runtime.
 
 ## Fix
 

@@ -4,8 +4,20 @@ domain: ci
 locality: local
 handbook:
   - security-supply-chain/treat-the-pipeline-as-a-privileged-environment
-tooling:
-  any: [zizmor]
+routes:
+  - lang: any
+    kind: command
+    tool: zizmor
+    registry: pypi
+    argv: [zizmor, "<workflow>"]
+    applies_when: >-
+      The CI platform is GitHub Actions: the tool reads `.github/workflows/*.yml` and nothing else.
+    note: >-
+      `zizmor <workflow>` for trigger/injection/permission/pinning findings;
+      capture the rule id + `file:line`. A PyPI package, so `uvx zizmor`
+      obtains it whatever the partition's language. This is the record's
+      one route: it prescribes no reading where the tool cannot be obtained,
+      so the check reports `no-evidence (tool-unavailable)` there.
 ---
 
 # Trigger safety
@@ -15,10 +27,6 @@ Dangerous triggers: `pull_request_target` or `workflow_run` that checks out and 
 ## Severity
 
 **Critical** - a pipeline-takeover path: `pull_request_target`/`workflow_run` running untrusted PR code with secrets or write permissions.
-
-## Tooling fallback
-
-`zizmor <workflow>` for trigger/injection/permission/pinning findings; capture the rule id + `file:line`.
 
 ## Fix
 

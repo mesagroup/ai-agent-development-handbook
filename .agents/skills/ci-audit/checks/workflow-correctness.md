@@ -25,8 +25,74 @@ handbook_note: >-
   a workflow's own `run:` block is outside it by the handbook's own
   division. So this check exceeds the handbook on technical grounds rather
   than on taste, which is what the empty list is for.
-tooling:
-  any: [actionlint, zizmor]
+routes:
+  - lang: any
+    kind: command
+    tool: actionlint
+    answers: well-formedness
+    argv: [actionlint]
+    own_runner: true
+    applies_when: >-
+      The CI platform is GitHub Actions: the tool reads `.github/workflows/*.yml` and nothing else.
+    note: >-
+      `actionlint` catches syntax, expression, and shell-quoting errors; with
+      no argument it finds every workflow file in the repository, and
+      `actionlint <workflow>` narrows it to one. A standalone binary in no
+      language registry, installed in advance. Shellchecking the block an
+      expression lands in says nothing about whether the value interpolated
+      there is attacker-controlled, which is why this route answers the
+      well-formedness axis and not the injection one: a run reaching for
+      `actionlint` alone has answered the syntax and quoting halves and
+      reports nothing for the half this record calls Critical.
+  - lang: any
+    kind: procedure
+    answers: well-formedness
+    applies_when: >-
+      The CI platform is not GitHub Actions, so `actionlint` does not apply.
+    note: >-
+      The platform's config validator answers the well-formedness half there,
+      run as the platform documents it; this record prescribes no command
+      line for it.
+  - lang: any
+    kind: command
+    tool: zizmor
+    answers: injection
+    registry: pypi
+    argv: [zizmor, "<workflow>"]
+    applies_when: >-
+      The CI platform is GitHub Actions: the tool reads `.github/workflows/*.yml` and nothing else.
+    note: >-
+      `zizmor <workflow>` for the injection half; capture the rule id +
+      `file:line`. A PyPI package, so `uvx zizmor` obtains it whatever the
+      partition's language. The two tools answer different questions rather
+      than standing in for one another, which the two `answers` values carry:
+      a status that covers both halves when one tool ran is the failure this
+      record exists to avoid, arriving by a different route.
+  - lang: any
+    kind: procedure
+    answers: injection
+    note: >-
+      Where `zizmor` cannot be obtained the injection half is still answerable
+      by reading, so it is not `no-evidence` - but the reading is wider than
+      one grep, in both directions a narrow one goes wrong. **Search every
+      position where a `${{ }}` value reaches a shell or a script**, not `run:`
+      alone: a `run:` block, a `github-script` step's `script:`, and a `with:`
+      input to a composite or container action, which are the positions
+      `## Fix` already treats as sinks. A pass that greps `run:` reports clean
+      on the other two while this record's own fix section says they are
+      reachable. **Then read each hit for the property, not for membership of
+      a list**: a context whose value an outsider can write without review.
+      `github.event.issue.*` and `github.event.pull_request.*` - title as well
+      as body - `github.event.comment.*`, `github.event.review.*`,
+      `github.event.discussion.*`, `github.event.head_commit.message` and the
+      messages under `github.event.commits.*`, `github.head_ref`, and
+      `inputs.*` on a `workflow_dispatch` are the ones most often met. They are
+      examples and not the set: GitHub's own script-injection guidance
+      enumerates it and moves, so a reading pass that treats any list written
+      here as closed reproduces the false-clean failure this route exists to
+      avoid. Where a context is not on a list and you cannot say who can write
+      it, that is a finding to report as unresolved rather than to drop. Say
+      which half each row's evidence came from either way.
 ---
 
 # Correctness
@@ -40,14 +106,6 @@ Invalid workflow syntax, shell quoting bugs, misused expressions (`${{ }}` injec
 **Important** - a masked exit code: the job reports green over a step that failed, so a gate the project believes in stops gating. Not an attacker path, and not cosmetic either.
 
 **Minor** - a cosmetic lint finding.
-
-## Tooling fallback
-
-`actionlint` (catches syntax, expression, and shell-quoting errors), or the platform's config validator.
-
-`zizmor <workflow>` for the injection half; capture the rule id + `file:line`. The two tools answer different questions rather than standing in for one another. Shellchecking the block an expression lands in says nothing about whether the value interpolated there is attacker-controlled, so a run reaching for `actionlint` alone answers the syntax and quoting halves and reports nothing for the half this record calls Critical - a tool that ran and found nothing, which reads exactly like a clean workflow.
-
-Where `zizmor` cannot be obtained the injection half is still answerable by reading, so it is not `no-evidence` - but the reading is wider than one grep, in both directions a narrow one goes wrong. **Search every position where a `${{ }}` value reaches a shell or a script**, not `run:` alone: a `run:` block, a `github-script` step's `script:`, and a `with:` input to a composite or container action, which are the positions `## Fix` already treats as sinks. A pass that greps `run:` reports clean on the other two while this record's own fix section says they are reachable. **Then read each hit for the property, not for membership of a list**: a context whose value an outsider can write without review. `github.event.issue.*` and `github.event.pull_request.*` - title as well as body - `github.event.comment.*`, `github.event.review.*`, `github.event.discussion.*`, `github.event.head_commit.message` and the messages under `github.event.commits.*`, `github.head_ref`, and `inputs.*` on a `workflow_dispatch` are the ones most often met. They are examples and not the set: GitHub's own script-injection guidance enumerates it and moves, so a reading pass that treats any list written here as closed reproduces the false-clean failure this fallback exists to avoid. Where a context is not on a list and you cannot say who can write it, that is a finding to report as unresolved rather than to drop. Say which half each row's evidence came from either way. A status that covers both halves when one tool ran is the failure the paragraph above describes, arriving by a different route.
 
 ## Fix
 
