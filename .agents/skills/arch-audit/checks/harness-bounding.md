@@ -64,9 +64,10 @@ routes:
       for what it wraps, as `Retry safety is part of the client tell` below
       says. In Python, bandit's `B113` and ruff's `S113` flag a module-level
       `requests` call with no timeout and an `httpx` call whose timeout is set
-      to `None`; they see no call made on a session or client object and do
-      not say whether a call goes through the harness, so they can find some
-      candidate call sites and the record prescribes neither as a route.
+      to `None`; they miss every call made on a session or client object and
+      do not say whether a call goes through the harness, so they find some
+      candidate call sites but cannot answer the tell even with a confirmation
+      beside them, and the record prescribes neither as a route.
   - lang: any
     kind: procedure
     answers: circuit-breaker
