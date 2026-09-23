@@ -3361,12 +3361,15 @@ def test_the_tool_less_route_population_is_held():
     live note is comfortably long, and a floor invites padding without
     addressing this failure at all. If this fails because the count fell, a
     reading was replaced by a command or dropped; check that was intended
-    rather than lowering the floor.
+    rather than lowering the floor. It was once, and the floor followed: the
+    `lang: any` dataflow route PR #151 removed from `security/injection`, for
+    #147, answered nothing on its own, so the population fell from 57 to 56 on
+    purpose.
     """
     checks, errors = ac.load_checks(ac.SKILLS_DIR)
     assert errors == []
     tool_less = [(c.id, r) for c in checks.values() for r in c.routes if r.tool is None]
-    assert len(tool_less) >= 57, f"only {len(tool_less)} tool-less route(s)"
+    assert len(tool_less) >= 56, f"only {len(tool_less)} tool-less route(s)"
     assert all(r.kind == "procedure" for _, r in tool_less)
     assert all(r.note.strip() for _, r in tool_less)
 
