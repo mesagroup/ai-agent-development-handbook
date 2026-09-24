@@ -3358,13 +3358,15 @@ def test_the_tool_less_route_population_is_held():
     `lang: any` dataflow route PR #151 removed from `security/injection`, for
     #147, answered nothing on its own, so the population fell from 57 to 56 on
     purpose; it rose to 62 when `arch/harness-bounding` arrived with six
-    reading routes, one per tell; and it rose to 70 when the `data-protection`
-    records migrated to routes, each carrying one reading route.
+    reading routes, one per tell; it rose to 70 when the `data-protection`
+    records migrated to routes, each carrying one reading route; and it rose
+    to 71 when `ci/trigger-safety` gained a reading for where `zizmor` cannot
+    be obtained.
     """
     checks, errors = ac.load_checks(ac.SKILLS_DIR)
     assert errors == []
     tool_less = [(c.id, r) for c in checks.values() for r in c.routes if r.tool is None]
-    assert len(tool_less) >= 70, f"only {len(tool_less)} tool-less route(s)"
+    assert len(tool_less) >= 71, f"only {len(tool_less)} tool-less route(s)"
     assert all(r.kind == "procedure" for _, r in tool_less)
     assert all(r.note.strip() for _, r in tool_less)
 
