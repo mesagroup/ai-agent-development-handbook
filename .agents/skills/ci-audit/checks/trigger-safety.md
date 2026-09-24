@@ -24,9 +24,10 @@ routes:
     note: >-
       Read every workflow's `on:` block for a `pull_request_target` or
       `workflow_run` trigger; a `workflow_run` trigger counts only where the
-      workflow it follows can be started by a pull request, directly or
-      through another `workflow_run`, since otherwise the triggering run's code
-      is not the pull request's. Each tell below is a property, and the
+      workflow it follows can be started by a pull request - by an event
+      whose name starts with `pull_request`, `pull_request_target` included -
+      directly or through another `workflow_run`, since otherwise the
+      triggering run's code is not the pull request's. Each tell below is a property, and the
       spellings given for it are examples of that property rather than a list
       to match: a spelling not named here that has the property is the tell.
 
