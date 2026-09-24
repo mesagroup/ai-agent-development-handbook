@@ -480,8 +480,8 @@ def test_the_notes_are_not_all_sentinels():
     record could be in today that would put it in this half. That is not a
     reason to stop counting it: a record still declaring `tooling` that gains
     a `needs` tier on its every tool in some language would demand a note and
-    refill this half without any migration happening at all, and two records
-    still declare `tooling` today. What it does mean is that a floor resting on
+    refill this half without any migration happening at all, and a record
+    still declares `tooling` today. What it does mean is that a floor resting on
     the sum is, at this moment, a floor on the routed half, and that anything
     below arguing from the two halves moving against each other is describing
     what the guard is built to survive rather than what it is currently
@@ -2829,14 +2829,6 @@ def test_the_real_checks_tree_loads_clean():
 
 RECORDS_DECLARING_NO_ROUTES = frozenset(
     {
-        "data-protection/boundary-minimization",
-        "data-protection/data-flow-map",
-        "data-protection/deletion-path",
-        "data-protection/processor-register",
-        "data-protection/provider-surface",
-        "data-protection/residency-pinning",
-        "data-protection/retention-limits",
-        "data-protection/stored-artifact-pii",
         "eval/adversarial",
         "eval/contamination",
         "eval/cost-latency",
@@ -3365,13 +3357,14 @@ def test_the_tool_less_route_population_is_held():
     rather than lowering the floor. It was once, and the floor followed: the
     `lang: any` dataflow route PR #151 removed from `security/injection`, for
     #147, answered nothing on its own, so the population fell from 57 to 56 on
-    purpose; and it rose to 62 when `arch/harness-bounding` arrived with six
-    reading routes, one per tell.
+    purpose; it rose to 62 when `arch/harness-bounding` arrived with six
+    reading routes, one per tell; and it rose to 70 when the `data-protection`
+    records migrated to routes, each carrying one reading route.
     """
     checks, errors = ac.load_checks(ac.SKILLS_DIR)
     assert errors == []
     tool_less = [(c.id, r) for c in checks.values() for r in c.routes if r.tool is None]
-    assert len(tool_less) >= 62, f"only {len(tool_less)} tool-less route(s)"
+    assert len(tool_less) >= 70, f"only {len(tool_less)} tool-less route(s)"
     assert all(r.kind == "procedure" for _, r in tool_less)
     assert all(r.note.strip() for _, r in tool_less)
 

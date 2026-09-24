@@ -353,9 +353,9 @@ NO_VERSION_ROUTE: dict[str, str] = {}
 #   record, which is the one thing a disposition never is.
 #
 # There is no value here for a form a record names in order to warn against, and
-# the reason is this module's own scope rather than the family's. Eight records
-# do declare `disposition: forbidden`, on `lang: typescript` routes and one
-# `lang: any` route, none of which a `lang: python` selection reaches - `routed_invocations`
+# the reason is this module's own scope rather than the family's. Records
+# do declare `disposition: forbidden`, on `lang: typescript` and `lang: any`
+# routes only, none of which a `lang: python` selection reaches - `routed_invocations`
 # says so where it raises on the value, and that is the statement to trust over
 # any count kept here.
 #
