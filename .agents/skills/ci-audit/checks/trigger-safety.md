@@ -37,7 +37,10 @@ routes:
       `refs/pull/<n>/` ref or the head repository, a `git fetch`, `git clone`
       or `gh pr checkout` of it, a package install from the head repository,
       or under `workflow_run` the triggering run's `head_sha`, `head_branch` or
-      `head_repository` - and it executes in any step that runs what was
+      `head_repository` where that run's own event starts with
+      `pull_request` and is not `pull_request_target`, since after `pull_request_target` or
+      another `workflow_run` those fields name the base repository's code and
+      the pull request's is reached only by looking it up - and it executes in any step that runs what was
       fetched: a script, a local action, an install step whose hooks it
       supplies, or a build tool reading its configuration from it. A reusable
       workflow the job calls and a composite action it uses are read through,
@@ -67,8 +70,17 @@ routes:
       tell, and one where the audit cannot establish a part, such as which release a
       sha pin or a remote fork of the action is, is something the clone
       cannot resolve; a comment naming a release beside a sha is a claim, not
-      that establishment. Every fetch above other than a guarded checkout
-      stays the tell.
+      that establishment. The guard refuses only a fork's code, so a checkout
+      it refuses still fetches the head of a pull request from a branch of
+      the repository itself. That is not the tell: it is a gate in the sense
+      below, applied by the action rather than written in the workflow,
+      because only someone with write access can push a branch there. It
+      holds only while no workflow in the repository pushes an outside
+      author's code to a branch here, as an "ok-to-test" or mirror job does,
+      since that job lends the author its write access; where one does, the
+      checkout stays the tell. A job whose other steps fetch the pull
+      request's code without that guard is read on those steps. Every fetch above other than a guarded
+      checkout stays the tell.
 
       For each such job, read what is in its effective scope, which is
       everything the job can reach rather than only what it names. A secret is
