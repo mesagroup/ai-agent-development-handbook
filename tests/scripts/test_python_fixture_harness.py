@@ -1550,7 +1550,7 @@ def test_every_disposition_in_the_vocabulary_is_used():
     No other property here reads the vocabulary as a whole: each reads the
     disposition on a form it already has. So a value could sit in `DISPOSITIONS`
     with no user, and `forbidden` did. What keeps `forbidden` out of this module
-    is not that no record declares one - eight do - but that every one of them
+    is not that no record declares one - several do - but that every one of them
     is on a `lang: typescript` or a `lang: any` route, and this module's
     selection is `lang: python` literally, so neither is reached.
     `routed_invocations` says the same where it raises on the value, and that is
