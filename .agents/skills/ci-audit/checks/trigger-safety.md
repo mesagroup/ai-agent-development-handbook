@@ -43,7 +43,9 @@ routes:
       definition, under any key and in any step, or in the workflow-level
       `env:` the job inherits; for a called workflow, the secrets are the ones
       the call passes, by an explicit `secrets:` mapping or by `secrets:
-      inherit`. The job's token is always in scope, and its permission is the
+      inherit`. `secrets.GITHUB_TOKEN` is not one of those: it is the job's
+      token, spelled like a secret, and it is judged by its permission like
+      `github.token`. The job's token is always in scope, and its permission is the
       job's `permissions:` block, else the workflow's top-level block, else the
       repository's default token permissions, which the workflow does not
       show; a called workflow's block can only narrow what its caller grants.
