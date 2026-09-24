@@ -16,6 +16,7 @@ In order. The first is the one the deliverable is most blocked on.
 - **O4 - The sweep against `<python-target>` has been delivered, and it doubled as the family's gate.** It is both a recipient and the one target whose earlier audit findings are on record, so one full sweep against it is read two ways. As the gate: the diff against that record accounts for each finding as resolved, still open, or new, and every skill regression the run exposed is fixed or filed with a `Serves:` line. As the deliverable: the prose report is delivered and the emitter's dry-run issue set is reviewed for shape. Reached when both readings hold on the same run. It is the first target to deliver, because a repository with a known baseline is the only one where a missed finding is provable.
 - **O5 - The plugin installs and runs in the recipients' organisation.** Reached when a member of that organisation has added the marketplace, installed the plugin and run `/audit` in one of the target repositories without help from this repository's maintainer, and what that session discovers as skills matches what this tree ships.
 - **O6 - The handbook is handed over as a document.** Reached when the rendered handbook, one self-contained page built from [`engineering/`](engineering/README.md), has been delivered to the recipients alongside the first report, so every handbook citation in a report resolves to a text they hold. Handbook prose work serves this outcome whatever prompted it: a clause the recipients would act on counts, whether a target's report or this repository's own way of working surfaced it. **Current, not aspirational.** Decided 2026-09-17: the rendering pipeline exists in `scripts/render_handbook_artifact.py`, so this outcome is an activity to pick up, rendering the page and preparing the handover, rather than a design question.
+- **O7 - The two client targets' sweeps have been delivered.** Reached when `<polyglot-monorepo-target>` and `<single-package-target>` each have a prose report delivered to the recipients and a dry-run issue set reviewed for shape, both from one run through the installed plugin, and every skill regression those runs exposed is fixed or filed with a `Serves:` line. Decided 2026-09-24: O1 measures whether the statuses are honest, read off the polyglot target's run; this outcome measures that both client reports reached the recipients, the way O4 does for `<python-target>`. The polyglot report comes from the run O1 reads, so that target needs no second sweep.
 
 ## Does not count
 
@@ -27,7 +28,7 @@ Work this repository can absorb indefinitely and has decided not to. An item in 
 
 ## Done when
 
-Every named target, `<python-target>` and the two TypeScript ones, has a delivered prose report and a reviewed dry-run issue set; the handbook has been handed over; and every regression in the family those runs exposed is fixed or filed. The `<python-target>` run comes first and is O4; the two client runs are the rest of the phase.
+Every named target, `<python-target>` and the two TypeScript ones, has a delivered prose report and a reviewed dry-run issue set; the handbook has been handed over; and every regression in the family those runs exposed is fixed or filed. The `<python-target>` run comes first and is O4; the two client runs are O7, the polyglot one read against O1 first.
 
 ## How the tracker uses this
 
