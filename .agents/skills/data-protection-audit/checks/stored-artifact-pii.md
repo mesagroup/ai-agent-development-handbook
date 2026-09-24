@@ -4,8 +4,50 @@ domain: data-protection
 locality: global
 handbook:
   - data-protection/personal-data-does-not-belong-in-the-trail
-tooling:
-  any: [pdscan]
+routes:
+  - lang: any
+    kind: command
+    tool: pdscan
+    argv: [pdscan, "file://<dir>"]
+    own_runner: true
+    alone_insufficient: >-
+      Two caveats decide what its output means, and either one alone turns a tool that ran into a false clean; this is the first, and the note carries the second. Its rules are regex-based and US-shaped - a US social-security number's shape, US street suffixes, a list of common US surnames - with nothing for a passport number, an IBAN or a non-US national identifier, so **empty output discharges this check only on the axes it scans** and everything else falls to the reading route. Name those axes in the row rather than reporting a scan as clean. The reading route runs whether or not the scanner did.
+    note: >-
+      **Detect before prescribing, and note that the tool here is one the target would never run itself.** Prefer `pdscan` where the project inventory records the audit environment as already carrying it. It is a standalone Go binary in no language registry, so no one-shot runner can supply it - and the consequence when it is absent is the one the reading route's note gives, under **Its absence is not `no-evidence`**. Do not attempt `uvx pdscan` or `npx pdscan`: each fails the way a missing package fails, which reads as a tool that could not be obtained rather than as a name that was never obtainable through a runner at all.
+
+      **Scope the invocation to the artifact directories rather than to the clone root**, the artifact set the reading route takes from the derived personal-data surface - `pdscan file://<dir>` over the log, trace, fixture and eval-data directories. It line-scans files rather than selecting them by extension, excluding only a few formats by type, and descends into zip and gzip archives, so pointed at the whole tree it reports git objects and vendored binary assets as matches. A run whose output is mostly noise is one whose real findings get triaged away with it.
+
+      The second caveat: its flag that prints the matched values propagates the very leak this check exists to find, out of the artifact into a findings report and from there into a ticket, so a finding reports the location and the rule that matched, and quotes a value only where a false positive has to be demonstrated and nothing weaker will demonstrate it.
+  - lang: any
+    kind: procedure
+    note: >-
+      **Its absence is not `no-evidence`.** See `audit-core` for what that status is for; the reading route is this check's fallback and runs whether or not the binary is present, so where `pdscan` is missing this row carries the domain's own status with the axes the scanner would have covered named as unscanned. Reporting `no-evidence (tool-unavailable)` instead would record an unanswered question on a check the clone can answer, which is the same false negative as reading an empty scan as a clean result.
+
+      **Take the artifact set from the store axis of the derived personal-data surface `SKILL.md` builds once in `audit-core`'s parallel evidence step**, restricted to the stores that are artifacts of the run rather than of the product: the log and trace retention on an observability backend, the run-record and eval-data locations, and the committed fixture directories. Take it from that artifact and **not** from `data-protection/data-flow-map`'s output, which is not available to this agent. This record is the one most tempted by that wrong move, because the map is the document that lists exactly the artifacts this check wants, which is why the rule is stated here rather than assumed.
+
+      **The reading pass, which runs whether or not the tool did.** Read the committed fixture and test-data directories, which are where a real case lands once somebody has reproduced a bug with it. Read the eval datasets **and their generation scripts**, because the scripts are where "built from real inputs" is visible even when the data is not committed. Read the trace and run-record schema or emitter, for which fields it captures. And read the log and trace configuration, for what is shipped to a backend, since an artifact that never lands in the repository still lands somewhere and this check is about the stored copy rather than about the commit.
+
+      **What no pass can see, and how it is reported.** Whether a fixture's source was synthetic, consented, or a real case somebody put through redaction is provenance, and provenance is a fact about how a file was made rather than something in the file. The artifact is readable and its origin is in no repository, so that is `warn (unverifiable-from-here)` under `SKILL.md`'s rule for which status carries the annotation, naming whoever created the fixture as who would settle it. Keep it apart from the top band: personal data actually read in a committed artifact is settled by the clone and is a plain `violation` with no annotation, because annotating it would report as open a question the repository has already answered.
+
+      Do not wait on or read the result of `security/secrets-in-code`, the check those credential scanners serve: it belongs to another domain's run and its output does not exist here.
+  - lang: any
+    kind: procedure
+    tool: gitleaks
+    disposition: forbidden
+    note: >-
+      `gitleaks` scopes itself to credentials in its own documentation, and a credential is not a data subject, so a credential scanner's tooling list is not transferable here and a clean `gitleaks` scan is no evidence about this check. Where the target's own configuration or CI runs it, report it as what it is - a credential scan the project already runs - and never as the scan this row rests on. The record prescribes no invocation of it, so the route names the tool as forbidden rather than declaring an argv.
+  - lang: any
+    kind: procedure
+    tool: trufflehog
+    disposition: forbidden
+    note: >-
+      `trufflehog` scopes itself to credentials in its own documentation, and a credential is not a data subject, so a credential scanner's tooling list is not transferable here and a clean `trufflehog` scan is no evidence about this check. Where the target's own configuration or CI runs it, report it as what it is - a credential scan the project already runs - and never as the scan this row rests on. The record prescribes no invocation of it, so the route names the tool as forbidden rather than declaring an argv.
+  - lang: any
+    kind: procedure
+    tool: detect-secrets
+    disposition: forbidden
+    note: >-
+      `detect-secrets` scopes itself to credentials in its own documentation, and a credential is not a data subject, so a credential scanner's tooling list is not transferable here and a clean `detect-secrets` scan is no evidence about this check. Where the target's own configuration or CI runs it, report it as what it is - a credential scan the project already runs - and never as the scan this row rests on. The record prescribes no invocation of it, so the route names the tool as forbidden rather than declaring an argv.
 ---
 
 # Personal data in stored artifacts
@@ -25,24 +67,6 @@ The band about a **join key** is in that same first set, since seeing that a key
 **Important** - a trace or run-record schema that captures a payload field, where nothing is committed but the store the emitter writes to will hold them. This is the mechanism band above: cite the field in the schema or the emitter, and report the store as the place the payloads accumulate rather than asserting what is in it, which is a claim the clone cannot make. It is Important rather than Critical because the exposure is bounded by who can read that store, and it is not Minor because nothing expires a field that keeps being captured.
 
 **Minor** - an artifact whose join key is a directly identifying value, such as an email address, a phone number or an account name, where an opaque internal reference would join back just as well. This is already the shape Part 10 asks for rather than a leak, which is why it is the bottom band: the payload is not there. The row is that the key still identifies a person to everyone who can read the artifact, and a reference costs nothing to use instead.
-
-## Tooling fallback
-
-**Detect before prescribing, and note that the tool here is one the target would never run itself.** Prefer `pdscan` where the project inventory records the audit environment as already carrying it. It is a standalone Go binary in no language registry, so no one-shot runner can supply it - and the consequence when it is absent is the one **Its absence is not `no-evidence`** below gives. Do not attempt `uvx pdscan` or `npx pdscan`: each fails the way a missing package fails, which reads as a tool that could not be obtained rather than as a name that was never obtainable through a runner at all.
-
-**Its absence is not `no-evidence`.** See `audit-core` for what that status is for; the reading pass below is this check's fallback and runs whether or not the binary is present, so where `pdscan` is missing this row carries the domain's own status with the axes the scanner would have covered named as unscanned. Reporting `no-evidence (tool-unavailable)` instead would record an unanswered question on a check the clone can answer, which is the same false negative as reading an empty scan as a clean result.
-
-**Take the artifact set from the store axis of the derived personal-data surface `SKILL.md` builds once in `audit-core`'s parallel evidence step**, restricted to the stores that are artifacts of the run rather than of the product: the log and trace retention on an observability backend, the run-record and eval-data locations, and the committed fixture directories. Take it from that artifact and **not** from `data-protection/data-flow-map`'s output, which is not available to this agent. This record is the one most tempted by that wrong move, because the map is the document that lists exactly the artifacts this check wants, which is why the rule is stated here rather than assumed.
-
-**Scope the invocation to the artifact directories rather than to the clone root** - `pdscan file://<dir>` over the log, trace, fixture and eval-data directories. It line-scans files rather than selecting them by extension, excluding only a few formats by type, and descends into zip and gzip archives, so pointed at the whole tree it reports git objects and vendored binary assets as matches. A run whose output is mostly noise is one whose real findings get triaged away with it.
-
-**Two caveats decide what its output means, and either one alone turns a tool that ran into a false clean.** Its rules are regex-based and US-shaped - a US social-security number's shape, US street suffixes, a list of common US surnames - with nothing for a passport number, an IBAN or a non-US national identifier, so **empty output discharges this check only on the axes it scans** and everything else falls to the reading pass below. Name those axes in the row rather than reporting a scan as clean. And its flag that prints the matched values propagates the very leak this check exists to find, out of the artifact into a findings report and from there into a ticket, so a finding reports the location and the rule that matched, and quotes a value only where a false positive has to be demonstrated and nothing weaker will demonstrate it.
-
-**The reading pass, which runs whether or not the tool did.** Read the committed fixture and test-data directories, which are where a real case lands once somebody has reproduced a bug with it. Read the eval datasets **and their generation scripts**, because the scripts are where "built from real inputs" is visible even when the data is not committed. Read the trace and run-record schema or emitter, for which fields it captures. And read the log and trace configuration, for what is shipped to a backend, since an artifact that never lands in the repository still lands somewhere and this check is about the stored copy rather than about the commit.
-
-**What no pass can see, and how it is reported.** Whether a fixture's source was synthetic, consented, or a real case somebody put through redaction is provenance, and provenance is a fact about how a file was made rather than something in the file. The artifact is readable and its origin is in no repository, so that is `warn (unverifiable-from-here)` under `SKILL.md`'s rule for which status carries the annotation, naming whoever created the fixture as who would settle it. Keep it apart from the top band: personal data actually read in a committed artifact is settled by the clone and is a plain `violation` with no annotation, because annotating it would report as open a question the repository has already answered.
-
-**Reject the secret-scanner substitution explicitly.** `gitleaks`, `trufflehog` and `detect-secrets` each scope themselves to credentials in their own documentation, and a credential is not a data subject, so a credential-scanner tooling list is not transferable here and a clean secret scan is no evidence about this check. Where the target's own configuration or CI runs one of them, report it as what it is - a credential scan the project already runs - and never as the scan this row rests on. Do not wait on or read `security/secrets-in-code`'s own result either: it belongs to another domain's run and its output does not exist here.
 
 ## Fix
 

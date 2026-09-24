@@ -4,6 +4,19 @@ domain: data-protection
 locality: global
 handbook:
   - data-protection/every-processor-needs-an-agreement-and-the-register-must-match-the-code-b
+routes:
+  - lang: any
+    kind: procedure
+    note: >-
+      No tool enumerates a project's outbound provider surface, so this is a reading pass over a stated derivation - and the derivation is not stated here. Take the derived personal-data surface `SKILL.md` defines and builds once in `audit-core`'s parallel evidence step, and read its outbound-edge axis, which is this check's subject, rather than re-deriving it - so this row rests on the one list the domain builds rather than on a second derivation. Reconciling that union against the register is this check's work; producing it is not.
+
+      The surface has a consumer beyond this domain, which is the other reason to take it rather than rebuild it: `deps/model-pinning-and-eol` wants the same list for its pinning and end-of-life questions, and consumes this derivation rather than deriving a second one that is free to disagree with it. Region is not among them: `data-protection/residency-pinning` owns that and the deps record says so. The consumer is in another domain, so it does not always have this artifact - on a direct `deps-audit` run, or where this domain was scoped out, it derives its own list and reports that it did.
+
+      Read the register for the three fields it carries, and reconcile in both directions: a provider in the surface and not the register is the Critical band, and a provider in the register with no reachable path is the Minor one. Record which source of the derivation produced each provider, because it is what a reader needs to judge the row's confidence - an SDK import is a call path, and a credential name is an inference that a call path exists somewhere.
+
+      **The package graph is not the answer, and a clean one is no evidence about this check.** A package graph holds declared packages; a provider reached over plain HTTP never enters the dependency tree at all, and neither does one an agent reaches through a configured tool endpoint. Hand the package question to `deps/inventory` and do not accept its result as covering this one. `security/sensitive-data` judges exposure at the call site rather than enumerating who is called, so its rows answer a different question. **Do not restate its findings here and do not treat its rows as covering this check either** - a call site it cleared for exposure is still an unregistered provider if the register does not name it. `security/agent-privilege-surface` asks what one agent is allowed to reach rather than which processors the deployment calls, so a grant it judges narrow enough is still an unregistered provider if the register does not name it. Hand a grant that looks over-broad there rather than widening this check to judge it.
+
+      Where the derivation could not resolve a call path - a base URL assembled at run time, an endpoint read from a database - say so as a limit of the pass rather than reporting the surface as complete.
 ---
 
 # Provider surface against the register
@@ -21,18 +34,6 @@ The two bands below are **mechanism** bands and stand whatever established the s
 **Important** - a provider present in both but reached from a path the register does not describe: a second base URL, a fallback endpoint, a gateway in front of the provider the register names. The processor is accounted for and the route is not, so what the register says about region and retention may be true of one path and not of the other.
 
 **Minor** - a registered provider with no reachable call path. That is evidence the register is not being maintained rather than evidence of an unaccounted transfer, so it is not a Critical. **Report it as an entry to confirm and re-date, never as one to remove.** A provider the derivation could not reach is indistinguishable here from one that is genuinely no longer called - and the providers the derivation misses are precisely the ones whose call path it could not resolve, the case this record already tells you to declare as a limit. The register's owner decides; an audit that talks a team into deleting the entry has removed a processor from the document that exists to account for it.
-
-## Tooling fallback
-
-No tool enumerates a project's outbound provider surface, so this is a reading pass over a stated derivation - and the derivation is not stated here. Take the derived personal-data surface `SKILL.md` defines and builds once in `audit-core`'s parallel evidence step, and read its outbound-edge axis, which is this check's subject, rather than re-deriving it - so this row rests on the one list the domain builds rather than on a second derivation. Reconciling that union against the register is this check's work; producing it is not.
-
-The surface has a consumer beyond this domain, which is the other reason to take it rather than rebuild it: `deps/model-pinning-and-eol` wants the same list for its pinning and end-of-life questions, and consumes this derivation rather than deriving a second one that is free to disagree with it. Region is not among them: `data-protection/residency-pinning` owns that and the deps record says so. The consumer is in another domain, so it does not always have this artifact - on a direct `deps-audit` run, or where this domain was scoped out, it derives its own list and reports that it did.
-
-Read the register for the three fields it carries, and reconcile in both directions: a provider in the surface and not the register is the Critical band, and a provider in the register with no reachable path is the Minor one. Record which source of the derivation produced each provider, because it is what a reader needs to judge the row's confidence - an SDK import is a call path, and a credential name is an inference that a call path exists somewhere.
-
-**The package graph is not the answer, and a clean one is no evidence about this check.** A package graph holds declared packages; a provider reached over plain HTTP never enters the dependency tree at all, and neither does one an agent reaches through a configured tool endpoint. Hand the package question to `deps/inventory` and do not accept its result as covering this one. `security/sensitive-data` judges exposure at the call site rather than enumerating who is called, so its rows answer a different question. **Do not restate its findings here and do not treat its rows as covering this check either** - a call site it cleared for exposure is still an unregistered provider if the register does not name it. `security/agent-privilege-surface` asks what one agent is allowed to reach rather than which processors the deployment calls, so a grant it judges narrow enough is still an unregistered provider if the register does not name it. Hand a grant that looks over-broad there rather than widening this check to judge it.
-
-Where the derivation could not resolve a call path - a base URL assembled at run time, an endpoint read from a database - say so as a limit of the pass rather than reporting the surface as complete.
 
 ## Fix
 
