@@ -31,7 +31,7 @@ Every named target, `<python-target>` and the two TypeScript ones, has a deliver
 
 ## How the tracker uses this
 
-- Every issue body carries `**Serves:** O<n>`. An issue that cannot name one is either a gap in this document or not work, and which of the two is the maintainer's call, recorded here.
+- Every issue body carries `**Serves:** O<n>`. An issue that cannot name one is either a gap in this document or not work, and which of the two is the maintainer's call, recorded here. The one standing exception is the programme epic that spans the whole deliverable, whose children each name their own outcome: it carries `**Serves:** the deliverable` instead. Decided 2026-09-24.
 - A queue for a batch of work - a nightshift, a sprint - is composed against the outcome order above, and at least four of every five items serve a named outcome.
 - Next-phase work, a lens or capability this phase decided not to measure, carries the `Next phase` milestone and `**Serves:** next phase` in place of an outcome, until the next phase's goal document names one. A queue composed against this document does not draw from it.
 - Something found while implementing goes under `## Found, not fixed` in the pull request body, one line each, and is triaged when the batch closes.
