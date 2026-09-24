@@ -60,17 +60,21 @@ routes:
       show; a called workflow's block can only narrow what its caller grants.
 
       The verdict is taken in this order, and the first that applies is the
-      row's. First, the gate. A gate is any condition, at step, job or
-      `needs:` level, that an outside author cannot satisfy for the code that
-      actually executes - an `if:` excluding pull requests from outside the
-      repository, a membership check on the author, a run only on a merged
-      pull request - and code that executes only after a gate the workflow
-      shows is `ok`. A condition the author can outlast, such as a label that
-      stays on while new commits arrive, is not a gate for code fetched by a
-      ref rather than by the sha that was approved. A gate the workflow only
-      names, an `environment:` whose required reviewers are a repository
-      setting, is `warn`, naming that setting and whoever administers the
-      repository as its holder. Second, what the clone cannot resolve: where
+      row's. First, the gate. A gate is a condition that, in every run in which
+      the job executes the pull request's code, only someone with write access
+      to the repository can have made true, and made true for that exact
+      code. Judge a condition against that sentence rather than against its
+      spelling, whatever level it sits at: a condition an outside author can
+      satisfy, or can outlast - an approval that stays in place while new
+      commits arrive, an identity the author can borrow or grow into, a
+      prerequisite job the executing job can run without - is no gate, and
+      nor is an approval of a run that then fetches a ref the author can still
+      move. Code that executes only after a gate the workflow shows is `ok`. A
+      gate whose force the workflow cannot show, an `environment:` whose
+      required reviewers are a repository setting, is `warn`, naming that
+      setting and whoever administers the repository as its holder, where the
+      code it releases is fixed at the moment of approval, and no gate where
+      it is not. Second, what the clone cannot resolve: where
       what the clone holds neither makes the job the band below nor clears it,
       because the answer turns on something it does not hold - a workflow or
       action from another repository, a ref computed at run time, or the
