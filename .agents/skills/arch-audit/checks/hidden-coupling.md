@@ -125,6 +125,15 @@ routes:
       machine-readable tells the modes apart. What the grant does not buy is the
       cross-module confirmation - that is not a configuration question, and the
       route above says why.
+    alone_insufficient: >-
+      The target's config changes which rules run and how the source parses,
+      not what a linter can see: it still reads one file's AST at a time, so a
+      hit says a tell is present in one module and never that a second module
+      shares it, which is the finding. A clean run under the target's config is
+      no answer either: the audit's selectors are a floor rather than the
+      definition, as the untiered `eslint` route states, and whatever rules the
+      project adds do not change that. The cross-module half is the `knip`
+      route's reference and the reading pass's confirmation.
   - lang: typescript
     kind: procedure
     tool: knip
@@ -139,6 +148,13 @@ routes:
       rather than refusing: on an uninstalled tree it reports genuine source and
       imported packages as unused, so a clean knip run over an unresolved tree
       is not evidence of anything.
+    alone_insufficient: >-
+      A `knip` result shows whether another module references a flagged
+      export, which is a reference and not a shared state: whether the
+      importers mutate the exported value is the reading pass's to confirm, so
+      a reported reference is a candidate rather than a finding, and a clean
+      run over a resolved tree says only that nothing references the export.
+      Over an unresolved tree its result is nothing at all, clean or not.
   - lang: typescript
     kind: procedure
     note: >-
@@ -163,7 +179,7 @@ routes:
       modules it couples.
     alone_insufficient: >-
       A finding needs a read confirming the modules genuinely depend on each
-      other through the hit, on the split the `eslint` route's
+      other through the hit, on the split the untiered `eslint` route's
       `alone_insufficient` states: `knip` can show under its grant that
       another module references a flagged export, and the read decides the
       rest. A module-level constant or a logger is not hidden coupling. The
