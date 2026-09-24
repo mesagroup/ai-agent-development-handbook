@@ -45,6 +45,31 @@ routes:
       inputs and passed secrets bound into them, so a ref or a secret that
       arrives as an input is the same tell as one written in place.
 
+      A fetch the fetching tool refuses is not a fetch. `actions/checkout`
+      carries a guard from v7.0.0, and from v2.8.0, v3.7.0, v4.4.0, v5.1.0
+      and v6.1.0 in the older majors, which fails the step rather than check
+      out a fork's code. A checkout the list above counts as a fetch is
+      refused, and so is not the tell, only where all of these hold. First, the code it runs carries the guard:
+      judged by the release a `uses:` tag, branch or sha resolves to when the
+      audit runs, so `@v1` and any release before those carry none, and a
+      vendored copy is judged by its own code. Second, the step's
+      `allow-unsafe-pr-checkout` is not on, and it is on where its value is
+      `true` in any letter case or an expression an outside author can make
+      evaluate to that. Third, the event is `pull_request_target`, or a
+      `workflow_run` whose triggering run's own event starts with
+      `pull_request` and is not `pull_request_target`, since under any other
+      `workflow_run` the guard lets every checkout through. Fourth, the
+      values the step receives at run time, its repository, ref and resolved
+      commit, include the event's head repository, a `refs/pull/<n>/` ref, or
+      a head or merge sha the event payload carries, since the guard compares
+      those values and lets anything else through, a sha looked up after the
+      event among them. Such a checkout failing any of the four stays the
+      tell, and one where the audit cannot establish a part, such as which release a
+      sha pin or a remote fork of the action is, is something the clone
+      cannot resolve; a comment naming a release beside a sha is a claim, not
+      that establishment. Every fetch above other than a guarded checkout
+      stays the tell.
+
       For each such job, read what is in its effective scope, which is
       everything the job can reach rather than only what it names. A secret is
       in scope when the job's own definition, under any key and in any step,
