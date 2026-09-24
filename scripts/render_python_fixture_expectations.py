@@ -190,6 +190,22 @@ def render() -> str:
             f"| {_cell(expectation.ungranted)} |"
         )
 
+    owed = [e for e in EXPECTATIONS if e.owed]
+    out += [
+        "",
+        "## What a result still owes",
+        "",
+        f"A check whose Python route says its own result does not answer the check - the record's `alone_insufficient` - carries what is still owed here, {len(owed)} of the {len(EXPECTATIONS)} entries, set by derivation from the records rather than by judgement. The harness writes the route's field onto each results row and the grader prints it beside the observation, so a tool that found the seed reads as a candidate for the confirmation below rather than as the check answered. Three rows are the other use the records make of the field, an invocation requirement - a command not complete as written - and say how this round meets it instead. The row's status is the engine's and does not move for either.",
+        "",
+        "| Check | Partitions | Still owed |",
+        "|---|---|---|",
+    ]
+    for expectation in owed:
+        out.append(
+            f"| `{expectation.check}` | {_partitions_cell(expectation)} "
+            f"| {_cell(expectation.owed)} |"
+        )
+
     planted = {seed for f in SOURCE_FILES for seed in f.seeds}
     expected = {seed for e in EXPECTATIONS for seed in e.seeds}
     unexpected = sorted(planted - expected)

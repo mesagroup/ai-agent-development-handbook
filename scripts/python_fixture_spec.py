@@ -698,6 +698,20 @@ class Expectation:
     this field a correct ungranted run of `deps/hygiene` - which reports DEP001
     where the granted run reports DEP003 - would be graded against the granted
     answer and recorded as a tool defect.
+
+    `owed` is the third axis: what a tool's result on this check still needs
+    before it is the check's answer, set on exactly the entries whose check has
+    a Python route naming a tool that carries `alone_insufficient`, which a test
+    derives from the records the way it derives `ungranted`. The harness writes
+    the route's own field onto each results row and the grader prints it beside
+    the observation; this is the same fact said about the fixture, so a reader
+    of the grade sees that a scanner's hit on the seed is a candidate and what
+    confirms it. It is prose because the confirmation is a reading, not a
+    command this round runs, and it never changes a status: the row's status is
+    the engine's, and what is owed is carried beside it. Where a record uses the
+    field for an invocation requirement instead - an argv not complete as
+    written - the entry says so and says how this round meets it, since there
+    the result owes nothing a read would add.
     """
 
     check: str
@@ -706,6 +720,7 @@ class Expectation:
     claim: str
     seeds: tuple[str, ...]
     ungranted: str = ""
+    owed: str = ""
 
     def __post_init__(self) -> None:
         if self.form not in FORMS:
@@ -750,6 +765,12 @@ EXPECTATIONS = (
         "latest release, which is the comparison the tiered tools would have made. A "
         "partition reporting no-evidence here has skipped a route the record says "
         "survives a withheld grant, and that is the failure to look for",
+        owed=(
+            "the unpinned and yanked halves: an outdated list answers only whether a "
+            "release is behind, and whether a direct dependency is unpinned or a pinned "
+            "release yanked is read by the record's lockfile and registry route, which "
+            "is also what answers a run without the grant"
+        ),
     ),
     Expectation(
         "deps/licenses",
@@ -795,6 +816,11 @@ EXPECTATIONS = (
         (),
         "the same, and for the same reason: the format is unreadable to deptry with "
         "the tree or without it, so this is the one entry here the grant cannot move",
+        owed=(
+            "nothing a read of the result adds: the record's field on `deptry` states "
+            "an invocation requirement, that the scan root is `.` with the target as the "
+            "working directory, which is how this round runs it"
+        ),
     ),
     Expectation(
         "deps/hygiene",
@@ -818,6 +844,11 @@ EXPECTATIONS = (
         "directions at once - and it is the reason this axis is written down at all: "
         "graded against the granted claim, a correct ungranted run reads as a tool "
         "defect",
+        owed=(
+            "nothing a read of the result adds: the record's field on `deptry` states "
+            "an invocation requirement, that the scan root is `.` with the target as the "
+            "working directory, which is how this round runs it"
+        ),
     ),
     Expectation(
         "deps/inventory",
@@ -917,6 +948,11 @@ EXPECTATIONS = (
         "exclusion reading alone has read one axis as the check, and one recording "
         "no-evidence with no axis named has skipped the half the record says "
         "survives",
+        owed=(
+            "nothing a read of the result adds: the record's field on `pytest-cov` "
+            "states an invocation requirement, that the command names the package under "
+            "measurement with `--cov=<pkg>`, which a completion supplies in this round"
+        ),
     ),
     Expectation(
         "arch/complexity",
@@ -976,6 +1012,11 @@ EXPECTATIONS = (
         "finding without the read the record requires before a count counts - so the "
         "expected observation is the pair, not a verdict on them",
         ("pass-through",),
+        owed=(
+            "a read confirming each forwarding module is genuinely trivial and that "
+            "merging it raises cohesion; a split that maps onto independently changing "
+            "responsibilities is correct design rather than a finding"
+        ),
     ),
     Expectation(
         "arch/over-abstraction",
@@ -989,6 +1030,12 @@ EXPECTATIONS = (
         "Minor, and as with over-decomposition the record requires a read before a "
         "count becomes a finding",
         ("single-caller",),
+        owed=(
+            "a read confirming, per trigger, that no second consumer or second value is "
+            "imminent in-tree and that collapsing the construct removes indirection "
+            "without losing a genuine seam; a documented extension point is a "
+            "suppression rather than a finding"
+        ),
     ),
     Expectation(
         "arch/martin-metrics",
@@ -1040,6 +1087,12 @@ EXPECTATIONS = (
         f"the shell=True subprocess in {PACKAGE}.unsafe.run_shell and the "
         f"string-formatted SQL in {PACKAGE}.unsafe.query",
         ("injection",),
+        owed=(
+            "a source-to-sink trace in the real code for each reported call, confirming "
+            "an attacker-reachable path into the sink; a sink fed only a hardcoded "
+            "constant is not an injection, so a scanner hit on the seed is a candidate "
+            "until that read"
+        ),
     ),
     Expectation(
         "security/crypto",

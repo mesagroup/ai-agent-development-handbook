@@ -688,6 +688,57 @@ def test_the_ungranted_axis_is_not_vacuous():
     assert len(stated) >= 8, f"only {len(stated)} expectation(s) state it: {stated}"
 
 
+def _records_whose_python_result_does_not_stand_alone() -> set[str]:
+    """Checks with a Python route naming a tool, not forbidden, carrying the field.
+
+    Read from the records rather than from `run_python_fixture_lens`, so a
+    lens that stopped carrying the field and a spec that stopped stating `owed`
+    cannot agree with each other and pass; the harness test module holds the
+    lens's rows to this same population.
+    """
+    checks, errors = load_checks(SKILLS_DIR)
+    assert not errors, errors
+    return {
+        check_id
+        for check_id, record in checks.items()
+        for route in record.routes
+        if route.lang == "python"
+        and route.tool
+        and route.disposition != "forbidden"
+        and route.alone_insufficient
+    }
+
+
+def test_what_a_result_owes_is_stated_exactly_where_the_record_says_it_does_not_stand_alone():
+    """`owed` is derived, the way `ungranted` is, in both directions.
+
+    An entry whose check's Python route says its result does not answer alone
+    and which states nothing owed renders a scanner's hit on the seed as the
+    check answered, which is #154's defect; an entry stating something owed
+    where no route says so invents a confirmation the record never asked for.
+    """
+    owing = _records_whose_python_result_does_not_stand_alone()
+    for expectation in EXPECTATIONS:
+        assert bool(expectation.owed) == (expectation.check in owing), (
+            expectation.check,
+            expectation.check in owing,
+        )
+
+
+def test_the_owed_axis_is_not_vacuous():
+    """The derivation above passes on a tree where nothing states the axis.
+
+    Deleting every `alone_insufficient` from the Python routes and every `owed`
+    here moves both sides together and leaves the equality green, so the
+    population is held at its present size with no slack, and
+    `security/injection` - the check #154 names, whose scanner hits are
+    candidates until a source-to-sink trace - is held by name.
+    """
+    stated = {e.check for e in EXPECTATIONS if e.owed}
+    assert "security/injection" in stated, stated
+    assert len([e for e in EXPECTATIONS if e.owed]) >= 7, stated
+
+
 def test_the_over_decomposition_expectation_carries_the_computed_file_count():
     """The count in that claim has to move when the tree does.
 

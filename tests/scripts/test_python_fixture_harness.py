@@ -4644,3 +4644,87 @@ def test_no_completion_hardcodes_a_name_the_fixture_spec_owns():
         f"a COMPLETIONS token spells out {PACKAGE!r} rather than deriving it "
         "from PACKAGE, so it will not follow a rename of the seeded package"
     )
+
+
+def test_a_scanner_hit_that_needs_confirming_reaches_the_grade_as_a_candidate(
+    tmp_path, monkeypatch
+):
+    """The route's `alone_insufficient` travels from the record to the worksheet.
+
+    `security/injection`'s scanner routes each say a hit is a candidate until a
+    source-to-sink trace confirms it, and the lens classifies a scanner that
+    ran and printed the seed as `ok` - the engine's status, which does not move
+    for the caveat. So the results row has to carry the caveat beside the
+    status, and the grade has to print it, or a hit on the seed reads as the
+    check answered, which is #154's defect. A route whose result does stand
+    alone, `security/crypto`'s `bandit`, carries nothing, so the field is not
+    set on every row regardless of what the record says.
+    """
+    import grade_python_fixture_run as grader
+
+    source = tmp_path / "fixture" / "uv"
+    source.mkdir(parents=True)
+    (source / "pyproject.toml").write_text("[project]\n")
+    monkeypatch.setattr(
+        "run_python_fixture_lens._run",
+        _fake_run([], respond=lambda command: _outcome(stdout="B602 shell=True")),
+    )
+
+    observed = run_partition("uv", source, tmp_path / "work", "none", timeout=5)
+
+    checks, errors = load_checks(SKILLS_DIR)
+    assert not errors, errors
+    rows = {(r["check"], r["tool"]): r for r in observed["results"]}
+    for route in checks["security/injection"].routes:
+        if route.lang == "python" and route.kind == "command":
+            row = rows[("security/injection", route.tool)]
+            assert row["alone_insufficient"] == route.alone_insufficient, route.tool
+            assert row["alone_insufficient"], route.tool
+    assert rows[("security/crypto", "bandit")]["alone_insufficient"] == ""
+
+    graded = [r for r in grader.grade_rows(observed) if r.check == "security/injection"]
+    assert graded and graded[0].owed
+    candidates = [o for o in graded[0].observations if o.status == "ok"]
+    assert candidates and all(o.alone_insufficient for o in candidates)
+    text = grader.render(graded)
+    assert "not the check's answer alone" in text
+    assert "Still owed:" in text
+
+
+def test_the_rows_carrying_a_caveat_are_the_records_saying_their_result_needs_one():
+    """The lens's rows carry `alone_insufficient` exactly where the records do.
+
+    The spec derives which expectations state `owed` from the records; this
+    holds the lens's own rows to the same population, so a lens that dropped
+    the field on one branch of `routed_invocations` - the no-command branch is
+    the one the `grimp` library rows take - fails here rather than reading as
+    a route whose result stands alone.
+    """
+    checks, errors = load_checks(SKILLS_DIR)
+    assert not errors, errors
+    expected = {
+        check_id
+        for check_id, record in checks.items()
+        for route in record.routes
+        if route.lang == "python"
+        and route.tool
+        and route.disposition != "forbidden"
+        and route.alone_insufficient
+    }
+    carried = {i.check for i in routed_invocations() if i.alone_insufficient}
+    assert carried == expected
+
+
+def test_disagreeing_caveats_on_a_row_with_no_command_are_rejected(monkeypatch):
+    """A group with no `runs` route has no one route to read the field from."""
+    records = {
+        "x/y": _fake_record(
+            _fake_route(kind="library", argv=(), note="a", alone_insufficient="one"),
+            _fake_route(kind="library", argv=(), note="b", alone_insufficient="two"),
+        )
+    }
+    with (
+        _records_replaced_by(monkeypatch, records),
+        pytest.raises(ValueError, match="different alone_insufficient"),
+    ):
+        routed_invocations()
