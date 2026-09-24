@@ -56,9 +56,10 @@ routes:
       judged by the release a `uses:` tag, branch or sha resolves to when the
       audit runs, so `@v1` and any release before those carry none, and a
       vendored copy is judged by its own code. Second, the step's
-      `allow-unsafe-pr-checkout` is not on, and it is on where its value is
-      `true` in any letter case or an expression an outside author can make
-      evaluate to that. Third, the event is `pull_request_target`, or a
+      `allow-unsafe-pr-checkout` is off, which it is only where it is absent
+      or a literal other than `true` in any letter case; an expression an
+      outside author can make evaluate to `true` is on, and any other
+      expression is a value the clone cannot resolve. Third, the event is `pull_request_target`, or a
       `workflow_run` whose triggering run's own event starts with
       `pull_request`, since under any other `workflow_run` the guard lets
       every checkout through. Fourth, the
@@ -89,9 +90,11 @@ routes:
       any form - `secrets.NAME`, `secrets['NAME']`, `toJSON(secrets)`, the last
       putting every secret in scope - and, for a called workflow, when the
       call passes it, by an explicit `secrets:` mapping or by `secrets:
-      inherit`. `secrets.GITHUB_TOKEN` is not one of those: it is the job's
-      token, spelled like a secret, and it is judged by its permission like
-      `github.token`. The job's token is always in scope, and its permission is
+      inherit`. The `secrets` context's `GITHUB_TOKEN` entry, in any spelling
+      (`secrets.GITHUB_TOKEN`, `secrets['GITHUB_TOKEN']`), is not one of
+      those: it is the job's token, spelled like a secret, and it is judged
+      by its permission like `github.token`. A read of the whole context,
+      such as `toJSON(secrets)`, still puts every other secret in scope. The job's token is always in scope, and its permission is
       the job's `permissions:` block, else the workflow's top-level block, else
       the repository's default token permissions, which the workflow does not
       show; a called workflow's block can only narrow what its caller grants.
