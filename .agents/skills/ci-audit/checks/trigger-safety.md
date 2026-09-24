@@ -23,25 +23,50 @@ routes:
       The CI platform is GitHub Actions, whose workflow syntax this reading names.
     note: >-
       Read every workflow's `on:` block for a `pull_request_target` or
-      `workflow_run` trigger. For each workflow that has one, read whether a
-      job checks out the pull request's code - an `actions/checkout` step whose
-      `ref:` or `repository:` names it (the head sha or head ref, the
-      `refs/pull/<n>/merge` ref, or the head repository; under `workflow_run`,
-      the triggering run's `head_sha`, `head_branch` or `head_repository`), or a
-      `git fetch` or `gh pr checkout` of it - and then runs anything from that
-      checkout, and what the job holds while it does: every `secrets.`
-      reference in the job or its steps, a `secrets: inherit` on a
-      reusable-workflow call, and the `permissions:` it runs with, the
-      workflow's top-level block applying where the job sets none. Where
-      neither sets one, the repository's default token permissions apply,
-      which the workflow does not show: record that as a default of unknown
-      scope, never as read-only. The Critical band is a job doing both:
-      running the pull request's code with a secret or a write permission in
-      scope. A row records the workflow and job, the trigger, the checkout step
-      at its `file:line`, and the secrets and permissions in scope; a trigger
-      with no checkout of the pull request's code, or a checkout with no secret
-      and no write permission in scope, is recorded as read and is not a
-      finding.
+      `workflow_run` trigger; a `workflow_run` trigger counts only where the
+      workflow it follows can run on a `pull_request` event, since otherwise
+      the triggering run's code is not the pull request's. For each workflow
+      with such a trigger, read whether a job checks out the pull request's
+      code - an `actions/checkout` step whose `ref:` or `repository:` names it
+      (the head sha or head ref, the `refs/pull/<n>/merge` ref, or the head
+      repository; under `workflow_run`, the triggering run's `head_sha`,
+      `head_branch` or `head_repository`), or a `git fetch` or `gh pr
+      checkout` of it - and then runs anything from that checkout: a script,
+      a local or composite action, an install step whose hooks the checkout
+      supplies, or a build tool reading its configuration from it. A job that
+      calls a reusable workflow is read through the call: the called
+      workflow's jobs are judged as this workflow's jobs, under this trigger.
+
+      For each such job, read what is in its effective scope, which is
+      everything the job can reach rather than only what it names. A secret is
+      in scope when a `secrets.` expression appears anywhere in the job's own
+      definition, under any key and in any step, or in the workflow-level
+      `env:` the job inherits; for a called workflow, the secrets are the ones
+      the call passes, by an explicit `secrets:` mapping or by `secrets:
+      inherit`. The job's token is always in scope, and its permission is the
+      job's `permissions:` block, else the workflow's top-level block, else the
+      repository's default token permissions, which the workflow does not
+      show; a called workflow's block can only narrow what its caller grants.
+
+      The verdict is about code that runs before any gate, and it follows
+      from those readings. A job that runs the pull request's code with a
+      secret in scope, or with a token whose effective permission includes a
+      write, is the Critical band's `violation`. The same job whose permission
+      comes from the repository default, with no secret in scope, is the
+      Critical band too, but the clone cannot read that default, so it is
+      `warn` naming the repository's default workflow permissions setting as
+      what would settle it and whoever administers the repository as its
+      holder, never clean. A gate the workflow shows - a job condition that
+      excludes pull requests from outside the repository - puts the job
+      after the gate and it is `ok`; a gate the workflow only names, an
+      `environment:` whose required reviewers are a repository setting, is
+      `warn` naming that setting and the same holder. A job whose explicit
+      block grants no write scope, `permissions: {}` included, and which has
+      no secret in scope is `ok`, and so is a workflow with no such trigger or
+      no job running the pull request's code, every `on:` block having been
+      read. A row records the workflow and job, the trigger, the checkout step
+      at its `file:line`, and each secret and the permission in scope with
+      where it comes from.
 ---
 
 # Trigger safety
