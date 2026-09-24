@@ -37,6 +37,7 @@ routes:
   - lang: any
     kind: procedure
     tool: trufflehog
+    disposition: forbidden
     note: >-
       Answers nothing on a working tree here, and is named so that a run does
       not reach for it as a third scanner: `trufflehog git` scans history,
