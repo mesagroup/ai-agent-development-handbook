@@ -93,6 +93,20 @@ This axis exists because a correct ungranted run graded against the granted answ
 | `test/determinism` | `uv` | the grep axis answers without the tree, and finds nothing: the seeded suite calls no time.time(), no datetime.now(), no unseeded random. and no network. Order-dependence itself goes unmeasured, which the record names as exactly the half a withheld grant costs - so the expected ungranted answer is a half-answered check, no-evidence (not-permitted) in status and in the coverage count, its evidence naming the grep axis as answered clean and the order axis as unmeasured. A run reporting the check ok on the clean grep reading alone has read one axis as the check |
 | `test/isolation` | `uv` | the I/O axis answers without the tree and finds nothing: the seeded suite makes no network, filesystem or database call, and raises no timeout in configuration. The duration evidence is what the grant buys, so the expected ungranted answer is a half-answered check, no-evidence (not-permitted) in status and in the coverage count, its evidence naming the I/O axis as answered clean and the timing axis as unmeasured. A run reporting the check ok on the clean I/O reading alone has read one axis as the check |
 
+## What a result still owes
+
+A check whose Python route says its own result does not answer the check - the record's `alone_insufficient` - carries what is still owed here, 7 of the 31 entries, set by derivation from the records rather than by judgement. The harness writes the route's field onto each results row and the grader prints it beside the observation, so a tool that found the seed reads as a candidate for the confirmation below rather than as the check answered. Three rows are the other use the records make of the field, an invocation requirement - a command not complete as written - and say how this round meets it instead. The row's status is the engine's and does not move for either.
+
+| Check | Partitions | Still owed |
+|---|---|---|
+| `deps/freshness` | all | the unpinned and yanked halves: an outdated list answers only whether a release is behind, and whether a direct dependency is unpinned or a pinned release yanked is read by the record's lockfile and registry route, which is also what answers a run without the grant |
+| `deps/hygiene` | `pipenv` | nothing a read of the result adds: the record's field on `deptry` states an invocation requirement, that the scan root is `.` with the target as the working directory, which is how this round runs it |
+| `deps/hygiene` | `uv`, `pip`, `poetry`, `pylock` | nothing a read of the result adds: the record's field on `deptry` states an invocation requirement, that the scan root is `.` with the target as the working directory, which is how this round runs it |
+| `test/coverage-reach` | all | nothing a read of the result adds: the record's field on `pytest-cov` states an invocation requirement, that the command names the package under measurement with `--cov=<pkg>`, which a completion supplies in this round |
+| `arch/over-decomposition` | `uv` | a read confirming each forwarding module is genuinely trivial and that merging it raises cohesion; a split that maps onto independently changing responsibilities is correct design rather than a finding |
+| `arch/over-abstraction` | `uv` | a read confirming, per trigger, that no second consumer or second value is imminent in-tree and that collapsing the construct removes indirection without losing a genuine seam; a documented extension point is a suppression rather than a finding |
+| `security/injection` | `uv` | a source-to-sink trace in the real code for each reported call, confirming an attacker-reachable path into the sink; a sink fed only a hardcoded constant is not an injection, so a scanner hit on the seed is a candidate until that read |
+
 ## A seed nothing expects
 
 A seeded finding that no expectation names would be planted and then never looked for, which at review is indistinguishable from a fixture that never planted it. So the two sets are held equal in both directions by the suite rather than by reading.

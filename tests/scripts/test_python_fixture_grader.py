@@ -785,3 +785,62 @@ def test_every_row_the_harness_can_produce_resolves_a_findings_stream(grader):
         "resolve a findings stream for, so each would be read as an empty "
         "stream on every run rather than on a stale one"
     )
+
+
+def test_a_results_file_older_than_the_caveat_still_reads_a_hit_as_a_candidate(
+    grader,
+):
+    """A results entry carrying no `alone_insufficient` resolves it from the records.
+
+    `fixtures/` is gitignored and nothing regenerates it, so a results file
+    written before the harness recorded the field outlives the change. Reading
+    its missing key as "the result stands alone" would grade a `bandit` hit on
+    `security/injection`'s seed as the check answered; the lookup reads the
+    route's own field instead, the way the findings stream is resolved.
+    """
+    run = {
+        "partition": "uv",
+        "grant": "none",
+        "results": [
+            {
+                "check": "security/injection",
+                "tool": "bandit",
+                "ran": True,
+                "status": "ok",
+                "reason": "",
+                "stdout": "B602 shell=True",
+                "stderr": "",
+            }
+        ],
+    }
+    rows = [r for r in grader.grade_rows(run) if r.check == "security/injection"]
+    assert rows[0].observations[0].alone_insufficient
+    assert "not the check's answer alone" in grader.render(rows)
+
+
+def test_an_entry_saying_its_result_stands_alone_is_not_marked(grader):
+    """An entry's own empty value is the harness's answer and is not overridden.
+
+    Run on `security/injection`, whose routes do carry the field, so the lookup
+    would supply it: an empty value surviving is the entry winning, which a
+    pair the enumeration also answers empty could not show.
+    """
+    run = {
+        "partition": "uv",
+        "grant": "none",
+        "results": [
+            {
+                "check": "security/injection",
+                "tool": "bandit",
+                "ran": True,
+                "status": "ok",
+                "reason": "",
+                "stdout": "B602 shell=True",
+                "stderr": "",
+                "alone_insufficient": "",
+            }
+        ],
+    }
+    rows = [r for r in grader.grade_rows(run) if r.check == "security/injection"]
+    assert rows[0].observations[0].alone_insufficient == ""
+    assert "not the check's answer alone" not in grader.render(rows)

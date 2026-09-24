@@ -458,6 +458,21 @@ class Invocation:
             this field - `grep findings_stream` over the check tree is the
             answer, and a third record adding one must not have to find this
             sentence.
+        alone_insufficient: What the route's own result still needs before it is
+            the check's answer, read from the route this row runs - the `runs`
+            command route where there is one, otherwise the group's
+            non-`forbidden` routes carrying it, which must agree - and written
+            onto the results row under the same key. Empty where the route's
+            result stands alone. Where the group has a `runs` route the field is
+            not held consistent across it the way `findings_stream` is: a
+            `superseded` route's caveat is about that route, and only the one
+            the row runs says what the row's result lacks. Some records use the
+            field for an invocation requirement - an argv that is not complete
+            as written - rather than for a result that needs confirming, and
+            the row carries whichever the record says. The status a row carries is unchanged by it - `audit-core`'s
+            scale does not grow - so it is the row's other field a reader, and
+            the grader, has to read to see that an `ok` with a hit is a
+            candidate rather than the check answered.
         forms: Every command form this record prescribes for this route, as
             `(form, disposition)` pairs, derived by `_forms_for` from the
             route's `argv`, `argv_by_partition` and `then`. The declaration is
@@ -509,6 +524,7 @@ class Invocation:
     in_env: bool = False
     findings_stream: str = "stdout"
     forms: tuple[tuple[str, str], ...] = ()
+    alone_insufficient: str = ""
 
     def __post_init__(self) -> None:
         if self.completion and not self.note:
@@ -1256,9 +1272,11 @@ def routed_invocations() -> tuple[Invocation, ...]:
     Raises:
         ValueError: If a group carries more than one `runs` command route, two
             different `findings_stream` values, two different `in_env` values,
-            a disposition outside `DISPOSITIONS`, or - where it prescribes no
+            a disposition outside `DISPOSITIONS`, two different
+            `alone_insufficient` values where it prescribes no command and so
+            has no `runs` route to read the field from, or - where it prescribes no
             command and no completion was supplied - no route carrying a note
-            to read the reason off. The first four would otherwise resolve
+            to read the reason off. The first five would otherwise resolve
             silently to whichever route happened to come first; the last is
             `_reason_for_no_command`'s, which composes where several routes
             explain the absence rather than refusing to choose between them.
@@ -1312,6 +1330,21 @@ def routed_invocations() -> tuple[Invocation, ...]:
                 )
             supplied = COMPLETIONS.get((check_id, tool))
             contributed = SUPPLIED.get((check_id, tool))
+            if runs:
+                caveat = runs[0].alone_insufficient or ""
+            else:
+                caveats = {
+                    r.alone_insufficient
+                    for r in routes
+                    if r.alone_insufficient and r.disposition != "forbidden"
+                }
+                if len(caveats) > 1:
+                    raise ValueError(
+                        f"{check_id}/{tool}: routes prescribing no command carry "
+                        "different alone_insufficient values, so which one the "
+                        "row reports would depend on their order in the record"
+                    )
+                caveat = caveats.pop() if caveats else ""
             per_partition = _argv_by_partition(check_id, tool, runs[0]) if runs else ()
             argv = () if per_partition else (tuple(runs[0].argv) if runs else ())
             if supplied:
@@ -1341,6 +1374,7 @@ def routed_invocations() -> tuple[Invocation, ...]:
                         contributed.by_partition if contributed else ()
                     ),
                     supplied_note=contributed.note if contributed else "",
+                    alone_insufficient=caveat,
                 )
             )
     return tuple(rows)
@@ -2039,6 +2073,7 @@ def run_partition(
             "note": invocation.note,
             "needs": tier,
             "in_env": invocation.in_env,
+            "alone_insufficient": invocation.alone_insufficient,
         }
         if supplied:
             # Never as `record_argv`: this round contributed the route, and a

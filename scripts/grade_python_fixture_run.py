@@ -63,6 +63,16 @@ check on this partition, `_out_of_scope_row` where one does and the run's own
 `only_check` did not reach it. Collapsing the two would print the orphan
 claim - that the spec names no such check - over a check the spec does name.
 
+The fifth: a route whose result does not answer the check alone. The harness
+classifies a scanner that ran and printed the seed as `ok`, the engine's status,
+which does not move for the record's `alone_insufficient`; the harness writes
+that field onto the row beside the status, and `observations_for` resolves it
+for a results file older than the key from the same enumeration the stream
+comes from, never reading a missing key as "the result stands alone". The
+render prints it beside a run observation and appends the expectation's `owed`
+to the claim, so a hit on the seed reads as a candidate rather than as the check
+answered. An entry's own value, empty included, is never overridden.
+
 Usage:
     uv run python scripts/grade_python_fixture_run.py fixtures/python/results
 """
@@ -133,6 +143,34 @@ def _findings_stream_map() -> dict[tuple[str, str], str]:
 UNRESOLVED_FINDINGS_STREAM = "unresolved"
 
 
+@cache
+def _alone_insufficient_map() -> dict[tuple[str, str], str]:
+    """What each (check, tool) pair's route says its own result still needs.
+
+    Read from the harness's enumeration, as the stream is, for one kind of entry:
+    a results file written before the harness recorded `alone_insufficient` on
+    its rows. `fixtures/` is gitignored and nothing regenerates it, so such a
+    file outlives the change, and reading its missing key as "the result stands
+    alone" would grade a scanner hit that needs confirming as the check
+    answered - the half-truth this round exists to catch, reintroduced by the
+    grader. A pair the enumeration does not carry resolves to `""`, the same
+    as a route whose result does stand alone; the stream's sentinel already
+    renders that row as unresolved.
+    """
+    return {
+        (invocation.check, invocation.tool): invocation.alone_insufficient
+        for invocation in INVOCATIONS + routed_invocations()
+    }
+
+
+def _alone_insufficient_for(entry: dict[str, object]) -> str:
+    """The entry's own `alone_insufficient`, else the enumeration's for its pair."""
+    if "alone_insufficient" in entry:
+        return str(entry["alone_insufficient"])
+    key = (str(entry.get("check", "")), str(entry.get("tool", "")))
+    return _alone_insufficient_map().get(key, "")
+
+
 def load_run(path: Path) -> Run:
     """Parse one results JSON exactly as the harness wrote it.
 
@@ -198,10 +236,15 @@ def observations_for(run: Run, check: str) -> list[dict[str, object]]:
     Each entry comes back with `findings_stream` filled in wherever it was
     missing, so `seed_signals` always reads the stream the tool actually
     reports on rather than the stdout default that reads a deptry run
-    backwards.
+    backwards, and with `alone_insufficient` filled in the same way, so a
+    results file older than the field still says which hits are candidates.
     """
     return [
-        {**entry, "findings_stream": _findings_stream_for(entry)}
+        {
+            **entry,
+            "findings_stream": _findings_stream_for(entry),
+            "alone_insufficient": _alone_insufficient_for(entry),
+        }
         for entry in _entries_for(run, check)
     ]
 
@@ -226,6 +269,16 @@ class Observation:
     either a real stream name or `UNRESOLVED_FINDINGS_STREAM` - the second
     case is a fact the render has to surface, not just carry, so a stale row
     reads as unresolved instead of as a silent zero.
+
+    `alone_insufficient` is the route's own statement of what its result still
+    needs before it is the check's answer, empty where it stands alone. The
+    `status` beside it is the engine's and does not move for it, so an `ok`
+    from a scanner that found the seed is a candidate wherever this is set,
+    and the render prints it for that reason rather than carrying it, beside
+    an observation that ran. Like `findings_stream`, it is resolved only for
+    rows built through `observations_for`; an orphan or out-of-scope row reads
+    its raw entries and shows the key only where the entry carries it, which
+    cannot misread a hit because such a row grades nothing.
     """
 
     tool: str
@@ -233,6 +286,7 @@ class Observation:
     status: str
     reason: str
     findings_stream: str = ""
+    alone_insufficient: str = ""
 
 
 @dataclass(frozen=True)
@@ -244,6 +298,9 @@ class Row:
     a seed category `SEED_MARKERS` carries no marker for (a dependency-level
     seed like `vulnerable` or `stale`, which no literal substring can name)
     contributes nothing, the same as an expectation naming no seed at all.
+    `owed` is the expectation's statement of what a hit on this check still
+    needs before it is the finding, set where the check's routes say their
+    result does not answer alone; the render appends it to the claim.
     """
 
     check: str
@@ -255,6 +312,7 @@ class Row:
     observations: tuple[Observation, ...]
     signals: dict[str, int]
     verdict: str = "unjudged"
+    owed: str = ""
 
 
 def _claim_for(expectation: Expectation, run: Run) -> str:
@@ -283,6 +341,7 @@ def _observation_tuple(entries: Sequence[dict[str, object]]) -> tuple[Observatio
             status=str(entry.get("status", "")),
             reason=str(entry.get("reason", "")),
             findings_stream=str(entry.get("findings_stream", "")),
+            alone_insufficient=str(entry.get("alone_insufficient", "")),
         )
         for entry in entries
     )
@@ -313,6 +372,7 @@ def grade_row(expectation: Expectation, run: Run) -> Row:
         seeds=expectation.seeds,
         observations=_observation_tuple(observations),
         signals=signals,
+        owed=expectation.owed,
     )
 
 
@@ -540,6 +600,12 @@ def _observations_cell(observations: Sequence[Observation]) -> str:
                 " [findings stream unresolved: no invocation recorded for this "
                 "check+tool; no signal computed]"
             )
+        if observation.ran and observation.alone_insufficient:
+            detail += (
+                " [not the check's answer alone: "
+                + _escape_cell(observation.alone_insufficient)
+                + "]"
+            )
         parts.append(detail)
     return "; ".join(parts)
 
@@ -569,7 +635,9 @@ def render(rows: Sequence[Row]) -> str:
                     row.form,
                     _observations_cell(row.observations),
                     _signals_cell(row.signals),
-                    _escape_cell(row.claim),
+                    _escape_cell(
+                        f"{row.claim} Still owed: {row.owed}" if row.owed else row.claim
+                    ),
                     row.verdict,
                 ]
             )
