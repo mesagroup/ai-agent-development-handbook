@@ -4,6 +4,17 @@ domain: data-protection
 locality: global
 handbook:
   - data-protection/know-what-personal-data-you-hold-and-where-it-goes
+routes:
+  - lang: any
+    kind: procedure
+    note: >-
+      No detector decides this check, and the reason is structural rather than a fact about which scanners exist: the question is whether an artifact exists beside the code and matches it, and no scan of the code can establish that a document is absent. So there is nothing to detect before prescribing, and this is a reading pass over two things: the surface the code shows, and the map that claims to describe it.
+
+      **For all three of the map's own axes** - the entry points, the stores and the outbound edges - take the derived personal-data surface the skill file defines and builds once, rather than re-deriving any of them here, so this row and every other record in the domain are questioning one list rather than three that are free to disagree. This check is the one that compares that surface against the map, which is why it consumes all three axes where its siblings each take one. Carry the surface's own caveat with it: entry points are the weakest axis against the code, because an entry point is where personal data *may* arrive and the code shows the channel rather than what comes down it, which is why the handbook's own derivation sentence claims only stores and edges. So check that the map names entry points at all, and do not claim a specific one is missing unless the channel is plainly an intake path.
+
+      **For the map itself**, read the repository's documentation tree, including a compliance or privacy directory if there is one, and the contributor guide, which is where a project records which documents a change is expected to update.
+
+      Where no map is documented, **report the absence as the finding**. Do not infer a map from field names or file paths and then flag the code against it: that is the no-inferred-rubric failure `audit/SKILL.md` forbids, and the row it produces cannot be fixed even in principle, because the standard it cites is one nobody agreed to.
 ---
 
 # Data-flow map
@@ -18,19 +29,9 @@ What establishes a surface, and the line the inferred-surface guard below actual
 
 The bands below the Critical are **mechanism** bands and stand whatever established the surface: a map that exists is itself an establisher, and each of them cites what the map omits or where it lives rather than what any store holds.
 
-**Important** - a map that exists and is demonstrably stale: it omits a store, an outbound edge, or an entry point the code shows. Cite the omission at a `file:line`, because "stale" with nothing under it is an impression rather than a finding. Entry points are the weakest of the three against the code, for the reason the reading pass gives, so an ingress omission is reported as the map naming no entry points at all rather than as a specific one being missing.
+**Important** - a map that exists and is demonstrably stale: it omits a store, an outbound edge, or an entry point the code shows. Cite the omission at a `file:line`, because "stale" with nothing under it is an impression rather than a finding. Entry points are the weakest of the three against the code, for the reason the reading route gives, so an ingress omission is reported as the map naming no entry points at all rather than as a specific one being missing.
 
 **Minor** - a map that is complete but on a path nothing brings to a reviewer's attention, so its accuracy is a matter of luck rather than of maintenance. The test is documented custody, which is decidable from the clone: the contributor guide, the pull-request template or a code-owners file names the map as something a change is expected to update, or it sits beside the code it describes. Where none of those holds, this row applies.
-
-## Tooling fallback
-
-No detector decides this check, and the reason is structural rather than a fact about which scanners exist: the question is whether an artifact exists beside the code and matches it, and no scan of the code can establish that a document is absent. So there is nothing to detect before prescribing, and this is a reading pass over two things: the surface the code shows, and the map that claims to describe it.
-
-**For all three of the map's own axes** - the entry points, the stores and the outbound edges - take the derived personal-data surface the skill file defines and builds once, rather than re-deriving any of them here, so this row and every other record in the domain are questioning one list rather than three that are free to disagree. This check is the one that compares that surface against the map, which is why it consumes all three axes where its siblings each take one. Carry the surface's own caveat with it: entry points are the weakest axis against the code, because an entry point is where personal data *may* arrive and the code shows the channel rather than what comes down it, which is why the handbook's own derivation sentence claims only stores and edges. So check that the map names entry points at all, and do not claim a specific one is missing unless the channel is plainly an intake path.
-
-**For the map itself**, read the repository's documentation tree, including a compliance or privacy directory if there is one, and the contributor guide, which is where a project records which documents a change is expected to update.
-
-Where no map is documented, **report the absence as the finding**. Do not infer a map from field names or file paths and then flag the code against it: that is the no-inferred-rubric failure `audit/SKILL.md` forbids, and the row it produces cannot be fixed even in principle, because the standard it cites is one nobody agreed to.
 
 ## Fix
 

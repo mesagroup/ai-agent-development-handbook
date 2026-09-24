@@ -5,6 +5,15 @@ locality: global
 handbook:
   - data-protection/every-processor-needs-an-agreement-and-the-register-must-match-the-code-a
   - security-supply-chain/depend-only-on-what-you-can-account-for-b
+routes:
+  - lang: any
+    kind: procedure
+    note: >-
+      No tool enumerates a project's processors or reads a contract, so this is a reading pass. Read the register wherever the project keeps it - a compliance or privacy directory, a vendor or sub-processor page in the documentation tree, an architecture decision record - and then, per processor it lists, whether the three fields Part 10 asks for are present and dated rather than gestured at.
+
+      **The hard boundary, which is the rule this domain breaks most easily:** whether an agreement was actually signed, and whether a provider honours the retention window it publishes, is not visible from a repository at all. A register can name a DPA that was never executed, and the file reads the same either way. So report each of those as an annotated status in the form `SKILL.md` fixes, naming what would settle it and who holds that evidence: the executed agreement, held by whoever owns compliance, and the provider's current terms, held by the provider. Never `ok`. This record is where `SKILL.md`'s rule for choosing between the two bites, so apply it here rather than picking: a register that **records** an agreement is `warn (unverifiable-from-here)`, because the clone read the record and cannot read its truth, while a register with **no agreement field** is a plain `violation` with no annotation, because the clone settled it and annotating it would report an open question the repository already answered. The register's *contents* are readable here and its *truth* is not, and the reconciliation date is in this check because it is the one field that makes the gap between them visible from the clone.
+
+      Keep the terms of art apart while reading, because the section fixes them and a report that conflates them misdirects the fix: the **legal basis** for the processing is the controller's own and is a separate obligation, so a register missing a basis is not a finding of this check. This check is the processor's agreement, its training position and its retention window.
 ---
 
 # Processor register
@@ -24,14 +33,6 @@ The two bands about a **missing register** rest on personal data crossing to the
 **Important** - a register whose fields are all present but which records no reconciliation date, so nobody can say when it last matched the code. The fields are the easy half; the date is what makes the register a claim about the current system rather than about the day it was written.
 
 **Minor** - a field recorded as free prose where a date or a yes/no would be checkable: "we opted out" without the mechanism, "short retention" without a window. The fact may well be right, and nobody downstream can act on it or notice it going stale.
-
-## Tooling fallback
-
-No tool enumerates a project's processors or reads a contract, so this is a reading pass. Read the register wherever the project keeps it - a compliance or privacy directory, a vendor or sub-processor page in the documentation tree, an architecture decision record - and then, per processor it lists, whether the three fields Part 10 asks for are present and dated rather than gestured at.
-
-**The hard boundary, which is the rule this domain breaks most easily:** whether an agreement was actually signed, and whether a provider honours the retention window it publishes, is not visible from a repository at all. A register can name a DPA that was never executed, and the file reads the same either way. So report each of those as an annotated status in the form `SKILL.md` fixes, naming what would settle it and who holds that evidence: the executed agreement, held by whoever owns compliance, and the provider's current terms, held by the provider. Never `ok`. This record is where `SKILL.md`'s rule for choosing between the two bites, so apply it here rather than picking: a register that **records** an agreement is `warn (unverifiable-from-here)`, because the clone read the record and cannot read its truth, while a register with **no agreement field** is a plain `violation` with no annotation, because the clone settled it and annotating it would report an open question the repository already answered. The register's *contents* are readable here and its *truth* is not, and the reconciliation date is in this check because it is the one field that makes the gap between them visible from the clone.
-
-Keep the terms of art apart while reading, because the section fixes them and a report that conflates them misdirects the fix: the **legal basis** for the processing is the controller's own and is a separate obligation, so a register missing a basis is not a finding of this check. This check is the processor's agreement, its training position and its retention window.
 
 ## Fix
 

@@ -4,6 +4,23 @@ domain: data-protection
 locality: global
 handbook:
   - data-protection/retention-and-deletion-are-design-decisions-not-cleanup
+routes:
+  - lang: any
+    kind: procedure
+    note: >-
+      No tool decides this check, and the reason is structural rather than a fact about which scanners exist: a retention limit is a number somebody chose for a reason, and no scan separates a TTL set on purpose from one that arrived with a client library's default. So this is a reading pass over an enumeration this domain already has rather than a fresh one.
+
+      **Take the store list from the store axis of the derived personal-data surface `SKILL.md` builds once in `audit-core`'s parallel evidence step**, under the engine's rule that a shared ground-truth artifact is built once and consumed rather than rebuilt inside each agent. Take it from that artifact and **not** from `data-protection/data-flow-map`'s output, which is not available to this agent. `SKILL.md` names that axis's evidence, and the stores it has to reach past the one a service is named after are those that arrive as an implementation detail of something else: a cache, a vector index, an object bucket of uploads, a queue, the log and trace retention on an observability backend, and the backup schedule.
+
+      Then read, per store, where a limit would live: a TTL or expiry column in the schema or the migrations; a lifecycle or expiration rule in the infrastructure definition; a retention setting in a managed service's configuration; or a scheduled job in the CI or scheduler configuration, together with the test that says it still runs. Where a store carries a limit, read what the limit applies to as well as its value, because a lifecycle rule that expires one prefix of a bucket says nothing about the rest of it.
+
+      **A provider's own retention window is not this check's field.** How long a model provider, a tracing backend or an error tracker keeps what was sent to it is `data-protection/processor-register`'s. This check is the stores the project itself operates. Reporting the provider window in both rows counts one gap twice and splits its fix across two owners.
+
+      **The other half of this handbook section is `data-protection/deletion-path`'s**, so the boundary has to be said rather than assumed. This check reads whether a limit exists per store and what enforces it: time-based expiry that runs without anyone asking. That check owns the deletion path. A store can fail both, and they are two gaps with two mechanisms, so say which one a row is about. The backup schedule's **window** is a retention limit and belongs here, while its **aging out** is the downstream boundary, so the missing window is reported once, in this row.
+
+      **The audit reads the mechanism; it never runs it.** Triggering a purge job or a lifecycle rule to see whether it still works removes everything already past the cutoff, which is the destruction the `## Fix` section refuses to make on the audit's initiative, reached by the back door. The evidence is the configuration and the test; where those do not settle whether the job still runs, the row says the enforcement is unverified rather than proving it.
+
+      **Where the repository plainly provisions a store somewhere else** - a managed service created by hand, a platform whose retention is set in a console - there is no configuration in the clone to read, so say so as a limit of the pass rather than reporting the limit as absent. Status then follows `SKILL.md`'s rule for choosing which one carries the annotation: where the repository documents that the limit is set in that console, the clone read the record and cannot read its truth, which is `warn (unverifiable-from-here)` naming the platform's configuration and whoever operates it as what would settle it. Where nothing documents a limit at all, the absence of a chosen and stated limit is itself readable and the severity bands apply with no annotation. This is available only where the repository plainly provisions the store elsewhere; it is not a softening for every missing limit, because a store the infrastructure definition creates and does not bound is a readable absence that the clone has already settled.
 ---
 
 # Retention limits per store
@@ -21,22 +38,6 @@ The bands that assert personal data is being kept past its limit rest on persona
 **Important** also for a limit enforced by a scheduled job with no test. Nothing tells you the day it stops running: a job that fails silently leaves a store that looks bounded and is not, and the gap surfaces only when somebody asks how old the oldest record is - which is usually the same day they ask for it to be gone.
 
 **Minor** - a limit that is enforced but stated nowhere a reader can find, so nobody can say whether it was chosen or inherited from a library's or a platform's default. The value may well be right, and the row is that a limit nobody can find is one nobody can review, defend to a data subject, or change deliberately.
-
-## Tooling fallback
-
-No tool decides this check, and the reason is structural rather than a fact about which scanners exist: a retention limit is a number somebody chose for a reason, and no scan separates a TTL set on purpose from one that arrived with a client library's default. So this is a reading pass over an enumeration this domain already has rather than a fresh one.
-
-**Take the store list from the store axis of the derived personal-data surface `SKILL.md` builds once in `audit-core`'s parallel evidence step**, under the engine's rule that a shared ground-truth artifact is built once and consumed rather than rebuilt inside each agent. Take it from that artifact and **not** from `data-protection/data-flow-map`'s output, which is not available to this agent. `SKILL.md` names that axis's evidence, and the stores it has to reach past the one a service is named after are those that arrive as an implementation detail of something else: a cache, a vector index, an object bucket of uploads, a queue, the log and trace retention on an observability backend, and the backup schedule.
-
-Then read, per store, where a limit would live: a TTL or expiry column in the schema or the migrations; a lifecycle or expiration rule in the infrastructure definition; a retention setting in a managed service's configuration; or a scheduled job in the CI or scheduler configuration, together with the test that says it still runs. Where a store carries a limit, read what the limit applies to as well as its value, because a lifecycle rule that expires one prefix of a bucket says nothing about the rest of it.
-
-**A provider's own retention window is not this check's field.** How long a model provider, a tracing backend or an error tracker keeps what was sent to it is `data-protection/processor-register`'s. This check is the stores the project itself operates. Reporting the provider window in both rows counts one gap twice and splits its fix across two owners.
-
-**The other half of this section is `data-protection/deletion-path`'s**, so the boundary has to be said rather than assumed. This check reads whether a limit exists per store and what enforces it: time-based expiry that runs without anyone asking. That check owns the deletion path. A store can fail both, and they are two gaps with two mechanisms, so say which one a row is about. The backup schedule's **window** is a retention limit and belongs here, while its **aging out** is the downstream boundary, so the missing window is reported once, in this row.
-
-**The audit reads the mechanism; it never runs it.** Triggering a purge job or a lifecycle rule to see whether it still works removes everything already past the cutoff, which is the destruction the fix below refuses to make on the audit's initiative, reached by the back door. The evidence is the configuration and the test; where those do not settle whether the job still runs, the row says the enforcement is unverified rather than proving it.
-
-**Where the repository plainly provisions a store somewhere else** - a managed service created by hand, a platform whose retention is set in a console - there is no configuration in the clone to read, so say so as a limit of the pass rather than reporting the limit as absent. Status then follows `SKILL.md`'s rule for choosing which one carries the annotation: where the repository documents that the limit is set in that console, the clone read the record and cannot read its truth, which is `warn (unverifiable-from-here)` naming the platform's configuration and whoever operates it as what would settle it. Where nothing documents a limit at all, the absence of a chosen and stated limit is itself readable and the bands above apply with no annotation. This is available only where the repository plainly provisions the store elsewhere; it is not a softening for every missing limit, because a store the infrastructure definition creates and does not bound is a readable absence that the clone has already settled.
 
 ## Fix
 
