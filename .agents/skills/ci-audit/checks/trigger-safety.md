@@ -38,9 +38,9 @@ routes:
       or `gh pr checkout` of it, a package install from the head repository,
       or under `workflow_run` the triggering run's `head_sha`, `head_branch` or
       `head_repository` where that run's own event starts with
-      `pull_request` and is not `pull_request_target`, since after `pull_request_target` or
-      another `workflow_run` those fields name the base repository's code and
-      the pull request's is reached only by looking it up - and it executes in any step that runs what was
+      `pull_request`, `pull_request_target` included, since after another
+      `workflow_run` those fields name the default branch and the pull
+      request's code is reached only by looking it up - and it executes in any step that runs what was
       fetched: a script, a local action, an install step whose hooks it
       supplies, or a build tool reading its configuration from it. A reusable
       workflow the job calls and a composite action it uses are read through,
@@ -60,8 +60,8 @@ routes:
       `true` in any letter case or an expression an outside author can make
       evaluate to that. Third, the event is `pull_request_target`, or a
       `workflow_run` whose triggering run's own event starts with
-      `pull_request` and is not `pull_request_target`, since under any other
-      `workflow_run` the guard lets every checkout through. Fourth, the
+      `pull_request`, since under any other `workflow_run` the guard lets
+      every checkout through. Fourth, the
       values the step receives at run time, its repository, ref and resolved
       commit, include the event's head repository, a `refs/pull/<n>/` ref, or
       a head or merge sha the event payload carries, since the guard compares
