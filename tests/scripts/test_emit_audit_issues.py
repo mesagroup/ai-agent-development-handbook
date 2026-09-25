@@ -38,6 +38,22 @@ def _finding(**over: object) -> dict[str, object]:
     return base
 
 
+#: A complete provenance header, the shape `audit/SKILL.md` states. The CLI
+#: refuses a file without one, so every CLI test writes its findings under it.
+PROVENANCE: dict[str, object] = {
+    "target": "example-org/example-repo",
+    "target_ref": {"commit": "abc1234", "branch": "main", "dirty": False},
+    "mode": "report-only",
+    "plugin": "def5678",
+    "grants": {"resolved-tree": False, "target-execution": False},
+    "generated": "2026-09-25",
+}
+
+
+def _file(findings: list[dict[str, object]]) -> str:
+    return json.dumps({**PROVENANCE, "findings": findings})
+
+
 def _load(*raw: dict[str, object]) -> list[em.Finding]:
     return em.load_findings(list(raw))
 
@@ -206,7 +222,7 @@ def test_the_dry_run_names_every_label_it_would_need():
 
 def test_the_cli_creates_nothing_without_the_flag(tmp_path, capsys):
     path = tmp_path / "findings.json"
-    path.write_text(json.dumps({"findings": [_finding()]}))
+    path.write_text(_file([_finding()]))
     assert em.main([str(path), "--target", "some-org/some-repo"]) == 0
     out = capsys.readouterr().out
     assert "Productionization of some-org/some-repo" in out
@@ -316,7 +332,7 @@ def test_an_empty_findings_file_emits_nothing_rather_than_an_empty_epic(
     existing tree and refuse the later run that actually had findings.
     """
     path = tmp_path / "findings.json"
-    path.write_text(json.dumps({"findings": []}))
+    path.write_text(_file([]))
     assert em.main([str(path), "--target", "t/t"]) == 0
     out = capsys.readouterr().out
     assert "no findings to file" in out
@@ -326,7 +342,7 @@ def test_an_empty_findings_file_emits_nothing_rather_than_an_empty_epic(
 def test_a_severity_floor_that_drops_everything_emits_nothing(tmp_path, capsys):
     """The reachable case, and the one the report template names."""
     path = tmp_path / "findings.json"
-    path.write_text(json.dumps({"findings": [_finding(severity="minor")]}))
+    path.write_text(_file([_finding(severity="minor")]))
     assert em.main([str(path), "--target", "t/t", "--min-severity", "important"]) == 0
     out = capsys.readouterr().out
     assert "no findings to file at important or above" in out
@@ -564,7 +580,7 @@ def test_an_oversized_body_is_refused_before_the_first_write(tmp_path, capsys):
     the duplicate guard then refuses every retry. So it is answered from the
     tree, where nothing has been created yet and nothing needs undoing."""
     path = tmp_path / "f.json"
-    path.write_text(json.dumps(_huge_cluster()))
+    path.write_text(_file(_huge_cluster()["findings"]))
 
     code = em.main([str(path), "--target", "t/t", "--create"])
 
@@ -580,7 +596,7 @@ def test_the_dry_run_reports_an_oversized_body_rather_than_promising_writes(
     """A dry run exists to say what --create would do. Printing a write count
     for a run that would be refused is the one answer worse than silence."""
     path = tmp_path / "f.json"
-    path.write_text(json.dumps(_huge_cluster()))
+    path.write_text(_file(_huge_cluster()["findings"]))
 
     code = em.main([str(path), "--target", "t/t"])
 
@@ -594,10 +610,74 @@ def test_a_body_within_the_limit_is_not_reported(tmp_path, capsys):
     """The guard has to be silent on the ordinary case, or the dry run cries
     wolf on every run and the operator stops reading it."""
     path = tmp_path / "f.json"
-    path.write_text(json.dumps({"findings": [_finding()]}))
+    path.write_text(_file([_finding()]))
 
     code = em.main([str(path), "--target", "t/t"])
 
     assert code == 0
     assert "GitHub refuses" not in capsys.readouterr().err
     assert em.oversized(em.build_tree(_load(_finding()), target="t/t")) == []
+
+
+def test_provenance_problems_names_every_missing_field_at_once():
+    assert em.provenance_problems(PROVENANCE) == []
+    lacking = em.provenance_problems({"findings": []})
+    assert [p.split(" ")[0] for p in lacking] == [
+        "target",
+        "mode",
+        "plugin",
+        "generated",
+        "target_ref",
+        "grants",
+    ]
+    assert em.provenance_problems([]) == [
+        "the payload is a bare list, so it carries none of "
+        + ", ".join(em.PROVENANCE_FIELDS)
+    ]
+
+
+def test_provenance_in_the_wrong_shape_is_named_by_its_part():
+    """A sentence where a mapping belongs reads as present and compares as a string."""
+    payload = {
+        **PROVENANCE,
+        "target_ref": "abc1234 (branch main, clean)",
+        "grants": {"resolved-tree": True, "target-execution": "no"},
+    }
+    assert em.provenance_problems(payload) == [
+        "target_ref (a mapping of commit, branch, dirty)",
+        "grants.target-execution (true or false)",
+    ]
+    payload = {**PROVENANCE, "target_ref": {"commit": "abc1234", "branch": ""}}
+    assert em.provenance_problems(payload) == [
+        "target_ref.branch (a non-empty string)",
+        "target_ref.dirty (true or false)",
+    ]
+
+
+def test_the_cli_refuses_a_file_without_provenance(tmp_path, capsys):
+    path = tmp_path / "f.json"
+    path.write_text(json.dumps({"findings": [_finding()]}))
+    code = em.main([str(path), "--target", "o/r"])
+    err = capsys.readouterr().err
+    assert code == 2
+    assert "lacks its provenance" in err
+    assert "target_ref" in err and "grants" in err
+    assert "--accept-missing-provenance" in err
+
+
+def test_the_flag_reads_an_older_file_and_says_so(tmp_path, capsys):
+    path = tmp_path / "f.json"
+    path.write_text(json.dumps({"findings": [_finding(severity="Critical")]}))
+    code = em.main([str(path), "--target", "o/r", "--accept-missing-provenance"])
+    out = capsys.readouterr().out
+    assert code == 0
+    assert "--accept-missing-provenance was passed" in out
+    assert "the file lacks target (a non-empty string)" in out
+    assert "priority:urgent" in out
+
+
+def test_the_flag_on_a_complete_file_says_it_accepted_nothing(tmp_path, capsys):
+    path = tmp_path / "f.json"
+    path.write_text(_file([_finding()]))
+    assert em.main([str(path), "--target", "o/r", "--accept-missing-provenance"]) == 0
+    assert "so it accepted nothing" in capsys.readouterr().out
