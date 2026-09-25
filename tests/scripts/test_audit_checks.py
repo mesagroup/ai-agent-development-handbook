@@ -3866,3 +3866,95 @@ def test_the_answers_pass_is_not_vacuous():
     assert all(
         len({r.answers for r in checks[cid].routes if r.answers}) >= 2 for cid in axised
     )
+
+
+#: A sentence stating how many rows a check reports - "one row per ...",
+#: "a row for ...". `audit-core`'s findings-matrix step makes one instance the
+#: row by default and lets a record state another unit only in one form, so a
+#: unit sentence anywhere else is either the default restated in a second
+#: place or an override nothing but a reader will find.
+_ROW_UNIT_SENTENCE = re.compile(r"\b(?:one|a|each)\s+rows?\s+(?:per|for)\b", re.I)
+_ROW_UNIT_FORM = re.compile(r"^Row unit: [^.]+?, because [^.]+\.")
+
+#: Records whose unit sentence is left as written, each with the reason. The
+#: one entry disagrees with itself about its unit - its `evidence` says "A row
+#: records the detected runtimes", its body "one row per detected runtime" -
+#: and that disagreement is a decision #20's attended run takes, not one the
+#: row rule's migration may settle by picking a side.
+ROW_UNIT_LEFT_AS_WRITTEN = {"arch/runtime-declaration": "#20 decides its unit"}
+
+
+def _strings_in(value: object) -> list[str]:
+    """Every string a parsed frontmatter value holds, at any depth."""
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, dict):
+        return [s for v in value.values() for s in _strings_in(v)]
+    if isinstance(value, list):
+        return [s for v in value for s in _strings_in(v)]
+    return []
+
+
+def _row_unit_problems(check_id: str, text: str, evidence: str | None) -> list[str]:
+    """What is wrong with how one record states its row unit, if anything."""
+    problems = []
+    if evidence and evidence.startswith("Row unit"):
+        if not _ROW_UNIT_FORM.match(evidence):
+            problems.append(
+                f"{check_id}: `evidence` opens with a unit that is not in the form "
+                "`Row unit: <unit>, because <why>.`"
+            )
+        text = text.replace(evidence.split(".", 1)[0], "", 1)
+    stray = [
+        " ".join(text[max(0, m.start() - 40) : m.end() + 40].split())
+        for m in _ROW_UNIT_SENTENCE.finditer(text)
+    ]
+    if stray:
+        problems.append(
+            f"{check_id}: states a row unit outside the `Row unit:` sentence: {stray}"
+        )
+    return problems
+
+
+def test_a_record_states_its_row_unit_only_in_the_rules_form():
+    """A row unit is stated once, where `audit-core` says, or not at all.
+
+    The engine's default is one row per instance; a record overriding it
+    opens its `evidence` with `Row unit: <unit>, because <why>.` Any other
+    sentence about how many rows the check reports is the grain a domain
+    agent used to decide for itself, which is how one run's 12 rows became
+    another's 48 over the same defects. The folded YAML is read as the loader
+    reads it, so a sentence split across source lines is still one sentence,
+    and every string the frontmatter holds is read, route notes included.
+    """
+    checks, errors = ac.load_checks(ac.SKILLS_DIR)
+    assert errors == []
+    problems = []
+    for check in checks.values():
+        if check.id in ROW_UNIT_LEFT_AS_WRITTEN:
+            continue
+        frontmatter, body, _ = ac._split_frontmatter(check.path.read_text())
+        text = " ".join([*_strings_in(frontmatter), body])
+        evidence = " ".join(check.evidence.split()) if check.evidence else None
+        problems += _row_unit_problems(check.id, " ".join(text.split()), evidence)
+    assert problems == []
+    stated = sorted(
+        c.id for c in checks.values() if (c.evidence or "").startswith("Row unit: ")
+    )
+    assert len(stated) >= 4, stated
+    assert set(ROW_UNIT_LEFT_AS_WRITTEN) <= set(checks)
+
+
+def test_the_row_unit_guard_catches_a_unit_in_the_wrong_place():
+    assert _row_unit_problems("x/y", "The check reports one row per module.", None)
+    assert _row_unit_problems("x/y", "text", "Row unit - the project.")
+    assert not _row_unit_problems(
+        "x/y",
+        "Row unit: the project, because the decision is the project's. More.",
+        "Row unit: the project, because the decision is the project's. More.",
+    )
+    assert _row_unit_problems(
+        "x/y",
+        "Row unit: the project, because it is one. Also a row for each module.",
+        "Row unit: the project, because it is one. Also a row for each module.",
+    )
