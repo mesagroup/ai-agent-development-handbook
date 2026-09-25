@@ -732,11 +732,14 @@ def test_the_owed_axis_is_not_vacuous():
     here moves both sides together and leaves the equality green, so the
     population is held at its present size with no slack, and
     `security/injection` - the check #154 names, whose scanner hits are
-    candidates until a source-to-sink trace - is held by name.
+    candidates until a source-to-sink trace - is held by name. The floor fell
+    from 7 to 4 when three routes stopped using the field for an invocation
+    requirement, which moved into their notes: those entries had owed nothing
+    a read adds, so the population lost no confirmation it carried.
     """
     stated = {e.check for e in EXPECTATIONS if e.owed}
     assert "security/injection" in stated, stated
-    assert len([e for e in EXPECTATIONS if e.owed]) >= 7, stated
+    assert len([e for e in EXPECTATIONS if e.owed]) >= 4, stated
 
 
 def test_the_over_decomposition_expectation_carries_the_computed_file_count():

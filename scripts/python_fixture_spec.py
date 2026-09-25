@@ -708,10 +708,7 @@ class Expectation:
     of the grade sees that a scanner's hit on the seed is a candidate and what
     confirms it. It is prose because the confirmation is a reading, not a
     command this round runs, and it never changes a status: the row's status is
-    the engine's, and what is owed is carried beside it. Where a record uses the
-    field for an invocation requirement instead - an argv not complete as
-    written - the entry says so and says how this round meets it, since there
-    the result owes nothing a read would add.
+    the engine's, and what is owed is carried beside it.
     """
 
     check: str
@@ -816,11 +813,6 @@ EXPECTATIONS = (
         (),
         "the same, and for the same reason: the format is unreadable to deptry with "
         "the tree or without it, so this is the one entry here the grant cannot move",
-        owed=(
-            "nothing a read of the result adds: the record's field on `deptry` states "
-            "an invocation requirement, that the scan root is `.` with the target as the "
-            "working directory, which is how this round runs it"
-        ),
     ),
     Expectation(
         "deps/hygiene",
@@ -844,11 +836,6 @@ EXPECTATIONS = (
         "directions at once - and it is the reason this axis is written down at all: "
         "graded against the granted claim, a correct ungranted run reads as a tool "
         "defect",
-        owed=(
-            "nothing a read of the result adds: the record's field on `deptry` states "
-            "an invocation requirement, that the scan root is `.` with the target as the "
-            "working directory, which is how this round runs it"
-        ),
     ),
     Expectation(
         "deps/inventory",
@@ -948,11 +935,6 @@ EXPECTATIONS = (
         "exclusion reading alone has read one axis as the check, and one recording "
         "no-evidence with no axis named has skipped the half the record says "
         "survives",
-        owed=(
-            "nothing a read of the result adds: the record's field on `pytest-cov` "
-            "states an invocation requirement, that the command names the package under "
-            "measurement with `--cov=<pkg>`, which a completion supplies in this round"
-        ),
     ),
     Expectation(
         "arch/complexity",
