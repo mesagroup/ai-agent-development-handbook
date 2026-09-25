@@ -243,8 +243,8 @@ def test_a_scan_root_without_its_own_config_reports_a_false_clean(
     assert misdirected.returncode == 0, (
         "deptry no longer reports a false clean when ROOT and the working "
         "directory name different projects. Re-read deps/hygiene's note: the "
-        "clause about passing --config, and alone_insufficient, both rest on "
-        f"this.\n{misdirected.stdout + misdirected.stderr}"
+        "clause about passing --config, and its scan-root paragraph, both rest "
+        f"on this.\n{misdirected.stdout + misdirected.stderr}"
     )
     pointed = subprocess.run(
         [
