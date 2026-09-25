@@ -7,6 +7,11 @@ handbook:
   - evaluation/measure-the-behaviors-that-matter-a
   - evaluation/evaluate-a-multi-agent-system-unit-by-unit
   - evaluation/name-the-anti-patterns-out-loud
+routes:
+  - lang: any
+    kind: procedure
+    note: >-
+      **Coverage map (the load-bearing step):** list the behaviors-that-matter, then map each to the eval(s) that exercise it by reading the eval configs/datasets - not by trusting a summary. The unmapped behaviors are the gap rows. A capability with a leaderboard entry but no test case for its key failure mode is still a gap.
 ---
 
 # Eval coverage
@@ -18,10 +23,6 @@ For each behavior-that-matters, is there an eval that exercises it? Uncovered ca
 **Critical** - a product-critical behavior with **no** eval.
 
 **Minor** - a nice-to-have dimension not yet measured.
-
-## Tooling fallback
-
-**Coverage map (the load-bearing step):** list the behaviors-that-matter, then map each to the eval(s) that exercise it by reading the eval configs/datasets - not by trusting a summary. The unmapped behaviors are the gap rows. A capability with a leaderboard entry but no test case for its key failure mode is still a gap.
 
 ## Fix
 

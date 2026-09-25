@@ -4,6 +4,11 @@ domain: eval
 locality: local
 handbook:
   - evaluation/ask-for-a-described-category-not-a-bare-number
+routes:
+  - lang: any
+    kind: procedure
+    note: >-
+      Needs reading - no tool in this domain's evidence pass reaches this: read the judge prompt or scorer template for the output it requests, then read the code that consumes the verdict for how it thresholds or aggregates it. The prompt alone is half the check, because a well-described scale can still be undone by a consumer that averages it.
 ---
 
 # Judge verdict scale (shape of the model's own judgment)
@@ -15,10 +20,6 @@ Where the suite asks a model for a judgment of its own - a confidence, a quality
 **Important** - a free numeric self-report that something downstream thresholds or averages, so the pipeline acts on precision the scale cannot carry.
 
 **Minor** - a described scale whose labels are sound but whose boundary is stated only as a number, or an ordinal scale reported with an unspecified correlation where a rank-aware statistic belongs.
-
-## Tooling fallback
-
-Needs reading - no tool in this domain's evidence pass reaches this: read the judge prompt or scorer template for the output it requests, then read the code that consumes the verdict for how it thresholds or aggregates it. The prompt alone is half the check, because a well-described scale can still be undone by a consumer that averages it.
 
 ## Fix
 

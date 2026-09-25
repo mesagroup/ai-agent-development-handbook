@@ -5,6 +5,11 @@ locality: local
 handbook:
   - evaluation/build-a-dataset-you-can-trust
   - evaluation/name-the-anti-patterns-out-loud
+routes:
+  - lang: any
+    kind: procedure
+    note: >-
+      Needs reading - no tool in this domain's evidence pass reaches this: compare the eval dataset and any few-shot/prompt examples for overlapping items, and check whether ground truth was produced independently of the model under test.
 ---
 
 # Contamination / leakage
@@ -14,10 +19,6 @@ Test items that leaked into prompts/few-shots, ground truth derived from the mod
 ## Severity
 
 **Critical** - dataset contamination / leakage that invalidates reported numbers.
-
-## Tooling fallback
-
-Needs reading - no tool in this domain's evidence pass reaches this: compare the eval dataset and any few-shot/prompt examples for overlapping items, and check whether ground truth was produced independently of the model under test.
 
 ## Fix
 

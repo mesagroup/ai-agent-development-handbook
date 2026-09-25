@@ -14,12 +14,15 @@ handbook_note: >-
   procedure. No other row names adversarial or red-team testing, so mapping
   this opt-in to that same row would cite one instruction under a third
   check rather than ground a distinct clause.
+answers_ungranted: none
+routes:
+  - lang: any
+    kind: procedure
+    needs: target-execution
+    note: >-
+      No tool in this domain's evidence pass runs a red-team or adversarial suite: probe prompt-injection and jailbreak resistance as a behavioral suite by hand, and frame the security overlap for the report rather than re-deciding it here. Probing is running the target's agent, so this route needs the `target-execution` grant.
 ---
 
 # Adversarial / red-team eval
 
 Probe prompt-injection and jailbreak resistance as a behavioral suite (the security overlap is noted for the report here, not re-decided) - enable via argument or ask the user.
-
-## Tooling fallback
-
-Needs reading - no tool in this domain's evidence pass runs a red-team/adversarial suite: probe prompt-injection and jailbreak resistance as a behavioral suite by hand, and frame the security overlap for the report rather than re-deciding it here.

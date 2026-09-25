@@ -4,6 +4,11 @@ domain: eval
 locality: local
 handbook:
   - evaluation/measure-the-behaviors-that-matter-a
+routes:
+  - lang: any
+    kind: procedure
+    note: >-
+      **Prompt audit:** read each system prompt / SOP / tool description; check against the current code/tools for drift (references to tools/steps that changed or vanished) and for injection-resistance (how untrusted/tool-returned content enters the prompt). For the *static* authoring quality (spec-conformance, constraint hygiene, contradictions, cognitive load, redundancy), hand off to `prompt-audit`; don't duplicate its checks here.
 ---
 
 # Prompt / SOP quality
@@ -13,10 +18,6 @@ The *behavioral* facets: drift between prompt and the current code/tools, missin
 ## Severity
 
 **Important** - a prompt that contradicts the code or has drifted.
-
-## Tooling fallback
-
-**Prompt audit:** read each system prompt / SOP / tool description; check against the current code/tools for drift (references to tools/steps that changed or vanished) and for injection-resistance (how untrusted/tool-returned content enters the prompt). For the *static* authoring quality (spec-conformance, constraint hygiene, contradictions, cognitive load, redundancy), hand off to `prompt-audit`; don't duplicate its checks here.
 
 ## Fix
 
