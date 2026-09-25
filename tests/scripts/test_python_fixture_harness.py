@@ -1391,7 +1391,7 @@ def test_every_form_the_harness_runs_appears_in_an_argv():
     `routed_invocations` to TypeScript walks into the second, and reading a
     `runs` form off an `alternative` route walks into the first. The convention
     the assertion holds a python route to is to leave such a placeholder in
-    `alone_insufficient`, which derives no form.
+    the route's `note`, which derives no form.
 
     So no form on either path takes the `supplied` branch today, and it stays
     because the shape is legal for a row: a record writes the token it
@@ -1438,7 +1438,7 @@ def test_every_form_the_harness_runs_appears_in_an_argv():
                 f"{inv.check}/{inv.tool}: the routed form {form!r} carries a "
                 "token whose tail the caller supplies, so the relaxation this "
                 "property grants a transcription has reached a route. Leave "
-                "the placeholder in `alone_insufficient`, which derives no "
+                "the placeholder in the route's `note`, which derives no "
                 "form, rather than in the argv the forms come from"
             )
             assert any(
