@@ -7,7 +7,10 @@ sub-issue tree a maintainer can import into the audited project's tracker.
 **The input is the findings file, never the report.** The report's per-domain
 matrix is capped to the significant rows by design, so an emitter reading it
 would silently drop exactly the findings the report judged too minor to print.
-See ``docs/superpowers/specs/2026-09-16-issue-emitter-design.md``.
+See ``docs/superpowers/specs/2026-09-16-issue-emitter-design.md``. The file
+carries its provenance beside the findings, and a file without it is refused
+unless ``--accept-missing-provenance`` is passed; ``provenance_problems``
+says what it lacks.
 
 Everything above ``main`` is pure: it takes findings and returns a tree of
 issues. Creation lives in ``main`` behind an explicit flag, and the default is a
@@ -61,7 +64,7 @@ class FindingsError(ValueError):
 
 #: The top-level fields a findings file carries beside ``findings``, each the
 #: machine-readable form of a line the report's "How the audit ran" section
-#: prints. A file that lacks them cannot say which tree, which lenses or which
+#: prints, the ``Date`` line included. A file that lacks them cannot say which tree, which lenses or which
 #: grants produced it, so a baseline diff cannot refuse to compare two refs and
 #: a fold across runs rebuilds the header by hand. ``audit/SKILL.md`` states
 #: the same list; the two are one contract.
@@ -95,9 +98,16 @@ def provenance_problems(payload: Any) -> list[str]:
     if not isinstance(ref, dict):
         problems.append("target_ref (a mapping of " + ", ".join(TARGET_REF_KEYS) + ")")
     else:
-        for key in ("commit", "branch"):
-            if not isinstance(ref.get(key), str) or not ref[key].strip():
-                problems.append(f"target_ref.{key} (a non-empty string)")
+        commit = ref.get("commit")
+        if not isinstance(commit, str) or not commit.strip():
+            problems.append("target_ref.commit (a non-empty string)")
+        # A detached HEAD has no branch, and that is a fact about the target
+        # rather than a gap in the file, so null is the spelling for it.
+        branch = ref.get("branch", "")
+        if branch is not None and (not isinstance(branch, str) or not branch.strip()):
+            problems.append(
+                "target_ref.branch (a branch name, or null on a detached HEAD)"
+            )
         if not isinstance(ref.get("dirty"), bool):
             problems.append("target_ref.dirty (true or false)")
     grants = payload.get("grants")
@@ -109,6 +119,14 @@ def provenance_problems(payload: Any) -> list[str]:
             for key in GRANT_KEYS
             if not isinstance(grants.get(key), bool)
         ]
+        if (
+            grants.get("target-execution") is True
+            and grants.get("resolved-tree") is False
+        ):
+            problems.append(
+                "grants (target-execution granted with resolved-tree withheld, "
+                "which the execution grant implies)"
+            )
     return problems
 
 
@@ -183,9 +201,10 @@ def _severity_rank(severity: str) -> int:
 def load_findings(payload: Any) -> list[Finding]:
     """Read a findings payload into `Finding` objects.
 
-    Accepts either a bare list or a mapping carrying a ``findings`` key, because
-    a sweep that wants to record its own metadata beside the findings should not
-    have to choose between that and this module reading the file.
+    Accepts either a mapping carrying a ``findings`` key, the shape a sweep
+    writes with its provenance beside the findings, or a bare list. ``main``
+    reads a bare list, or a mapping missing its provenance, only under
+    ``--accept-missing-provenance``; this function reads the findings alone.
     """
     if isinstance(payload, dict):
         raw_list = payload.get("findings")

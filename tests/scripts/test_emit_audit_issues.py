@@ -649,7 +649,7 @@ def test_provenance_in_the_wrong_shape_is_named_by_its_part():
     ]
     payload = {**PROVENANCE, "target_ref": {"commit": "abc1234", "branch": ""}}
     assert em.provenance_problems(payload) == [
-        "target_ref.branch (a non-empty string)",
+        "target_ref.branch (a branch name, or null on a detached HEAD)",
         "target_ref.dirty (true or false)",
     ]
 
@@ -681,3 +681,23 @@ def test_the_flag_on_a_complete_file_says_it_accepted_nothing(tmp_path, capsys):
     path.write_text(_file([_finding()]))
     assert em.main([str(path), "--target", "o/r", "--accept-missing-provenance"]) == 0
     assert "so it accepted nothing" in capsys.readouterr().out
+
+
+def test_a_detached_head_is_a_null_branch_rather_than_a_gap():
+    detached = {
+        **PROVENANCE,
+        "target_ref": {"commit": "abc1234", "branch": None, "dirty": False},
+    }
+    assert em.provenance_problems(detached) == []
+
+
+def test_execution_granted_without_the_tree_is_named():
+    """The execution grant implies the tree grant, so the two together cannot read false then true."""
+    payload = {
+        **PROVENANCE,
+        "grants": {"resolved-tree": False, "target-execution": True},
+    }
+    assert em.provenance_problems(payload) == [
+        "grants (target-execution granted with resolved-tree withheld, "
+        "which the execution grant implies)"
+    ]

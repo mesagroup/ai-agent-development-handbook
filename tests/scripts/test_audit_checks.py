@@ -3873,8 +3873,13 @@ def test_the_answers_pass_is_not_vacuous():
 #: row by default and lets a record state another unit only in one form, so a
 #: unit sentence anywhere else is either the default restated in a second
 #: place or an override nothing but a reader will find.
-_ROW_UNIT_SENTENCE = re.compile(r"\b(?:one|a|each)\s+rows?\s+(?:per|for)\b", re.I)
-_ROW_UNIT_FORM = re.compile(r"^Row unit: [^.]+?, because [^.]+\.")
+_ROW_UNIT_SENTENCE = re.compile(
+    r"\b(?:one|a|each|single)\s+rows?\s+(?:per|for|at)\b|\bper-\w+\s+rows?\b", re.I
+)
+#: The permitted sentence ends at a full stop followed by whitespace and a
+#: capital, or at the end of the field, so a unit naming `pyproject.toml` or
+#: written with "e.g." is one sentence rather than a truncated one.
+_FIRST_SENTENCE = re.compile(r"^(.+?\.)(?=\s+[A-Z]|\s*$)", re.S)
 
 #: Records whose unit sentence is left as written, each with the reason. The
 #: one entry disagrees with itself about its unit - its `evidence` says "A row
@@ -3898,13 +3903,15 @@ def _strings_in(value: object) -> list[str]:
 def _row_unit_problems(check_id: str, text: str, evidence: str | None) -> list[str]:
     """What is wrong with how one record states its row unit, if anything."""
     problems = []
-    if evidence and evidence.startswith("Row unit"):
-        if not _ROW_UNIT_FORM.match(evidence):
+    if evidence and evidence.lower().startswith("row unit"):
+        match = _FIRST_SENTENCE.match(evidence)
+        first = match.group(1) if match else evidence
+        if not first.startswith("Row unit: ") or ", because " not in first:
             problems.append(
                 f"{check_id}: `evidence` opens with a unit that is not in the form "
                 "`Row unit: <unit>, because <why>.`"
             )
-        text = text.replace(evidence.split(".", 1)[0], "", 1)
+        text = text.replace(first, "", 1)
     stray = [
         " ".join(text[max(0, m.start() - 40) : m.end() + 40].split())
         for m in _ROW_UNIT_SENTENCE.finditer(text)
@@ -3948,6 +3955,13 @@ def test_a_record_states_its_row_unit_only_in_the_rules_form():
 def test_the_row_unit_guard_catches_a_unit_in_the_wrong_place():
     assert _row_unit_problems("x/y", "The check reports one row per module.", None)
     assert _row_unit_problems("x/y", "text", "Row unit - the project.")
+    assert _row_unit_problems("x/y", "text", "row unit: the project, because so.")
+    assert _row_unit_problems("x/y", "A per-module row each.", None)
+    assert not _row_unit_problems(
+        "x/y",
+        "Row unit: each `pyproject.toml`, because e.g. it declares one. More.",
+        "Row unit: each `pyproject.toml`, because e.g. it declares one. More.",
+    )
     assert not _row_unit_problems(
         "x/y",
         "Row unit: the project, because the decision is the project's. More.",
