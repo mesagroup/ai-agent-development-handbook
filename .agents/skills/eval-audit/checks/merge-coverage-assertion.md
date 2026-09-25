@@ -4,6 +4,15 @@ domain: eval
 locality: global
 handbook:
   - lifecycle/fan-work-out-to-parallel-agents-and-merge-it-honestly-b
+routes:
+  - lang: any
+    kind: procedure
+    note: >-
+      Needs reading - no tool in this domain's evidence pass reaches this. Find the fan-out sites first, then read each merge: a loop or task group that dispatches per-unit work, a `map` over a corpus whose results are concatenated, a CI job with a shard or matrix axis, a judging pipeline that slices its dataset, an agent orchestrator that collects sub-agent output. At each one, read what runs between the merge and the first consumer, and record the `file:line` of the assertion, or of the merge that has none.
+
+      **The evidence is the assertion or its absence**, never the partition's shape. Whether the project sliced its corpus sensibly is not this check's question, for the same reason `arch/import-rule-declaration` does not rate the tiers it finds declared. The finding is the missing guarantee, and a project whose slices are uneven but whose merge is asserted passes this check.
+
+      **The boundary against `eval/coverage`.** That check asks whether the behaviors that matter have evals at all, over the whole capability set. This one asks whether a merged artifact accounts for every unit that was sent out, and it is indifferent to whether those units were the right ones to send. A project can cover every behavior that matters and still merge a judging run that lost a slice; it can also assert its merges perfectly over a corpus that exercises nothing important. Report a gap under the check that owns the question rather than under both.
 ---
 
 # Coverage assertion over a merged multi-agent artifact
@@ -25,14 +34,6 @@ Two things make this repository-visible where the rest of its handbook section i
 **Important** - an expected count the pipeline cannot state, so the assertion has nothing to compare against and reduces to "the merge produced something".
 
 **Minor** - an assertion that runs after the first consumer rather than before it, where the consumer is a report rather than a decision. The ordering is the claim, and a report regenerated from a corrected artifact costs little; a decision taken on the uncorrected one cannot be withdrawn.
-
-## Tooling fallback
-
-Needs reading - no tool in this domain's evidence pass reaches this. Find the fan-out sites first, then read each merge: a loop or task group that dispatches per-unit work, a `map` over a corpus whose results are concatenated, a CI job with a shard or matrix axis, a judging pipeline that slices its dataset, an agent orchestrator that collects sub-agent output. At each one, read what runs between the merge and the first consumer, and record the `file:line` of the assertion, or of the merge that has none.
-
-**The evidence is the assertion or its absence**, never the partition's shape. Whether the project sliced its corpus sensibly is not this check's question, for the same reason `arch/import-rule-declaration` does not rate the tiers it finds declared. The finding is the missing guarantee, and a project whose slices are uneven but whose merge is asserted passes this check.
-
-**The boundary against `eval/coverage`.** That check asks whether the behaviors that matter have evals at all, over the whole capability set. This one asks whether a merged artifact accounts for every unit that was sent out, and it is indifferent to whether those units were the right ones to send. A project can cover every behavior that matters and still merge a judging run that lost a slice; it can also assert its merges perfectly over a corpus that exercises nothing important. Report a gap under the check that owns the question rather than under both.
 
 ## Fix
 

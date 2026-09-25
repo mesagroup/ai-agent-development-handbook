@@ -7,6 +7,11 @@ handbook:
   - agent-harness/offer-cheap-and-mock-backends-a-fast-inner-loop-is-a-discipline
   - evaluation/run-the-loop-b
   - documentation/keep-the-decision-trail-artifacts-a
+routes:
+  - lang: any
+    kind: procedure
+    note: >-
+      Needs reading - no tool in this domain's evidence pass reaches this: read the leaderboard/eval-history artifact for recency, and the eval runner/CLI for a cheap or mock execution mode.
 ---
 
 # Regression tracking & cost
@@ -16,10 +21,6 @@ Are results tracked over time (leaderboard/history) so drift is visible; is ther
 ## Severity
 
 **Minor** - a missing cheap/mock mode, a stale leaderboard entry.
-
-## Tooling fallback
-
-Needs reading - no tool in this domain's evidence pass reaches this: read the leaderboard/eval-history artifact for recency, and the eval runner/CLI for a cheap or mock execution mode.
 
 ## Fix
 

@@ -6,6 +6,15 @@ handbook:
   - agent-harness/offer-cheap-and-mock-backends-a-fast-inner-loop-is-a-discipline
   - evaluation/measure-honestly-a
   - evaluation/name-the-anti-patterns-out-loud
+routes:
+  - lang: any
+    kind: procedure
+    note: >-
+      Needs reading - no tool in this domain's evidence pass reaches this: read the eval runner for whether it executes each candidate more than once, and the leaderboard or report artifact for whether a spread travels beside each number. The evidence pointer is the reported figure and its spread, or the reported figure and the absence.
+
+      **This check brings no threshold of its own.** A project that reports its spread has satisfied the claim whatever the number is, and how high a reliability bar must sit is a business decision tied to the change's criticality, which the handbook says and this check does not second-guess. Where the project has set its own bar, whether it applied it is read against that bar and never against one the audit supplied. The single judgement this check makes is internal to the project's own figures: a claimed margin smaller than the project's own reported spread.
+
+      **The three neighbours, and what each keeps.** `eval/methodology` owns whether the instrument tracks quality and whether N is large enough to distinguish candidates - the under-powered eval is its finding, and this check does not re-ask it. `eval/reproducibility` owns whether a number can be regenerated: pinning the model, the config and the seed makes an anecdote repeatable rather than making it a measurement, so a project can be fully reproducible and still fail this check. `eval/regression-tracking` owns whether results are tracked across changes at all.
 ---
 
 # Run-to-run variance
@@ -19,14 +28,6 @@ Are the reported numbers produced by repeated runs, with the run-to-run spread r
 **Important** - a claimed improvement whose margin sits inside the spread the project itself reported. This is the project's own numbers contradicting its own conclusion, and the evidence is both figures side by side.
 
 **Minor** - the runner produces repeated runs but the reported artifact carries only the mean, so a reader of the leaderboard cannot see the spread that exists.
-
-## Tooling fallback
-
-Needs reading - no tool in this domain's evidence pass reaches this: read the eval runner for whether it executes each candidate more than once, and the leaderboard or report artifact for whether a spread travels beside each number. The evidence pointer is the reported figure and its spread, or the reported figure and the absence.
-
-**This check brings no threshold of its own.** A project that reports its spread has satisfied the claim whatever the number is, and how high a reliability bar must sit is a business decision tied to the change's criticality, which the handbook says and this check does not second-guess. Where the project has set its own bar, whether it applied it is read against that bar and never against one the audit supplied. The single judgement this check makes is internal to the project's own figures: a claimed margin smaller than the project's own reported spread.
-
-**The three neighbours, and what each keeps.** `eval/methodology` owns whether the instrument tracks quality and whether N is large enough to distinguish candidates - the under-powered eval is its finding, and this check does not re-ask it. `eval/reproducibility` owns whether a number can be regenerated: pinning the model, the config and the seed makes an anecdote repeatable rather than making it a measurement, so a project can be fully reproducible and still fail this check. `eval/regression-tracking` owns whether results are tracked across changes at all.
 
 ## Fix
 

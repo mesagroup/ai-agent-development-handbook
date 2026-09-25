@@ -9,6 +9,11 @@ handbook:
   - evaluation/measure-honestly-c
   - evaluation/use-the-llm-judge-only-where-it-agrees-with-the-human
   - evaluation/name-the-anti-patterns-out-loud
+routes:
+  - lang: any
+    kind: procedure
+    note: >-
+      **Methodology inspection:** read the metric/scorer/judge implementation and the ground-truth data. Check sample size, judge rubric stability, whether a judge was correlated against human evals, and whether errors/refusals are excluded from quality scores.
 ---
 
 # Methodology soundness
@@ -20,10 +25,6 @@ Do metrics actually track quality (vs. a proxy that can be gamed)? Is the sample
 **Critical** - a metric or judge that does not track real quality (so the leaderboard is misleading).
 
 **Important** - an under-powered eval (too few samples to distinguish models); an unvalidated LLM-judge used for decisions; refusals/errors polluting quality scores.
-
-## Tooling fallback
-
-**Methodology inspection:** read the metric/scorer/judge implementation and the ground-truth data. Check sample size, judge rubric stability, whether a judge was correlated against human evals, and whether errors/refusals are excluded from quality scores.
 
 ## Fix
 

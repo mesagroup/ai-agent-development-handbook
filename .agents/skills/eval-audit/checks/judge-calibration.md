@@ -16,12 +16,15 @@ handbook_note: >-
   `class: process` and no `checks:` entry at all. Running a full correlation
   study as a standalone deliverable is this opt-in's own scope, not a clause
   the handbook states.
+answers_ungranted: none
+routes:
+  - lang: any
+    kind: procedure
+    needs: target-execution
+    note: >-
+      No tool in this domain's evidence pass reaches this: correlate the automated judge against a human-labeled sample and report agreement by hand. Scoring the sample runs the target's judge, so this route needs the `target-execution` grant.
 ---
 
 # LLM-judge calibration study
 
 Correlate the automated judge against a human-labeled sample and report agreement, before the judge is trusted for decisions - ask the user; recommend on when a judge gates model selection.
-
-## Tooling fallback
-
-Needs reading - no tool in this domain's evidence pass reaches this: correlate the automated judge against a human-labeled sample and report agreement by hand.
