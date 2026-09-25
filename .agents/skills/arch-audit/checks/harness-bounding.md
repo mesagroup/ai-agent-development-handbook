@@ -3,10 +3,10 @@ id: arch/harness-bounding
 domain: arch
 locality: global
 evidence: >-
-  The check reports once for the repository, one row per harness home read,
-  naming the home and what it was resolved from, or one row for the
-  repository where two or more agents share no layer at all or where it runs
-  no agent. For each of the
+  Row unit: one harness home read, naming the home and what it was resolved
+  from, or the repository where two or more agents share no layer at all or
+  where it runs no agent, because each home sets the six bounds once for
+  every agent it serves. For each of the
   six bounds, and for each part of a bound that has parts, the row records one
   of four states, with the sites behind it: set in the
   harness, with the `file:line` of the site that constructs the thing it
