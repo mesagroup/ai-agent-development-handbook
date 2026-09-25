@@ -66,13 +66,13 @@ routes:
       first-party and none of them a hygiene defect. A project closes it by
       declaring those modules in `known_first_party`, which is a fix to
       recommend rather than a finding to report.
-    alone_insufficient: >-
-      `deptry` takes a scan root and the record names none, so the argv is not
-      a complete invocation on its own - and naming one is not enough either:
-      it has to be `.`, with the target as the working directory, for the
-      reasons the note gives. The two ways of getting it wrong are worth
-      telling apart: name the wrong working directory and the run does not
-      fail, it passes; write the root as anything but `.` and it fails
+
+      `deptry` takes a scan root and the record names none, so the argv is
+      not a complete invocation on its own - and naming one is not enough
+      either: it has to be `.`, with the target as the working directory,
+      for the reasons given above. The two ways of getting it wrong are
+      worth telling apart: name the wrong working directory and the run does
+      not fail, it passes; write the root as anything but `.` and it fails
       loudly, with findings that are artifacts of the invocation.
     applies_when: >-
       The partition is not pipenv-only. `deptry` has no reader for `Pipfile`

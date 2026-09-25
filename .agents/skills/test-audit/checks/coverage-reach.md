@@ -30,12 +30,12 @@ routes:
     argv: [pytest, "--cov-branch", "--cov-report=term-missing"]
     in_env: true
     needs: target-execution
-    alone_insufficient: >-
-      The argv omits the `--cov=<pkg>` the record's own form carries and is not
-      a complete invocation. Write it as
-      `pytest --cov=<pkg> --cov-branch --cov-report=term-missing`, naming the
-      package under measurement; `<pkg>` is the caller's to resolve, which is
-      why the argv stops short of the placeholder.
+    note: >-
+      The argv omits the `--cov=<pkg>` the record's own form carries and is
+      not a complete invocation. Write it as `pytest --cov=<pkg>
+      --cov-branch --cov-report=term-missing`, naming the package under
+      measurement; `<pkg>` is the caller's to resolve, which is why the argv
+      stops short of the placeholder.
   - lang: python
     kind: command
     answers: measurement

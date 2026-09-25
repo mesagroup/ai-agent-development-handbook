@@ -24,15 +24,16 @@ routes:
     note: >-
       Reads the installed environment rather than the lockfile, so it needs
       the tree resolved.
-    alone_insufficient: >-
+
       The argv ends at a bare `--python` and is not a complete invocation.
-      Name the interpreter explicitly on the `uv` route, as
-      `uv pip list --outdated --python <path-to-venv-python>`; the path is the
-      caller's to resolve, which is why the argv stops where the placeholder
-      starts. And an outdated list answers the outdated half of this check
-      alone: whether a direct dependency is unpinned, and whether a pinned
-      release is yanked, are the lockfile scan and the registry comparison
-      the procedure route below carries, so a clean list beside an unread
+      Name the interpreter explicitly on the `uv` route, as `uv pip list
+      --outdated --python <path-to-venv-python>`; the path is the caller's
+      to resolve, which is why the argv stops where the placeholder starts.
+    alone_insufficient: >-
+      An outdated list answers the outdated half of this check alone:
+      whether a direct dependency is unpinned, and whether a pinned release
+      is yanked, are the lockfile scan and the registry comparison the
+      procedure route below carries, so a clean list beside an unread
       lockfile is not this check answered.
   - lang: python
     kind: command
