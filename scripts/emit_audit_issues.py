@@ -59,6 +59,59 @@ class FindingsError(ValueError):
     """A findings file this module cannot read, with the reason."""
 
 
+#: The top-level fields a findings file carries beside ``findings``, each the
+#: machine-readable form of a line the report's "How the audit ran" section
+#: prints. A file that lacks them cannot say which tree, which lenses or which
+#: grants produced it, so a baseline diff cannot refuse to compare two refs and
+#: a fold across runs rebuilds the header by hand. ``audit/SKILL.md`` states
+#: the same list; the two are one contract.
+PROVENANCE_FIELDS = ("target", "target_ref", "mode", "plugin", "grants", "generated")
+
+#: What ``target_ref`` and ``grants`` hold. Each is a mapping rather than a
+#: sentence, because the fields are there to be compared and a sentence such as
+#: "c4f5daa9 (branch main, clean)" compares only as a string.
+TARGET_REF_KEYS = ("commit", "branch", "dirty")
+GRANT_KEYS = ("resolved-tree", "target-execution")
+
+
+def provenance_problems(payload: Any) -> list[str]:
+    """Every provenance field the payload lacks or carries in the wrong shape.
+
+    Returns them all at once, for the reason ``Finding.from_mapping`` names
+    every missing key: a file with five problems should take one run to fix,
+    not five. An empty list means the provenance is complete.
+    """
+    if not isinstance(payload, dict):
+        return [
+            "the payload is a bare list, so it carries none of "
+            + ", ".join(PROVENANCE_FIELDS)
+        ]
+    problems = []
+    for name in ("target", "mode", "plugin", "generated"):
+        value = payload.get(name)
+        if not isinstance(value, str) or not value.strip():
+            problems.append(f"{name} (a non-empty string)")
+    ref = payload.get("target_ref")
+    if not isinstance(ref, dict):
+        problems.append("target_ref (a mapping of " + ", ".join(TARGET_REF_KEYS) + ")")
+    else:
+        for key in ("commit", "branch"):
+            if not isinstance(ref.get(key), str) or not ref[key].strip():
+                problems.append(f"target_ref.{key} (a non-empty string)")
+        if not isinstance(ref.get("dirty"), bool):
+            problems.append("target_ref.dirty (true or false)")
+    grants = payload.get("grants")
+    if not isinstance(grants, dict):
+        problems.append("grants (a mapping of " + ", ".join(GRANT_KEYS) + ")")
+    else:
+        problems += [
+            f"grants.{key} (true or false)"
+            for key in GRANT_KEYS
+            if not isinstance(grants.get(key), bool)
+        ]
+    return problems
+
+
 @dataclass(frozen=True)
 class Finding:
     """One finding as the sweep recorded it."""
@@ -450,6 +503,14 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     parser.add_argument(
+        "--accept-missing-provenance",
+        action="store_true",
+        help=(
+            "read a findings file written before its provenance fields were "
+            "required. The dry run says it was used and what the file lacks."
+        ),
+    )
+    parser.add_argument(
         "--create",
         action="store_true",
         help=(
@@ -472,6 +533,26 @@ def main(argv: list[str] | None = None) -> int:
     except json.JSONDecodeError as exc:
         print(f"error: {args.findings} is not valid JSON: {exc}", file=sys.stderr)
         return 2
+
+    lacking = provenance_problems(payload)
+    if lacking and not args.accept_missing_provenance:
+        print(
+            f"error: {args.findings} lacks its provenance: {'; '.join(lacking)}. "
+            "A sweep writes these beside the findings; pass "
+            "--accept-missing-provenance to read a file written before they "
+            "were required.",
+            file=sys.stderr,
+        )
+        return 2
+    if args.accept_missing_provenance:
+        print(
+            "provenance: --accept-missing-provenance was passed; "
+            + (
+                f"the file lacks {'; '.join(lacking)}"
+                if lacking
+                else "the file's provenance is complete, so it accepted nothing"
+            )
+        )
 
     try:
         findings = load_findings(payload)
