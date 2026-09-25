@@ -18,7 +18,8 @@ handbook_note: >-
   SHA, never running untrusted pull-request code with secrets in scope, and
   short-lived federated credentials - and interpolating attacker-controlled
   *data* into an otherwise trusted step is none of them. The third is
-  untrusted *code*, which is `ci/trigger-safety`'s. The source-to-sink
+  untrusted *code*, which `ci/permissions-secrets` defines and
+  `ci/trigger-safety` reads for its two triggers. The source-to-sink
   clause is the other candidate and is also not it: Part 9 divides its
   subject into three surfaces - first-party code, what you depend on, and
   the pipeline that builds you - and that clause is the first surface's, so
