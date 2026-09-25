@@ -568,10 +568,12 @@ def test_the_notes_are_not_all_sentinels():
     then re-measured and ratcheted onto. What stays a liability is treating
     the number written here as the count to expect: it records the
     population at the last ratchet, and the only way to know the current one
-    is to measure it. Last ratcheted at the ci migration, where the count was
+    is to measure it. Ratcheted at the ci migration, where the count was
     measured at 21 on the branch and on `main` alike: the slack under the
     previous 17 predated that slice, and the ci records, none of which carries
-    a tier, added nothing to it.
+    a tier, added nothing to it. Ratcheted again at the eval migration, to 23:
+    `eval/reproducibility` and `eval/cost-latency` each keep an untiered
+    reading beside a route that runs the target's evals.
     """
     checks, errors = ac.load_checks(ac.SKILLS_DIR)
     assert errors == []
@@ -584,7 +586,7 @@ def test_the_notes_are_not_all_sentinels():
         c.id for c in checks.values() if _languages_rescued_by_an_untiered_route(c)
     ]
     claims = sorted(prose + routed)
-    assert len(claims) >= 21, f"only {len(claims)} records answer anything: {claims}"
+    assert len(claims) >= 23, f"only {len(claims)} records answer anything: {claims}"
 
 
 def test_a_language_with_no_tools_is_not_fully_tiered(tmp_path):
@@ -2829,19 +2831,6 @@ def test_the_real_checks_tree_loads_clean():
 
 RECORDS_DECLARING_NO_ROUTES = frozenset(
     {
-        "eval/adversarial",
-        "eval/contamination",
-        "eval/cost-latency",
-        "eval/coverage",
-        "eval/judge-calibration",
-        "eval/merge-coverage-assertion",
-        "eval/methodology",
-        "eval/prompt-quality",
-        "eval/regression-tracking",
-        "eval/reproducibility",
-        "eval/run-variance",
-        "eval/smoke-test-gate",
-        "eval/verdict-scale",
         "prompt/cognitive-load",
         "prompt/cross-prompt-consistency",
         "prompt/examples-delimiters",
@@ -2862,12 +2851,10 @@ def test_the_records_declaring_no_routes_are_the_ones_named():
     """A record gaining or losing `routes:` fails until this set is updated.
 
     The set is every record the loader accepts without a `routes:` block, and
-    that is two populations wearing one name: records the migration has not
-    reached, and records authored on the non-routes schema after that schema
-    existed. `eval/run-variance` and `eval/merge-coverage-assertion` are of the
-    second kind - created after the routes schema existed and declaring neither
-    schema, so never migrated from anything. Both
-    have to be named somewhere, or the loader accepting them reads exactly like
+    that can be two populations wearing one name: records the migration has
+    not reached, and records written after the routes schema existed that
+    declare neither schema, and so were never migrated from anything. Today it
+    holds only the first kind. Both have to be named somewhere, or the loader accepting them reads exactly like
     the loader having nothing left to accept.
 
     The distinction is the whole point of the wording, because the obvious
@@ -3359,14 +3346,15 @@ def test_the_tool_less_route_population_is_held():
     #147, answered nothing on its own, so the population fell from 57 to 56 on
     purpose; it rose to 62 when `arch/harness-bounding` arrived with six
     reading routes, one per tell; it rose to 70 when the `data-protection`
-    records migrated to routes, each carrying one reading route; and it rose
-    to 71 when `ci/trigger-safety` gained a reading for where `zizmor` cannot
-    be obtained.
+    records migrated to routes, each carrying one reading route; it rose to
+    71 when `ci/trigger-safety` gained a reading for where `zizmor` cannot be
+    obtained; and it rose to 86 when the `eval` records migrated, eleven with
+    one tool-less route and two with two.
     """
     checks, errors = ac.load_checks(ac.SKILLS_DIR)
     assert errors == []
     tool_less = [(c.id, r) for c in checks.values() for r in c.routes if r.tool is None]
-    assert len(tool_less) >= 71, f"only {len(tool_less)} tool-less route(s)"
+    assert len(tool_less) >= 86, f"only {len(tool_less)} tool-less route(s)"
     assert all(r.kind == "procedure" for _, r in tool_less)
     assert all(r.note.strip() for _, r in tool_less)
 
@@ -3866,13 +3854,15 @@ def test_the_answers_pass_is_not_vacuous():
     non-`forbidden` route. Recomputed at the ci migration: 7, over 32 such
     records, `ci/workflow-correctness` (`well-formedness` and `injection`,
     the instance #89 named) and `ci/gate-enforcement` (`workflows` and
-    `protection`, read under the same rule) having joined; and 8, over 33 such records, when
-    `arch/harness-bounding` arrived with one axis per tell it reads.
+    `protection`, read under the same rule) having joined; 8, over 33 such records, when
+    `arch/harness-bounding` arrived with one axis per tell it reads; and 9,
+    over 37 such records, when the `eval` migration gave `eval/cost-latency` a `profile` axis that
+    runs the target's evals and a `cheap-mode` axis read without a grant.
     """
     checks, errors = ac.load_checks(ac.SKILLS_DIR)
     assert errors == []
     axised = sorted(c.id for c in checks.values() if any(r.answers for r in c.routes))
-    assert len(axised) >= 8, f"only {len(axised)} record(s) carry answers: {axised}"
+    assert len(axised) >= 9, f"only {len(axised)} record(s) carry answers: {axised}"
     assert all(
         len({r.answers for r in checks[cid].routes if r.answers}) >= 2 for cid in axised
     )
