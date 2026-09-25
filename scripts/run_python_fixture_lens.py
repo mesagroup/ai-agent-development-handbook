@@ -466,10 +466,8 @@ class Invocation:
             result stands alone. Where the group has a `runs` route the field is
             not held consistent across it the way `findings_stream` is: a
             `superseded` route's caveat is about that route, and only the one
-            the row runs says what the row's result lacks. Some records use the
-            field for an invocation requirement - an argv that is not complete
-            as written - rather than for a result that needs confirming, and
-            the row carries whichever the record says. The status a row carries is unchanged by it - `audit-core`'s
+            the row runs says what the row's result lacks. The status a row
+            carries is unchanged by it - `audit-core`'s
             scale does not grow - so it is the row's other field a reader, and
             the grader, has to read to see that an `ok` with a hit is a
             candidate rather than the check answered.

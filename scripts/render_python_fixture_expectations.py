@@ -195,7 +195,7 @@ def render() -> str:
         "",
         "## What a result still owes",
         "",
-        f"A check whose Python route says its own result does not answer the check - the record's `alone_insufficient` - carries what is still owed here, {len(owed)} of the {len(EXPECTATIONS)} entries, set by derivation from the records rather than by judgement. The harness writes the route's field onto each results row and the grader prints it beside the observation, so a tool that found the seed reads as a candidate for the confirmation below rather than as the check answered. Three rows are the other use the records make of the field, an invocation requirement - a command not complete as written - and say how this round meets it instead. The row's status is the engine's and does not move for either.",
+        f"A check whose Python route says its own result does not answer the check - the record's `alone_insufficient` - carries what is still owed here, {len(owed)} of the {len(EXPECTATIONS)} entries, set by derivation from the records rather than by judgement. The harness writes the route's field onto each results row and the grader prints it beside the observation, so a tool that found the seed reads as a candidate for the confirmation below rather than as the check answered. The row's status is the engine's and does not move for it.",
         "",
         "| Check | Partitions | Still owed |",
         "|---|---|---|",
