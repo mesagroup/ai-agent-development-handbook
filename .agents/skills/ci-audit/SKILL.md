@@ -17,7 +17,7 @@ A domain specialization of **[audit-core](../audit-core/SKILL.md)** - read that 
 
 - **Platform + workflow set** - detect the CI system (`.github/workflows/*.yml` for GitHub Actions; `.gitlab-ci.yml`; `.circleci/`; Jenkinsfile; etc.) and enumerate every workflow, its triggers, and its jobs.
 - **What must be gated** - the checks the team treats as required (lint, typecheck, tests, and any project-specific quality gate) and the branch-protection expectation behind them.
-- **Trust + privilege model** - which workflows run on `pull_request` vs the more dangerous `pull_request_target` / `workflow_run`, which have access to secrets, and which can deploy or write to the repo.
+- **Trust + privilege model** - which workflows run on `pull_request` vs the more dangerous `pull_request_target` / `workflow_run`, which other triggers an outside author can cause (an `issue_comment`, for one), which have access to secrets, and which can deploy or write to the repo.
 
 **The partition here is one workflow file**, so most checks are `local` to a workflow - one read-only agent per workflow, mapping its triggers, permissions, secrets, and actions. Two checks are not: `ci/gate-enforcement` compares what the contributor guide claims CI enforces against what the workflows plus branch protection actually enforce, which needs every workflow at once and repo settings, and `ci/deploy-safety` reasons about the release path across workflows - both are `global`. The two opt-in checks - `ci/branch-protection` and `ci/self-hosted-runners` - are global as well, and are loaded like any other.
 
