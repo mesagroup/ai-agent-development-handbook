@@ -3,8 +3,9 @@ id: docs/source-wrapping
 domain: docs
 locality: global
 evidence: >-
-  One row per paragraph that occupies more than one source line, evidenced by
-  the file and the line range the paragraph spans, so the fix is a rejoin of
+  Row unit: one paragraph that occupies more than one source line, because
+  the rejoin is per paragraph; it is evidenced by the file and the line range
+  the paragraph spans, so the fix is a rejoin of
   named lines rather than a reformat of the file. A row also records which
   block kind the paragraph sits in - top level, a list item, a block quote -
   because the rejoin differs: a continuation line inside a list item carries

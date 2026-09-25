@@ -3,7 +3,7 @@ id: arch/import-rule-declaration
 domain: arch
 locality: global
 evidence: >-
-  One row for the project, because the rule is one declaration the project
+  Row unit: the project, because the rule is one declaration the project
   either made or did not. The row names every home that was read and what each
   held, in the absent case as much as the present one - the file resolved as
   the binding-rules file, and each contract config looked for by name - since

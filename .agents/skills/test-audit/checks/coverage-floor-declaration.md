@@ -3,7 +3,7 @@ id: test/coverage-floor-declaration
 domain: test
 locality: global
 evidence: >-
-  One row for the project, not one per module, because the decision is the
+  Row unit: the project, not each module, because the decision is the
   project's. The row records every home that was read and what each held, in
   the absent case as much as the present one - a reader cannot check "no floor
   was decided" without knowing which files were looked in, and an empty answer
