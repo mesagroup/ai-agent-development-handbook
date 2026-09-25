@@ -26,7 +26,7 @@ routes:
       the tree resolved.
 
       The argv ends at a bare `--python` and is not a complete invocation.
-      Name the interpreter explicitly on the `uv` route, as `uv pip list
+      Name the interpreter explicitly on this route, as `uv pip list
       --outdated --python <path-to-venv-python>`; the path is the caller's
       to resolve, which is why the argv stops where the placeholder starts.
     alone_insufficient: >-
