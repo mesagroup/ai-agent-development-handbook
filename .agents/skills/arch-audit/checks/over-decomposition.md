@@ -86,20 +86,21 @@ routes:
       cruises `totalCruised: 0` at exit 0. On pnpm the co-package is less
       dependable still, and installing into an audit-owned directory is
       what the record prefers there.
-    alone_insufficient: >-
+
       Each spelling above is the prefix the record writes, not a complete
-      invocation. A target with no `.dependency-cruiser` config - the
-      record calls this the ordinary case, not the exotic one - exits 1
-      with `Can't open a config file`, so this tool answers only once
-      given `--config` with an audit-owned config or `--no-config`, and
-      that choice is not free: `--no-config` discards `--ts-config` along
-      with the rules, and the tree that resolved its first-party graph
-      under an audit-owned config came back with 281 unresolvable
-      first-party specifiers and an empty cycle set under it, at exit 0.
-      Prefer an audit-owned config setting `options.tsConfig` and
-      `enhancedResolveOptions.extensions`. The output observed behind the
-      config-less exit 1 and the `--no-config` loss is recorded in [the smoke
+      invocation. A target with no `.dependency-cruiser` config - the record
+      calls this the ordinary case, not the exotic one - exits 1 with `Can't
+      open a config file`, so this tool answers only once given `--config`
+      with an audit-owned config or `--no-config`, and that choice is not
+      free: `--no-config` discards `--ts-config` along with the rules, and
+      the tree that resolved its first-party graph under an audit-owned
+      config came back with 281 unresolvable first-party specifiers and an
+      empty cycle set under it, at exit 0. Prefer an audit-owned config
+      setting `options.tsConfig` and `enhancedResolveOptions.extensions`.
+      The output observed behind the config-less exit 1 and the
+      `--no-config` loss is recorded in [the smoke
       run](https://github.com/mesagroup/ai-agent-development-handbook/blob/main/docs/audit/typescript-lens-smoke-run.md).
+    alone_insufficient: >-
       Once the graph is complete, "the same read requirement applies" as the
       Python pass - "a fine-grained split that maps onto real,
       independently-changing responsibilities is correct design, not a

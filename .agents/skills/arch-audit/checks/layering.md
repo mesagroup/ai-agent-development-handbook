@@ -86,19 +86,19 @@ routes:
       cruises `totalCruised: 0` at exit 0. On pnpm the co-package is less
       dependable still, and installing into an audit-owned directory is
       what the record prefers there.
-    alone_insufficient: >-
+
       Each spelling above is the prefix the record writes, not a complete
-      invocation. A target with no `.dependency-cruiser` config - the
-      record calls this the ordinary case, not the exotic one - exits 1
-      with `Can't open a config file`. The audit-owned `--config` that
-      answers that for other checks does not answer it for this one: the
-      project's own config IS the declared boundary this check tests, so
-      supplying one of the audit's own would judge layering against rules
-      the audit invented. Where the project has no config this route does
-      not apply at all, and the `applies_when` above sends the reader to
-      the `tsconfig` path aliases and project references instead. The
-      output observed behind that config-less exit 1 is recorded in [the
-      smoke run](https://github.com/mesagroup/ai-agent-development-handbook/blob/main/docs/audit/typescript-lens-smoke-run.md).
+      invocation. A target with no `.dependency-cruiser` config - the record
+      calls this the ordinary case, not the exotic one - exits 1 with `Can't
+      open a config file`. The audit-owned `--config` that answers that for
+      other checks does not answer it for this one: the project's own config
+      IS the declared boundary this check tests, so supplying one of the
+      audit's own would judge layering against rules the audit invented.
+      Where the project has no config this route does not apply at all, and
+      the `applies_when` above sends the reader to the `tsconfig` path
+      aliases and project references instead. The output observed behind
+      that config-less exit 1 is recorded in [the smoke
+      run](https://github.com/mesagroup/ai-agent-development-handbook/blob/main/docs/audit/typescript-lens-smoke-run.md).
   - lang: typescript
     kind: command
     tool: depcruise
