@@ -109,18 +109,21 @@ routes:
   - lang: typescript
     kind: command
     tool: pnpm outdated
-    argv: [pnpm, outdated]
+    argv: [pnpm, outdated, "-r"]
     needs: resolved-tree
     note: >-
       The package manager's own subcommand, preferred once the tree exists
       and never a fallback for the untreed case: `pnpm outdated` hard-errors
       with no lockfile at all, and with a lockfile but no install it reports
       every dependency as outdated because the installed version is
-      undefined. **On a workspace, ask for the workspace.** `pnpm outdated`
-      reports the root manifest only: on a 9-manifest pnpm workspace
-      declaring 254 dependencies, of which 10 sit at the root, it returned 10
-      entries and `pnpm outdated -r` returned 136. Nothing in the output says
-      the other 8 manifests were never looked at. One output caveat:
+      undefined. **On a workspace, ask for the workspace**, which is why the
+      argv carries `-r`: bare `pnpm outdated` reports the root manifest only.
+      On a 9-manifest pnpm workspace declaring 254 dependencies, of which 10
+      sit at the root, it returned 10 entries and `pnpm outdated -r` returned
+      136, and on the seeded pnpm fixture it listed the one outdated pin
+      declared at the root and missed the three declared in its members.
+      Nothing in the bare output says the other manifests were never looked
+      at. One output caveat:
       `pnpm outdated --json` writes registry warnings to stdout ahead of the
       JSON, so a run that pipes it straight into a parser fails on output the
       command considers successful.

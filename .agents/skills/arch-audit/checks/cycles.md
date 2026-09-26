@@ -56,7 +56,7 @@ routes:
   - lang: typescript
     kind: command
     tool: madge
-    argv: [madge, "--circular", "--ts-config"]
+    argv: [madge, "--circular", "--extensions", "ts,tsx", "--ts-config"]
     applies_when: >-
       The partition's `tsconfig` does not `extend` a base that lives in
       `node_modules`. Where it does, the `extends` chain and the `paths` it
@@ -76,11 +76,18 @@ routes:
       That operand is per partition and the record can name no single value for
       it. madge excludes installed dependencies and brings its own TypeScript,
       so it needs no install and is the one to reach for first on an unresolved
-      partition.
+      partition. `--extensions ts,tsx` is not optional: given a directory,
+      madge collects only the extensions in its `fileExtensions` option, whose
+      default in its own source is `['js']`, so on a TypeScript-only tree it
+      prints `Processed 0 files` and `No circular dependency found!` at exit 0
+      whatever the imports are. Measured on the seeded npm fixture: without
+      the flag 0 files and no cycle, with `--extensions ts` 3 files and the
+      planted two-module cycle. A partition whose own modules are `.js`,
+      `.mts` or `.cts` as well adds those to the list.
   - lang: typescript
     kind: command
     tool: madge
-    argv: [madge, "--circular"]
+    argv: [madge, "--circular", "--extensions", "ts,tsx"]
     disposition: superseded
     note: >-
       Superseded by the route above, which narrows the same command. madge
@@ -89,10 +96,11 @@ routes:
       partition's `package.json` supplies one otherwise - so this form resolves
       no `paths` at all and reports no cycles at exit 0 over a graph every
       aliased import has dropped out of. Measured against a real npm target
-      whose `tsconfig` extends nothing: this form reported
-      `No circular dependency found!` at exit 0 where the same command with
-      `--ts-config` found two, and the dependency map went from 1090 edges to
-      122.
+      whose `tsconfig` extends nothing: the command without `--ts-config`
+      reported `No circular dependency found!` at exit 0 where the same
+      command with it found two, and the dependency map went from 1090 edges
+      to 122. It carries `--extensions ts,tsx` for the reason the route above
+      gives, so that the one thing it lacks is the `tsconfig`.
   - lang: typescript
     kind: command
     tool: dependency-cruiser
