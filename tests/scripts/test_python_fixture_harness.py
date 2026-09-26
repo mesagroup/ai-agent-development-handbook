@@ -1297,8 +1297,9 @@ def test_the_placeholder_a_record_writes_never_reaches_a_command():
     the row belongs to, so a migrated check can carry a bare placeholder in a
     completion exactly as a hand-written one could.
 
-    What it cannot reach is a route no row is built from. `routed_invocations`
-    takes `lang: python` routes naming a tool, so a placeholder in a
+    What it cannot reach is a route no row is built from. This module reads
+    `routed_invocations` at its default, `lang: python` routes naming a tool,
+    so a placeholder in a
     `lang: any` or `lang: typescript` route's argv is invisible here -
     `test/new-code-coverage`'s `<report>` is the live one. That is not a gap
     to close with a wider rule: several typescript routes prescribe a
@@ -1384,11 +1385,13 @@ def test_every_form_the_harness_runs_appears_in_an_argv():
       route that DOES build a routed row. What keeps it out of this branch is
       `disposition: alternative` alone, since only a `runs` form is read here.
     - `test/determinism`'s typescript `--sequence.seed=<n>` is `disposition:
-      runs`, so `lang` is its only shield - `routed_invocations` is python-only.
+      runs`, so `lang` is its only shield here - this module reads the python
+      selection, and the TypeScript selection, which does build that row,
+      fills `<n>` through `TS_COMPLETIONS`.
     - `test/mutation`'s three Stryker spellings have both.
 
-    So "doubly guarded" is true of one of the three. Extending
-    `routed_invocations` to TypeScript walks into the second, and reading a
+    So "doubly guarded" is true of one of the three. The TypeScript selection
+    walks into the second, which is why it completes the seed, and reading a
     `runs` form off an `alternative` route walks into the first. The convention
     the assertion holds a python route to is to leave such a placeholder in
     the route's `note`, which derives no form.
@@ -1553,8 +1556,9 @@ def test_every_disposition_in_the_vocabulary_is_used():
     is not that no record declares one - several do - but that every one of them
     is on a `lang: typescript` or a `lang: any` route, and this module's
     selection is `lang: python` literally, so neither is reached.
-    `routed_invocations` says the same where it raises on the value, and that is
-    the statement to trust: this vocabulary is the lens's own, not the loader's.
+    `routed_invocations` drops a `forbidden` route before grouping, in either
+    language, and that is the statement to trust: this vocabulary is the lens's
+    own, not the loader's.
 
     Records do warn against multi-token forms, and a routed row's `superseded`
     and `alternative` forms come from the routes that name them. `arch/cycles`
