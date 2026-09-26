@@ -1,9 +1,11 @@
-"""Write the five seeded Python fixture partitions (#45).
+"""Write the seeded fixture partitions: five Python (#45), two TypeScript (#181).
 
 The definition lives in `python_fixture_spec.py` and touches nothing; this is
 the effectful half. It renders one partition's manifests and the shared seeded
 source into a directory, makes that directory a git repository with everything
 committed, runs the partition's own lock step and commits what it produced.
+Which language a partition belongs to is `lang_of`'s answer, and every helper
+below that differs by language dispatches on it.
 
 **Each fixture is a git repository with everything committed**, for two reasons
 that both bite otherwise. Semgrep limits its scan to git-tracked files and says
@@ -22,6 +24,7 @@ which is what `audit-core` prescribes for a real target as well.
 Usage:
     uv run python scripts/build_python_fixtures.py --all
     uv run python scripts/build_python_fixtures.py uv poetry
+    uv run python scripts/build_python_fixtures.py npm pnpm
     uv run python scripts/build_python_fixtures.py --all --output-dir <dir>
 """
 
@@ -32,12 +35,23 @@ import os
 import shutil
 import subprocess
 import sys
-from collections.abc import Iterable, Sequence
+import tempfile
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from python_fixture_spec import PACKAGE, PARTITIONS, render_manifests, source_tree
+from python_fixture_spec import (
+    PACKAGE,
+    PARTITIONS,
+    TS_MANAGER_PINS,
+    TS_PARTITIONS,
+    lang_of,
+    render_manifests,
+    source_tree,
+    ts_render_manifests,
+    ts_source_tree,
+)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -45,6 +59,11 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 # with `--output-dir`, so that no personal path reaches a committed file and a
 # caller building somewhere else does not have to edit the script to do it.
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "fixtures" / "python"
+TS_DEFAULT_OUTPUT_DIR = REPO_ROOT / "fixtures" / "typescript"
+DEFAULT_OUTPUT_DIRS = {
+    "python": DEFAULT_OUTPUT_DIR,
+    "typescript": TS_DEFAULT_OUTPUT_DIR,
+}
 
 # The managers that are fetched per run rather than taken from the host, pinned
 # to an exact version. A fixture built with whatever poetry the machine happens
@@ -52,7 +71,9 @@ DEFAULT_OUTPUT_DIR = REPO_ROOT / "fixtures" / "python"
 # point is that its observations are reproducible. `uv` is deliberately not in
 # here: it is the toolchain this repository already runs under, so pinning a
 # second copy of it would test a uv no caller of this script uses. Its measured
-# version is recorded in each tree it builds instead.
+# version is recorded in each tree it builds instead. The TypeScript managers are pinned by
+# the fixture itself, in `TS_MANAGER_PINS`, because each tree declares its own
+# `packageManager`; `check_manager_version` holds the host to that pin.
 PINNED_MANAGERS = {
     "poetry": "poetry@2.4.1",
     "pipenv": "pipenv@2026.7.1",
@@ -68,7 +89,15 @@ LOCK_ARTIFACTS = {
     "poetry": ("poetry.lock",),
     "pipenv": ("Pipfile.lock",),
     "pylock": ("pylock.toml",),
+    "npm": ("package-lock.json",),
+    "pnpm": ("pnpm-lock.yaml",),
 }
+
+# The one registry every TypeScript lock is resolved against. A lockfile records
+# each package's `resolved` URL, so a lock taken through a mirror names a host
+# another machine may not reach and differs byte for byte from one taken
+# without it; the public registry is the one every reader can resolve.
+PUBLIC_NPM_REGISTRY = "https://registry.npmjs.org/"
 
 # The record every built tree carries, written by the generator rather than
 # planned by the definition, and the marker `_clear` recognizes a previous build
@@ -86,9 +115,21 @@ COMMIT_EMAIL = "fixture@example.invalid"
 
 def _known(partition: str) -> str:
     """Return the partition, or fail naming it and what is available."""
-    if partition not in PARTITIONS:
+    lang_of(partition)
+    return partition
+
+
+def _known_python(partition: str) -> str:
+    """Return a Python partition, or fail naming it.
+
+    For the helpers whose question only a Python partition has an answer to,
+    such as which single file declares the set: a TypeScript partition is refused
+    by name rather than answered with a guess.
+    """
+    if lang_of(partition) != "python":
         raise ValueError(
-            f"unknown partition {partition!r}; expected one of {PARTITIONS}"
+            f"{partition!r} is a {lang_of(partition)} partition; this helper answers "
+            f"for the Python partitions {PARTITIONS} only"
         )
     return partition
 
@@ -101,10 +142,14 @@ def plan_tree(partition: str) -> dict[str, str]:
     artifact afterwards. `committed_files` is the union of the three and is what
     a built tree is checked against.
 
-    The manifests differ per partition and the seeded source does not, which is
-    what makes one expectations table serve all five.
+    On Python the manifests differ per partition and the seeded source does not,
+    which is what makes one expectations table serve all five. On TypeScript the
+    source is the same files under a different prefix: the tree root on npm, the
+    core workspace member on pnpm.
     """
-    return render_manifests(_known(partition)) | source_tree()
+    if lang_of(partition) == "typescript":
+        return ts_render_manifests(partition) | ts_source_tree(partition)
+    return render_manifests(partition) | source_tree()
 
 
 def prelock_commands(partition: str) -> tuple[tuple[str, ...], ...]:
@@ -128,6 +173,26 @@ def lock_command(partition: str) -> tuple[str, ...]:
     generate, so there is no resolution step and no transitive pin set.
     """
     match _known(partition):
+        case "npm":
+            return (
+                "npm",
+                "install",
+                "--package-lock-only",
+                "--ignore-scripts",
+                "--no-audit",
+                "--no-fund",
+            )
+        case "pnpm":
+            # Through corepack, which provisions pnpm from the tree's own
+            # `packageManager` pin: pnpm is not a host tool here, and a pnpm that
+            # happened to be on PATH would be a manager the fixture never named.
+            return (
+                "corepack",
+                "pnpm",
+                "install",
+                "--lockfile-only",
+                "--ignore-scripts",
+            )
         case "uv":
             return ("uv", "lock")
         case "pip":
@@ -146,11 +211,11 @@ def lock_command(partition: str) -> tuple[str, ...]:
                 "-o",
                 "pylock.toml",
             )
-    # Unreachable while PARTITIONS and the arms above agree. A name added to
-    # PARTITIONS with no lock route lands here rather than falling through to a
+    # Unreachable while the partition tuples and the arms above agree. A name
+    # added to either tuple with no lock route lands here rather than falling through to a
     # return of `()`, which would read as "this partition needs no lock" and
     # commit a tree with no resolution in it.
-    raise ValueError(f"partition {partition!r} is named in PARTITIONS but has no lock")
+    raise ValueError(f"partition {partition!r} is a known partition but has no lock")
 
 
 def discard_after_lock(partition: str) -> tuple[str, ...]:
@@ -211,7 +276,9 @@ def declaring_manifest(partition: str) -> str:
     file was written to do, so the build-metadata name is excluded by name and
     the result is required to be unique.
     """
-    declaring = [p for p in render_manifests(_known(partition)) if p != BUILD_METADATA]
+    declaring = [
+        p for p in render_manifests(_known_python(partition)) if p != BUILD_METADATA
+    ]
     if len(declaring) != 1:
         raise ValueError(
             f"partition {partition!r} renders {len(declaring)} declaring manifests "
@@ -224,10 +291,15 @@ def declaring_manifest(partition: str) -> str:
 def fixture_readme(partition: str, uv_version: str) -> str:
     """The `FIXTURE.md` written into one tree.
 
-    Pure, and it takes the measured uv version rather than reading it, so the
-    document a build produces can be asserted without running a build.
+    Pure, and it takes the measured version rather than reading it, so the
+    document a build produces can be asserted without running a build. On a
+    Python partition that is the host uv; on a TypeScript one it is the version
+    the partition's own manager reported, which `check_manager_version` has
+    already held equal to the pin.
     """
-    lock = lock_command(_known(partition))
+    if lang_of(partition) == "typescript":
+        return _ts_fixture_readme(partition, uv_version)
+    lock = lock_command(partition)
     prelock = prelock_commands(partition)
     artifacts = LOCK_ARTIFACTS[partition]
     steps = [" ".join(c) for c in (*prelock, lock) if c]
@@ -263,7 +335,128 @@ def fixture_readme(partition: str, uv_version: str) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _fixture_env() -> dict[str, str]:
+def ts_declaring_manifests(partition: str) -> tuple[str, ...]:
+    """Every `package.json` in a TypeScript partition's tree, sorted.
+
+    The npm partition declares its set in one manifest; the pnpm workspace
+    splits it across the root and its two members, which is the property the
+    leaf-only stale seed rests on, so the record names all three.
+    """
+    if lang_of(partition) != "typescript":
+        raise ValueError(f"{partition!r} is not a TypeScript partition")
+    return tuple(
+        sorted(
+            p
+            for p in ts_render_manifests(partition)
+            if p.rsplit("/", 1)[-1] == "package.json"
+        )
+    )
+
+
+def pinned_manager_version(partition: str) -> str:
+    """The version a TypeScript partition's `packageManager` pin names."""
+    if lang_of(partition) != "typescript":
+        raise ValueError(f"{partition!r} is not a TypeScript partition")
+    return TS_MANAGER_PINS[partition].split("@", 1)[1]
+
+
+def manager_version_command(partition: str) -> tuple[str, ...]:
+    """The command whose output is the manager version this partition locks with.
+
+    npm is the host's: nothing provisions it from the pin, so the host has to be
+    the pinned one. pnpm comes from corepack, and only answers for the pin when
+    corepack can see it, so `measure_manager_version` runs this in a directory
+    carrying the partition's root manifest.
+    """
+    match lang_of(partition), partition:
+        case "typescript", "npm":
+            return ("npm", "--version")
+        case "typescript", "pnpm":
+            return ("corepack", "pnpm", "--version")
+    raise ValueError(f"{partition!r} has no manager version probe")
+
+
+def check_manager_version(partition: str, reported: str) -> str:
+    """Return the reported version, or refuse the build naming both versions.
+
+    A lockfile's format and its resolution both depend on the manager version,
+    so a lock taken by a manager other than the pinned one is a tree nobody can
+    reproduce from the pin it declares.
+    """
+    pinned = pinned_manager_version(partition)
+    version = reported.strip()
+    if version != pinned:
+        raise RuntimeError(
+            f"refusing to build {partition!r}: "
+            f"`{' '.join(manager_version_command(partition))}` reports {version!r}, "
+            f"and the partition's packageManager pin is {TS_MANAGER_PINS[partition]!r}"
+        )
+    return version
+
+
+def _probe(command: Sequence[str], cwd: Path, env: Mapping[str, str]) -> str:
+    """Run a version probe and return its stdout, or raise naming its output."""
+    return _run(command, cwd, env=dict(env))
+
+
+def measure_manager_version(
+    partition: str,
+    probe: Callable[[Sequence[str], Path, Mapping[str, str]], str] = _probe,
+) -> str:
+    """Probe this partition's manager and hold it equal to the pin.
+
+    Run before anything is written or cleared, in a scratch directory carrying
+    only the partition's root `package.json`: that is the file corepack reads
+    the pin from, and a refused build then leaves no half-written tree behind.
+    """
+    command = manager_version_command(partition)
+    with tempfile.TemporaryDirectory(prefix=f"fixture-probe-{partition}-") as scratch:
+        where = Path(scratch)
+        (where / "package.json").write_text(
+            ts_render_manifests(partition)["package.json"]
+        )
+        reported = probe(command, where, ts_fixture_env())
+    return check_manager_version(partition, reported)
+
+
+def _ts_fixture_readme(partition: str, manager_version: str) -> str:
+    """The `FIXTURE.md` written into one TypeScript tree."""
+    artifacts = LOCK_ARTIFACTS[partition]
+    pin = TS_MANAGER_PINS[partition]
+    if partition == "pnpm":
+        manager = (
+            f"`pnpm {manager_version}`, provisioned by corepack from the "
+            f"`packageManager` pin `{pin}`"
+        )
+    else:
+        manager = (
+            f"`npm {manager_version}`, taken from the host and held equal to the "
+            f"`packageManager` pin `{pin}`"
+        )
+    lines = [
+        f"# Seeded audit fixture - `{partition}` partition",
+        "",
+        "Generated by `scripts/build_python_fixtures.py` from `scripts/python_fixture_spec.py`, in the handbook repository this tree was built from. Everything here is planted, including the defects. What each check must observe when it runs against this tree is written down in advance, in that same repository at `docs/audit/typescript-fixture-expectations.md`; a tool that runs cleanly and reports half of it fails rather than passes.",
+        "",
+        "| | |",
+        "|---|---|",
+        f"| Partition | `{partition}` |",
+        f"| Declares the dependency set in | {', '.join(f'`{m}`' for m in ts_declaring_manifests(partition))} |",
+        f"| Lock artifact | {', '.join(f'`{a}`' for a in artifacts)} |",
+        f"| Built by | `{' '.join(lock_command(partition))}` |",
+        f"| Registry | `{PUBLIC_NPM_REGISTRY}`, set by the generator |",
+        f"| Manager | {manager} |",
+        "",
+        "The lockfile was generated without installing: no `node_modules` was written and no install script ran.",
+        "",
+        "This tree is a git repository with everything committed, and both halves of that matter. Semgrep scans git-tracked files only, so an untracked tree would make every security check pass having read nothing; and `git status --porcelain` empty before and after a run, which is how an audit proves it wrote nothing, means nothing outside a repository.",
+        "",
+        "So do not resolve or install inside this directory. Copy it somewhere else and materialize the copy, which is what an audit run is required to do against a real target too.",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def _fixture_env(base: Mapping[str, str] | None = None) -> dict[str, str]:
     """The environment the fixture subprocesses run under.
 
     Two kinds of host setting decide what a lock step produces, and both are
@@ -283,7 +476,7 @@ def _fixture_env() -> dict[str, str]:
     current and the deprecated uv spellings are removed, since uv still reads
     the deprecated pair.
     """
-    env = dict(os.environ)
+    env = dict(os.environ if base is None else base)
     for name in (
         "VIRTUAL_ENV",
         "UV_PROJECT_ENVIRONMENT",
@@ -304,6 +497,42 @@ def _fixture_env() -> dict[str, str]:
     return env
 
 
+def _is_registry_setting(name: str) -> bool:
+    """Whether an environment variable sets an npm or pnpm registry.
+
+    Both managers read `npm_config_*` in either case, and a scoped registry is
+    spelled `npm_config_@scope:registry`, so the test is on the lowercased name.
+    """
+    lowered = name.lower()
+    return lowered.startswith("npm_config_") and lowered.endswith("registry")
+
+
+def ts_fixture_env(base: Mapping[str, str] | None = None) -> dict[str, str]:
+    """The environment a TypeScript lock step and its version probe run under.
+
+    `_fixture_env`'s removals first, since the generator still runs under
+    `uv run`. Then every registry override is removed and the public registry
+    set, so each lockfile's `resolved` URLs name a host every reader can reach.
+    Corepack is told neither to prompt before fetching the pinned pnpm, which
+    would hang a build with no terminal, nor to write a `packageManager` pin of
+    its own into a manifest, which would dirty the tree it is locking.
+    """
+    env = _fixture_env(base)
+    for name in [n for n in env if _is_registry_setting(n)]:
+        del env[name]
+    env["npm_config_registry"] = PUBLIC_NPM_REGISTRY
+    env["COREPACK_ENABLE_DOWNLOAD_PROMPT"] = "0"
+    env["COREPACK_ENABLE_AUTO_PIN"] = "0"
+    return env
+
+
+def lock_env(partition: str, base: Mapping[str, str] | None = None) -> dict[str, str]:
+    """The environment this partition's lock step runs under."""
+    if lang_of(partition) == "typescript":
+        return ts_fixture_env(base)
+    return _fixture_env(base)
+
+
 def _output_block(label: str, stream: str) -> str:
     """One labelled stream for a failure message, or nothing when it is empty.
 
@@ -315,7 +544,9 @@ def _output_block(label: str, stream: str) -> str:
     return f"\n{label}:\n{stripped}" if stripped else ""
 
 
-def _run(command: Sequence[str], cwd: Path) -> str:
+def _run(
+    command: Sequence[str], cwd: Path, env: Mapping[str, str] | None = None
+) -> str:
     """Run one command in a fixture tree, or raise naming it and its output.
 
     Nothing here swallows a failure: a lock step that errored and was ignored
@@ -376,7 +607,7 @@ def _git(root: Path, *args: str) -> str:
 def _measure_uv_version() -> str:
     """The host uv, as it identifies itself. Recorded in the trees uv locks."""
     if shutil.which("uv") is None:
-        raise RuntimeError("uv is not on PATH; every partition's build needs it")
+        raise RuntimeError("uv is not on PATH; every Python partition's build needs it")
     completed = subprocess.run(
         ["uv", "--version"], capture_output=True, text=True, check=False
     )
@@ -426,14 +657,24 @@ def _stage(root: Path, paths: Iterable[str]) -> None:
     _git(root, "add", "--", *paths)
 
 
-def build(partition: str, root: Path, uv_version: str | None = None) -> dict[str, str]:
+def build(
+    partition: str,
+    root: Path,
+    uv_version: str | None = None,
+    *,
+    probe: Callable[[Sequence[str], Path, Mapping[str, str]], str] | None = None,
+) -> dict[str, str]:
     """Write, commit and lock one partition. Returns a summary of what it did.
 
     Args:
-        partition: One of `PARTITIONS`.
+        partition: One of `PARTITIONS` or `TS_PARTITIONS`.
         root: The directory to build in. Replaced if a previous build of this
             same partition is there, refused if anything else is.
-        uv_version: The host uv version to record; measured when omitted.
+        uv_version: The host uv version to record on a Python partition;
+            measured when omitted, and unused on a TypeScript one.
+        probe: How a TypeScript partition's manager version is read, before
+            anything is written; `_probe` when omitted. The build is refused
+            when the version it returns differs from the partition's pin.
 
     Returns:
         A mapping of partition, root and tracked file count, each as a string,
@@ -441,14 +682,16 @@ def build(partition: str, root: Path, uv_version: str | None = None) -> dict[str
         to return at all from a dirty tree, so a number here could only ever be
         zero and would read as a property somebody checked.
     """
-    _known(partition)
-    uv_version = uv_version if uv_version is not None else _measure_uv_version()
+    if lang_of(partition) == "typescript":
+        version = measure_manager_version(partition, probe or _probe)
+    else:
+        version = uv_version if uv_version is not None else _measure_uv_version()
     _clear(root, partition)
     root.mkdir(parents=True)
 
     files = plan_tree(partition)
     _write_tree(root, files)
-    (root / FIXTURE_README).write_text(fixture_readme(partition, uv_version))
+    (root / FIXTURE_README).write_text(fixture_readme(partition, version))
 
     _git(root, "init", "--quiet", "--initial-branch", "main")
     _stage(root, [*sorted(files), FIXTURE_README])
@@ -457,9 +700,9 @@ def build(partition: str, root: Path, uv_version: str | None = None) -> dict[str
     )
 
     for command in prelock_commands(partition):
-        _run(command, root)
+        _run(command, root, env=lock_env(partition))
     if lock_command(partition):
-        _run(lock_command(partition), root)
+        _run(lock_command(partition), root, env=lock_env(partition))
     for name in discard_after_lock(partition):
         discarded = root / name
         if not discarded.exists():
@@ -519,30 +762,41 @@ def main(argv: list[str] | None = None) -> int:
         `0` when every requested partition built.
     """
     parser = argparse.ArgumentParser(
-        description="Write the seeded Python fixture partitions."
+        description="Write the seeded Python and TypeScript fixture partitions."
     )
     parser.add_argument(
         "partitions",
         nargs="*",
-        choices=list(PARTITIONS),
+        choices=[*PARTITIONS, *TS_PARTITIONS],
         help="partitions to build; omit and pass --all for every one",
     )
-    parser.add_argument("--all", action="store_true", help="build every partition")
+    parser.add_argument(
+        "--all", action="store_true", help="build every partition of both languages"
+    )
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=DEFAULT_OUTPUT_DIR,
-        help=f"where the trees go (default: {DEFAULT_OUTPUT_DIR.relative_to(REPO_ROOT)} under the repository)",
+        default=None,
+        help=(
+            "where the trees go, for every requested partition (default: "
+            f"{DEFAULT_OUTPUT_DIR.relative_to(REPO_ROOT)} for Python and "
+            f"{TS_DEFAULT_OUTPUT_DIR.relative_to(REPO_ROOT)} for TypeScript, "
+            "under the repository)"
+        ),
     )
     args = parser.parse_args(argv)
 
-    requested = tuple(PARTITIONS) if args.all else tuple(args.partitions)
+    requested = (*PARTITIONS, *TS_PARTITIONS) if args.all else tuple(args.partitions)
     if not requested:
         parser.error("name at least one partition, or pass --all")
 
-    uv_version = _measure_uv_version()
+    # uv is measured only where a Python partition will record it, so a
+    # TypeScript-only build does not fail on a host uv it never uses.
+    wants_python = any(lang_of(p) == "python" for p in requested)
+    uv_version = _measure_uv_version() if wants_python else None
     for partition in requested:
-        summary = build(partition, args.output_dir / partition, uv_version)
+        base = args.output_dir or DEFAULT_OUTPUT_DIRS[lang_of(partition)]
+        summary = build(partition, base / partition, uv_version)
         print(
             f"{summary['partition']}: {summary['tracked']} tracked files "
             f"in {summary['root']}"
