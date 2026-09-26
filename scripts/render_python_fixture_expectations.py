@@ -1,7 +1,9 @@
-"""Render `docs/audit/python-fixture-expectations.md` from the fixture spec (#45).
+"""Render the two fixture expectation records from the fixture spec.
 
-The published record is generated: edit `scripts/python_fixture_spec.py` and
-re-render. `--check` compares the two and is what stops them drifting apart. It
+`docs/audit/python-fixture-expectations.md` (#45) and
+`docs/audit/typescript-fixture-expectations.md` (#181) are both generated: edit
+`scripts/python_fixture_spec.py` and re-render. `--check` compares each with a
+fresh render and is what stops them drifting apart; it fails if either is stale. It
 prints nothing and exits 0 when they agree; on drift it prints a unified diff
 to stderr and exits 1. That contract is the one the other generated record in
 `docs/audit/` is gated by, so a reader who knows one gate knows this one.
@@ -42,6 +44,16 @@ from python_fixture_spec import (
     PARTITIONS,
     SOURCE_FILES,
     THIN_EXTRA_CHECK,
+    TS_CORE,
+    TS_DEFERRED_CHECKS,
+    TS_DEPENDENCIES,
+    TS_EXPECTATIONS,
+    TS_LEAF,
+    TS_MANAGER_PINS,
+    TS_PARTITIONS,
+    TS_ROOT,
+    TS_SOURCE_FILES,
+    TS_VERIFIED_ON,
     VERIFIED_ON,
     Expectation,
     expectations_for,
@@ -49,6 +61,7 @@ from python_fixture_spec import (
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 OUT_PATH = REPO_ROOT / "docs" / "audit" / "python-fixture-expectations.md"
+TS_OUT_PATH = REPO_ROOT / "docs" / "audit" / "typescript-fixture-expectations.md"
 
 
 def _display(path: Path) -> str:
@@ -224,6 +237,162 @@ def render() -> str:
     return "\n".join(out) + "\n"
 
 
+def _ts_scope_cell(expectation: Expectation) -> str:
+    """`all`, or the scoped TypeScript partitions in `TS_PARTITIONS` order."""
+    if set(expectation.partitions) == set(TS_PARTITIONS):
+        return "all"
+    scoped = [p for p in TS_PARTITIONS if p in expectation.partitions]
+    return ", ".join(f"`{p}`" for p in scoped)
+
+
+def _ts_partition_checks_cell(partition: str) -> str:
+    carried = {e.check for e in expectations_for(partition)}
+    if carried == {e.check for e in TS_EXPECTATIONS}:
+        return "every check in the expectation table"
+    return ", ".join(f"`{c}`" for c in sorted(carried))
+
+
+def _ts_member_cell(member: str) -> str:
+    return "root" if member == TS_ROOT else f"`{member}`"
+
+
+def render_typescript() -> str:
+    """The whole published TypeScript record, newline-terminated."""
+    ungranted = [e for e in TS_EXPECTATIONS if e.ungranted]
+    owed = [e for e in TS_EXPECTATIONS if e.owed]
+    out = [
+        "<!-- GENERATED FILE - do not edit. Source: scripts/python_fixture_spec.py; run scripts/render_python_fixture_expectations.py after editing. -->",
+        "",
+        "# TypeScript fixture expectations",
+        "",
+        "What each `lang: typescript` command route in the audit skill family must observe when it runs against the seeded npm and pnpm fixture partitions, written down before the run. Generated from `scripts/python_fixture_spec.py` by `scripts/render_python_fixture_expectations.py`, the same module and renderer as the Python record beside it: edit the module and re-render, never this file. The `--check` flag of that renderer holds both records to the module, and CI runs it.",
+        "",
+        "A fixture whose expected output is not recorded first is just a smaller real target. Against a real repository an audit can only ask whether a command ran and returned something plausible; here the right answer is known before the tool speaks, so a route that runs cleanly and reports half the truth fails instead of passing.",
+        "",
+        f"Every pin below was checked against OSV and the npm registry on **{TS_VERIFIED_ON}**. A pin is frozen, but the advisories against it only accumulate and its latest release moves, so re-verifying one means querying both sources again and moving the date with it.",
+        "",
+        "The fixture trees are generated and never committed to this repository.",
+        "",
+        "## The shared dependency set",
+        "",
+        f"Both partitions declare the same set at exact pins. The npm partition is one package and declares all of it in one `package.json`; the pnpm partition is a workspace, and the `Member` column says which of its manifests declares each entry - the root, `{TS_CORE}` (the seeded source) or `{TS_LEAF}` (the leaf, which also depends on the core package through `workspace:*`). The member is what decides whether a root-only read reaches a pin.",
+        "",
+        "| Package | Pin | Latest | Dev | Member | Seeds | Evidence |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    for d in TS_DEPENDENCIES:
+        out.append(
+            f"| `{_cell(d.name)}` | `{_cell(d.pin)}` | `{_cell(d.latest)}` "
+            f"| {'yes' if d.dev else 'no'} | {_ts_member_cell(d.member)} "
+            f"| {_cell(', '.join(d.seeds)) or '-'} | {_cell(d.evidence)} |"
+        )
+
+    out += [
+        "",
+        "## What each partition runs",
+        "",
+        "Both partitions carry every check in the expectation table, because each TypeScript command route there is either the partition's own package manager's subcommand or a tool that runs the same way on both, so each partition asks it a different question. The `packageManager` pin is on the root manifest, which is where corepack reads it.",
+        "",
+        "| Partition | Manager pin | Expectations | Checks |",
+        "|---|---|---|---|",
+    ]
+    for partition in TS_PARTITIONS:
+        out.append(
+            f"| `{partition}` | `{TS_MANAGER_PINS[partition]}` "
+            f"| {len(expectations_for(partition))} "
+            f"| {_ts_partition_checks_cell(partition)} |"
+        )
+
+    out += [
+        "",
+        "## Expected result per check",
+        "",
+        f"{len(TS_EXPECTATIONS)} entries over {len({e.check for e in TS_EXPECTATIONS})} checks. A check whose answer differs by partition is written as one entry per scope, the scopes disjoint. The `Form` column takes one of {', '.join(f'`{f}`' for f in FORMS)}, with the meanings the Python record gives them: `exact` is fully determined, `floor` states a location and a minimum where an exact number would go stale on its own, and `absence` states that any hit is a false positive. An entry with no seed states what a correct tool reports on a fixture that plants nothing for it.",
+        "",
+        "| Check | Partitions | Form | Seeds | Expected |",
+        "|---|---|---|---|---|",
+    ]
+    for e in TS_EXPECTATIONS:
+        out.append(
+            f"| `{e.check}` | {_ts_scope_cell(e)} | {e.form} | {_seeds_cell(e)} "
+            f"| {_cell(e.claim)} |"
+        )
+
+    out += [
+        "",
+        "## Without the grant",
+        "",
+        f"Every entry is run under two grant states, and the table above is the answer with the grant. Where withholding it changes what the check answers on that partition, the second answer is written out below - {len(ungranted)} of the {len(TS_EXPECTATIONS)} entries. It is judged per partition rather than per language, because an untiered TypeScript route can be one partition's own package manager: `npm sbom` needs no grant, but it reads `package-lock.json`, so it answers nothing on the pnpm partition. An entry not listed here answers its claim in both states.",
+        "",
+        "| Check | Partitions | Without the grant |",
+        "|---|---|---|",
+    ]
+    for e in ungranted:
+        out.append(f"| `{e.check}` | {_ts_scope_cell(e)} | {_cell(e.ungranted)} |")
+
+    out += [
+        "",
+        "## What a result still owes",
+        "",
+        f"An entry whose check has a TypeScript route naming a tool that carries `alone_insufficient` states what is still owed, {len(owed)} of the {len(TS_EXPECTATIONS)} entries. Where the record uses the field for an invocation requirement - a command not complete as written - the entry says what the invocation needs. The row's status is the engine's and does not move for either.",
+        "",
+        "| Check | Partitions | Still owed |",
+        "|---|---|---|",
+    ]
+    for e in owed:
+        out.append(f"| `{e.check}` | {_ts_scope_cell(e)} | {_cell(e.owed)} |")
+
+    out += [
+        "",
+        "## Checks with no expectation",
+        "",
+        f"Every check with a `lang: typescript` route either has an expectation above or is listed here with its reason - {len(TS_DEFERRED_CHECKS)} checks. The suite holds the two sets to a partition of the family's TypeScript-route checks, read from the check records, so a new TypeScript route cannot drop out of the round unclassified.",
+        "",
+        "| Check | Why no expectation |",
+        "|---|---|",
+    ]
+    for check in sorted(TS_DEFERRED_CHECKS):
+        out.append(f"| `{check}` | {_cell(TS_DEFERRED_CHECKS[check])} |")
+
+    planted = {s for f in TS_SOURCE_FILES for s in f.seeds} | {
+        s for d in TS_DEPENDENCIES for s in d.seeds
+    }
+    expected = {s for e in TS_EXPECTATIONS for s in e.seeds}
+    unexpected = sorted(planted - expected)
+    out += [
+        "",
+        "## A seed nothing expects",
+        "",
+        "A seeded finding no expectation names would be planted and never looked for, so the planted and expected seeds are held equal in both directions by the suite.",
+        "",
+        ", ".join(f"`{s}`" for s in unexpected)
+        if unexpected
+        else f"None: all {len(planted)} seeds the source files and the dependency set plant are named by some expectation.",
+    ]
+    return "\n".join(out) + "\n"
+
+
+def _records() -> list[tuple[Path, str, str]]:
+    """(path, rendered text, summary) for each record, read at call time.
+
+    Looked up through the module globals on every call rather than bound once,
+    so a test pointing `OUT_PATH` or `TS_OUT_PATH` at a temporary file redirects
+    exactly that record.
+    """
+    return [
+        (
+            OUT_PATH,
+            render(),
+            f"{len(EXPECTATIONS)} expectations over {len(PARTITIONS)} partitions",
+        ),
+        (
+            TS_OUT_PATH,
+            render_typescript(),
+            f"{len(TS_EXPECTATIONS)} expectations over {len(TS_PARTITIONS)} partitions",
+        ),
+    ]
+
+
 def main(argv: list[str] | None = None) -> int:
     """Write the record, or under `--check` fail if the committed one is stale.
 
@@ -231,11 +400,11 @@ def main(argv: list[str] | None = None) -> int:
         argv: Command-line arguments; `None` reads `sys.argv`.
 
     Returns:
-        `0` on success, `1` under `--check` when the committed Markdown differs
+        `0` on success, `1` under `--check` when either committed record differs
         from a fresh render or is missing.
     """
     parser = argparse.ArgumentParser(
-        description="Render/verify the seeded Python fixture expectations."
+        description="Render/verify the seeded Python and TypeScript fixture expectations."
     )
     parser.add_argument(
         "--check",
@@ -244,30 +413,33 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    generated = render()
+    records = _records()
     if not args.check:
-        OUT_PATH.write_text(generated)
-        print(
-            f"wrote {_display(OUT_PATH)} "
-            f"({len(EXPECTATIONS)} expectations over {len(PARTITIONS)} partitions)"
-        )
+        for path, generated, summary in records:
+            path.write_text(generated)
+            print(f"wrote {_display(path)} ({summary})")
         return 0
 
     # A missing file is drift, not an error to report differently: the record is
     # generated, so its absence and its staleness are closed the same way.
-    current = OUT_PATH.read_text() if OUT_PATH.exists() else ""
-    if current == generated:
-        return 0
-    sys.stderr.writelines(
-        difflib.unified_diff(
-            current.splitlines(keepends=True),
-            generated.splitlines(keepends=True),
-            fromfile=_display(OUT_PATH),
-            tofile="rendered",
+    stale = []
+    for path, generated, _ in records:
+        current = path.read_text() if path.exists() else ""
+        if current == generated:
+            continue
+        stale.append(path)
+        sys.stderr.writelines(
+            difflib.unified_diff(
+                current.splitlines(keepends=True),
+                generated.splitlines(keepends=True),
+                fromfile=_display(path),
+                tofile="rendered",
+            )
         )
-    )
+    if not stale:
+        return 0
     print(
-        f"\n{OUT_PATH.name} is stale; run: "
+        f"\n{', '.join(p.name for p in stale)} stale; run: "
         "uv run python scripts/render_python_fixture_expectations.py",
         file=sys.stderr,
     )

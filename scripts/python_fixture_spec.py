@@ -1,7 +1,8 @@
-"""Definition of the seeded Python fixtures (#45).
+"""Definition of the seeded Python fixtures (#45) and TypeScript fixtures (#181).
 
-One dependency set, one seeded source tree, five manifest renderings and one
-expectations table, all from this module. The fixture tree and the expectations
+For each language, one dependency set, one seeded source tree, the manifest
+renderings of its partitions (five Python, two TypeScript) and one expectations
+table, all from this module. The fixture tree and the expectations
 are produced from the same definition on purpose: expectations kept in a second
 file are free to drift, and a seed present in the tree but missing from the
 expectations reads exactly like a tool that correctly found nothing.
@@ -12,9 +13,16 @@ those two sources again and updating both the pin and its evidence, because a
 pin whose advisories nobody re-read is the unverified claim this whole round
 exists to remove.
 
+The TypeScript half follows the Python one below, under its own verification
+date, `TS_VERIFIED_ON`, because its pins were checked on a different day against
+OSV and the npm registry. `PARTITIONS` and `EXPECTATIONS` stay the Python ones;
+the TypeScript tables carry a `TS_` prefix, and `lang_of` says which a partition
+name belongs to.
+
 Pure. Nothing here touches the filesystem, the network or a subprocess.
 """
 
+import json
 import re
 from dataclasses import dataclass
 
@@ -24,6 +32,31 @@ from dataclasses import dataclass
 VERIFIED_ON = "2026-08-13"
 
 PARTITIONS = ("uv", "pip", "poetry", "pipenv", "pylock")
+
+# The TypeScript partitions (#181), one per package manager a named TypeScript
+# target uses. Named here, beside the Python tuple, because `Expectation`
+# validates its scope against both and a partition name has to mean one
+# language. `PARTITIONS` stays the Python tuple on purpose: the Python harness,
+# renderer and tests all read it as "the Python partitions", and widening it
+# would hand every one of them two partitions it has no manifest for.
+TS_PARTITIONS = ("npm", "pnpm")
+
+
+def lang_of(partition: str) -> str:
+    """The language a partition belongs to, or a failure naming the partition.
+
+    The two tuples are disjoint by construction, so a name is in at most one of
+    them; a name in neither is a typo, and answering it with a default language
+    would scope an expectation to a partition nothing builds.
+    """
+    if partition in PARTITIONS:
+        return "python"
+    if partition in TS_PARTITIONS:
+        return "typescript"
+    raise ValueError(
+        f"unknown partition {partition!r}; expected one of {PARTITIONS + TS_PARTITIONS}"
+    )
+
 
 # The partition that carries every `python:` entry. Every other partition carries
 # the `deps` records plus pytest-cov, which is tiered `target-execution` and so
@@ -724,10 +757,20 @@ class Expectation:
             raise ValueError(
                 f"unknown form {self.form!r} for {self.check}; expected one of {FORMS}"
             )
-        unknown = sorted(set(self.partitions) - set(PARTITIONS))
+        known = PARTITIONS + TS_PARTITIONS
+        unknown = sorted(set(self.partitions) - set(known))
         if unknown:
             raise ValueError(
-                f"not partitions: {unknown} for {self.check}; expected names from {PARTITIONS}"
+                f"not partitions: {unknown} for {self.check}; expected names from {known}"
+            )
+        # One entry answers for one language. A scope mixing a Python and a
+        # TypeScript partition would put one claim in front of two different
+        # tools, and the renderer of either record would then publish half of it.
+        languages = {lang_of(p) for p in self.partitions}
+        if len(languages) > 1:
+            raise ValueError(
+                f"{self.check} is scoped across languages {sorted(languages)}; "
+                "write one entry per language"
             )
 
 
@@ -1168,9 +1211,677 @@ EXPECTATIONS = (
 
 
 def expectations_for(partition: str) -> tuple[Expectation, ...]:
-    """Every expectation that applies to one partition."""
-    if partition not in PARTITIONS:
-        raise ValueError(
-            f"unknown partition {partition!r}; expected one of {PARTITIONS}"
-        )
-    return tuple(e for e in EXPECTATIONS if partition in e.partitions)
+    """Every expectation that applies to one partition, of either language."""
+    table = EXPECTATIONS if lang_of(partition) == "python" else TS_EXPECTATIONS
+    return tuple(e for e in table if partition in e.partitions)
+
+
+# ---------------------------------------------------------------------------
+# The TypeScript half (#181).
+#
+# The same single-source rule as the Python half above: one dependency set, one
+# seeded source tree, two manifest renderings and one expectations table, all
+# from this module, so a seed cannot drift from the expectation that looks for
+# it. Every pin below was checked on TS_VERIFIED_ON against OSV
+# (`api.osv.dev/v1/query`, ecosystem npm) and the npm registry (`npm view
+# <pkg>@<ver> license dependencies`, `npm view <pkg> version` for latest), and
+# its `evidence` string says what came back.
+# ---------------------------------------------------------------------------
+
+TS_VERIFIED_ON = "2026-09-25"
+
+# The package manager each partition declares in its root `packageManager`
+# field, which is what corepack provisions from. A manager the audit
+# environment happens to have is not the manager the target declares, so the
+# pin is part of the fixture rather than of the host.
+NPM_PIN = "npm@11.19.0"
+PNPM_PIN = "pnpm@9.15.9"
+TS_MANAGER_PINS = {"npm": NPM_PIN, "pnpm": PNPM_PIN}
+
+# The workspace members on pnpm. The npm partition is one package and ignores
+# `TsDependency.member`; the pnpm partition is a workspace because the pnpm
+# target is one and its corrections in #29 came from workspace behaviour.
+TS_ROOT = "."
+TS_CORE = "packages/core"
+TS_LEAF = "apps/api"
+TS_MEMBERS = (TS_ROOT, TS_CORE, TS_LEAF)
+
+TS_PACKAGE_VERSION = "0.1.0"
+TS_NPM_PACKAGE = "fixture-app"
+TS_WORKSPACE_ROOT_PACKAGE = "fixture-workspace"
+TS_CORE_PACKAGE = "@fixture/core"
+TS_LEAF_PACKAGE = "@fixture/api"
+
+
+@dataclass(frozen=True)
+class TsDependency:
+    """One entry in the TypeScript dependency set.
+
+    `member` is the workspace package that declares it on pnpm: `TS_ROOT`, or
+    one of the two members. It decides which manifest a pnpm route has to read
+    to see the pin, which is the whole point of the leaf-only stale seed.
+
+    `latest` is the registry's latest release on TS_VERIFIED_ON. Recorded rather
+    than looked up, so the freshness expectation's outdated set is computed from
+    the module (`pin != latest`) instead of typed, and a re-verification that
+    moves one moves the claim with it.
+    """
+
+    name: str
+    pin: str
+    latest: str
+    dev: bool
+    member: str
+    seeds: tuple[str, ...]
+    evidence: str
+
+    def __post_init__(self) -> None:
+        if self.member not in TS_MEMBERS:
+            raise ValueError(
+                f"unknown member {self.member!r} for {self.name}; expected one of {TS_MEMBERS}"
+            )
+
+
+TS_DEPENDENCIES = (
+    TsDependency(
+        "lodash",
+        "4.17.20",
+        "4.18.1",
+        False,
+        TS_LEAF,
+        ("vulnerable",),
+        "OSV: 5 advisories, GHSA-29mw-wpgm-hmr9, GHSA-35jh-r3h4-6jhm, "
+        "GHSA-f23m-r3pf-42rh, GHSA-r5fr-rjxr-66jc and GHSA-xxjr-mmjv-4gpg, two pairs of "
+        "which alias each other, over CVE-2020-28500, CVE-2021-23337, CVE-2026-4800, "
+        "CVE-2025-13465 and CVE-2026-2950. npm view: MIT, no dependencies. Latest is "
+        "4.18.1, so it is outdated too",
+    ),
+    TsDependency(
+        "commander",
+        "2.20.3",
+        "15.0.0",
+        False,
+        TS_LEAF,
+        ("stale", "leaf-only"),
+        "OSV: no advisories. npm view: MIT, no dependencies. Latest is 15.0.0, "
+        "thirteen majors ahead. Declared in the pnpm leaf only, so a root-only "
+        "freshness read cannot reach it",
+    ),
+    TsDependency(
+        "is-odd",
+        "3.0.1",
+        "3.0.1",
+        False,
+        TS_ROOT,
+        ("transitive-root",),
+        "OSV: no advisories. npm view: MIT, the latest release, which makes it the "
+        "freshness control. Depends on is-number ^6.0.0, which resolves to is-number "
+        "6.0.0 (MIT, no OSV advisories, not declared anywhere in the fixture): the "
+        "transitive component the licence and inventory checks have to reach",
+    ),
+    TsDependency(
+        "tinymce",
+        "7.9.3",
+        "8.9.2",
+        False,
+        TS_CORE,
+        ("copyleft",),
+        "npm view: GPL-2.0-or-later, no dependencies. OSV: no advisories. Pinned at "
+        "7.9.3 rather than the planned 7.9.1, which carries three XSS advisories "
+        "(GHSA-q742-qvgc-gc2f, GHSA-v98h-vmpc-fpqv, GHSA-vg35-5wq7-3x7w) fixed in 7.9.3 "
+        "and would have made lodash not the only vulnerable seed. The 8.x line is "
+        "unusable for the seed: 8.9.2 declares `SEE LICENSE IN license.md`, which is "
+        "not an SPDX id. Latest is 8.9.2, so it is outdated too",
+    ),
+    TsDependency(
+        "vitest",
+        "5.0.2",
+        "5.0.2",
+        True,
+        TS_ROOT,
+        (),
+        "npm view: MIT, the latest release. Declares a non-optional peer dependency "
+        "on vite and engines node ^22.12.0 || ^24.0.0 || >=26.0.0. Its option "
+        "documentation gives slowTestThreshold a default of 300 and testTimeout a "
+        "default of 5000, and says `sequence.shuffle` runs files and tests in random "
+        "order",
+    ),
+    TsDependency(
+        "@vitest/coverage-v8",
+        "5.0.2",
+        "5.0.2",
+        True,
+        TS_ROOT,
+        (),
+        "npm view: MIT, the latest release, peer dependency vitest 5.0.2 exactly",
+    ),
+    TsDependency(
+        "typescript",
+        "5.9.3",
+        "7.0.2",
+        True,
+        TS_ROOT,
+        (),
+        "npm view: Apache-2.0. Pinned at 5.9.3, the newest 5.x release, rather than the "
+        "latest 7.0.2: 7.x ships as per-platform native binaries, madge 8.0.0 declares "
+        "a typescript peer of ^5.4.4 and the dependency-cruiser routes record a "
+        "declared range below 7.0.0, so a 7.x in the tree would be an unplanted "
+        "confound on every resolved-tree arch route. Outdated by construction",
+    ),
+)
+
+
+def _ts_by_name(name: str) -> TsDependency:
+    """The one TypeScript dependency with this name, or a failure naming the set."""
+    for dependency in TS_DEPENDENCIES:
+        if dependency.name == name:
+            return dependency
+    raise ValueError(
+        f"no TypeScript dependency named {name!r}; have {[d.name for d in TS_DEPENDENCIES]}"
+    )
+
+
+# The cycle uses named imports resolved at call time in both directions. ES
+# module bindings are live, so neither module reads the other's export during
+# evaluation and the cycle is real for the graph tools without breaking a test
+# that imports either module. `load` and `loadViaDomain` only forward, which is
+# the pass-through pair arch/over-decomposition reads, as in the Python half.
+_TS_MODEL = """// Domain model. Imports infra, which is the layering violation.
+import { read } from "../infra/store";
+
+export function load(key: string): number | undefined {
+  return read(key);
+}
+"""
+
+_TS_STORE = """// Infrastructure store. Imports the domain model, closing the cycle.
+import { load } from "../domain/model";
+
+const data: Record<string, number> = { a: 1 };
+
+export function read(key: string): number | undefined {
+  return data[key];
+}
+
+export function loadViaDomain(key: string): number | undefined {
+  return load(key);
+}
+"""
+
+_TS_CLAMP = """// A function with two guard branches no test reaches.
+export function clamp(value: number, low: number, high: number): number {
+  if (value < low) {
+    return low;
+  }
+  if (value > high) {
+    return high;
+  }
+  return value;
+}
+"""
+
+_TS_TEST_CLAMP = """import { expect, test } from "vitest";
+import { clamp } from "../src/clamp";
+
+test("clamp passes a value inside the range through", () => {
+  expect(clamp(5, 0, 10)).toBe(5);
+});
+"""
+
+# Both tests in ONE file, because a shuffle that only reorders files cannot
+# reverse them. vitest's `--sequence.shuffle` as a boolean shuffles tests within
+# a file as well; the seed that reverses the pair is measured at build time and
+# recorded in the build smoke record, never guessed.
+_TS_TEST_ORDER = """// An order-dependent pair, green in file order.
+import { expect, test } from "vitest";
+
+const seen: number[] = [];
+
+test("appends", () => {
+  seen.push(1);
+  expect(seen).toEqual([1]);
+});
+
+test("reads", () => {
+  expect(seen).toEqual([1]);
+});
+"""
+
+# The sleep and the two vitest defaults it sits between are one fact, so all
+# three are named and interpolated. The sleep reuses the Python half's
+# constant: the slow seed is the same seed in both languages.
+TS_SLOW_TEST_MS = SLOW_TEST_SECONDS * 1000
+VITEST_SLOW_TEST_THRESHOLD_MS = 300
+VITEST_TEST_TIMEOUT_MS = 5000
+
+_TS_TEST_SLOW = f"""import {{ expect, test }} from "vitest";
+
+test("slow but passing", async () => {{
+  await new Promise((resolve) => setTimeout(resolve, {TS_SLOW_TEST_MS}));
+  expect(true).toBe(true);
+}});
+"""
+
+# No `extends`, no `paths` and no `references`: madge's `--ts-config` route
+# applies only where the partition's tsconfig does not extend a base living in
+# `node_modules`, and this one extends nothing, so the route applies by
+# construction rather than by luck of the host.
+_TS_CONFIG = """{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true
+  },
+  "include": ["src", "test"]
+}
+"""
+
+# Paths relative to the seeded package's own root: the repository root on npm,
+# `TS_CORE` on pnpm. `ts_source_tree` applies the prefix.
+TS_SOURCE_FILES = (
+    SourceFile("tsconfig.json", _TS_CONFIG, ()),
+    SourceFile("src/domain/model.ts", _TS_MODEL, ("cycle", "pass-through")),
+    SourceFile("src/infra/store.ts", _TS_STORE, ("cycle", "pass-through")),
+    SourceFile("src/clamp.ts", _TS_CLAMP, ("uncovered-branch",)),
+    SourceFile("test/clamp.test.ts", _TS_TEST_CLAMP, ("uncovered-branch",)),
+    SourceFile("test/order.test.ts", _TS_TEST_ORDER, ("order-dependence",)),
+    SourceFile("test/slow.test.ts", _TS_TEST_SLOW, ("slow-test",)),
+)
+
+# The construct each planted seed is, so it cannot leave with its name intact.
+# Every TypeScript seed is a construct: none is an absence, which is why there
+# is no TypeScript counterpart of ABSENCE_SEEDS.
+TS_SEED_MARKERS = {
+    "cycle": ('from "../infra/store"', 'from "../domain/model"'),
+    "pass-through": ("return read(key)", "return load(key)"),
+    # The guards, not the function name: deleting a guard leaves `clamp` intact.
+    "uncovered-branch": ("if (value < low)", "if (value > high)"),
+    "order-dependence": ("seen.push(",),
+    "slow-test": (f"setTimeout(resolve, {TS_SLOW_TEST_MS})",),
+}
+
+
+def _ts_source_prefix(partition: str) -> str:
+    if lang_of(partition) != "typescript":
+        raise ValueError(f"{partition!r} is not a TypeScript partition")
+    return "" if partition == "npm" else f"{TS_CORE}/"
+
+
+def ts_source_tree(partition: str) -> dict[str, str]:
+    """Map every seeded path, as it lands in this partition's tree, to its body."""
+    prefix = _ts_source_prefix(partition)
+    return {f"{prefix}{f.path}": f.body for f in TS_SOURCE_FILES}
+
+
+def _json(document: dict) -> str:
+    return json.dumps(document, indent=2) + "\n"
+
+
+def _pins(dependencies, *, dev: bool) -> dict[str, str]:
+    """Exact pins, never ranges: a range would let the resolver move a seed."""
+    return {d.name: d.pin for d in dependencies if d.dev == dev}
+
+
+def _package_json(
+    name: str,
+    dependencies: tuple[TsDependency, ...],
+    *,
+    package_manager: str = "",
+    links: dict[str, str] | None = None,
+) -> str:
+    """One package.json. `links` are workspace-protocol runtime dependencies."""
+    document: dict = {
+        "name": name,
+        "version": TS_PACKAGE_VERSION,
+        "private": True,
+        "type": "module",
+    }
+    if package_manager:
+        document["packageManager"] = package_manager
+    runtime = _pins(dependencies, dev=False) | (links or {})
+    if runtime:
+        document["dependencies"] = runtime
+    development = _pins(dependencies, dev=True)
+    if development:
+        document["devDependencies"] = development
+    return _json(document)
+
+
+def ts_render_manifests(partition: str) -> dict[str, str]:
+    """Return {relative path: content} for one TypeScript partition's manifests.
+
+    Lockfiles are absent by design, as on the Python side: each manager
+    generates its own, which is the difference the two partitions exist to
+    exercise. The `packageManager` pin goes on the root manifest only, which is
+    where corepack reads it.
+    """
+    if lang_of(partition) != "typescript":
+        raise ValueError(f"{partition!r} is not a TypeScript partition")
+    pin = TS_MANAGER_PINS[partition]
+    if partition == "npm":
+        return {
+            "package.json": _package_json(
+                TS_NPM_PACKAGE, TS_DEPENDENCIES, package_manager=pin
+            )
+        }
+    if partition == "pnpm":
+
+        def members(member: str):
+            return tuple(d for d in TS_DEPENDENCIES if d.member == member)
+
+        return {
+            "package.json": _package_json(
+                TS_WORKSPACE_ROOT_PACKAGE, members(TS_ROOT), package_manager=pin
+            ),
+            "pnpm-workspace.yaml": "packages:\n  - packages/*\n  - apps/*\n",
+            f"{TS_CORE}/package.json": _package_json(TS_CORE_PACKAGE, members(TS_CORE)),
+            f"{TS_LEAF}/package.json": _package_json(
+                TS_LEAF_PACKAGE,
+                members(TS_LEAF),
+                links={TS_CORE_PACKAGE: "workspace:*"},
+            ),
+        }
+    raise ValueError(
+        f"partition {partition!r} is named in TS_PARTITIONS but has no manifest rendering"
+    )
+
+
+_TS_ALL = TS_PARTITIONS
+
+_LODASH_CVES = tuple(
+    sorted(set(re.findall(r"CVE-\d{4}-\d+", _ts_by_name("lodash").evidence)))
+)
+
+# The outdated set and the control, computed from the pins rather than typed.
+_TS_OUTDATED = tuple(d for d in TS_DEPENDENCIES if d.pin != d.latest)
+_TS_CURRENT = tuple(d for d in TS_DEPENDENCIES if d.pin == d.latest)
+_TS_ROOT_OUTDATED = tuple(d for d in _TS_OUTDATED if d.member == TS_ROOT)
+# The freshness control is a current pin on a package that has gone quiet, so a
+# correct route cannot report it outdated between verification and the run. The
+# other current pins are dev tooling on fast release lines and are not controls.
+_TS_CONTROLS = tuple(d for d in _TS_CURRENT if d.name == "is-odd")
+_TS_CURRENT_NOT_CONTROL = tuple(d for d in _TS_CURRENT if d not in _TS_CONTROLS)
+
+
+def _names(dependencies) -> str:
+    return ", ".join(f"{d.name} {d.pin}" for d in dependencies)
+
+
+def _behind(dependencies) -> str:
+    return ", ".join(f"{d.name} {d.pin} (latest {d.latest})" for d in dependencies)
+
+
+_TS_SRC_NOTE = (
+    f"Paths are relative to the seeded package, which is the tree root on npm and "
+    f"{TS_CORE}/ on pnpm"
+)
+
+_TS_DEPCRUISE_OWED = (
+    "nothing a read of the result adds: the record's field on `dependency-cruiser` "
+    "states an invocation requirement, that the spelling is a prefix and answers "
+    "only once given `--config` with an audit-owned config (the record prefers one "
+    "setting `options.tsConfig`) or `--no-config`, and a run with neither exits 1 "
+    "with `Can't open a config file`, which is no-evidence (tool-failed) rather than "
+    "an empty graph"
+)
+
+TS_EXPECTATIONS = (
+    Expectation(
+        "deps/vulnerabilities",
+        _TS_ALL,
+        "floor",
+        f"at least {len(_LODASH_CVES)} distinct CVEs against lodash "
+        f"{_ts_by_name('lodash').pin}: {', '.join(_LODASH_CVES)}. The record's routes are "
+        "`npm audit` on npm and `pnpm audit` on pnpm, both untiered and both reading the "
+        f"lockfile, and on pnpm lodash is declared in {TS_LEAF} rather than at the root, "
+        "so an audit that reads only the root importer misses it. A floor because "
+        "advisories against a frozen pin only accumulate and tools count advisories "
+        "rather than CVEs; the run records which unit it counted in. The other seeded "
+        "runtime dependencies, is-number included, had no OSV advisory on the verified "
+        "date, so an advisory against one of them is a false positive; the "
+        "devDependency tree was not queried package by package, so advisories there are "
+        "recorded rather than graded",
+        ("vulnerable",),
+    ),
+    Expectation(
+        "deps/freshness",
+        ("npm",),
+        "exact",
+        f"`npm outdated` in the installed tree reports exactly {_behind(_TS_OUTDATED)}. "
+        f"{_names(_TS_CONTROLS)} has had no release since its pin and is the control: "
+        "a route reporting it outdated is producing a false positive. "
+        f"{_names(_TS_CURRENT_NOT_CONTROL)} were the latest releases on the verified "
+        "date, and a line that ships patches as often as vitest's can move before the "
+        "run, so they are re-checked against the registry then rather than graded as "
+        "controls. Named rather than counted, because the count moves with the "
+        "dependency set while which entry is the control does not",
+        ("stale",),
+        "the same claim, from the record's registry-comparison route: every pin is "
+        "exact and in package.json, so comparing it with the registry's latest release "
+        "needs no tree. That route is a procedure rather than a command, so the "
+        "harness's ungranted run of the tiered `npm outdated` records no-evidence "
+        "(not-permitted) and the claim is what the procedure answers",
+        owed=(
+            "the unpinned and deprecated-release halves: an outdated list answers only "
+            "whether a release is behind. The fixture pins every declaration exactly, "
+            "so the unpinned half should read clean, and whether a pinned release is "
+            "deprecated is the registry read the record's procedure route carries"
+        ),
+    ),
+    Expectation(
+        "deps/freshness",
+        ("pnpm",),
+        "exact",
+        f"across the workspace, {_behind(_TS_OUTDATED)} are outdated. "
+        f"{_names(_TS_CONTROLS)} is the control, and {_names(_TS_CURRENT_NOT_CONTROL)} "
+        "were current on the verified date and are re-checked before the run, as on "
+        "npm. The record's argv is "
+        "bare `pnpm outdated`, which its own note says reads the root manifest only: "
+        f"run as written from the root it can report {_names(_TS_ROOT_OUTDATED)} and "
+        f"nothing declared in {TS_CORE} or {TS_LEAF}, so commander, the stale pin "
+        f"declared only in {TS_LEAF}, is missing from a run that looks complete. That "
+        "is the half-truth #44 names, and it is graded as less than the truth rather "
+        "than as a clean run; the note's workspace form, `pnpm outdated -r`, is the one "
+        "that reaches both members",
+        ("stale", "leaf-only"),
+        "the same claim, from the record's registry-comparison route over all three "
+        "manifests. The harness's ungranted run of the tiered `pnpm outdated` records "
+        "no-evidence (not-permitted), and the claim is what the procedure answers",
+        owed=(
+            "the unpinned and deprecated-release halves, as on npm: the fixture pins "
+            "every declaration exactly in all three manifests, and the "
+            "`workspace:*` link to the core package is a workspace protocol rather than "
+            "an unpinned registry dependency"
+        ),
+    ),
+    Expectation(
+        "deps/licenses",
+        ("npm",),
+        "exact",
+        f"`npm sbom --package-lock-only --sbom-format cyclonedx` reports tinymce "
+        f"{_ts_by_name('tinymce').pin} under GPL-2.0-or-later, read off the lockfile's "
+        "per-package `license` with no tree and no network. The one copyleft entry the "
+        "check must surface, rather than a count",
+        ("copyleft",),
+    ),
+    Expectation(
+        "deps/licenses",
+        ("pnpm",),
+        "exact",
+        f"`pnpm licenses list` in the installed workspace reports tinymce "
+        f"{_ts_by_name('tinymce').pin} under GPL-2.0-or-later, declared in {TS_CORE}",
+        ("copyleft",),
+        "no command route answers. `pnpm licenses list` needs the tree, and `npm sbom`, "
+        "the record's untiered command, reads package-lock.json, which this partition "
+        "does not carry; what remains is the `@cyclonedx/cdxgen` procedure, which this "
+        "round does not execute. So the harness records no-evidence (not-permitted), "
+        "and a clean licence list from this partition without the grant is a false "
+        "clean",
+    ),
+    Expectation(
+        "deps/transitive-licenses",
+        ("npm",),
+        "floor",
+        "at least is-number 6.0.0 appears as a component with MIT, since it is never "
+        "declared and arrives through is-odd; `npm sbom --package-lock-only` reads it "
+        "from the lockfile's pinned transitive graph",
+        ("transitive-root",),
+    ),
+    Expectation(
+        "deps/transitive-licenses",
+        ("pnpm",),
+        "floor",
+        "at least is-number 6.0.0 appears with MIT in `pnpm licenses list`, which "
+        "reports across the whole workspace, arriving through is-odd at the root",
+        ("transitive-root",),
+        "the same as deps/licenses on this partition: `pnpm licenses list` needs the "
+        "tree and `npm sbom` has no package-lock.json to read, so the harness records "
+        "no-evidence (not-permitted) and only the cdxgen procedure would answer",
+    ),
+    Expectation(
+        "deps/inventory",
+        ("npm",),
+        "floor",
+        "`npm sbom --package-lock-only --sbom-format cyclonedx` emits a CycloneDX "
+        f"document whose components include {_names(TS_DEPENDENCIES)} at their pins, "
+        "plus is-number 6.0.0 through is-odd. A floor rather than an exact count, "
+        "because the devDependency tree vitest resolves is in the lockfile too and its "
+        "size moves with the resolution",
+        (),
+    ),
+    Expectation(
+        "deps/inventory",
+        ("pnpm",),
+        "exact",
+        "none of this record's TypeScript command routes reads pnpm-lock.yaml: "
+        "`npm sbom`, the only one, is built on package-lock.json, which this partition "
+        "does not carry by construction. So no SBOM comes from a command route here, "
+        "and the record's remaining route for the partition is the `@cyclonedx/cdxgen` "
+        "procedure, which this round does not execute. A family finding if the run "
+        "confirms it; the error text the command prints is recorded at the run rather "
+        "than predicted",
+        (),
+    ),
+    Expectation(
+        "arch/cycles",
+        _TS_ALL,
+        "exact",
+        "one cycle, between src/domain/model.ts and src/infra/store.ts, from "
+        "`madge --circular --ts-config` given the seeded package's own tsconfig.json. "
+        "That tsconfig extends nothing, so the route's applies_when holds by "
+        "construction, and madge needs no grant, so the claim holds in both states. "
+        f"{_TS_SRC_NOTE}",
+        ("cycle",),
+        owed=_TS_DEPCRUISE_OWED,
+    ),
+    Expectation(
+        "arch/coupling",
+        _TS_ALL,
+        "floor",
+        "the two modules in the cycle are each other's dependents, so neither is a "
+        "leaf, from the dependency map the tiered `dependency-cruiser` route builds",
+        ("cycle",),
+        "the tiered command route does not run, so the harness records no-evidence "
+        "(not-permitted); the same claim is what the record's untiered madge procedure "
+        "answers from a read-only clone, which this round does not execute",
+        owed=_TS_DEPCRUISE_OWED,
+    ),
+    Expectation(
+        "arch/over-decomposition",
+        _TS_ALL,
+        "exact",
+        "two forwarding functions, one per module in the cycle: load in "
+        "src/domain/model.ts forwards to read in src/infra/store.ts, and loadViaDomain "
+        "in src/infra/store.ts forwards to load. Minor on the record's band, and "
+        "neither becomes a finding without the read the record requires, so the "
+        f"expected observation is the pair, not a verdict on it. {_TS_SRC_NOTE}",
+        ("pass-through",),
+        "the tiered `dependency-cruiser` route does not run, so the harness records "
+        "no-evidence (not-permitted); the record's untiered madge procedure answers the "
+        "same pair from a read-only clone, which this round does not execute",
+        owed=(
+            "a read confirming each forwarding module is genuinely trivial and that "
+            "merging it raises cohesion, as the record requires once the graph is "
+            "complete; and the `dependency-cruiser` invocation requirement, an "
+            "audit-owned `--config` or `--no-config`, without which the prefix exits 1"
+        ),
+    ),
+    Expectation(
+        "test/coverage-reach",
+        _TS_ALL,
+        "exact",
+        "`vitest run --coverage` with @vitest/coverage-v8 installed reports "
+        "src/clamp.ts with its two guard branches uncovered. The fixture sets no "
+        "coverage.include, and vitest's documented default includes only files covered "
+        "by tests, so model.ts and store.ts, which no test imports, are absent from the "
+        "report rather than at zero: an absence the default produces, not a miss. The "
+        "suite is green in file order, so the report is written without "
+        f"`--coverage.reportOnFailure`. {_TS_SRC_NOTE}",
+        ("uncovered-branch",),
+        "the measurement does not survive the withheld grant while the configuration "
+        "axis does: the fixture carries no vitest config at all, so no coverage "
+        "include, exclude or threshold is readable in the clone and the axis answers "
+        "clean. The expected ungranted answer is a half-answered check, no-evidence "
+        "(not-permitted) in status and in the coverage count, its evidence naming the "
+        "configuration axis as answered clean and the measurement axis as unmeasured",
+    ),
+    Expectation(
+        "test/determinism",
+        _TS_ALL,
+        "exact",
+        "test/order.test.ts fails under `vitest run --sequence.shuffle "
+        "--sequence.seed=<n>` for a seed that reverses its pair, and passes in file "
+        "order. Both tests are in one file, and `--sequence.shuffle` as a boolean "
+        "shuffles tests within a file as well as the files, which is what reaches the "
+        "pair. The seed is measured when the fixture is first built and recorded in "
+        "the build smoke record, never guessed",
+        ("order-dependence",),
+        "the inputs axis answers without the tree, and finds nothing: the seeded suite "
+        "reads no clock, calls no Math.random and touches no network. Order-dependence "
+        "goes unmeasured, so the expected ungranted answer is a half-answered check, "
+        "no-evidence (not-permitted) in status and in the coverage count, its evidence "
+        "naming the inputs axis as answered clean and the order axis as unmeasured",
+    ),
+    Expectation(
+        "test/isolation",
+        _TS_ALL,
+        "exact",
+        f"the test in test/slow.test.ts sleeps {TS_SLOW_TEST_MS}ms: over vitest's "
+        f"default slowTestThreshold of {VITEST_SLOW_TEST_THRESHOLD_MS}ms, so "
+        "`vitest run` reports its duration and marks it slow, and under the default "
+        f"testTimeout of {VITEST_TEST_TIMEOUT_MS}ms, so it passes. All three numbers are "
+        "interpolated from the module constants the seeded file is written from",
+        ("slow-test",),
+        "the I/O axis answers without the tree and finds nothing: the seeded suite "
+        "makes no network, filesystem or database call and configures no timeout. The "
+        "duration is what the grant buys, so the expected ungranted answer is a "
+        "half-answered check, no-evidence (not-permitted) in status and in the "
+        "coverage count, its evidence naming the I/O axis as answered clean and the "
+        "timing axis as unmeasured",
+    ),
+)
+
+# Every check with a `lang: typescript` route that gets no expectation, and why.
+# Held by a test to partition the family's TypeScript-route checks together
+# with TS_EXPECTATIONS, so a new TypeScript route has to be classified here or
+# expected rather than defaulting out of the round in silence.
+TS_DEFERRED_CHECKS = {
+    "arch/complexity": "no TypeScript command route: its routes are ESLint procedures (the core complexity rule and eslint-plugin-sonarjs), which prescribe a configuration to write rather than a command to run",
+    "arch/complexity-gate": "no TypeScript command route: its ESLint routes are `kind: subject`, the configuration the check inspects rather than a way of answering it",
+    "arch/dead-code": "no TypeScript command route: knip and ts-prune are procedures",
+    "arch/hidden-coupling": "no TypeScript command route: its ESLint, knip and tool-less routes are procedures",
+    "arch/import-rule-declaration": "no TypeScript command route: its one route is a tool-less reading procedure",
+    "arch/layering": "its one TypeScript command route, `dependency-cruiser`, applies only where the project carries its own `.dependency-cruiser` config, and planting one would have the fixture declare the boundary the check tests; the fallback it names is a reading of tsconfig paths and references, which this fixture does not declare",
+    "arch/over-abstraction": "no TypeScript command route: knip is a procedure and ts-morph a library",
+    "deps/hygiene": "no TypeScript command route: depcheck and knip are procedures",
+    "security/crypto": "no TypeScript command route: its ESLint and tool-less routes are procedures",
+    "security/dangerous-calls": "no TypeScript command route: its ESLint and tool-less routes are procedures",
+    "security/injection": "no TypeScript command route: its ESLint and tool-less routes are procedures",
+    "security/unsafe-io": "no TypeScript command route: its ESLint and tool-less routes are procedures",
+    "test/coverage-floor-declaration": "no TypeScript command route: its one route is a tool-less reading procedure",
+    "test/mutation": "its one TypeScript command route is `disposition: alternative` to the record's procedure route, and its argv carries a `<runner>` placeholder the record leaves the inventory to fill; nothing is planted for it beyond the untested clamp guards, and the plan for this round seeds no mutation survivor",
+    "test/property-based-gap": "no TypeScript command route: fast-check is a library",
+}

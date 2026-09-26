@@ -1028,6 +1028,9 @@ def test_rendering_without_check_writes_the_record(tmp_path, monkeypatch, capsys
     renderer = _load_renderer()
     out = tmp_path / "python-fixture-expectations.md"
     monkeypatch.setattr(renderer, "OUT_PATH", out)
+    # The renderer writes both records; the TypeScript one is redirected too so
+    # this test never writes into the tree.
+    monkeypatch.setattr(renderer, "TS_OUT_PATH", tmp_path / "typescript.md")
     assert renderer.main([]) == 0
     assert out.read_text() == renderer.render()
     assert "wrote" in capsys.readouterr().out
