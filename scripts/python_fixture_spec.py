@@ -1678,14 +1678,13 @@ TS_EXPECTATIONS = (
         f"across the workspace, {_behind(_TS_OUTDATED)} are outdated. "
         f"{_names(_TS_CONTROLS)} is the control, and {_names(_TS_CURRENT_NOT_CONTROL)} "
         "were current on the verified date and are re-checked before the run, as on "
-        "npm. The record's argv is "
-        "bare `pnpm outdated`, which its own note says reads the root manifest only: "
-        f"run as written from the root it can report {_names(_TS_ROOT_OUTDATED)} and "
-        f"nothing declared in {TS_CORE} or {TS_LEAF}, so commander, the stale pin "
+        "npm. The record's argv is `pnpm outdated -r`, the workspace form its note "
+        "names, which reaches both members. Bare `pnpm outdated` reads the root "
+        f"manifest only: run bare from the root it can report {_names(_TS_ROOT_OUTDATED)} "
+        f"and nothing declared in {TS_CORE} or {TS_LEAF}, so commander, the stale pin "
         f"declared only in {TS_LEAF}, is missing from a run that looks complete. That "
-        "is the half-truth #44 names, and it is graded as less than the truth rather "
-        "than as a clean run; the note's workspace form, `pnpm outdated -r`, is the one "
-        "that reaches both members",
+        "is the half-truth #44 names, and a run reporting it is graded as less than "
+        "the truth rather than as a clean run",
         ("stale", "leaf-only"),
         "the same claim, from the record's registry-comparison route over all three "
         "manifests. The harness's ungranted run of the tiered `pnpm outdated` records "
@@ -1771,7 +1770,8 @@ TS_EXPECTATIONS = (
         _TS_ALL,
         "exact",
         "one cycle, between src/domain/model.ts and src/infra/store.ts, from "
-        "`madge --circular --ts-config` given the seeded package's own tsconfig.json. "
+        "`madge --circular --extensions ts,tsx --ts-config` given the seeded package's "
+        "own tsconfig.json. "
         "That tsconfig extends nothing, so the route's applies_when holds by "
         "construction, and madge needs no grant, so the claim holds in both states. "
         f"{_TS_SRC_NOTE}",

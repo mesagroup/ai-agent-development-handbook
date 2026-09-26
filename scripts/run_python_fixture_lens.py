@@ -1052,13 +1052,16 @@ TS_MANAGER_TOOLS: dict[str, str] = {
 # `npx --no` refuses to fetch and fails where the tree does not carry the tool,
 # and `pnpm exec` runs the workspace's own bin. `--no` rather than the older
 # `--no-install`, which npm 11's own documentation calls deprecated and
-# converts to `--no`, so the spelling is what actually runs.
+# converts to `--no`, so the spelling is what actually runs. The `--` ends
+# npx's own options, as it does in the one-shot form: without it npx reads a
+# trailing flag as its own, so the version probe `npx --no vitest --version`
+# printed npm's version rather than vitest's.
 TS_ONE_SHOT: dict[str, tuple[str, ...]] = {
     "npm": ("npx", "--yes", "--package={package}", "--"),
     "pnpm": ("pnpm", "--package={package}", "dlx"),
 }
 TS_IN_ENV: dict[str, tuple[str, ...]] = {
-    "npm": ("npx", "--no"),
+    "npm": ("npx", "--no", "--"),
     "pnpm": ("pnpm", "exec"),
 }
 

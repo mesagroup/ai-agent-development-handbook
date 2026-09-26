@@ -283,7 +283,7 @@ def _inv(tool="madge", in_env=False, **kw):
         ("npm", False, False, ("npx", "--yes", "--package=madge", "--")),
         ("npm", True, False, ("npx", "--yes", "--package=madge", "--")),
         ("npm", False, True, ("npx", "--yes", "--package=madge", "--")),
-        ("npm", True, True, ("npx", "--no")),
+        ("npm", True, True, ("npx", "--no", "--")),
         ("pnpm", False, False, ("pnpm", "--package=madge", "dlx")),
         ("pnpm", True, False, ("pnpm", "--package=madge", "dlx")),
         ("pnpm", False, True, ("pnpm", "--package=madge", "dlx")),
@@ -296,6 +296,34 @@ def test_the_launcher_prefix_per_manager(partition, granted, in_env, expected):
 
 def test_the_launcher_tables_name_both_partitions():
     assert set(TS_ONE_SHOT) == set(TS_IN_ENV) == set(TS_PARTITIONS)
+
+
+def test_every_npx_prefix_ends_npx_options_before_the_tool():
+    """Without `--`, npx reads a flag after the tool name as its own.
+
+    Measured: `npx --no vitest --version` printed npm's version, so the granted
+    npm run's version map recorded `11.19.0` for vitest and jest. Every npx
+    prefix, one-shot and in-environment alike, ends with `--`.
+    """
+    for prefix in (TS_ONE_SHOT["npm"], TS_IN_ENV["npm"]):
+        assert prefix[0] == "npx"
+        assert prefix[-1] == "--", prefix
+
+
+def test_the_in_env_version_probe_reaches_the_tool_on_npm():
+    (row,) = [
+        i
+        for i in routed_invocations(LANG)
+        if (i.check, i.tool) == ("test/isolation", "vitest")
+    ]
+    prefix = launcher(row, "npm", granted=True, honour_own_runner=False)
+    assert (*prefix, *TS_VERSION_PROBE["vitest"]) == (
+        "npx",
+        "--no",
+        "--",
+        "vitest",
+        "--version",
+    )
 
 
 @pytest.mark.parametrize("tool", sorted(TS_MANAGER_TOOLS))

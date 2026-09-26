@@ -73,8 +73,18 @@ render prints it beside a run observation and appends the expectation's `owed`
 to the claim, so a hit on the seed reads as a candidate rather than as the check
 answered. An entry's own value, empty included, is never overridden.
 
+The sixth: a run of the other language. The TypeScript partitions (#181) are
+graded by this same module, and three of its tables are per language - the
+expectations, the seed markers and the harness rows the stream and the
+`alone_insufficient` caveat are looked up in. Each is picked by
+`lang_of(run["partition"])`, never tried in turn: the two marker tables share
+seed names, so a TypeScript row read through the Python table counts markers
+its output can never hold, and the row lookups are kept per language because a
+`(check, tool)` pair is unique only within one.
+
 Usage:
     uv run python scripts/grade_python_fixture_run.py fixtures/python/results
+    uv run python scripts/grade_python_fixture_run.py fixtures/typescript/results
 """
 
 from __future__ import annotations
@@ -89,7 +99,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from python_fixture_spec import SEED_MARKERS, Expectation, expectations_for
+from python_fixture_spec import (
+    SEED_MARKERS,
+    TS_SEED_MARKERS,
+    Expectation,
+    expectations_for,
+    lang_of,
+)
 from run_python_fixture_lens import INVOCATIONS, routed_invocations
 
 # One results JSON, exactly as the harness wrote it. A plain dict rather than a
@@ -100,6 +116,28 @@ Run = dict[str, object]
 
 REQUIRED_RUN_KEYS = ("grant", "partition", "results")
 
+# Which seed-marker table and which expectations table each language's rows
+# are graded from. Keyed by `lang_of(run["partition"])` rather than tried in
+# turn, because the two marker tables share seed names: `cycle` names Python
+# `import` lines in one and TypeScript `from` clauses in the other, so a
+# TypeScript row read through the Python table counts markers the TypeScript
+# source can never contain, and reads a planted cycle as a zero.
+_SEED_MARKERS_BY_LANG: dict[str, dict[str, tuple[str, ...]]] = {
+    "python": SEED_MARKERS,
+    "typescript": TS_SEED_MARKERS,
+}
+_EXPECTATIONS_NAME_BY_LANG = {"python": "EXPECTATIONS", "typescript": "TS_EXPECTATIONS"}
+
+
+def _lang_of_run(run: Run) -> str:
+    """The language a run's partition belongs to.
+
+    `lang_of` raises on a partition neither language names, which is the same
+    failure `expectations_for` raises for that run, so a run no expectation could
+    ever grade fails here with the partition in the message.
+    """
+    return lang_of(str(run.get("partition", "")))
+
 
 # What each (check, tool) pair reports its findings on, read from the harness's
 # own enumeration rather than copied here. A results entry never carries this
@@ -108,9 +146,24 @@ REQUIRED_RUN_KEYS = ("grant", "partition", "results")
 # of its sources are read: a lookup built from `INVOCATIONS` alone leaves every
 # row of every migrated record unresolved, which the grader test module holds
 # against it.
+def _enumeration(lang: str) -> tuple:
+    """The harness's rows for one language: both sources for Python, whose
+    legacy `INVOCATIONS` slot is a Python table, and the records' routes for
+    TypeScript.
+
+    Per language rather than one lookup over both, because a `(check, tool)`
+    pair is only unique within a language: nothing stops a record from naming
+    one tool on a Python route and a TypeScript route with different streams,
+    and a merged lookup would answer one of them with the other's.
+    """
+    if lang == "python":
+        return INVOCATIONS + routed_invocations()
+    return routed_invocations(lang)
+
+
 @cache
-def _findings_stream_map() -> dict[tuple[str, str], str]:
-    """The stream lookup, built on first use rather than at import.
+def _findings_stream_map(lang: str = "python") -> dict[tuple[str, str], str]:
+    """The stream lookup for one language, built on first use rather than at import.
 
     Built lazily for one reason: `routed_invocations` reads the record tree and
     raises on a record whose routes contradict each other, and at module scope
@@ -131,7 +184,7 @@ def _findings_stream_map() -> dict[tuple[str, str], str]:
     """
     return {
         (invocation.check, invocation.tool): invocation.findings_stream
-        for invocation in INVOCATIONS + routed_invocations()
+        for invocation in _enumeration(lang)
     }
 
 
@@ -144,7 +197,7 @@ UNRESOLVED_FINDINGS_STREAM = "unresolved"
 
 
 @cache
-def _alone_insufficient_map() -> dict[tuple[str, str], str]:
+def _alone_insufficient_map(lang: str = "python") -> dict[tuple[str, str], str]:
     """What each (check, tool) pair's route says its own result still needs.
 
     Read from the harness's enumeration, as the stream is, for one kind of entry:
@@ -159,16 +212,16 @@ def _alone_insufficient_map() -> dict[tuple[str, str], str]:
     """
     return {
         (invocation.check, invocation.tool): invocation.alone_insufficient
-        for invocation in INVOCATIONS + routed_invocations()
+        for invocation in _enumeration(lang)
     }
 
 
-def _alone_insufficient_for(entry: dict[str, object]) -> str:
+def _alone_insufficient_for(entry: dict[str, object], lang: str = "python") -> str:
     """The entry's own `alone_insufficient`, else the enumeration's for its pair."""
     if "alone_insufficient" in entry:
         return str(entry["alone_insufficient"])
     key = (str(entry.get("check", "")), str(entry.get("tool", "")))
-    return _alone_insufficient_map().get(key, "")
+    return _alone_insufficient_map(lang).get(key, "")
 
 
 def load_run(path: Path) -> Run:
@@ -191,8 +244,8 @@ def load_run(path: Path) -> Run:
     return data
 
 
-def _findings_stream_for(entry: dict[str, object]) -> str:
-    """Which stream this entry reports findings on.
+def _findings_stream_for(entry: dict[str, object], lang: str = "python") -> str:
+    """Which stream this entry reports findings on, among `lang`'s rows.
 
     The entry's own `findings_stream` where a caller has already set one - the
     tests that pin `seed_signals` directly do this, and neither carries a
@@ -215,7 +268,7 @@ def _findings_stream_for(entry: dict[str, object]) -> str:
     if "findings_stream" in entry:
         return str(entry["findings_stream"])
     key = (str(entry.get("check", "")), str(entry.get("tool", "")))
-    return _findings_stream_map().get(key, UNRESOLVED_FINDINGS_STREAM)
+    return _findings_stream_map(lang).get(key, UNRESOLVED_FINDINGS_STREAM)
 
 
 def _entries_for(run: Run, check: str) -> list[dict[str, object]]:
@@ -238,12 +291,15 @@ def observations_for(run: Run, check: str) -> list[dict[str, object]]:
     reports on rather than the stdout default that reads a deptry run
     backwards, and with `alone_insufficient` filled in the same way, so a
     results file older than the field still says which hits are candidates.
+    Both are looked up among the rows of the run's own language, read off its
+    partition.
     """
+    lang = _lang_of_run(run)
     return [
         {
             **entry,
-            "findings_stream": _findings_stream_for(entry),
-            "alone_insufficient": _alone_insufficient_for(entry),
+            "findings_stream": _findings_stream_for(entry, lang),
+            "alone_insufficient": _alone_insufficient_for(entry, lang),
         }
         for entry in _entries_for(run, check)
     ]
@@ -295,9 +351,9 @@ class Row:
 
     `verdict` stays `"unjudged"` - see the module docstring. `signals` is the
     marker counts summed across every observation this run made of the check;
-    a seed category `SEED_MARKERS` carries no marker for (a dependency-level
-    seed like `vulnerable` or `stale`, which no literal substring can name)
-    contributes nothing, the same as an expectation naming no seed at all.
+    a seed category the run's language's marker table carries no marker for
+    (a dependency-level seed like `vulnerable` or `stale`, which no literal
+    substring can name) contributes nothing, the same as an expectation naming no seed at all.
     `owed` is the expectation's statement of what a hit on this check still
     needs before it is the finding, set where the check's routes say their
     result does not answer alone; the render appends it to the claim.
@@ -357,9 +413,10 @@ def grade_row(expectation: Expectation, run: Run) -> Row:
     nested under `entry["then"]` instead, invisible to a mechanical count here.
     """
     observations = observations_for(run, expectation.check)
+    seed_markers = _SEED_MARKERS_BY_LANG[_lang_of_run(run)]
     signals: dict[str, int] = {}
     for category in expectation.seeds:
-        markers = SEED_MARKERS.get(category, ())
+        markers = seed_markers.get(category, ())
         for entry in observations:
             for marker, count in seed_signals(entry, markers).items():
                 signals[marker] = signals.get(marker, 0) + count
@@ -435,7 +492,8 @@ def _orphan_row(check: str, run: Run) -> Row:
         claim=(
             "no expectation in python_fixture_spec.py names this check for this "
             "partition; the entry is either a stale results file's leftover from "
-            "a check renamed or removed out of EXPECTATIONS, or a check the "
+            "a check renamed or removed out of "
+            f"{_EXPECTATIONS_NAME_BY_LANG[_lang_of_run(run)]}, or a check the "
             "harness never should have run"
         ),
         entries=_entries_for(run, check),
