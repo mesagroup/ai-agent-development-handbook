@@ -49,8 +49,8 @@ routes:
       isn't resolved, since it excludes installed dependencies and carries
       its own TypeScript, and has the reader give it the partition's own
       `tsconfig` explicitly with `--ts-config` - the file that carries
-      `paths`, which on a solution-style layout is not `tsconfig.json` -
-      before reading the edge-to-node ratio and pass-through chains from
+      `paths`, which on a solution-style layout is not `tsconfig.json` - and `--extensions ts,tsx`, since madge reads only `.js` files by default
+      and reports a TypeScript tree as an empty graph without it, before reading the edge-to-node ratio and pass-through chains from
       the dependency map it builds. Passing no flag, or the wrong
       `tsconfig` file, resolves no `paths` at all and the ratio comes back
       computed over a graph every aliased import has dropped out of. Its
