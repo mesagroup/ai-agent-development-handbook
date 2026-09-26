@@ -1760,9 +1760,10 @@ TS_EXPECTATIONS = (
         "`npm sbom`, the only one, is built on package-lock.json, which this partition "
         "does not carry by construction. So no SBOM comes from a command route here, "
         "and the record's remaining route for the partition is the `@cyclonedx/cdxgen` "
-        "procedure, which this round does not execute. A family finding if the run "
-        "confirms it; the error text the command prints is recorded at the run rather "
-        "than predicted",
+        "procedure, which this round does not execute. The harness runs `npm sbom` on "
+        "the npm partition only, since it is npm's own subcommand and corepack refuses "
+        "npm inside a pnpm-pinned tree, so this partition records no command for the "
+        "check. That is the family finding: no command route answers inventory on pnpm",
         (),
     ),
     Expectation(

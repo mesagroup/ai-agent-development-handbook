@@ -1,4 +1,10 @@
-"""Run every `python:` tooling entry against the seeded fixtures (#45).
+"""Run every `python:` and `typescript:` tooling entry against the seeded fixtures.
+
+The Python half is #45's, the TypeScript half #181's. Both read the records
+the same way and differ only in their tables, which carry a `TS_` prefix on the
+TypeScript side; the prose below describes the Python half unless it says
+otherwise, and the tables after `INVOCATIONS` are what the TypeScript half does
+differently.
 
 A row is one check record's prescribed way of running one tool, keyed by the
 (check, tool) pair, and the rows come from two places. A record that declares
@@ -37,8 +43,9 @@ second copy of a fact the records already state is a copy free to drift:
 * the grant tier, read per (check, tool) out of the record's own `needs`;
 * which checks a partition runs, read out of `expectations_for`, so the harness
   cannot run a set the published record does not grade;
-* which tools exist at all, read out of every record's `tooling.python`, which
-  is what the exact-set guard in the tests compares both populations against.
+* which tools exist at all, read out of every record's `tooling` for the
+  language, which is what the exact-set guard in the tests compares both
+  populations against.
 
 `classify` maps one observation into the engine's vocabulary and never leaves
 it. **A non-zero exit is not a tool failure by itself - for a tool proven
@@ -65,6 +72,7 @@ rather than inside one, for the same reason.
 Usage:
     uv run python scripts/run_python_fixture_lens.py uv --grant target-execution
     uv run python scripts/run_python_fixture_lens.py pip --grant none
+    uv run python scripts/run_python_fixture_lens.py pnpm --grant none
 """
 
 from __future__ import annotations
@@ -84,21 +92,52 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from audit_checks import SKILLS_DIR, Route, load_checks
-from build_python_fixtures import DEFAULT_OUTPUT_DIR, PINNED_MANAGERS
+from build_python_fixtures import (
+    DEFAULT_OUTPUT_DIRS,
+    PINNED_MANAGERS,
+    PUBLIC_NPM_REGISTRY,
+    _is_registry_setting,
+)
 from python_fixture_spec import (
     ISOLATION_TIMEOUT_SECONDS,
     PACKAGE,
     PARTITIONS,
+    TS_PARTITIONS,
+    _ts_source_prefix,
     expectations_for,
+    lang_of,
 )
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
-# Where `build_python_fixtures.py` writes the partitions, and where the results
-# go - beside them, never inside one. Taken from the generator rather than
-# spelled again here, so a caller moving the fixtures moves both.
-FIXTURE_ROOT = DEFAULT_OUTPUT_DIR
+# Where `build_python_fixtures.py` writes each language's partitions, and where
+# the results go - beside them, never inside one. Taken from the generator
+# rather than spelled again here, so a caller moving the fixtures moves both.
+FIXTURE_ROOTS = DEFAULT_OUTPUT_DIRS
 RESULTS_DIRNAME = "results"
+
+# The languages this lens runs, and for each the partitions a fixture exists
+# for. The Python half is the default everywhere a function takes a `lang`,
+# and a function handed a partition derives the language from it with
+# `lang_of`, so a caller cannot pair a partition with the other language's
+# tables.
+LANGS = ("python", "typescript")
+FIXTURE_PARTITIONS: dict[str, tuple[str, ...]] = {
+    "python": PARTITIONS,
+    "typescript": TS_PARTITIONS,
+}
+ALL_PARTITIONS = PARTITIONS + TS_PARTITIONS
+
+# What a route's `argv_by_partition` may be keyed by, which is not the same set
+# as the partitions a fixture exists for. A python route's keys are partition
+# names, so the two coincide. A typescript route's keys are package managers,
+# and the records name `yarn` where no fixture partition is yarn: a yarn key is
+# a command the record prescribes for a target this round has no tree for, so
+# it passes validation and applies to no partition rather than raising.
+PARTITION_KEYS: dict[str, tuple[str, ...]] = {
+    "python": PARTITIONS,
+    "typescript": ("npm", "pnpm", "yarn"),
+}
 
 # Where a supplied route parks an intermediate it has to hand to the next step.
 # Named rather than defaulted so that the file is recognisable as the harness's
@@ -353,13 +392,14 @@ NO_VERSION_ROUTE: dict[str, str] = {}
 #   record, which is the one thing a disposition never is.
 #
 # There is no value here for a form a record names in order to warn against, and
-# the reason is this module's own scope rather than the family's. Records
-# do declare `disposition: forbidden`, on `lang: typescript` and `lang: any`
-# routes only, none of which a `lang: python` selection reaches - `routed_invocations`
-# says so where it raises on the value, and that is the statement to trust over
-# any count kept here.
+# that is a decision rather than a gap: a `disposition: forbidden` route
+# contributes no row and no form. `routed_invocations` drops it before grouping,
+# so a form the record warns against is never offered to the guards as a form
+# the record prescribes, and the one property that does read those routes - no
+# command a row runs starts with a forbidden argv - lives in the TypeScript
+# harness tests, where the records declaring them are.
 #
-# What a warning looks like where the value is not reached: records warn against
+# What a warning looks like on a route that is not `forbidden`: records warn against
 # multi-token forms, `arch/cycles` naming `pydeps --show-cycles` and saying that
 # form alone has no textual output channel at all, and `deps/inventory` saying it
 # has no route through `cyclonedx-py poetry` for a PEP 621 manifest. Each still
@@ -384,7 +424,7 @@ class Invocation:
 
     Args:
         check: The record's id, `<domain>/<slug>`.
-        tool: A name from that record's `tooling.python`.
+        tool: A name from that record's `tooling` for the row's language.
         argv: The command **as the record writes it**. Empty where the record
             names the tool without prescribing a command - a library, a reading
             pass, or a route conditional on a config file the fixture does not
@@ -432,6 +472,16 @@ class Invocation:
             round's output: a record whose command needs completing is a record
             to correct, and folding the completion into `argv` would report a
             repaired command as a clean run.
+        completion_by_partition: A completion that differs per partition, as
+            `(partition, tokens)` pairs appended after `completion`. The
+            TypeScript half needs it where an operand is a path into the seeded
+            package, which is the tree root on npm and a workspace member on
+            pnpm; the Python partitions share one layout and leave it empty.
+        fills: Placeholders the record writes *inside* a token, as
+            `(placeholder, value)` pairs substituted into the command a row runs
+            and never into `prescribed`. Appending cannot complete
+            `--sequence.seed=<n>`, so a fill is the other shape a completion
+            takes, and it travels under the same `note`.
         then: A second command the record prescribes in sequence, where it does -
             `coverage run -m pytest` followed by `coverage report --show-missing`
             is one route, not two, and dropping the half that prints the report
@@ -460,8 +510,8 @@ class Invocation:
             sentence.
         alone_insufficient: What the route's own result still needs before it is
             the check's answer, read from the route this row runs - the `runs`
-            command route where there is one, otherwise the group's
-            non-`forbidden` routes carrying it, which must agree - and written
+            command route where there is one, otherwise the caveats of the
+            group's routes as `_caveat_for_no_command` composes them - and written
             onto the results row under the same key. Empty where the route's
             result stands alone. Where the group has a `runs` route the field is
             not held consistent across it the way `findings_stream` is: a
@@ -517,6 +567,8 @@ class Invocation:
     supplied_note: str = ""
     own_runner: tuple[str, ...] = ()
     completion: tuple[str, ...] = ()
+    completion_by_partition: tuple[tuple[str, tuple[str, ...]], ...] = ()
+    fills: tuple[tuple[str, str], ...] = ()
     then: tuple[str, ...] = ()
     note: str = ""
     in_env: bool = False
@@ -525,7 +577,9 @@ class Invocation:
     alone_insufficient: str = ""
 
     def __post_init__(self) -> None:
-        if self.completion and not self.note:
+        if (self.completion or self.completion_by_partition or self.fills) and (
+            not self.note
+        ):
             raise ValueError(
                 f"{self.check}/{self.tool}: a completion needs a note saying why it "
                 "was needed; an unexplained completion reports a repaired command "
@@ -671,14 +725,18 @@ def argv_for(invocation: Invocation, partition: str) -> tuple[str, ...]:
     rather than a failure - the caller records it as such instead of running
     nothing and blaming a tool.
     """
-    if partition not in PARTITIONS:
+    if partition not in ALL_PARTITIONS:
         raise ValueError(
-            f"unknown partition {partition!r}; expected one of {PARTITIONS}"
+            f"unknown partition {partition!r}; expected one of {ALL_PARTITIONS}"
         )
     base = invocation.prescribed(partition)
     if not base:
         return ()
-    return base + invocation.completion
+    filled = base
+    for placeholder, value in invocation.fills:
+        filled = tuple(token.replace(placeholder, value) for token in filled)
+    per_partition = dict(invocation.completion_by_partition).get(partition, ())
+    return filled + invocation.completion + per_partition
 
 
 @dataclass(frozen=True)
@@ -928,6 +986,307 @@ SUPPLIED: dict[tuple[str, str], Supplied] = {
 INVOCATIONS: tuple[Invocation, ...] = ()
 
 
+# ---------------------------------------------------------------------------
+# The TypeScript half's tables (#181). Each is the counterpart of a Python table
+# above and is held to an exact set by `tests/scripts/test_typescript_fixture_harness.py`,
+# for the reason the Python tables are: a key missing from one of these must
+# fail a test rather than read as a silent default.
+# ---------------------------------------------------------------------------
+
+# How each TypeScript partition's tree is materialized, run only inside the copy
+# `reconstruct` makes and never in `fixtures/typescript`. Both install from the
+# committed lockfile and refuse to refresh it - `npm ci` by construction, pnpm
+# by `--frozen-lockfile` - for the reason `MATERIALIZE` gives: a resolution the
+# fixture never committed is a different tree from the one the expectations
+# were written against. `--ignore-scripts` because nothing seeded needs an
+# install hook, and a hook is target code running before the grant that
+# permits it has been checked. `pnpm` resolves to corepack's shim, which reads
+# the tree's own `packageManager` pin, through the directory `TS_SHIM_COMMAND`
+# writes and `_ts_fixture_env` puts first on PATH.
+TS_MATERIALIZE: dict[str, tuple[tuple[str, ...], ...]] = {
+    "npm": (("npm", "ci", "--ignore-scripts"),),
+    "pnpm": (("pnpm", "install", "--frozen-lockfile", "--ignore-scripts"),),
+}
+
+# The partitions whose package manager comes from corepack rather than from the
+# host, and where its shim goes. npm is the host's own and the fixture build
+# already held it to the pin; pnpm is not a host tool, so it is enabled into a
+# directory under the run's work root - beside the copy rather than inside it,
+# since the copy is the tree the tools read - before anything on that partition
+# runs, the ungranted run included, because `pnpm audit` needs no grant.
+TS_COREPACK_MANAGED = ("pnpm",)
+TS_SHIM_DIRNAME = "corepack-shims"
+
+
+def ts_shim_command(manager: str, shim_dir: Path) -> tuple[str, ...]:
+    """The command that puts corepack's shim for `manager` in `shim_dir`."""
+    return ("corepack", "enable", manager, "--install-directory", str(shim_dir))
+
+
+# Which package manager owns each subcommand a record names as a tool. Such a
+# tool is not a package: no one-shot runner fetches `npm audit`, and it runs on
+# the partition whose manager it belongs to and on no other - `npm audit` on a
+# pnpm tree is `ENOLOCK`, as the TypeScript smoke run measured, and that is an
+# observation about pointing the wrong manager at a tree rather than about the
+# tool. So a row keyed on one of these takes no launcher prefix, and on a
+# partition managed by something else it is recorded as not run, with the
+# reason. A yarn tool runs on no partition, because no fixture is yarn.
+TS_MANAGER_TOOLS: dict[str, str] = {
+    "npm audit": "npm",
+    "npm outdated": "npm",
+    "npm sbom": "npm",
+    "pnpm audit": "pnpm",
+    "pnpm outdated": "pnpm",
+    "pnpm licenses list": "pnpm",
+    "yarn npm audit": "yarn",
+    "yarn licenses list": "yarn",
+}
+
+# The words in front of a TypeScript command, per partition. A one-shot fetch
+# names the package rather than leaning on the command name, which is what the
+# records themselves do on every fetcher-led route: `dependency-cruiser`'s bin
+# is `depcruise`, and a bare `npx depcruise` is the dependency-confusion
+# placeholder the records forbid. On pnpm the flag precedes `dlx`, as the
+# records spell it, because `pnpm dlx --package=` reads the flag as a package
+# spec. An `in_env` tool under a grant runs the tree's own copy instead:
+# `npx --no` refuses to fetch and fails where the tree does not carry the tool,
+# and `pnpm exec` runs the workspace's own bin. `--no` rather than the older
+# `--no-install`, which npm 11's own documentation calls deprecated and
+# converts to `--no`, so the spelling is what actually runs.
+TS_ONE_SHOT: dict[str, tuple[str, ...]] = {
+    "npm": ("npx", "--yes", "--package={package}", "--"),
+    "pnpm": ("pnpm", "--package={package}", "dlx"),
+}
+TS_IN_ENV: dict[str, tuple[str, ...]] = {
+    "npm": ("npx", "--no"),
+    "pnpm": ("pnpm", "exec"),
+}
+
+# What reports each TypeScript tool's version, after the launcher's prefix. A
+# manager subcommand reports its manager's version, and runs bare for the reason
+# `TS_MANAGER_TOOLS` gives. A fetched tool's probe spells the bin, which is not
+# always the package: `depcruise`, `ncu` and `cdxgen` are the bins of
+# `dependency-cruiser`, `npm-check-updates` and `@cyclonedx/cdxgen`, and the
+# launcher names the package. `None` is legal only beside a reason in
+# `TS_NO_VERSION_ROUTE`, as on the Python side.
+TS_VERSION_PROBE: dict[str, tuple[str, ...] | None] = {
+    "npm audit": ("npm", "--version"),
+    "npm outdated": ("npm", "--version"),
+    "npm sbom": ("npm", "--version"),
+    "pnpm audit": ("pnpm", "--version"),
+    "pnpm outdated": ("pnpm", "--version"),
+    "pnpm licenses list": ("pnpm", "--version"),
+    "madge": ("madge", "--version"),
+    "dependency-cruiser": ("depcruise", "--version"),
+    "vitest": ("vitest", "--version"),
+    "jest": ("jest", "--version"),
+    "c8": ("c8", "--version"),
+    "npm-check-updates": ("ncu", "--version"),
+    "@cyclonedx/cdxgen": ("cdxgen", "--version"),
+    "osv-scanner": None,
+}
+
+TS_NO_VERSION_ROUTE: dict[str, str] = {
+    "osv-scanner": (
+        "a standalone binary in no language registry, so neither `npx` nor "
+        "`pnpm dlx` can obtain it, and the record's route for it is a procedure "
+        "prescribing no command; a probe through either launcher would fetch "
+        "whatever the registry carries under that name instead"
+    ),
+}
+
+# What a non-zero exit from each TypeScript tool means, in `NONZERO_EXIT_KINDS`.
+# Each `findings` entry is from the tool's own documentation or source rather
+# than assumed: `npm audit`, `pnpm audit`, `npm outdated` and `pnpm outdated` exit
+# 1 when they find a vulnerable or outdated dependency (pnpm's source returns
+# `exitCode: outdatedPackages.length === 0 ? 0 : 1`, and the same for audit's
+# advisories); madge's CLI sets exit code 1 when `--circular` finds a cycle;
+# dependency-cruiser exits with the count of error-severity violations; and
+# vitest and jest exit 1 on a failing test, which is the planted finding for
+# `test/determinism`. `npm sbom` and `pnpm licenses list` are reporting commands
+# with no gating flag in the prescribed invocation, so nothing establishes that
+# their non-zero exit is ever a finding, and they are `ambiguous`.
+TS_NONZERO_EXIT_MEANING: dict[str, str] = {
+    "npm audit": "findings",
+    "pnpm audit": "findings",
+    "npm outdated": "findings",
+    "pnpm outdated": "findings",
+    "madge": "findings",
+    "dependency-cruiser": "findings",
+    "vitest": "findings",
+    "jest": "findings",
+    "npm sbom": "ambiguous",
+    "pnpm licenses list": "ambiguous",
+}
+
+# The shuffle seed `test/determinism` fills its `<n>` with. Measured, never
+# guessed: the TypeScript build smoke record names seed 3 as the smallest
+# non-zero seed that reverses the order-dependent pair under vitest 5.0.2, and
+# names why it prefers 3 to the smaller 0, which a reader may take for a falsy
+# default. It was measured on the npm partition only; whether it reverses the
+# pair on pnpm is what the run records.
+TS_SHUFFLE_SEED = 3
+
+
+@dataclass(frozen=True)
+class TsCompletion:
+    """What a TypeScript command needed that the record did not say, per partition.
+
+    `Completion`'s counterpart, with two differences the TypeScript fixtures
+    force. A path operand differs by partition, because the seeded package is the
+    tree root on npm and `packages/core` on pnpm, so `by_partition` carries the
+    tokens per partition. And a placeholder can sit inside a token, which
+    appending cannot complete, so `fills` substitutes it. Both stay out of the
+    record's own argv, as a completion does.
+    """
+
+    note: str
+    by_partition: tuple[tuple[str, tuple[str, ...]], ...] = ()
+    fills: tuple[tuple[str, str], ...] = ()
+
+    def __post_init__(self) -> None:
+        if not (self.by_partition or self.fills):
+            raise ValueError("a completion with no tokens and no fills is not one")
+        if not self.note:
+            raise ValueError(
+                "a completion needs the reason it was needed; unexplained, it "
+                "reports a repaired command as a clean run"
+            )
+        for partition, tokens in self.by_partition:
+            if partition not in TS_PARTITIONS or not tokens:
+                raise ValueError(
+                    f"{partition}: a per-partition completion names a TypeScript "
+                    "partition and carries at least one token"
+                )
+
+
+def _seeded(partition: str, path: str) -> str:
+    """`path` inside the seeded package, as it lands in this partition's tree."""
+    return f"{_ts_source_prefix(partition)}{path}"
+
+
+def _per_ts_partition(*paths: str) -> tuple[tuple[str, tuple[str, ...]], ...]:
+    return tuple(
+        (partition, tuple(_seeded(partition, path) for path in paths))
+        for partition in TS_PARTITIONS
+    )
+
+
+_TS_DEPCRUISE_COMPLETION = TsCompletion(
+    by_partition=_per_ts_partition("src"),
+    note=(
+        "depcruise takes the directory to cruise and the record's prefix names "
+        "none; the seeded source is src/ in the seeded package. Neither `--config` "
+        "nor `--no-config` is supplied: the record's own caveat says the prefix "
+        "answers only with one of them and that neither is free - an audit-owned "
+        "config is an artefact this round would be writing, and `--no-config` "
+        "drops the rules the check reads - so the command runs as the record "
+        "leaves it, and the expectation grades the config-less exit"
+    ),
+)
+
+TS_COMPLETIONS: dict[tuple[str, str], TsCompletion] = {
+    ("arch/cycles", "madge"): TsCompletion(
+        by_partition=_per_ts_partition("tsconfig.json", "src"),
+        note=(
+            "`--ts-config` takes the partition's own tsconfig, which the record "
+            "says it can name no single value for, and madge takes the directory "
+            "to graph, which the record names none for; both are in the seeded "
+            "package, the tree root on npm and packages/core on pnpm"
+        ),
+    ),
+    ("arch/cycles", "dependency-cruiser"): _TS_DEPCRUISE_COMPLETION,
+    ("arch/coupling", "dependency-cruiser"): _TS_DEPCRUISE_COMPLETION,
+    ("arch/over-decomposition", "dependency-cruiser"): _TS_DEPCRUISE_COMPLETION,
+    ("test/determinism", "vitest"): TsCompletion(
+        fills=(("<n>", str(TS_SHUFFLE_SEED)),),
+        note=(
+            "`<n>` is the seed the record leaves to the caller; the value is the "
+            "one the TypeScript build smoke record measured as reversing the "
+            "order-dependent pair"
+        ),
+    ),
+}
+
+
+@dataclass(frozen=True)
+class AppliesWhen:
+    """Whether a route's `applies_when` holds on the TypeScript fixtures, and why.
+
+    A route carrying the field says what the target must carry for it to apply,
+    in prose no harness can evaluate. Answered here once per row, from what the
+    fixtures were built to carry, so a row whose precondition fails is recorded
+    as not run for that reason rather than run and graded as a tool that broke.
+    """
+
+    holds: bool
+    why: str
+
+    def __post_init__(self) -> None:
+        if not self.why:
+            raise ValueError("an applies_when answer needs the fixture fact behind it")
+
+
+# Keyed `(check, tool)` to match a row. Every TypeScript row whose prescribed
+# route carries `applies_when` has an entry, whether or not its check is in the
+# expectations this round grades, so a record adding a precondition fails a test
+# instead of running on a fixture it does not describe. The answer is the same
+# on both partitions, because both carry the same seeded package.
+_VITEST = AppliesWhen(
+    True,
+    "both partitions declare vitest as their runner, and the seeded tests import it",
+)
+_NOT_JEST = AppliesWhen(
+    False, "neither partition declares jest; the fixtures' runner is vitest"
+)
+_NOT_YARN_CLASSIC = AppliesWhen(
+    False, "no fixture partition is on Yarn Classic; the partitions are npm and pnpm"
+)
+TS_APPLIES_WHEN: dict[tuple[str, str], AppliesWhen] = {
+    ("arch/cycles", "madge"): AppliesWhen(
+        True,
+        "the seeded tsconfig.json extends nothing, so no base config lives in "
+        "node_modules",
+    ),
+    ("arch/layering", "dependency-cruiser"): AppliesWhen(
+        False,
+        "the fixtures carry no .dependency-cruiser config of their own; planting "
+        "one would have the fixture declare the boundary the check tests",
+    ),
+    ("test/coverage-reach", "vitest"): _VITEST,
+    ("test/coverage-reach", "jest"): _NOT_JEST,
+    ("test/determinism", "vitest"): _VITEST,
+    ("test/determinism", "jest"): _NOT_JEST,
+    ("test/isolation", "vitest"): _VITEST,
+    ("deps/licenses", "yarn licenses list"): _NOT_YARN_CLASSIC,
+    ("deps/transitive-licenses", "yarn licenses list"): _NOT_YARN_CLASSIC,
+}
+
+
+def not_run_on(invocation: Invocation, partition: str) -> tuple[str, str] | None:
+    """Why a row that prescribes a command does not run on this partition, if so.
+
+    Returns `(kind, why)` - `manager` where the tool is another manager's
+    subcommand, `applies-when` where the route's precondition fails on the
+    fixture - or `None` where the row runs. Always `None` on a Python partition:
+    no python route is manager-owned or carries a precondition this lens reads.
+    """
+    if lang_of(partition) != "typescript":
+        return None
+    manager = TS_MANAGER_TOOLS.get(invocation.tool)
+    if manager is not None and manager != partition:
+        return (
+            "manager",
+            f"`{invocation.tool}` is {manager}'s own subcommand and this partition's "
+            f"package manager is {partition}, so it has no lockfile of {manager}'s "
+            "to read",
+        )
+    answer = TS_APPLIES_WHEN.get((invocation.check, invocation.tool))
+    if answer is not None and not answer.holds:
+        return ("applies-when", f"the route's applies_when does not hold: {answer.why}")
+    return None
+
+
 @lru_cache(maxsize=1)
 def _records() -> dict[str, object]:
     """Every check record, parsed once.
@@ -942,21 +1301,19 @@ def _records() -> dict[str, object]:
     return checks
 
 
-def tools_named_in_records() -> set[str]:
-    """Every tool any record offers for Python.
+def tools_named_in_records(lang: str = "python") -> set[str]:
+    """Every tool any record offers for `lang`.
 
     Read from the records rather than listed here, so a tool added to a record
     and missing from its routes fails the exact-set guard instead of going
     unexercised behind a full-looking run.
     """
     return {
-        tool
-        for check in _records().values()
-        for tool in check.tooling.get("python", ())
+        tool for check in _records().values() for tool in check.tooling.get(lang, ())
     }
 
 
-def grant_tier(check: str, tool: str) -> str:
+def grant_tier(check: str, tool: str, lang: str = "python") -> str:
     """What the command this row runs needs present before it answers.
 
     Derived from the record's own tier rather than transcribed beside the
@@ -993,13 +1350,13 @@ def grant_tier(check: str, tool: str) -> str:
     if check not in checks:
         raise ValueError(f"no check record {check!r}")
     record = checks[check]
-    if tool not in record.tooling.get("python", ()):
-        raise ValueError(f"{check} does not offer {tool!r} for Python")
+    if tool not in record.tooling.get(lang, ()):
+        raise ValueError(f"{check} does not offer {tool!r} for {lang}")
     if record.routes:
         prescribed = [
             route
             for route in record.routes
-            if route.lang == "python"
+            if route.lang == lang
             and route.tool == tool
             and route.kind == "command"
             and route.disposition == "runs"
@@ -1012,11 +1369,13 @@ def grant_tier(check: str, tool: str) -> str:
     return ""
 
 
-def _partition_keys(check: str, tool: str, route: object) -> tuple[str, ...]:
-    """The route's per-partition keys, checked against this lens's partitions.
+def _partition_keys(
+    check: str, tool: str, route: object, lang: str = "python"
+) -> tuple[str, ...]:
+    """The route's per-partition keys, checked against `PARTITION_KEYS[lang]`.
 
     Held for every command route rather than only the `runs` one, because a
-    form is derived from every command route: a key outside `PARTITIONS` on a
+    form is derived from every command route: a key outside the vocabulary on a
     `superseded` route would contribute a form no partition could ever run,
     which reads as a record whose prescription the harness ignores.
 
@@ -1025,18 +1384,21 @@ def _partition_keys(check: str, tool: str, route: object) -> tuple[str, ...]:
             this lens. It would thread into an entry `prescribed` never finds,
             so the command would silently never run.
     """
-    unknown = sorted(set(route.argv_by_partition) - set(PARTITIONS))
+    keys = PARTITION_KEYS[lang]
+    unknown = sorted(set(route.argv_by_partition) - set(keys))
     if unknown:
         raise ValueError(
             f"{check}/{tool}: argv_by_partition names {unknown}, which is not a "
-            f"partition of this lens ({list(PARTITIONS)}); a python route's keys "
+            f"partition of this lens ({list(keys)}); a {lang} route's keys "
             "are partition names, and one that is not would thread into a "
             "command no partition ever runs"
         )
     return tuple(route.argv_by_partition)
 
 
-def _forms_for(check: str, tool: str, route: object) -> tuple[tuple[str, str], ...]:
+def _forms_for(
+    check: str, tool: str, route: object, lang: str = "python"
+) -> tuple[tuple[str, str], ...]:
     """Every distinct command this route prescribes, as a form.
 
     Its shared `argv` where it has one, each per-partition command, and its
@@ -1061,7 +1423,7 @@ def _forms_for(check: str, tool: str, route: object) -> tuple[tuple[str, str], .
     forms: list[str] = []
     if route.argv:
         forms.append(" ".join(route.argv))
-    for partition in _partition_keys(check, tool, route):
+    for partition in _partition_keys(check, tool, route, lang):
         joined = " ".join(route.argv_by_partition[partition])
         if joined not in forms:
             forms.append(joined)
@@ -1071,12 +1433,14 @@ def _forms_for(check: str, tool: str, route: object) -> tuple[tuple[str, str], .
 
 
 def _argv_by_partition(
-    check: str, tool: str, route: object
+    check: str, tool: str, route: object, lang: str = "python"
 ) -> tuple[tuple[str, tuple[str, ...]], ...]:
     """One entry per partition, where the record narrows the command per partition.
 
     Returns `()` where the route names no partition, which leaves the row's
-    shared `argv` as the one command every partition runs.
+    shared `argv` as the one command every partition runs. Otherwise one entry
+    per fixture partition of the language, so a key naming none - `yarn` on a
+    typescript route - is validated and then applies to no partition.
 
     A route may carry a shared `argv` and per-partition ones at once, and
     `Invocation` admits one or the other, so a route carrying both expands
@@ -1108,19 +1472,25 @@ def _argv_by_partition(
     """
     if not route.argv_by_partition:
         return ()
-    _partition_keys(check, tool, route)
+    _partition_keys(check, tool, route, lang)
     return tuple(
-        (p, tuple(route.argv_by_partition.get(p, route.argv))) for p in PARTITIONS
+        (p, tuple(route.argv_by_partition.get(p, route.argv)))
+        for p in FIXTURE_PARTITIONS[lang]
     )
 
 
-def _own_runner_partitions(check: str, tool: str, route: object) -> tuple[str, ...]:
+def _own_runner_partitions(
+    check: str, tool: str, route: object, lang: str = "python"
+) -> tuple[str, ...]:
     """The partitions whose prescribed command takes no launcher prefix.
 
     `True` claims every command the route prescribes is complete as written,
     and what that covers depends on whether the route has a shared `argv` to
     fall back to. Where it does, every partition runs a command - its own
-    override, or the shared argv - so `True` covers all of `PARTITIONS`.
+    override, or the shared argv - so `True` covers every fixture partition of
+    the language. A key naming no fixture partition, `yarn` on a typescript
+    route, is left out of either form: no partition runs its command, and
+    `Invocation._check_own_runner` rejects a partition with none.
     Where it does not, the route prescribes a command only for the
     partitions its map names, so `True` is a claim about those alone; naming
     an unnamed partition too would claim completeness for a command that
@@ -1138,11 +1508,13 @@ def _own_runner_partitions(check: str, tool: str, route: object) -> tuple[str, .
     the inference this schema exists to replace, so this stays a claim the
     record makes and the reader checks.
     """
+    fixture = FIXTURE_PARTITIONS[lang]
     if route.own_runner is True:
         if route.argv:
-            return PARTITIONS
-        return _partition_keys(check, tool, route)
-    return tuple(route.own_runner) if route.own_runner else ()
+            return fixture
+        keys = _partition_keys(check, tool, route, lang)
+        return tuple(k for k in keys if k in fixture)
+    return tuple(p for p in route.own_runner or () if p in fixture)
 
 
 def _reason_for_no_command(check: str, tool: str, routes: Sequence[Route]) -> str:
@@ -1226,8 +1598,44 @@ def _reason_for_no_command(check: str, tool: str, routes: Sequence[Route]) -> st
     return reason
 
 
+def _caveat_for_no_command(routes: Sequence[Route]) -> str:
+    """What a row prescribing no command still needs, in the record's own words.
+
+    The same composition `_reason_for_no_command` makes of the notes, for the
+    same reason: with no `runs` command route there is no one route to read the
+    field from, and the record shapes that reach this split one tool across
+    routes on purpose. `arch/hidden-coupling`'s two `eslint` procedures are the
+    live case - an audit-owned config and the target's own, distinguished by
+    `needs` - and each states a caveat about its own mode. Refusing the row, as
+    the guard this replaced did, made the whole TypeScript selection raise over
+    a record that is right; taking one would attribute the other mode's caveat
+    to the row.
+
+    The candidates are the group's `runs` routes, or every route where there is
+    none. Identical caveats are one caveat. Where several distinct ones survive,
+    each is prefixed with its route's `applies_when` where it has one, as the
+    composed note is, and they are joined by a blank line in record order.
+    """
+    candidates = [r for r in routes if r.disposition == "runs"] or list(routes)
+    carried = [r for r in candidates if (r.alone_insufficient or "").strip()]
+    distinct: list[Route] = []
+    for route in carried:
+        if all(route.alone_insufficient != d.alone_insufficient for d in distinct):
+            distinct.append(route)
+    if len(distinct) <= 1:
+        return distinct[0].alone_insufficient if distinct else ""
+    return "\n\n".join(
+        " ".join(
+            piece
+            for piece in ((r.applies_when or "").strip(), r.alone_insufficient.strip())
+            if piece
+        )
+        for r in distinct
+    )
+
+
 @cache
-def routed_invocations() -> tuple[Invocation, ...]:
+def routed_invocations(lang: str = "python") -> tuple[Invocation, ...]:
     """Every row a migrated record prescribes, read from the record.
 
     One row per `(check, tool)` rather than per route: a record may narrow the
@@ -1239,11 +1647,22 @@ def routed_invocations() -> tuple[Invocation, ...]:
     `_reason_for_no_command` carries each of them, because one row per tool is
     the unit this returns and the record's split is deliberate.
 
-    `lang: python` only. A `lang: any` route is applicable to a python
-    partition by its own note, and selecting it would still be wrong here: it
-    adds a check the expectations do not grade, so the three-way equality that
-    holds the harness to them would fail rather than the round quietly growing
-    a row nothing checks.
+    `lang` only, `python` by default. A `lang: any` route is applicable to
+    either language's partitions by its own note, and selecting it would still
+    be wrong here: it adds a check the expectations do not grade, so the
+    three-way equality that holds the harness to them would fail rather than
+    the round quietly growing a row nothing checks.
+
+    A `disposition: forbidden` route is dropped before grouping, in either
+    language: the record names it to warn against it, so it is neither a row
+    nor a form the guards should read as prescribed. Grouped with the rest, the
+    `depcruise` and `cyclonedx-npm` placeholders would each become a row of
+    their own and be fetched and run, which is the exact outcome the record
+    forbids.
+
+    A completion comes from `COMPLETIONS` on a python row and from
+    `TS_COMPLETIONS` on a typescript one, and only a python row can carry a
+    supplied route.
 
     A row's `note` says why it is not simply the record's command running as
     written, which is the only thing worth carrying into the artifact. Two
@@ -1270,11 +1689,9 @@ def routed_invocations() -> tuple[Invocation, ...]:
     Raises:
         ValueError: If a group carries more than one `runs` command route, two
             different `findings_stream` values, two different `in_env` values,
-            a disposition outside `DISPOSITIONS`, two different
-            `alone_insufficient` values where it prescribes no command and so
-            has no `runs` route to read the field from, or - where it prescribes no
+            a non-`forbidden` disposition outside `DISPOSITIONS`, or - where it prescribes no
             command and no completion was supplied - no route carrying a note
-            to read the reason off. The first five would otherwise resolve
+            to read the reason off. The first four would otherwise resolve
             silently to whichever route happened to come first; the last is
             `_reason_for_no_command`'s, which composes where several routes
             explain the absence rather than refusing to choose between them.
@@ -1285,7 +1702,9 @@ def routed_invocations() -> tuple[Invocation, ...]:
             continue
         groups: dict[str, list] = {}
         for route in record.routes:
-            if route.lang != "python" or not route.tool:
+            if route.lang != lang or not route.tool:
+                continue
+            if route.disposition == "forbidden":
                 continue
             groups.setdefault(route.tool, []).append(route)
         for tool, routes in sorted(groups.items()):
@@ -1297,13 +1716,9 @@ def routed_invocations() -> tuple[Invocation, ...]:
                         f"{route.disposition!r} is one the record loader permits "
                         f"and this module's form vocabulary {DISPOSITIONS} does "
                         "not carry, so nothing here decides whether the harness "
-                        "may offer it as a form. `forbidden` is the live case: "
-                        "the loader's vocabulary carries it and records declare "
-                        "it on typescript and universal routes, neither of which "
-                        "a python-only selection reaches. Giving it a slot means "
-                        "deciding whether a form "
-                        "the record warns against is one the guards should see, "
-                        "and that is a decision rather than a widened tuple"
+                        "may offer it as a form. `forbidden` was the last such "
+                        "value and is dropped before grouping; a new one needs "
+                        "the same decision, which is not a widened tuple"
                     )
             runs = [r for r in commands if r.disposition == "runs"]
             if len(runs) > 1:
@@ -1326,27 +1741,25 @@ def routed_invocations() -> tuple[Invocation, ...]:
                     "the tool launches through the partition's environment "
                     "would depend on their order in the record"
                 )
-            supplied = COMPLETIONS.get((check_id, tool))
-            contributed = SUPPLIED.get((check_id, tool))
+            if lang == "python":
+                supplied = COMPLETIONS.get((check_id, tool))
+                contributed = SUPPLIED.get((check_id, tool))
+                ts_completion = None
+            else:
+                supplied = contributed = None
+                ts_completion = TS_COMPLETIONS.get((check_id, tool))
             if runs:
                 caveat = runs[0].alone_insufficient or ""
             else:
-                caveats = {
-                    r.alone_insufficient
-                    for r in routes
-                    if r.alone_insufficient and r.disposition != "forbidden"
-                }
-                if len(caveats) > 1:
-                    raise ValueError(
-                        f"{check_id}/{tool}: routes prescribing no command carry "
-                        "different alone_insufficient values, so which one the "
-                        "row reports would depend on their order in the record"
-                    )
-                caveat = caveats.pop() if caveats else ""
-            per_partition = _argv_by_partition(check_id, tool, runs[0]) if runs else ()
+                caveat = _caveat_for_no_command(routes)
+            per_partition = (
+                _argv_by_partition(check_id, tool, runs[0], lang) if runs else ()
+            )
             argv = () if per_partition else (tuple(runs[0].argv) if runs else ())
             if supplied:
                 note = supplied.note
+            elif ts_completion:
+                note = ts_completion.note
             elif argv or per_partition:
                 note = ""
             else:
@@ -1358,14 +1771,20 @@ def routed_invocations() -> tuple[Invocation, ...]:
                     argv=argv,
                     argv_by_partition=per_partition,
                     own_runner=(
-                        _own_runner_partitions(check_id, tool, runs[0]) if runs else ()
+                        _own_runner_partitions(check_id, tool, runs[0], lang)
+                        if runs
+                        else ()
                     ),
                     forms=tuple(
-                        f for r in commands for f in _forms_for(check_id, tool, r)
+                        f for r in commands for f in _forms_for(check_id, tool, r, lang)
                     ),
                     findings_stream=streams.pop(),
                     in_env=in_env.pop(),
                     completion=supplied.tokens if supplied else (),
+                    completion_by_partition=(
+                        ts_completion.by_partition if ts_completion else ()
+                    ),
+                    fills=ts_completion.fills if ts_completion else (),
                     then=tuple(runs[0].then) if runs else (),
                     note=note,
                     supplied_by_partition=(
@@ -1388,6 +1807,10 @@ def invocations_for(
     two places: the records for those that declare their routes, and this
     file's `INVOCATIONS`, the legacy slot, empty today.
 
+    The language is the partition's, so a TypeScript partition reads the
+    `lang: typescript` rows and the TypeScript expectations. `INVOCATIONS`, the
+    legacy slot, is Python's alone.
+
     Args:
         partition: Which partition's scope to read.
         only_check: Narrow the scope to one check id, for re-running a single
@@ -1398,12 +1821,14 @@ def invocations_for(
             write an artifact of zero rows that reads as a check whose tools
             were all absent.
     """
-    if partition not in PARTITIONS:
+    if partition not in ALL_PARTITIONS:
         raise ValueError(
-            f"unknown partition {partition!r}; expected one of {PARTITIONS}"
+            f"unknown partition {partition!r}; expected one of {ALL_PARTITIONS}"
         )
+    lang = lang_of(partition)
     carried = {e.check for e in expectations_for(partition)}
-    everything = INVOCATIONS + routed_invocations()
+    legacy = INVOCATIONS if lang == "python" else ()
+    everything = legacy + routed_invocations(lang)
     scoped = tuple(i for i in everything if i.check in carried)
     if only_check is None:
         return scoped
@@ -1440,6 +1865,9 @@ def launcher(
     record's command: the version probe runs the tool's own `--version`, which
     still has to be obtained the usual way, and probing it bare would record a
     missing tool where the tool's version belongs.
+
+    A TypeScript partition's words come from `_ts_launcher`; everything below
+    this paragraph is the Python half.
 
     An `in_env` tool runs from inside the materialized environment under a
     grant, because the one-shot runner's sandbox cannot see what the target
@@ -1480,6 +1908,8 @@ def launcher(
     """
     if honour_own_runner and partition in invocation.own_runner:
         return ()
+    if lang_of(partition) == "typescript":
+        return _ts_launcher(invocation, partition, granted=granted)
     packages = packages_for(invocation.tool)
     extra = tuple(word for name in packages[1:] for word in ("--with", name))
     if not (invocation.in_env and granted):
@@ -1497,6 +1927,27 @@ def launcher(
         "--with",
         packages[0],
         *extra,
+    )
+
+
+def _ts_launcher(
+    invocation: Invocation, partition: str, *, granted: bool
+) -> tuple[str, ...]:
+    """`launcher`'s TypeScript half, once `own_runner` has had its say.
+
+    A manager subcommand runs bare: it is the partition's own manager, which
+    `_ts_fixture_env` has already put on PATH, and there is no package to fetch.
+    An `in_env` tool under a grant runs the tree's own copy through
+    `TS_IN_ENV`; anything else is fetched once through `TS_ONE_SHOT`, naming
+    the tool as the package. As on the Python side, the argv itself never
+    changes here.
+    """
+    if invocation.tool in TS_MANAGER_TOOLS:
+        return ()
+    if invocation.in_env and granted:
+        return TS_IN_ENV[partition]
+    return tuple(
+        word.format(package=invocation.tool) for word in TS_ONE_SHOT[partition]
     )
 
 
@@ -1559,19 +2010,20 @@ NONZERO_EXIT_MEANING: dict[str, str] = {
 }
 
 
-def nonzero_exit_meaning(tool: str) -> str:
+def nonzero_exit_meaning(tool: str, lang: str = "python") -> str:
     """What a non-zero exit from `tool` means, read out of the stated table.
 
     Raises rather than defaulting, for the same reason `grant_tier` raises on
     an unknown (check, tool) pair: an omitted entry must never read as a
     silent claim, and silence is exactly how xenon and mutmut were misgraded.
     """
-    if tool not in NONZERO_EXIT_MEANING:
+    table = NONZERO_EXIT_MEANING if lang == "python" else TS_NONZERO_EXIT_MEANING
+    if tool not in table:
         raise ValueError(
-            f"{tool!r} has no stated non-zero-exit meaning in NONZERO_EXIT_MEANING; "
+            f"{tool!r} has no stated non-zero-exit meaning for {lang}; "
             "an omitted entry would read as a silent default rather than a decision"
         )
-    return NONZERO_EXIT_MEANING[tool]
+    return table[tool]
 
 
 def classify(
@@ -1755,7 +2207,49 @@ def _fixture_env() -> dict[str, str]:
     return env
 
 
-def _run(command: Sequence[str], cwd: Path, timeout: int) -> dict[str, object]:
+def _ts_fixture_env(shim_dir: Path | None = None) -> dict[str, str]:
+    """The environment a TypeScript fixture subprocess runs under.
+
+    `_fixture_env`'s removals first, since the harness still runs under
+    `uv run`. Then the registry overrides go, as in
+    `build_python_fixtures.ts_fixture_env`, and the public registry is named, so
+    a materialization resolves the lockfile's own URLs and a one-shot fetch
+    reaches the registry the records name. Corepack neither prompts before
+    fetching the pinned pnpm, which would hang a run with no terminal, nor pins
+    a `packageManager` of its own into a manifest in the copy. `shim_dir`, where
+    `ts_shim_command` put corepack's pnpm, goes first on PATH.
+    """
+    env = _fixture_env()
+    for name in [n for n in env if _is_registry_setting(n)]:
+        del env[name]
+    env["npm_config_registry"] = PUBLIC_NPM_REGISTRY
+    env["COREPACK_ENABLE_DOWNLOAD_PROMPT"] = "0"
+    env["COREPACK_ENABLE_AUTO_PIN"] = "0"
+    if shim_dir is not None:
+        env["PATH"] = os.pathsep.join(
+            entry for entry in (str(shim_dir), env.get("PATH", "")) if entry
+        )
+    return env
+
+
+def _runner(env: dict[str, str] | None):
+    """`_run` bound to one environment, or to `_fixture_env`'s where `env` is None.
+
+    The Python half never passes an environment, so its calls keep `_run`'s
+    three-argument shape exactly; `_run` is looked up at call time, so a test
+    replacing it replaces it here too.
+    """
+    if env is None:
+        return lambda command, cwd, timeout: _run(command, cwd, timeout)
+    return lambda command, cwd, timeout: _run(command, cwd, timeout, env=env)
+
+
+def _run(
+    command: Sequence[str],
+    cwd: Path,
+    timeout: int,
+    env: dict[str, str] | None = None,
+) -> dict[str, object]:
     """Run one command and report what happened, distinguishing the failures.
 
     A tool that is missing and a tool that ran and failed are different facts -
@@ -1768,13 +2262,20 @@ def _run(command: Sequence[str], cwd: Path, timeout: int) -> dict[str, object]:
         command: The argv to run.
         cwd: The materialized copy to run it in.
         timeout: Seconds before the command is abandoned as hung.
+        env: The environment to run it under; `_fixture_env()` where `None`.
     """
-    env = _fixture_env()
+    if env is None:
+        env = _fixture_env()
     try:
         completed = subprocess.run(
             list(command),
             cwd=cwd,
             env=env,
+            # Never the caller's terminal: npx assumes `--yes` only where stdin
+            # is not a TTY, so a record's own `npx --package ...` route run from
+            # an interactive shell would wait on "Ok to proceed?" until the
+            # timeout and grade as a hung tool.
+            stdin=subprocess.DEVNULL,
             capture_output=True,
             text=True,
             check=False,
@@ -1949,6 +2450,7 @@ def probe_versions(
     *,
     blocked_by: Sequence[str] | None = None,
     only_check: str | None = None,
+    env: dict[str, str] | None = None,
 ) -> dict[str, str]:
     """Report the version of every tool this partition will invoke.
 
@@ -1982,17 +2484,33 @@ def probe_versions(
             it did not. A version beside no row would read as a probed tool
             whose check produced nothing, and probing the partition's whole tool
             set costs a full run's fetches for a one-cell answer.
+        env: The environment `run_partition` ran the rows under; `None` on a
+            Python partition, which runs under `_fixture_env`.
+
+    A TypeScript tool that is another manager's subcommand is not probed on
+    this partition at all: its rows never run here, and with only this
+    partition's manager provisioned, `pnpm --version` inside an npm-pinned tree
+    would be corepack refusing an undeclared manager rather than a version.
     """
+    lang = lang_of(partition)
+    run = _runner(env)
     granted = grant != "none"
     representative: dict[str, Invocation] = {}
-    for inv in INVOCATIONS + routed_invocations():
+    legacy = INVOCATIONS if lang == "python" else ()
+    for inv in legacy + routed_invocations(lang):
         representative.setdefault(inv.tool, inv)
+    probes = VERSION_PROBE if lang == "python" else TS_VERSION_PROBE
+    absent = NO_VERSION_ROUTE if lang == "python" else TS_NO_VERSION_ROUTE
 
     versions: dict[str, str] = {}
-    for tool in {inv.tool for inv in invocations_for(partition, only_check=only_check)}:
-        probe = VERSION_PROBE[tool]
+    invoked = invocations_for(partition, only_check=only_check)
+    for tool in {inv.tool for inv in invoked}:
+        manager = TS_MANAGER_TOOLS.get(tool) if lang == "typescript" else None
+        if manager is not None and manager != partition:
+            continue
+        probe = probes[tool]
         if probe is None:
-            versions[tool] = f"no version route: {NO_VERSION_ROUTE[tool]}"
+            versions[tool] = f"no version route: {absent[tool]}"
             continue
         inv = representative[tool]
         if blocked_by is not None and inv.in_env:
@@ -2004,7 +2522,7 @@ def probe_versions(
             continue
         prefix = launcher(inv, partition, granted=granted, honour_own_runner=False)
         command = (*prefix, *probe)
-        outcome = _run(command, work_dir, timeout)
+        outcome = run(command, work_dir, timeout)
         stdout = str(outcome["stdout"]).strip()
         stderr = str(outcome["stderr"]).strip()
         if outcome["returncode"] == 0:
@@ -2036,11 +2554,34 @@ def run_partition(
     check's rows is indistinguishable from a matrix whose other checks all
     produced nothing unless it says which it is. The caller owns the filename;
     `main` gives a filtered run one carrying the check's slug.
+
+    A TypeScript partition runs under `_ts_fixture_env`, and a partition whose
+    manager corepack provides has it enabled into a shim directory beside the
+    copy first, whatever the grant, recorded under `setup`. A row whose tool is
+    another manager's subcommand, or whose route's `applies_when` fails on the
+    fixture, is recorded as not run with `not_run` saying which and `why` saying
+    what, rather than run against a tree it does not describe.
     """
     if grant not in GRANTS:
         raise ValueError(f"unknown grant {grant!r}; expected one of {GRANTS}")
+    lang = lang_of(partition)
     granted = grant != "none"
     copy = reconstruct(partition, source, work_root)
+    env: dict[str, str] | None = None
+    setup = []
+    if lang == "typescript":
+        shim_dir = None
+        if partition in TS_COREPACK_MANAGED:
+            shim_dir = work_root / TS_SHIM_DIRNAME
+            shim_dir.mkdir(parents=True, exist_ok=True)
+        env = _ts_fixture_env(shim_dir)
+        if shim_dir is not None:
+            command = ts_shim_command(partition, shim_dir)
+            setup.append(
+                {"command": list(command), **_runner(env)(command, copy, timeout)}
+            )
+    run = _runner(env)
+    materialize = MATERIALIZE if lang == "python" else TS_MATERIALIZE
     materialization = []
     # The command that stopped the materialization, or `None` where it finished.
     # A route that fails leaves the copy unresolved, and every row needing the
@@ -2050,8 +2591,8 @@ def run_partition(
     # the harness inventing a finding rather than reporting one.
     blocked_by: list[str] | None = None
     if granted:
-        for command in MATERIALIZE[partition]:
-            outcome = _run(command, copy, timeout)
+        for command in materialize[partition]:
+            outcome = run(command, copy, timeout)
             materialization.append({"command": list(command), **outcome})
             if outcome["returncode"] != 0:
                 blocked_by = list(command)
@@ -2059,7 +2600,7 @@ def run_partition(
 
     rows = []
     for invocation in invocations_for(partition, only_check=only_check):
-        tier = grant_tier(invocation.check, invocation.tool)
+        tier = grant_tier(invocation.check, invocation.tool, lang)
         permitted = granted or not tier
         argv = argv_for(invocation, partition)
         supplied = invocation.supplied(partition)
@@ -2067,12 +2608,19 @@ def run_partition(
             "check": invocation.check,
             "tool": invocation.tool,
             "record_argv": list(invocation.prescribed(partition)),
-            "completion": list(invocation.completion),
+            "completion": list(
+                invocation.completion
+                + dict(invocation.completion_by_partition).get(partition, ())
+            ),
             "note": invocation.note,
             "needs": tier,
             "in_env": invocation.in_env,
             "alone_insufficient": invocation.alone_insufficient,
         }
+        if invocation.fills:
+            # Beside `completion` for the reason it is: what the round put into
+            # the record's command stays distinguishable from what it said.
+            row["fills"] = dict(invocation.fills)
         if supplied:
             # Never as `record_argv`: this round contributed the route, and a
             # later pass reading it out of the prescribed field would read a
@@ -2087,6 +2635,17 @@ def run_partition(
                 "status": "",
                 "reason": "",
                 "why": "the record prescribes no command for this tool",
+            }
+            rows.append(row)
+            continue
+        skipped = not_run_on(invocation, partition)
+        if skipped is not None:
+            row |= {
+                "ran": False,
+                "status": "",
+                "reason": "",
+                "not_run": skipped[0],
+                "why": skipped[1],
             }
             rows.append(row)
             continue
@@ -2124,7 +2683,7 @@ def run_partition(
         # evidence about the target wherever it landed.
         prefix = launcher(invocation, partition, granted=granted)
         command = (*prefix, *argv)
-        outcome = _run(command, copy, timeout)
+        outcome = run(command, copy, timeout)
         row |= {"ran": True, "command": list(command), **outcome}
         # A route the record writes as two commands is one route, so both halves
         # reach the verdict. Classifying on the first alone would grade a route
@@ -2133,19 +2692,27 @@ def run_partition(
         ran: list[tuple[Sequence[str], dict[str, object]]] = [(command, outcome)]
         if invocation.then:
             follow_up = (*prefix, *invocation.then)
-            then_outcome = _run(follow_up, copy, timeout)
+            then_outcome = run(follow_up, copy, timeout)
             row["then"] = {"command": list(follow_up), **then_outcome}
             ran.append((follow_up, then_outcome))
         row |= _verdict(
-            ran, invocation.findings_stream, nonzero_exit_meaning(invocation.tool)
+            ran,
+            invocation.findings_stream,
+            nonzero_exit_meaning(invocation.tool, lang),
         )
         rows.append(row)
 
     versions = probe_versions(
-        partition, grant, copy, timeout, blocked_by=blocked_by, only_check=only_check
+        partition,
+        grant,
+        copy,
+        timeout,
+        blocked_by=blocked_by,
+        only_check=only_check,
+        env=env,
     )
 
-    return {
+    observed: dict[str, object] = {
         "partition": partition,
         "grant": grant,
         "source": str(source),
@@ -2154,6 +2721,9 @@ def run_partition(
         "results": rows,
         "versions": versions,
     }
+    if lang == "typescript":
+        observed["setup"] = setup
+    return observed
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -2168,17 +2738,20 @@ def main(argv: list[str] | None = None) -> int:
     """
     parser = argparse.ArgumentParser(
         description=(
-            "Run each check record's prescribed python: tooling against one "
-            "seeded fixture partition."
+            "Run each check record's prescribed tooling in the partition's "
+            "language against one seeded fixture partition."
         )
     )
-    parser.add_argument("partition", choices=list(PARTITIONS))
+    parser.add_argument("partition", choices=list(ALL_PARTITIONS))
     parser.add_argument("--grant", choices=list(GRANTS), default="target-execution")
     parser.add_argument(
         "--fixture-root",
         type=Path,
-        default=FIXTURE_ROOT,
-        help="where the generated partitions are",
+        default=None,
+        help=(
+            "where the generated partitions are; by default the builder's "
+            "output directory for the partition's language"
+        ),
     )
     parser.add_argument(
         "--work-dir",
@@ -2196,6 +2769,8 @@ def main(argv: list[str] | None = None) -> int:
         "partial run cannot overwrite a full matrix artifact",
     )
     args = parser.parse_args(argv)
+    if args.fixture_root is None:
+        args.fixture_root = FIXTURE_ROOTS[lang_of(args.partition)]
 
     source = args.fixture_root / args.partition
     if not source.is_dir():
