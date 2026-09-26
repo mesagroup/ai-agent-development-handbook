@@ -3948,7 +3948,7 @@ def test_a_record_states_its_row_unit_only_in_the_rules_form():
     stated = sorted(
         c.id for c in checks.values() if (c.evidence or "").startswith("Row unit: ")
     )
-    assert len(stated) >= 4, stated
+    assert len(stated) >= 5, stated
     assert set(ROW_UNIT_LEFT_AS_WRITTEN) <= set(checks)
 
 

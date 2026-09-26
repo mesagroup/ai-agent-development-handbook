@@ -4,6 +4,11 @@ domain: data-protection
 locality: global
 handbook:
   - data-protection/know-what-personal-data-you-hold-and-where-it-goes
+evidence: >-
+  Row unit: the project's data-flow map, because every other check in the
+  domain asks its question of that one list, so this row decides whether the
+  list exists and holds. Each entry point, store or outbound edge the map
+  misses is cited in the row at a `file:line` in the target.
 routes:
   - lang: any
     kind: procedure
