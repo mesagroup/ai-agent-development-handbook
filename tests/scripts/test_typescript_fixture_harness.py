@@ -593,3 +593,23 @@ def test_an_ungranted_typescript_run_materializes_nothing_and_gates_the_tiers(
     assert rows[("test/isolation", "vitest")]["reason"] == "not-permitted"
     assert rows[("deps/vulnerabilities", "npm audit")]["ran"] is True
     assert ("npm", "ci", "--ignore-scripts") not in {c["command"] for c in calls}
+
+
+def test_a_typescript_launcher_that_cannot_fetch_the_tool_is_a_miss():
+    """The measured messages, each on the command shape that prints it."""
+    from run_python_fixture_lens import launcher_missed
+
+    npx_err = "npm error code E404\nnpm error 404 Not Found - GET https://registry.npmjs.org/x"
+    assert launcher_missed(["npx", "--yes", "--package=x", "--", "x"], 1, npx_err)
+    assert launcher_missed(["npx", "--no", "--", "x"], 1, npx_err)
+    dlx_err = " ERR_PNPM_FETCH_404  GET https://registry.npmjs.org/x: Not Found - 404"
+    assert launcher_missed(["pnpm", "--package=x", "dlx", "x"], 1, dlx_err)
+    assert not launcher_missed(["pnpm", "--package=x", "dlx", "x"], 0, dlx_err)
+
+
+def test_a_package_manager_subcommand_404_is_not_a_missing_tool():
+    """`pnpm audit` or `npm outdated` fetch no tool, so a 404 there is about the target."""
+    from run_python_fixture_lens import launcher_missed
+
+    assert not launcher_missed(["pnpm", "audit"], 1, " ERR_PNPM_FETCH_404  GET ...")
+    assert not launcher_missed(["npm", "outdated"], 1, "npm error code E404")
