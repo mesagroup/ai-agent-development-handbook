@@ -71,3 +71,7 @@ The seed was measured on the `npm` partition only. The `pnpm` partition carries 
 - **Only the lockfiles were read.** No route a check record prescribes was run against either partition, under either grant state. That is the round that follows.
 - **The seed will need re-measuring when vitest moves.** It is recorded with the versions it was measured under, and nothing fails when it goes stale.
 - **The pins are dated.** Every pin was verified against OSV and the registry on the expectations record's verified date; advisories against lodash 4.17.20 only accumulate, and the vitest line ships often enough that its current-release status can move before the run.
+
+## Rebuilt under the lock environment
+
+The build above ran its lock steps and version probe under the generic fixture environment rather than the lock environment the builder computes, because `_run` accepted an `env` argument and did not pass it on, which the automated review of PR #201 found. The host carried no `npm_config_registry` override and corepack already held pnpm 9.15.9, so neither the registry pin nor the corepack flags had anything to change on this host. The trees were rebuilt after the fix, and the npm lockfile resolves the same pins from the same single registry host, with commander still present in the pnpm lockfile. The conclusions above stand.

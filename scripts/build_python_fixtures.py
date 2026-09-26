@@ -556,12 +556,16 @@ def _run(
     Both streams reach the message. Poetry and pipenv report much of a failed
     resolution on stdout, so a message carrying stderr alone drops the part that
     says what went wrong.
+
+    `env` is the caller's environment where given - the TypeScript lock steps
+    and version probe pass `lock_env` or `ts_fixture_env`, which drop registry
+    overrides and silence corepack - and `_fixture_env()` otherwise.
     """
     try:
         completed = subprocess.run(
             list(command),
             cwd=cwd,
-            env=_fixture_env(),
+            env=dict(env) if env is not None else _fixture_env(),
             capture_output=True,
             text=True,
             check=False,

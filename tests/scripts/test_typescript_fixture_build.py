@@ -320,3 +320,29 @@ def test_typescript_partitions_are_named_like_python_ones(monkeypatch, tmp_path)
     ]
     # No Python partition was asked for, so no uv version was needed.
     assert measured == []
+
+
+def test_run_passes_the_callers_environment_to_the_subprocess(tmp_path, monkeypatch):
+    """The lock steps' environment is the whole point of passing one.
+
+    A `_run` that accepted `env` and ran under `_fixture_env()` anyway would
+    keep a user's registry override and corepack's prompt in the lock step, and
+    every planner test above would still pass, because they test the value
+    handed over rather than the value used.
+    """
+    import subprocess
+
+    import build_python_fixtures as bf
+
+    seen = []
+
+    def fake_run(command, **kwargs):
+        seen.append(kwargs.get("env"))
+        return subprocess.CompletedProcess(command, 0, stdout="ok", stderr="")
+
+    monkeypatch.setattr(bf.subprocess, "run", fake_run)
+    wanted = {"PATH": "/bin", "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0"}
+    bf._run(["true"], tmp_path, env=wanted)
+    bf._run(["true"], tmp_path)
+    assert seen[0] == wanted
+    assert seen[1] == bf._fixture_env()
