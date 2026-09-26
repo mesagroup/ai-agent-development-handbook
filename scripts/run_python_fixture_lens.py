@@ -784,10 +784,10 @@ COMPLETIONS: dict[tuple[str, str], Completion] = {
     ("deps/hygiene", "deptry"): Completion(
         tokens=(".",),
         note=(
-            "deptry takes a scan root and the record prescribes none; the answer moves "
-            "with it - `deptry src` makes the package local and the self-import rows "
-            "vanish - so the expectation is written against `deptry .` and the missing "
-            "root is a gap in the record"
+            "deptry takes a scan root and the record's argv stops short of it; its "
+            "note gives the root as `.` with the target as the working directory, "
+            "and the answer moves with it - `deptry src` makes the package local and "
+            "the self-import rows vanish - so this completion supplies `.`"
         ),
     ),
     ("test/coverage-reach", "pytest-cov"): Completion(

@@ -828,7 +828,8 @@ EXPECTATIONS = (
         "configuring them away, since suppressing them would hide a false positive an "
         "audited project would also meet. The scan root is stated because the answer "
         "moves with it - `deptry src` makes the package local and those rows vanish - "
-        "and the record prescribes no root, which is a gap in the record",
+        "and the record's argv stops short of the root, which its note gives as `.` "
+        "with the target as the working directory",
         ("declared-unused", "undeclared-import"),
         "six is still DEP002, but markupsafe is reported DEP001 (missing) rather than "
         "DEP003, because nothing without the tree tells deptry that markupsafe ships "
