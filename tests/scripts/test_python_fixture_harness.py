@@ -4116,7 +4116,10 @@ def test_a_migrated_record_reads_its_supplied_route_from_the_overlay(monkeypatch
     "routes, expected",
     [
         (
-            (_fake_route(disposition="forbidden"),),
+            # Not `forbidden`, which is dropped before grouping and has its own
+            # test in the TypeScript harness file: a value outside both the
+            # loader's vocabulary and this module's, which only a double reaches.
+            (_fake_route(disposition="deprecated"),),
             "does not carry",
         ),
         (
@@ -4293,9 +4296,10 @@ def test_a_group_with_no_prescribed_route_falls_back_to_every_route(monkeypatch)
 def test_the_multi_route_no_command_groups_are_the_ones_the_rule_was_written_for():
     """Held by identity, because the rule is invisible on the python selection.
 
-    Every one is `lang: typescript`, so `routed_invocations` builds no row
-    from any of them and the composition above is exercised only on
-    constructed records. That is the whole reason this property exists: if
+    Every one is `lang: typescript`, so the python `routed_invocations` builds
+    no row from any of them and this file exercises the composition only on
+    constructed records; the TypeScript harness builds those rows. That is the
+    whole reason this property exists here: if
     these groups leave the tree, the rule stops having a subject and nothing
     else would say so, and a new arrival should be read against the three axes
     the rule settles - `needs`, `applies_when` and `disposition` - rather than
@@ -4715,16 +4719,21 @@ def test_the_rows_carrying_a_caveat_are_the_records_saying_their_result_needs_on
     assert carried == expected
 
 
-def test_disagreeing_caveats_on_a_row_with_no_command_are_rejected(monkeypatch):
-    """A group with no `runs` route has no one route to read the field from."""
+def test_disagreeing_caveats_on_a_row_with_no_command_are_composed(monkeypatch):
+    """A group with no `runs` route has no one route to read the field from.
+
+    So the row carries each caveat, in record order, as it carries each note.
+    Refusing the row instead made the TypeScript selection raise over
+    `arch/hidden-coupling`'s two `eslint` modes, which each state a caveat of
+    their own; a caveat two routes share is carried once.
+    """
     records = {
         "x/y": _fake_record(
             _fake_route(kind="library", argv=(), note="a", alone_insufficient="one"),
             _fake_route(kind="library", argv=(), note="b", alone_insufficient="two"),
+            _fake_route(kind="library", argv=(), note="c", alone_insufficient="one"),
         )
     }
-    with (
-        _records_replaced_by(monkeypatch, records),
-        pytest.raises(ValueError, match="different alone_insufficient"),
-    ):
-        routed_invocations()
+    with _records_replaced_by(monkeypatch, records):
+        (row,) = routed_invocations()
+    assert row.alone_insufficient == "one\n\ntwo"
