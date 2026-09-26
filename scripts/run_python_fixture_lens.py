@@ -2124,14 +2124,24 @@ def classify(
 # reported as a tool that ran and broke. Measured: `uvx no-such-package-45xyzq`
 # exits 1 with "not found in the package registry".
 #
+# The TypeScript launchers fail the same way. Measured on 2026-09-26, each
+# writing to stderr: `npx --yes --package=no-such-package-45xyzq -- ...` exits 1
+# with "npm error code E404" and "npm error 404 Not Found", and so does
+# `npx --no -- no-such-tool-45xyzq`, which falls through to the registry; and
+# `pnpm --package=no-such-package-45xyzq dlx ...` exits non-zero with
+# "ERR_PNPM_FETCH_404" and "is not in the npm registry".
+#
 # Matching a message is fragile and this is the only signal there is, so the
 # match is narrowed twice - it is consulted only when the command's first word
 # is one of these launchers, and only when the command failed. Every command
-# this file runs starts with `uv`, `uvx`, or a bare tool name `_run` already
-# reports as absent by `FileNotFoundError` - poetry and pipenv never head a
-# command themselves, since even their own materialization goes through a
-# pinned `uvx poetry@...` / `uvx pipenv@...` - so this dict holds only the two
-# names a launcher's own resolution failure can actually surface under.
+# this file runs starts with one of these launchers or with a bare tool name
+# `_run` already reports as absent by `FileNotFoundError` - poetry and pipenv
+# never head a command themselves, since even their own materialization goes
+# through a pinned `uvx poetry@...` / `uvx pipenv@...` - so this dict holds the
+# names a launcher's own resolution failure can actually surface under. A bare
+# `npm` or `pnpm` subcommand (`npm audit`, `pnpm outdated`) fetches no tool, so
+# its 404s are about the target's dependencies rather than a missing tool, and
+# neither name is a key here.
 LAUNCHER_MISSES: dict[str, tuple[str, ...]] = {
     "uvx": (
         "not found in the package registry",
@@ -2141,7 +2151,13 @@ LAUNCHER_MISSES: dict[str, tuple[str, ...]] = {
         "not found in the package registry",
         "no solution found when resolving tool dependencies",
     ),
+    "npx": ("npm error code e404", "npm error 404 not found"),
 }
+
+# `pnpm` heads both a one-shot fetch (`pnpm --package=X dlx`) and the package
+# manager's own subcommands, so its markers apply only where the command is a
+# `dlx` fetch: a 404 from `pnpm audit` is not a missing tool.
+PNPM_DLX_MISSES: tuple[str, ...] = ("err_pnpm_fetch_404", "is not in the npm registry")
 
 
 def launcher_missed(
@@ -2160,6 +2176,8 @@ def launcher_missed(
     if returncode == 0 or not command:
         return False
     markers = LAUNCHER_MISSES.get(command[0], ())
+    if command[0] == "pnpm" and "dlx" in command:
+        markers = PNPM_DLX_MISSES
     lowered = stderr.lower()
     return any(marker in lowered for marker in markers)
 
