@@ -93,7 +93,7 @@ routes:
       messages under `github.event.commits.*`, `github.head_ref`, and
       `inputs.*` on a `workflow_dispatch` are the ones most often met, and so
       is a `needs.*.outputs.*` or `steps.*.outputs.*` value derived from any of
-      them, or from a job that executed untrusted code as
+      them, or from content derived from untrusted code as
       `ci/permissions-secrets` defines it, since an output carries the writer
       of whatever it was computed from. They are
       examples and not the set: GitHub's own script-injection guidance
