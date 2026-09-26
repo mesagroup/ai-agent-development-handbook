@@ -91,7 +91,11 @@ routes:
       as body - `github.event.comment.*`, `github.event.review.*`,
       `github.event.discussion.*`, `github.event.head_commit.message` and the
       messages under `github.event.commits.*`, `github.head_ref`, and
-      `inputs.*` on a `workflow_dispatch` are the ones most often met. They are
+      `inputs.*` on a `workflow_dispatch` are the ones most often met, and so
+      is a `needs.*.outputs.*` or `steps.*.outputs.*` value derived from any of
+      them, or from a job that executed untrusted code as
+      `ci/permissions-secrets` defines it, since an output carries the writer
+      of whatever it was computed from. They are
       examples and not the set: GitHub's own script-injection guidance
       enumerates it and moves, so a reading pass that treats any list written
       here as closed reproduces the false-clean failure this route exists to

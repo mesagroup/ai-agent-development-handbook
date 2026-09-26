@@ -12,6 +12,12 @@ routes:
     argv: [zizmor, "<workflow>"]
     applies_when: >-
       The CI platform is GitHub Actions, whose workflow and action definitions are what the tool reads.
+    alone_insufficient: >-
+      A `dangerous-triggers` hit is a candidate, not the verdict: whether the
+      job's code runs before a gate, and what is in its scope, are the reading
+      route's to decide, so a zizmor row reads the tool-less route before it
+      is the check's answer, and a clean zizmor run beside an unread workflow
+      is not this check answered.
     note: >-
       `zizmor <workflow>` for trigger/injection/permission/pinning findings;
       capture the rule id + `file:line`. A PyPI package, so `uvx zizmor`
