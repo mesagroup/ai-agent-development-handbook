@@ -131,7 +131,8 @@ routes:
       and carries its own TypeScript, and has the reader give it the
       partition's own `tsconfig` explicitly with `--ts-config` - the file
       that carries `paths`, which on a solution-style layout is not
-      `tsconfig.json` - before walking the graph it builds for
+      `tsconfig.json` - and `--extensions ts,tsx`, since madge reads only `.js` files by default
+      and reports a TypeScript tree as an empty graph without it, before walking the graph it builds for
       cross-boundary edges. Passing no flag, or the wrong `tsconfig` file,
       resolves no `paths` at all and every alias-routed cross-boundary
       edge this check exists to find is missing from the graph. Its

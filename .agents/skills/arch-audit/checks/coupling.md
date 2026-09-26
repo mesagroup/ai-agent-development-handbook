@@ -99,7 +99,9 @@ routes:
     note: >-
       The counts come from madge's dependency map. The record names the tool
       and the flag to pass it - give madge the partition's own `tsconfig`
-      explicitly with `--ts-config`, on every partition, and give it the file
+      explicitly with `--ts-config`, together with
+      `--extensions ts,tsx`, since madge reads only `.js` files by default and
+      reports a TypeScript tree as an empty graph without it, on every partition, and give it the file
       that carries `paths`, which on a solution-style layout is not
       `tsconfig.json` - and prescribes no command line, so there is no argv to
       declare and a `kind: command` route would have to invent one. madge
