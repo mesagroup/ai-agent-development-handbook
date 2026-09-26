@@ -53,6 +53,7 @@ routes:
     answers: order
     tool: vitest
     argv: [vitest, run, "--sequence.shuffle", "--sequence.seed=<n>"]
+    in_env: true
     needs: target-execution
     applies_when: >-
       The partition's own runner is Vitest.
@@ -67,6 +68,7 @@ routes:
     answers: order
     tool: jest
     argv: [jest, "--randomize", "--seed", "<n>"]
+    in_env: true
     needs: target-execution
     applies_when: >-
       The partition's own runner is Jest.

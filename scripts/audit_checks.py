@@ -342,10 +342,12 @@ class Route:
     `disposition: forbidden` one, which no lens runs and so needs nothing - the
     `dlx depcruise` the four `dependency-cruiser` records warn against and
     `deps/inventory`'s `dlx cyclonedx-npm` are the second kind. Nothing enforces
-    that split; a `forbidden` route is simply never a candidate. And none of the
-    candidates says anything today whatever their number, because every one is a
-    `lang: typescript` route, which a python lens never selects - a silence that
-    is unobserved rather than correct. `arch/size`'s `cloc` was the one
+    that split; a `forbidden` route is simply never a candidate, and the fixture
+    lens drops it before it groups a record's routes. The candidates are
+    `lang: typescript` routes, and on the ones it runs - a record's
+    `disposition: runs` command route - the fixture lens's TypeScript half reads
+    the flag: a fetcher-led route missing it would be fronted by a second fetch
+    for a package named after the tool. `arch/size`'s `cloc` was the one
     exception until it stopped leading with a fetcher: its argv names the
     command and `registry: npm` names what fetches it, which is the shape the
     flag was never for.
@@ -1127,7 +1129,7 @@ def registry_for(route: Route) -> str | None:
     itself: it prescribes no command, or its command is complete as written.
 
     **It does not answer whether a fetch applies at all, and a caller must not
-    read it that way.** 26 of the 80 command routes that get an answer here
+    read it that way.** 21 of the 75 command routes that get an answer here
     need no fetch: a subcommand of the target's own package manager - `npm
     audit`, `pip list --outdated` - is run directly, and a route whose argv
     already leads with a runner has its fetch spelled out. Both are

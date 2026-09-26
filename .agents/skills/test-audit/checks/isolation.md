@@ -34,6 +34,7 @@ routes:
     answers: timing
     tool: vitest
     argv: [vitest, run]
+    in_env: true
     needs: target-execution
     applies_when: >-
       The partition's own runner is Vitest.
@@ -49,6 +50,7 @@ routes:
     kind: procedure
     answers: timing
     tool: jest
+    in_env: true
     needs: target-execution
     applies_when: >-
       The partition's own runner is Jest.

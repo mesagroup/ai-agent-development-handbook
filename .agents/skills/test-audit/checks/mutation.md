@@ -125,6 +125,7 @@ routes:
     argv_by_partition:
       pnpm: [pnpm, "--package=@stryker-mutator/core", "--package=@stryker-mutator/<runner>-runner", dlx, stryker, run]
       yarn: [yarn, dlx, "-p", "@stryker-mutator/core", "-p", "@stryker-mutator/<runner>-runner", stryker, run]
+    own_runner: true
     disposition: alternative
     needs: target-execution
     note: >-
