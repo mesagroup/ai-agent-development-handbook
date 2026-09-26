@@ -347,7 +347,7 @@ def test_the_pnpm_freshness_claim_names_what_a_root_only_run_reaches():
     ]
     leaf_stale = [d for d in TS_DEPENDENCIES if "leaf-only" in d.seeds]
     assert root_outdated and leaf_stale
-    reach = e.claim.split("run as written from the root it can report", 1)[1]
+    reach = e.claim.split("run bare from the root it can report", 1)[1]
     reached = reach.split("nothing declared in", 1)[0]
     for d in root_outdated:
         assert f"{d.name} {d.pin}" in reached, d.name
