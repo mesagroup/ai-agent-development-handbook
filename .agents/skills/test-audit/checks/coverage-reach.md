@@ -74,6 +74,7 @@ routes:
     answers: measurement
     tool: vitest
     argv: [vitest, run, "--coverage"]
+    in_env: true
     needs: target-execution
     applies_when: >-
       The project inventory says this partition has Vitest. Use the runner the
@@ -101,6 +102,7 @@ routes:
     answers: measurement
     tool: jest
     argv: [jest, "--coverage"]
+    in_env: true
     needs: target-execution
     applies_when: >-
       The project inventory says this partition has Jest. Use the runner the

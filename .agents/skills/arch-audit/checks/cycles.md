@@ -100,6 +100,7 @@ routes:
     argv_by_partition:
       pnpm: [pnpm, "--package=typescript@^5", "--package=dependency-cruiser", dlx, depcruise]
       yarn: [yarn, dlx, "-p", "typescript@^5", "-p", dependency-cruiser, depcruise]
+    own_runner: true
     needs: resolved-tree
     note: >-
       The `no-circular` rule on the built graph. Each spelling names the
