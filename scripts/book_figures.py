@@ -195,6 +195,40 @@ def _walk(el: ET.Element):
         yield from _walk(child)
 
 
+# SVG's initial values for `fill`/`fill-opacity`: opaque black, in force at
+# the root before anything has set either.
+_INITIAL_FILL = "black"
+_INITIAL_FILL_OPACITY = "1"
+
+
+def _walk_fill(
+    el: ET.Element, fill: str = _INITIAL_FILL, fill_opacity: str = _INITIAL_FILL_OPACITY
+):
+    """Yield `(element, effective_fill, effective_fill_opacity)`, inherited.
+
+    `fill` and `fill-opacity` are inherited SVG properties: an element that
+    sets neither takes them from its nearest ancestor, all the way up to the
+    root's default of opaque black. This is exactly how an Inkscape edit
+    leaves colour on a selected group or layer with the text inside left
+    unset, so a check reading only an element's own attribute would miss a
+    pale colour set on its parent. Skips subtrees in `_SKIP_TAGS`, as `_walk`
+    does.
+    """
+    own_fill = _get_prop(el, "fill")
+    effective_fill = own_fill if own_fill is not None else fill
+    own_fill_opacity = _get_prop(el, "fill-opacity")
+    effective_fill_opacity = (
+        own_fill_opacity if own_fill_opacity is not None else fill_opacity
+    )
+    yield el, effective_fill, effective_fill_opacity
+    for child in el:
+        if not isinstance(child.tag, str):
+            continue  # a comment or processing instruction, not an element
+        if _local(child.tag) in _SKIP_TAGS:
+            continue
+        yield from _walk_fill(child, effective_fill, effective_fill_opacity)
+
+
 def _style_props(el: ET.Element) -> dict[str, str]:
     style = el.attrib.get("style", "")
     props = {}
@@ -214,8 +248,7 @@ def _get_prop(el: ET.Element, name: str) -> str | None:
     return el.attrib.get(name)
 
 
-def _prop_opacity(el: ET.Element, name: str) -> float:
-    value = _get_prop(el, name)
+def _parse_opacity(value: str | None) -> float:
     if value is None:
         return 1.0
     try:
@@ -224,8 +257,22 @@ def _prop_opacity(el: ET.Element, name: str) -> float:
         return 1.0
 
 
+def _prop_opacity(el: ET.Element, name: str) -> float:
+    return _parse_opacity(_get_prop(el, name))
+
+
 def _is_translucent(el: ET.Element, kind: str) -> bool:
     return _prop_opacity(el, "opacity") < 1 or _prop_opacity(el, f"{kind}-opacity") < 1
+
+
+def _fill_translucent(el: ET.Element, fill_opacity: str) -> bool:
+    """Like `_is_translucent(el, "fill")`, but `fill_opacity` is the value
+    `_walk_fill` already resolved (own or inherited), not `el`'s own alone.
+
+    The element's own `opacity` (group opacity, never inherited as a colour
+    property) is still read directly from `el`.
+    """
+    return _prop_opacity(el, "opacity") < 1 or _parse_opacity(fill_opacity) < 1
 
 
 def _normalize_hex(value: str) -> str:
@@ -338,18 +385,20 @@ def fit_problems(svg: str) -> list[str]:
 def opaque_fill_problems(svg: str) -> list[str]:
     """Opaque fills, on anything but text, that would wash out on cream paper.
 
-    A fill counts once it is opaque (no `fill-opacity`/`opacity` below 1) and
-    recognized as a colour; an unrecognized colour is reported rather than
-    silently passed. `text`/`tspan` fills are `contrast_problems`'s concern,
-    held to a paper-contrast bar rather than a bare luminance cutoff.
+    `fill` is inherited (`_walk_fill`), so a shape left with no fill of its
+    own, painted by a colour set on an ancestor group or layer, is checked
+    under that inherited colour rather than skipped as unset. A fill counts
+    once it is opaque (no `fill-opacity`/`opacity` below 1) and recognized as
+    a colour; an unrecognized colour is reported rather than silently passed.
+    `text`/`tspan` fills are `contrast_problems`'s concern, held to a
+    paper-contrast bar rather than a bare luminance cutoff.
     """
     problems: list[str] = []
     root = ET.fromstring(svg)
-    for el in _walk(root):
+    for el, fill, fill_opacity in _walk_fill(root):
         if _local(el.tag) in ("text", "tspan"):
             continue
-        fill = _get_prop(el, "fill")
-        if fill is None or _is_translucent(el, "fill"):
+        if _fill_translucent(el, fill_opacity):
             continue
         try:
             hex_color = _resolve_paint(fill)
@@ -370,28 +419,30 @@ def contrast_problems(svg: str, paper: str = PAPER_CREAM) -> list[str]:
     """Text and strokes that would not hold their contrast bar against `paper`.
 
     Every opaque `text`/`tspan` fill is held to 4.5:1, every opaque stroke
-    (on any element) to 3:1. An unrecognized colour is reported rather than
-    silently passed.
+    (on any element) to 3:1. `fill` is inherited (`_walk_fill`): a `<text>`
+    left with no fill of its own, coloured by its ancestor group or layer
+    instead, exactly how an Inkscape edit tends to leave it, is checked under
+    that inherited colour. `stroke` is not inherited here, since only a
+    drawn shape's own stroke paints a line. An unrecognized colour is
+    reported rather than silently passed.
     """
     problems: list[str] = []
     root = ET.fromstring(svg)
-    for el in _walk(root):
+    for el, fill, fill_opacity in _walk_fill(root):
         tag = _local(el.tag)
-        if tag in ("text", "tspan"):
-            fill = _get_prop(el, "fill")
-            if fill is not None and not _is_translucent(el, "fill"):
-                try:
-                    hex_color = _resolve_paint(fill)
-                except ValueError:
-                    problems.append(f"unrecognized text fill {fill!r} on <{tag}>")
-                else:
-                    if hex_color is not None:
-                        ratio = contrast_ratio(hex_color, paper)
-                        if ratio < 4.5:
-                            problems.append(
-                                f"text fill {hex_color} on <{tag}> contrasts "
-                                f"{ratio:.2f}:1 against the paper, under 4.5:1"
-                            )
+        if tag in ("text", "tspan") and not _fill_translucent(el, fill_opacity):
+            try:
+                hex_color = _resolve_paint(fill)
+            except ValueError:
+                problems.append(f"unrecognized text fill {fill!r} on <{tag}>")
+            else:
+                if hex_color is not None:
+                    ratio = contrast_ratio(hex_color, paper)
+                    if ratio < 4.5:
+                        problems.append(
+                            f"text fill {hex_color} on <{tag}> contrasts "
+                            f"{ratio:.2f}:1 against the paper, under 4.5:1"
+                        )
         stroke = _get_prop(el, "stroke")
         if stroke is not None and not _is_translucent(el, "stroke"):
             try:
