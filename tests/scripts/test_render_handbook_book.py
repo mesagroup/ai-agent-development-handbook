@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import re
+import shutil
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -97,3 +100,99 @@ def test_epub_command_reads_html_with_smart_quotes_and_splits_on_parts(tmp_path:
     assert cmd[cmd.index("--css") + 1] == str(tmp_path / "epub.css")
     assert cmd[cmd.index("-o") + 1] == str(tmp_path / "out.epub")
     assert cmd[-1] == str(tmp_path / "book.html")
+
+
+def test_book_html_raises_on_a_placeholder_with_no_matching_diagram_block():
+    part = rh.AssembledPart(
+        anchor="p1",
+        stem="lifecycle",
+        html='<h1 id="lifecycle-x">X</h1>\n<div class="dgph" data-i="0"></div>',
+        blocks=[],
+    )
+    with pytest.raises(ValueError, match=r"lifecycle\.md.*placeholder 0"):
+        rb.book_html([part])
+
+
+REPO = Path(__file__).resolve().parents[2]
+DOCS = REPO / "docs" / "engineering"
+needs_pandoc = pytest.mark.skipif(
+    shutil.which("pandoc") is None,
+    reason="pandoc CLI not installed; CI installs it (#192)",
+)
+
+
+def test_run_tool_names_a_missing_tool_and_how_to_install_it():
+    with pytest.raises(SystemExit, match=r"no-such-tool-189.*brew install x"):
+        rb.run_tool(["no-such-tool-189"], timeout=5, install_hint="brew install x")
+
+
+def test_run_tool_stops_a_hung_tool():
+    with pytest.raises(SystemExit, match="did not finish within"):
+        rb.run_tool(["sleep", "5"], timeout=0.2, install_hint="n/a")
+
+
+def test_run_tool_reports_a_failing_tools_stderr():
+    with pytest.raises(SystemExit, match=r"(?s)exit 3.*boom"):
+        rb.run_tool(
+            ["sh", "-c", "echo boom >&2; exit 3"], timeout=5, install_hint="n/a"
+        )
+
+
+def _epub_documents(path: Path) -> dict[str, str]:
+    with zipfile.ZipFile(path) as z:
+        return {n: z.read(n).decode() for n in z.namelist() if n.endswith(".xhtml")}
+
+
+@pytest.fixture(scope="module")
+def built_epub(tmp_path_factory) -> Path:
+    pytest.importorskip("markdown")
+    if shutil.which("pandoc") is None:
+        pytest.skip("pandoc CLI not installed; CI installs it (#192)")
+    out = tmp_path_factory.mktemp("epub") / "nested" / "handbook.epub"
+    return rb.build_epub(DOCS, out, date="2026-09-28")
+
+
+@needs_pandoc
+def test_the_epub_carries_every_heading_id_the_page_carries(built_epub: Path):
+    docs = _epub_documents(built_epub)
+    in_book = set()
+    for text in docs.values():
+        in_book.update(re.findall(r' id="([^"]+)"', text))
+    part_anchors = {anchor for anchor, _, _ in rh.PARTS}
+    assert rh.heading_ids(DOCS) - part_anchors <= in_book
+
+
+@needs_pandoc
+def test_no_link_in_the_epub_points_at_a_markdown_file(built_epub: Path):
+    for name, text in _epub_documents(built_epub).items():
+        assert not re.search(r'href="[^"#]*\.md', text), name
+
+
+@needs_pandoc
+def test_every_part_is_a_chapter_in_page_order(built_epub: Path):
+    docs = _epub_documents(built_epub)
+    chapters = sorted(n for n in docs if re.search(r"ch\d+\.xhtml$", n))
+    firsts = rb.first_heading_ids(DOCS, rh.PARTS)
+    order = [firsts[stem] for _, stem, _ in rh.PARTS]
+    found = []
+    for name in chapters:
+        for heading_id in order:
+            if f'id="{heading_id}"' in docs[name]:
+                found.append(heading_id)
+    assert found == order
+
+
+@needs_pandoc
+def test_build_epub_creates_a_missing_output_directory(built_epub: Path):
+    assert built_epub.exists() and built_epub.parent.name == "nested"
+
+
+@needs_pandoc
+def test_main_resolves_the_docs_from_the_repository_not_the_cwd(
+    tmp_path: Path, monkeypatch
+):
+    pytest.importorskip("markdown")
+    monkeypatch.chdir(tmp_path)
+    out = tmp_path / "handbook.epub"
+    assert rb.main(["--format", "epub", "--out", str(out)]) == 0
+    assert out.exists()
