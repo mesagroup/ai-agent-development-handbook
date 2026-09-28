@@ -355,3 +355,103 @@ def test_a_tspan_face_is_embedded():
     assert out.count("@font-face") == 2
     assert "font-weight:700;font-style:normal" in out
     assert "font-weight:400;font-style:normal" in out
+
+
+def _sized(body: str) -> str:
+    return f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">{body}</svg>'
+
+
+def test_a_scale_on_a_group_holding_text_is_reported():
+    # 12 units prints at 8 pt only at the one scale; scale(2) prints it at 16.
+    svg = _sized('<g transform="scale(2)"><text font-size="12">a</text></g>')
+    assert any("scale(2)" in p for p in bf.fit_problems(svg))
+
+
+def test_a_matrix_on_the_text_itself_is_reported():
+    svg = _sized('<text transform="matrix(1 0 0 1 5 5)" font-size="12">a</text>')
+    assert any("matrix" in p for p in bf.fit_problems(svg))
+
+
+def test_a_pure_translate_passes():
+    svg = _sized(
+        '<g transform="translate(10, 20)"><text transform="translate(3)"'
+        ' font-size="12">a</text></g>'
+    )
+    assert bf.fit_problems(svg) == []
+
+
+def test_a_transform_on_a_textless_shape_is_not_a_fit_problem():
+    svg = _sized(
+        '<rect transform="rotate(45)" width="1" height="1"/>'
+        '<text font-size="12">a</text>'
+    )
+    assert bf.fit_problems(svg) == []
+
+
+def test_a_text_inherits_its_font_size_from_its_group():
+    svg = _sized('<g style="font-size:12px"><text>a</text></g>')
+    assert bf.fit_problems(svg) == []
+
+
+def test_an_inherited_out_of_range_size_is_reported():
+    svg = _sized('<g font-size="16"><text>a</text></g>')
+    assert any("16" in p for p in bf.fit_problems(svg))
+
+
+def test_a_bare_text_beside_a_sized_one_is_reported():
+    svg = _sized('<text font-size="12">a</text><text>b</text>')
+    problems = bf.fit_problems(svg)
+    assert len(problems) == 1 and "no font-size" in problems[0]
+
+
+def test_a_near_opaque_pale_text_is_reported():
+    svg = _sized('<text font-size="12" fill="#eeeeee" fill-opacity="0.99">a</text>')
+    assert bf.contrast_problems(svg) != []
+
+
+def test_the_funnels_accent_wash_passes():
+    from render_handbook_artifact import PRINT_PALETTE, PRINT_WASH_OPACITY
+
+    svg = _sized(
+        f'<path d="M0 0" fill="{PRINT_PALETTE["accent"]}"'
+        f' fill-opacity="{PRINT_WASH_OPACITY}"/>'
+    )
+    assert bf.opaque_fill_problems(svg) == []
+
+
+def test_a_near_opaque_pale_fill_is_reported():
+    svg = _sized('<rect width="1" height="1" fill="#eeeeee" fill-opacity="0.99"/>')
+    assert bf.opaque_fill_problems(svg) != []
+
+
+def test_ink_text_under_a_faded_group_is_blended_and_judged():
+    # Ink passes on its own; under a 0.3 group opacity it prints as a pale grey.
+    ink = '<text font-size="12" fill="#1c2024">a</text>'
+    assert bf.contrast_problems(_sized(ink)) == []
+    assert bf.contrast_problems(_sized(f'<g opacity="0.3">{ink}</g>')) != []
+
+
+def test_group_opacity_multiplies_down_the_tree():
+    # Two nested 0.8 groups composite to 0.64, which still holds ink at 4.7:1;
+    # a third 0.5 group takes it to 0.32, under the bar, only if all three
+    # multiply rather than the nearest one standing alone.
+    ink = '<text font-size="12" fill="#1c2024">a</text>'
+    two = f'<g opacity="0.8"><g opacity="0.8">{ink}</g></g>'
+    three = f'<g opacity="0.5">{two}</g>'
+    assert bf.contrast_problems(_sized(two)) == []
+    assert bf.contrast_problems(_sized(three)) != []
+
+
+def test_a_fully_transparent_stroke_paints_nothing():
+    svg = _sized('<rect stroke="#eeeeee" stroke-opacity="0" fill="none"/>')
+    assert bf.contrast_problems(svg) == []
+
+
+def test_a_pale_style_fill_wins_over_an_ink_fill_attribute():
+    svg = _sized('<text font-size="12" fill="#1c2024" style="fill:#c3bfb1">a</text>')
+    assert bf.contrast_problems(svg) != []
+
+
+def test_an_ink_style_fill_wins_over_a_pale_fill_attribute():
+    svg = _sized('<text font-size="12" fill="#c3bfb1" style="fill:#1c2024">a</text>')
+    assert bf.contrast_problems(svg) == []

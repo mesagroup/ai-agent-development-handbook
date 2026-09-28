@@ -35,7 +35,7 @@ from fontTools import subset
 from fontTools.ttLib import TTFont
 
 FIGURE_FONT = "Source Sans 3"
-# SVG user units per point: the book places every figure at one scale, chosen
+# Points per SVG user unit: the book places every figure at one scale, chosen
 # so a figure's own viewBox reads directly as its footprint on the page.
 PT_PER_UNIT = 2 / 3
 # The paperback's text block is 3.6 x 6.0 in; converted through PT_PER_UNIT
@@ -50,6 +50,11 @@ TEXT_PT_RANGE = (7.0, 9.0)
 # and stroke a figure paints. Text needs 4.5:1 against it, strokes 3:1 (the
 # same bars `render_handbook_artifact.PRINT_PALETTE` was chosen to hold).
 PAPER_CREAM = "#f7f0dc"
+# A fill whose effective alpha is at most this is a tint: a translucent
+# overlay the paper shows through, such as the funnel's accent wash at 0.15,
+# which the book allows. Above it, a fill covers more paper than it lets
+# through, so it is blended over the paper and judged as the surface it prints.
+TINT_MAX_ALPHA = 0.5
 # The body's nominal size in the EPUB, in points: `epub_width_em` expresses a
 # figure's one-scale width relative to it, so labels keep their ratio to the
 # text when a reader changes the font size.
@@ -253,8 +258,9 @@ def _walk_paint(
     fill_opacity: str = _INITIAL_FILL_OPACITY,
     stroke: str = _INITIAL_STROKE,
     stroke_opacity: str = _INITIAL_STROKE_OPACITY,
+    group_opacity: float = 1.0,
 ):
-    """Yield `(element, fill, fill_opacity, stroke, stroke_opacity)`, inherited.
+    """Yield `(element, fill, fill_alpha, stroke, stroke_alpha)`, inherited.
 
     `fill`, `fill-opacity`, `stroke` and `stroke-opacity` are all inherited
     SVG properties (SVG 1.1 section 11.4; SVG 2's painting-properties table
@@ -264,7 +270,14 @@ def _walk_paint(
     Inkscape edit leaves colour on a selected group or layer with the shape
     or text inside left unset, so a check reading only an element's own
     attribute would miss a pale colour set on its parent, for a stroke just
-    as much as for a fill. Skips subtrees in `_SKIP_TAGS`, as `_walk` does.
+    as much as for a fill.
+
+    `opacity` is not inherited but composited: a group's `opacity` fades
+    everything inside it, and nested groups multiply. So each alpha yielded
+    is the paint's own resolved `fill-opacity`/`stroke-opacity` times the
+    product of `opacity` on the element and every ancestor, which is how
+    much of the colour reaches the paper. Skips subtrees in `_SKIP_TAGS`, as
+    `_walk` does.
     """
     own_fill = _get_prop(el, "fill")
     effective_fill = own_fill if own_fill is not None else fill
@@ -278,12 +291,13 @@ def _walk_paint(
     effective_stroke_opacity = (
         own_stroke_opacity if own_stroke_opacity is not None else stroke_opacity
     )
+    composite = group_opacity * _prop_opacity(el, "opacity")
     yield (
         el,
         effective_fill,
-        effective_fill_opacity,
+        _parse_opacity(effective_fill_opacity) * composite,
         effective_stroke,
-        effective_stroke_opacity,
+        _parse_opacity(effective_stroke_opacity) * composite,
     )
     for child in el:
         if not isinstance(child.tag, str):
@@ -296,6 +310,7 @@ def _walk_paint(
             effective_fill_opacity,
             effective_stroke,
             effective_stroke_opacity,
+            composite,
         )
 
 
@@ -329,18 +344,6 @@ def _parse_opacity(value: str | None) -> float:
 
 def _prop_opacity(el: ET.Element, name: str) -> float:
     return _parse_opacity(_get_prop(el, name))
-
-
-def _paint_translucent(el: ET.Element, paint_opacity: str) -> bool:
-    """Whether a paint is translucent: below-1 group `opacity` on `el` itself
-    (never inherited as a colour property, so always read from `el` alone),
-    or a below-1 `paint_opacity`, a `fill-opacity`/`stroke-opacity` value
-    `_walk_paint` already resolved (own or inherited), not `el`'s own alone.
-
-    The element's own `opacity` (group opacity, never inherited as a colour
-    property) is still read directly from `el`.
-    """
-    return _prop_opacity(el, "opacity") < 1 or _parse_opacity(paint_opacity) < 1
 
 
 def _normalize_hex(value: str) -> str:
@@ -389,6 +392,21 @@ def _relative_luminance(hex_color: str) -> float:
     return 0.2126 * r + 0.7152 * g + 0.0722 * b
 
 
+def _blend(hex_color: str, alpha: float, paper: str) -> str:
+    """`hex_color` painted at `alpha` over `paper`, as the colour that prints.
+
+    Source-over compositing per channel in sRGB, which is how a renderer
+    composites a translucent paint onto what lies beneath it.
+    """
+    top, under = _normalize_hex(hex_color), _normalize_hex(paper)
+    alpha = min(max(alpha, 0.0), 1.0)
+    channels = (
+        round(alpha * int(top[i : i + 2], 16) + (1 - alpha) * int(under[i : i + 2], 16))
+        for i in (1, 3, 5)
+    )
+    return "#" + "".join(f"{c:02x}" for c in channels)
+
+
 def contrast_ratio(a: str, b: str) -> float:
     """The WCAG 2 contrast ratio between two `#rgb`/`#rrggbb`/named colours."""
     la, lb = (
@@ -410,13 +428,52 @@ def _parse_font_size(value: str) -> float:
     return float(v)
 
 
+# A `transform` that only moves its content keeps every label at the one scale;
+# anything else (`scale`, `rotate`, `skew`, `matrix`) can change the size a
+# label prints at while its `font-size` still reads in range.
+_PURE_TRANSLATE_RE = re.compile(
+    r"\s*(?:translate\(\s*[-+.\deE]+(?:\s*,?\s*[-+.\deE]+)?\s*\)\s*,?\s*)*"
+)
+# SVG's initial font-size, 16 px: 10.7 pt at the one scale, outside the range.
+_INITIAL_FONT_SIZE_UNITS = 16
+
+
+def _walk_chain(el: ET.Element, ancestors: tuple[ET.Element, ...] = ()):
+    """Yield `(element, chain)`, `chain` running from the root to `element`.
+
+    Skips subtrees in `_SKIP_TAGS`, as `_walk` does.
+    """
+    chain = (*ancestors, el)
+    yield el, chain
+    for child in el:
+        if not isinstance(child.tag, str):
+            continue  # a comment or processing instruction, not an element
+        if _local(child.tag) in _SKIP_TAGS:
+            continue
+        yield from _walk_chain(child, chain)
+
+
+def _label(el: ET.Element) -> str:
+    text = "".join(el.itertext()).strip()
+    return f"<{_local(el.tag)}> {text[:20]!r}" if text else f"<{_local(el.tag)}>"
+
+
 def fit_problems(svg: str) -> list[str]:
     """Where a figure would overflow the book's block, in words.
 
-    Checks the root `viewBox` against `MAX_VIEWBOX` and every `font-size`
-    (attribute or style, unitless or `px`) against `TEXT_PT_RANGE` once scaled
-    by `PT_PER_UNIT`. A figure carrying no `font-size` at all is also a
-    problem: nothing here can tell whether its text prints at the right size.
+    Checks the root `viewBox` against `MAX_VIEWBOX`, and every `text` or
+    `tspan`'s font-size against `TEXT_PT_RANGE` once scaled by
+    `PT_PER_UNIT`. The size is the element's own, or else its nearest
+    ancestor's, `style` winning over the bare attribute (unitless or `px`),
+    and a text with no font-size anywhere up its ancestry is reported, since
+    SVG's 16 px default prints outside the range. Each out-of-range size is
+    reported once, on the element that sets it.
+
+    A `transform` on a text or on any ancestor of one is reported unless it
+    is only `translate(...)`: a scale, rotation, skew or matrix changes the
+    size a label prints at while its `font-size` still reads in range, which
+    is how a group shrunk in an editor would otherwise pass. The fix is to
+    bake the transform into the drawing, or redraw it, never to shrink it.
     """
     problems: list[str] = []
     width, height = viewbox(svg)
@@ -428,45 +485,74 @@ def fit_problems(svg: str) -> list[str]:
 
     root = ET.fromstring(svg)
     lo, hi = TEXT_PT_RANGE
-    found = False
-    for el in _walk(root):
-        value = _get_prop(el, "font-size")
-        if value is None:
+    judged: set[int] = set()
+    for el, chain in _walk_chain(root):
+        if _local(el.tag) not in ("text", "tspan"):
             continue
-        found = True
+        for node in chain:
+            transform = _get_prop(node, "transform")
+            if transform is None or id(node) in judged:
+                continue
+            if not _PURE_TRANSLATE_RE.fullmatch(transform):
+                judged.add(id(node))
+                problems.append(
+                    f"transform {transform!r} on <{_local(node.tag)}> changes the "
+                    "size its text prints at; bake the transform into the "
+                    "drawing or redraw it"
+                )
+        setter = next(
+            (n for n in reversed(chain) if _get_prop(n, "font-size") is not None),
+            None,
+        )
+        if setter is None:
+            if _local(el.tag) == "text":
+                pt = _INITIAL_FONT_SIZE_UNITS * PT_PER_UNIT
+                problems.append(
+                    f"{_label(el)} has no font-size anywhere up its ancestry, so "
+                    f"it prints at SVG's {_INITIAL_FONT_SIZE_UNITS} px default, "
+                    f"{pt:.1f} pt, outside {_fmt(lo)}-{_fmt(hi)} pt"
+                )
+            continue
+        if id(setter) in judged:
+            continue
+        value = _get_prop(setter, "font-size")
         try:
             units = _parse_font_size(value)
         except ValueError:
+            judged.add(id(setter))
             problems.append(f"font-size {value!r} is not a recognized size")
             continue
         pt = units * PT_PER_UNIT
         if pt < lo or pt > hi:
+            judged.add(id(setter))
             problems.append(
                 f"font-size {_fmt(units)} units is {pt:.1f} pt, "
                 f"outside {_fmt(lo)}-{_fmt(hi)} pt"
             )
-    if not found:
-        problems.append("no font-size found anywhere in the figure")
     return problems
 
 
-def opaque_fill_problems(svg: str) -> list[str]:
-    """Opaque fills, on anything but text, that would wash out on cream paper.
+def opaque_fill_problems(svg: str, paper: str = PAPER_CREAM) -> list[str]:
+    """Fills, on anything but text, that would print as a pale surface.
 
     `fill` is inherited (`_walk_paint`), so a shape left with no fill of its
     own, painted by a colour set on an ancestor group or layer, is checked
-    under that inherited colour rather than skipped as unset. A fill counts
-    once it is opaque (no `fill-opacity`/`opacity` below 1) and recognized as
-    a colour; an unrecognized colour is reported rather than silently passed.
-    `text`/`tspan` fills are `contrast_problems`'s concern, held to a
-    paper-contrast bar rather than a bare luminance cutoff.
+    under that inherited colour rather than skipped as unset. Its alpha is
+    the resolved `fill-opacity` composited with every `opacity` above it. A
+    fill at or below `TINT_MAX_ALPHA` is a tint and passes; any other is
+    blended over `paper` at its alpha and reported when the colour that
+    prints has a luminance over 0.5, so a pale fill at 0.99 is judged as the
+    pale surface it is. An alpha of 0 paints nothing. An unrecognized colour
+    is reported rather than silently passed. `text`/`tspan` fills are
+    `contrast_problems`'s concern, held to a paper-contrast bar rather than a
+    bare luminance cutoff.
     """
     problems: list[str] = []
     root = ET.fromstring(svg)
-    for el, fill, fill_opacity, _stroke, _stroke_opacity in _walk_paint(root):
+    for el, fill, fill_alpha, _stroke, _stroke_alpha in _walk_paint(root):
         if _local(el.tag) in ("text", "tspan"):
             continue
-        if _paint_translucent(el, fill_opacity):
+        if fill_alpha <= TINT_MAX_ALPHA:
             continue
         try:
             hex_color = _resolve_paint(fill)
@@ -475,56 +561,75 @@ def opaque_fill_problems(svg: str) -> list[str]:
             continue
         if hex_color is None:
             continue
-        if _relative_luminance(hex_color) > 0.5:
+        printed = _blend(hex_color, fill_alpha, paper)
+        if _relative_luminance(printed) > 0.5:
             problems.append(
-                f"opaque fill {hex_color} on <{_local(el.tag)}> has luminance "
-                "over 0.5 and would wash out on the paper"
+                f"fill {hex_color} at alpha {_fmt(fill_alpha)} on "
+                f"<{_local(el.tag)}> prints as {printed}, luminance over 0.5, "
+                "and would wash out on the paper"
             )
     return problems
+
+
+def _contrast_problem(
+    kind: str, paint: str, alpha: float, tag: str, paper: str, bar: float
+) -> str | None:
+    """A paint's problem against its contrast `bar`, or `None` if it holds.
+
+    Raises:
+        ValueError: `paint` is set but not a recognized colour.
+    """
+    if alpha <= 0:
+        return None
+    hex_color = _resolve_paint(paint)
+    if hex_color is None:
+        return None
+    printed = _blend(hex_color, alpha, paper)
+    ratio = contrast_ratio(printed, paper)
+    if ratio >= bar:
+        return None
+    shown = hex_color if alpha >= 1 else f"{hex_color} at alpha {_fmt(alpha)}"
+    return (
+        f"{kind} {shown} on <{tag}> contrasts {ratio:.2f}:1 against the "
+        f"paper, under {_fmt(bar)}:1"
+    )
 
 
 def contrast_problems(svg: str, paper: str = PAPER_CREAM) -> list[str]:
     """Text and strokes that would not hold their contrast bar against `paper`.
 
-    Every opaque `text`/`tspan` fill is held to 4.5:1, every opaque stroke
-    (on any element) to 3:1. Both `fill` and `stroke` are inherited SVG
-    properties (SVG 1.1 section 11.4; SVG 2's painting-properties table lists
-    them side by side), so a `<text>` or a shape left with no colour of its
-    own, painted by its ancestor group or layer instead, exactly how an
-    Inkscape edit tends to leave it, is checked under that inherited colour
-    via `_walk_paint` rather than read from the element alone. An
-    unrecognized colour is reported rather than silently passed.
+    Every `text`/`tspan` fill is held to 4.5:1, every stroke (on any element)
+    to 3:1. Both `fill` and `stroke` are inherited SVG properties (SVG 1.1
+    section 11.4; SVG 2's painting-properties table lists them side by side),
+    so a `<text>` or a shape left with no colour of its own, painted by its
+    ancestor group or layer instead, exactly how an Inkscape edit tends to
+    leave it, is checked under that inherited colour via `_walk_paint` rather
+    than read from the element alone. A translucent paint is not exempt: its
+    colour is blended over `paper` at its alpha (the resolved paint opacity
+    composited with every `opacity` above it) and the colour that prints is
+    what is held to the bar, so ink under a faded group is judged as the grey
+    it becomes. An alpha of 0 paints nothing. An unrecognized colour is
+    reported rather than silently passed.
     """
     problems: list[str] = []
     root = ET.fromstring(svg)
-    for el, fill, fill_opacity, stroke, stroke_opacity in _walk_paint(root):
+    for el, fill, fill_alpha, stroke, stroke_alpha in _walk_paint(root):
         tag = _local(el.tag)
-        if tag in ("text", "tspan") and not _paint_translucent(el, fill_opacity):
+        if tag in ("text", "tspan"):
             try:
-                hex_color = _resolve_paint(fill)
+                problem = _contrast_problem(
+                    "text fill", fill, fill_alpha, tag, paper, 4.5
+                )
             except ValueError:
-                problems.append(f"unrecognized text fill {fill!r} on <{tag}>")
-            else:
-                if hex_color is not None:
-                    ratio = contrast_ratio(hex_color, paper)
-                    if ratio < 4.5:
-                        problems.append(
-                            f"text fill {hex_color} on <{tag}> contrasts "
-                            f"{ratio:.2f}:1 against the paper, under 4.5:1"
-                        )
-        if not _paint_translucent(el, stroke_opacity):
-            try:
-                hex_color = _resolve_paint(stroke)
-            except ValueError:
-                problems.append(f"unrecognized stroke {stroke!r} on <{tag}>")
-            else:
-                if hex_color is not None:
-                    ratio = contrast_ratio(hex_color, paper)
-                    if ratio < 3.0:
-                        problems.append(
-                            f"stroke {hex_color} on <{tag}> contrasts "
-                            f"{ratio:.2f}:1 against the paper, under 3:1"
-                        )
+                problem = f"unrecognized text fill {fill!r} on <{tag}>"
+            if problem is not None:
+                problems.append(problem)
+        try:
+            problem = _contrast_problem("stroke", stroke, stroke_alpha, tag, paper, 3.0)
+        except ValueError:
+            problem = f"unrecognized stroke {stroke!r} on <{tag}>"
+        if problem is not None:
+            problems.append(problem)
     return problems
 
 
@@ -690,6 +795,11 @@ def embed_fonts(svg: str, font_dir: Path) -> str:
     to the characters set in it, plus a space, as WOFF, and declared as one
     `@font-face` under `FIGURE_FONT`, the family the figure already names.
     A figure with no text is returned unchanged.
+
+    Known limits: text inside `<defs>` drawn through `<use>` is not seen,
+    since `<defs>` is skipped; a weight or style set by a `<style>` class
+    rule is not read, only attributes and `style` properties; and 700
+    italic sets in the one italic face, which is 400.
 
     Raises:
         FileNotFoundError: a face the figure uses is missing from `font_dir`.
