@@ -773,3 +773,42 @@ def test_parts_lists_every_handbook_file_on_disk():
     # matrix and out of the page at the same time.
     handbook = Path(__file__).resolve().parents[2] / "docs" / "engineering"
     assert {stem for _, stem, _ in rh.PARTS} == {p.stem for p in handbook.glob("*.md")}
+
+
+def test_assemble_returns_each_part_with_ids_and_rewritten_links(tmp_path: Path):
+    pytest.importorskip("markdown")
+    (tmp_path / "README.md").write_text("# Handbook\n\nSee [later](later.md).\n")
+    (tmp_path / "later.md").write_text("# Later\n\ntext\n")
+    parts = [("top", "README", "Overview"), ("p1", "later", "Later")]
+    assembled = rh.assemble(tmp_path, parts)
+    assert [(a.anchor, a.stem) for a in assembled] == [
+        ("top", "README"),
+        ("p1", "later"),
+    ]
+    assert '<h1 id="README-handbook">Handbook</h1>' in assembled[0].html
+    assert 'href="#p1"' in assembled[0].html
+    assert assembled[0].blocks == []
+
+
+def test_assemble_honours_a_caller_supplied_linkmap(tmp_path: Path):
+    pytest.importorskip("markdown")
+    (tmp_path / "README.md").write_text("# Handbook\n\nSee [later](later.md).\n")
+    (tmp_path / "later.md").write_text("# Later\n\ntext\n")
+    parts = [("top", "README", "Overview"), ("p1", "later", "Later")]
+    linkmap = {"README.md": "#README-handbook", "later.md": "#later-later"}
+    assembled = rh.assemble(tmp_path, parts, linkmap)
+    assert 'href="#later-later"' in assembled[0].html
+
+
+def test_assemble_raises_on_a_dead_relative_link_before_any_diagram_renders(
+    tmp_path: Path, monkeypatch
+):
+    pytest.importorskip("markdown")
+    (tmp_path / "README.md").write_text("# Handbook\n\nSee [x](missing.md).\n")
+
+    def fail(*args, **kwargs):
+        raise AssertionError("a diagram was rendered before the link check")
+
+    monkeypatch.setattr(rh, "render_variants", fail)
+    with pytest.raises(ValueError, match=re.escape("missing.md")):
+        rh.assemble(tmp_path, [("top", "README", "Overview")])
