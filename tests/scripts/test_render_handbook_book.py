@@ -197,6 +197,29 @@ def test_curl_quotes_does_not_touch_attribute_values():
     assert "“y”" in out
 
 
+def test_curl_quotes_closes_a_quote_that_wraps_an_inline_tag():
+    # A closing tag must not reset the context the way an opening one does:
+    # the quote right after </em> is a close, judged by the "x" before the
+    # tag, not by the tag itself.
+    out = rb.curl_quotes('<p>"<em>x</em>"</p>')
+    assert out == "<p>“<em>x</em>”</p>"
+
+
+def test_curl_quotes_reads_a_possessive_right_after_a_closing_link():
+    # docs/engineering/lifecycle.md's own shape: `Part 1</a>'s gates` - a
+    # closing tag used to reset the context to whitespace, misreading this
+    # apostrophe as an opening single quote instead of a possessive.
+    out = rb.curl_quotes('<p><a href="#p1">Part 1</a>\'s gates</p>')
+    assert out == '<p><a href="#p1">Part 1</a>\u2019s gates</p>'
+
+
+def test_curl_quotes_carries_the_last_code_character_past_its_closing_tag():
+    # The skip branch must also feed `prev` forward: otherwise a quote right
+    # after </code> always reads as if a tag had just reset the context.
+    out = rb.curl_quotes("<code>x</code>'s")
+    assert out == "<code>x</code>\u2019s"
+
+
 def test_epub_command_reads_plain_html_and_splits_on_parts(tmp_path: Path):
     """No ``+smart``: `curl_quotes` curls the book's prose before pandoc sees it.
 
@@ -374,14 +397,24 @@ def test_the_epub_carries_typographic_quotes_in_prose(built_epub: Path):
     chapters, docs = _chapters(built_epub)
     straight_quotes = 0
     curly_found = False
+    opens = closes = 0
     for name in chapters:
         no_code = _PRE_OR_CODE_ELEMENT_RE.sub("", docs[name])
         prose = _ANY_TAG_RE.sub("", no_code)
         straight_quotes += prose.count('"') + prose.count("'")
         if any(c in prose for c in "“”\u2018\u2019"):
             curly_found = True
+        opens += prose.count("“")
+        closes += prose.count("”")
     assert straight_quotes == 0
     assert curly_found
+    # Not just present, but pointing the right way: `curl_quotes` resetting
+    # its "boundary" context on a closing tag as well as an opening one
+    # (Part 1</a>'s, "<em>x</em>") can flip a close into an open without
+    # ever producing a straight quote, which the counts above would miss -
+    # see curl_quotes's own tests for the reproduction. Every opening
+    # double quote in the handbook's prose is closed.
+    assert opens == closes, (opens, closes)
 
 
 def _chapters(epub_path: Path) -> tuple[list[str], dict[str, str]]:
