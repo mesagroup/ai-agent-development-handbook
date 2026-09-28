@@ -148,7 +148,8 @@ _D2_ICON_BLANK = (
 # One source for the hex values every rendered figure uses. These mirror the
 # artifact's CSS custom properties, and the point of naming them once is that a
 # figure cannot drift from the page it sits on: d2's preludes, the person icon,
-# and the funnel renderer all read from here.
+# and the horizontal funnel read from here directly; `PRINT_PALETTE` below
+# reads its own non-`line` slots from `PALETTE["light"]` for the same reason.
 PALETTE: dict[str, dict[str, str]] = {
     "light": {
         "surface": "#f7f6f2", "line": "#c3bfb1", "ink": "#1c2024",
@@ -165,19 +166,26 @@ PALETTE: dict[str, dict[str, str]] = {
 # The paperback's palette, and the EPUB's through the same figures. Not a
 # third entry in `PALETTE`: the page reads that dict as its two themes, and a
 # print figure paints no surface at all, so it has no `surface` slot to fill.
-# `line` is darker than the page's, because the page's hairline measures 1.6:1
-# against cream paper and a box border has to hold 3:1 once colour is dropped.
-# The wash is the accent at low opacity rather than a pale opaque colour, so
-# paper of any shade shows through it.
+# Every slot but `line` is the light theme's own value, read from `PALETTE`
+# rather than re-typed, so a light-theme edit cannot drift the print figures
+# out from under it. `line` is print's own: darker than the page's, because
+# the page's hairline measures 1.6:1 against cream paper and a box border has
+# to hold 3:1 once colour is dropped. The wash is the accent at low opacity
+# rather than a pale opaque colour, so paper of any shade shows through it.
 PRINT_PALETTE: dict[str, str] = {
-    "ink": "#1c2024", "ink_soft": "#4b5057", "accent": "#9a6a1c",
-    "accent_ink": "#6f4c12", "line": "#8a867a",
-}  # fmt: skip
+    "ink": PALETTE["light"]["ink"],
+    "ink_soft": PALETTE["light"]["ink_soft"],
+    "accent": PALETTE["light"]["accent"],
+    "accent_ink": PALETTE["light"]["accent_ink"],
+    "line": "#8a867a",
+}
 PRINT_WASH_OPACITY = 0.15
 
 # Not the same palette slot in both themes: the icon is a hairline drawing, so
 # it takes the darker accent on the light background and the brighter one on the
 # dark background, where `accent_ink` would be too close to the panel fill.
+# Print has no dark variant of its own, so it takes the light theme's
+# `accent_ink` too, by way of `PRINT_PALETTE`.
 _D2_ICON_STROKE = {
     "light": PALETTE["light"]["accent_ink"],
     "dark": PALETTE["dark"]["accent"],
@@ -519,7 +527,10 @@ _VFUNNEL_BAND_MIN = 14
 _VFUNNEL_ROW = 30
 _VFUNNEL_GAP = 16
 _VFUNNEL_PAD = 10
-_VFUNNEL_LABEL_BUDGET = 24
+# Derived the way `funnel_svg` derives its own wrap budget: the label has
+# `_VFUNNEL_LABEL_RIGHT` units to fill, so divide by the sans's measured
+# advance and floor at 8 characters. Today's geometry puts this at 24.
+_VFUNNEL_LABEL_BUDGET = max(8, int(_VFUNNEL_LABEL_RIGHT / _FUNNEL_CHAR_W))
 # Below this a band cannot hold its count, which then sits to its right.
 _VFUNNEL_COUNT_INSIDE_MIN = 44
 

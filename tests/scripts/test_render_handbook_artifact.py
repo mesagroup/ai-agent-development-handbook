@@ -649,6 +649,24 @@ def test_the_page_palettes_are_untouched_by_print():
     assert set(rh.D2_PRELUDES) == {"light", "dark"}
 
 
+def test_the_vertical_funnel_label_budget_is_derived_like_the_horizontal_one():
+    # Same formula funnel_svg uses for its own wrap budget, over the vertical
+    # funnel's own label width; today's geometry puts it at 24, so the
+    # committed evaluation-0 figure needs no re-seeding.
+    expected = max(8, int(rh._VFUNNEL_LABEL_RIGHT / rh._FUNNEL_CHAR_W))
+    assert rh._VFUNNEL_LABEL_BUDGET == expected == 24
+
+
+def test_print_palette_reads_its_non_line_slots_from_the_light_theme():
+    # `line` is print's own darker hairline (see the comment above
+    # PRINT_PALETTE); every other slot must be the light theme's value by
+    # reference, not a re-typed literal that could drift from it.
+    for key in rh.PRINT_PALETTE:
+        if key == "line":
+            continue
+        assert rh.PRINT_PALETTE[key] == rh.PALETTE["light"][key]
+
+
 def _stages():
     return rh.parse_funnel(
         "Many candidates 10000\nCheap gates 2000\nComposite score 400\n"
