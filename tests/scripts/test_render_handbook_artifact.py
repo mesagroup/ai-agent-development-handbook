@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import re
+import shutil
 import sys
 from itertools import pairwise
 from pathlib import Path
@@ -633,6 +634,62 @@ def test_d2_preludes_and_the_funnel_read_from_one_palette():
     for variant, colours in rh.PALETTE.items():
         assert colours["surface"] in rh.D2_PRELUDES[variant]
         assert colours["accent"] in rh.D2_PRELUDES[variant]
+
+
+def test_the_print_prelude_paints_no_surface():
+    prelude = rh.D2_PRINT_PRELUDE
+    assert "**.style.fill: transparent" in prelude
+    assert rh.PALETTE["light"]["surface"] not in prelude
+    assert rh.PRINT_PALETTE["line"] in prelude
+    assert rh.PRINT_PALETTE["accent"] in prelude
+
+
+def test_the_page_palettes_are_untouched_by_print():
+    assert set(rh.PALETTE) == {"light", "dark"}
+    assert set(rh.D2_PRELUDES) == {"light", "dark"}
+
+
+def _stages():
+    return rh.parse_funnel(
+        "Many candidates 10000\nCheap gates 2000\nComposite score 400\n"
+        "Semantic scoring 60\nHuman adjudication 8\nThe one you ship 1\n",
+        "evaluation",
+    )
+
+
+def test_the_vertical_funnel_fits_the_print_width():
+    svg = rh.funnel_svg_vertical(_stages())
+    w, h = map(float, re.search(r'viewBox="0 0 ([\d.]+) ([\d.]+)"', svg).groups())
+    assert w <= 388.8 and h <= 648
+
+
+def test_the_vertical_funnel_draws_one_hollow_band_per_stage():
+    svg = rh.funnel_svg_vertical(_stages())
+    rects = re.findall(r"<rect [^>]*>", svg)
+    assert len(rects) == 6
+    assert all('fill="none"' in r for r in rects)
+
+
+def test_the_vertical_funnel_tints_are_translucent():
+    svg = rh.funnel_svg_vertical(_stages())
+    paths = re.findall(r"<path [^>]*>", svg)
+    assert len(paths) == 5
+    assert all(f'fill-opacity="{rh.PRINT_WASH_OPACITY}"' in p for p in paths)
+
+
+def test_the_vertical_funnel_escapes_labels():
+    stages = rh.parse_funnel("A & <b> 10\nC 1\n", "evaluation")
+    svg = rh.funnel_svg_vertical(stages)
+    assert "A &amp; &lt;b&gt;" in svg
+
+
+@pytest.mark.skipif(
+    shutil.which("d2") is None, reason="needs the d2 CLI; CI gains it with #192"
+)
+def test_a_print_render_carries_no_surface_fill():
+    svg = rh.run_d2("a -> b", "t-print", "print")
+    assert rh.PALETTE["light"]["surface"] not in svg
+    assert rh.PRINT_PALETTE["line"] in svg
 
 
 def test_extract_diagram_blocks_rejects_an_unclosed_fence():
