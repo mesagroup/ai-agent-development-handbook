@@ -39,7 +39,7 @@ NOT a CI test. Everything except ``run_d2`` is unit-tested in
 ``tests/scripts/``: the pure transforms (``unlink_out_of_tree``,
 ``heading_id``, ``add_heading_ids``, ``rewrite_links``, ``wrap_tables``,
 ``heading_ids`` and ``render_part`` through ``build`` and the id-set tests,
-``assemble``, ``mark_task_items``, ``extract_diagram_blocks``, ``parse_funnel``,
+``render_parts``, ``assemble``, ``mark_task_items``, ``extract_diagram_blocks``, ``parse_funnel``,
 ``wrap_label``, ``group_digits``, ``funnel_svg``, ``prepare_svg``,
 ``diagram_figure``, ``substitute_diagrams``, ``count_em_dashes``), the
 per-fence dispatch (``render_variants``), and ``d2_icon_classes``, which
@@ -897,23 +897,40 @@ class AssembledPart:
     blocks: list[DiagramBlock]
 
 
+def render_parts(
+    docs_dir: Path, parts: list[tuple[str, str, str]] = PARTS
+) -> dict[str, tuple[str, list[str], list[DiagramBlock]]]:
+    """Render every part once, keyed by stem.
+
+    The shared first pass a book build runs once and hands to `assemble`,
+    `require_h1_first` and `first_heading_ids` alike, rather than each of
+    them calling `render_part` on its own and converting every part three
+    times over.
+    """
+    return {stem: render_part(docs_dir, stem) for _, stem, _ in parts}
+
+
 def assemble(
     docs_dir: Path,
     parts: list[tuple[str, str, str]] = PARTS,
     linkmap: dict[str, str] | None = None,
+    rendered: dict[str, tuple[str, list[str], list[DiagramBlock]]] | None = None,
 ) -> list[AssembledPart]:
     """Render every part with heading ids and rewritten links.
 
     The half of the build the page and the book share. Every part is
     rendered before any link is rewritten, so a fragment into a later part
     finds its id. Diagrams stay as placeholders for the caller, which is what
-    lets the page draw two themed variants and the book one print variant.
+    lets each caller render diagrams its own way.
 
     Args:
         docs_dir: Directory holding the handbook Markdown.
         parts: ``(anchor, stem, label)`` in page order.
         linkmap: ``<stem>.md`` to the fragment a bare link to that part
             lands on. ``None`` means the page's map, the part anchors.
+        rendered: Every part's `render_part` output, keyed by stem, when the
+            caller already has one - `render_parts` computes it once for a
+            whole build. ``None`` renders every part here instead.
 
     Raises:
         ValueError: A heading id collides with another id, or a relative
@@ -922,7 +939,8 @@ def assemble(
     """
     if linkmap is None:
         linkmap = {stem + ".md": "#" + anchor for anchor, stem, _ in parts}
-    rendered = {stem: render_part(docs_dir, stem) for _, stem, _ in parts}
+    if rendered is None:
+        rendered = render_parts(docs_dir, parts)
     ids = {anchor for anchor, _, _ in parts}
     for stem, (_, part_ids, _) in rendered.items():
         clash = ids & set(part_ids)

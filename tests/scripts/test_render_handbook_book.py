@@ -31,7 +31,8 @@ def test_first_heading_ids_reads_each_parts_first_heading(tmp_path: Path):
     (tmp_path / "README.md").write_text("# Handbook\n\n## One\n")
     (tmp_path / "later.md").write_text("# Later\n")
     parts = [("top", "README", "Overview"), ("p1", "later", "Later")]
-    assert rb.first_heading_ids(tmp_path, parts) == {
+    rendered = rh.render_parts(tmp_path, parts)
+    assert rb.first_heading_ids(rendered, parts) == {
         "README": "README-handbook",
         "later": "later-later",
     }
@@ -40,7 +41,9 @@ def test_first_heading_ids_reads_each_parts_first_heading(tmp_path: Path):
 def test_first_heading_ids_leaves_out_a_part_with_no_heading(tmp_path: Path):
     pytest.importorskip("markdown")
     (tmp_path / "empty.md").write_text("just text\n")
-    assert rb.first_heading_ids(tmp_path, [("p1", "empty", "Empty")]) == {}
+    parts = [("p1", "empty", "Empty")]
+    rendered = rh.render_parts(tmp_path, parts)
+    assert rb.first_heading_ids(rendered, parts) == {}
 
 
 def test_require_h1_first_raises_when_a_parts_first_heading_is_not_h1(tmp_path: Path):
@@ -48,20 +51,42 @@ def test_require_h1_first_raises_when_a_parts_first_heading_is_not_h1(tmp_path: 
     (tmp_path / "one.md").write_text("# One\n\ntext\n")
     (tmp_path / "two.md").write_text("## Two\n\ntext\n")
     parts = [("p1", "one", "One"), ("p2", "two", "Two")]
+    rendered = rh.render_parts(tmp_path, parts)
     with pytest.raises(ValueError, match=r"two\.md: first heading is <h2>, not <h1>"):
-        rb.require_h1_first(tmp_path, parts)
+        rb.require_h1_first(rendered, parts)
+
+
+def test_require_h1_first_raises_when_content_precedes_the_h1(tmp_path: Path):
+    """A part must open with its <h1>, not merely contain one first.
+
+    A part with prose before its <h1> and no other heading tag before it has
+    nothing else for a "first heading tag" search to find, so a check that
+    only asked whether that first-found heading was level 1 would pass here
+    too - and the leading prose has nothing to split a chapter on, so it
+    would silently join the previous one.
+    """
+    pytest.importorskip("markdown")
+    (tmp_path / "one.md").write_text("Leading prose.\n\n# One\n\ntext\n")
+    parts = [("p1", "one", "One")]
+    rendered = rh.render_parts(tmp_path, parts)
+    with pytest.raises(
+        ValueError, match=r"one\.md: content precedes its first heading"
+    ):
+        rb.require_h1_first(rendered, parts)
 
 
 def test_require_h1_first_passes_a_part_whose_first_heading_is_h1(tmp_path: Path):
     pytest.importorskip("markdown")
     (tmp_path / "one.md").write_text("# One\n\n## Sub\n")
-    rb.require_h1_first(tmp_path, [("p1", "one", "One")])
+    parts = [("p1", "one", "One")]
+    rb.require_h1_first(rh.render_parts(tmp_path, parts), parts)
 
 
 def test_require_h1_first_leaves_a_headingless_part_alone(tmp_path: Path):
     pytest.importorskip("markdown")
     (tmp_path / "empty.md").write_text("just text\n")
-    rb.require_h1_first(tmp_path, [("p1", "empty", "Empty")])
+    parts = [("p1", "empty", "Empty")]
+    rb.require_h1_first(rh.render_parts(tmp_path, parts), parts)
 
 
 def test_listing_markup_escapes_the_source_and_keeps_the_title():
@@ -249,7 +274,7 @@ def _chapters(epub_path: Path) -> tuple[list[str], dict[str, str]]:
 @needs_pandoc
 def test_every_part_is_a_chapter_in_page_order(built_epub: Path):
     chapters, docs = _chapters(built_epub)
-    firsts = rb.first_heading_ids(DOCS, rh.PARTS)
+    firsts = rb.first_heading_ids(rh.render_parts(DOCS, rh.PARTS), rh.PARTS)
     order = [firsts[stem] for _, stem, _ in rh.PARTS]
     assert len(chapters) == len(rh.PARTS)
     for i, heading_id in enumerate(order):
@@ -271,6 +296,28 @@ def test_build_epub_refuses_a_part_whose_first_heading_is_not_h1(tmp_path: Path)
     (docs_dir / "two.md").write_text("## Two\n\ntext\n")
     parts = [("p1", "one", "One"), ("p2", "two", "Two")]
     with pytest.raises(ValueError, match=r"two\.md: first heading is <h2>, not <h1>"):
+        rb.build_epub(
+            docs_dir, tmp_path / "out" / "book.epub", date="2026-09-28", parts=parts
+        )
+
+
+def test_build_epub_refuses_a_part_with_content_before_its_h1(tmp_path: Path):
+    """The same guard, for content ahead of the <h1> rather than a wrong level.
+
+    Leading prose has no heading tag of its own for the old "first heading
+    tag found" check to see, so it used to pass this guard and merge into
+    the previous chapter; `require_h1_first` now demands the part open with
+    its <h1>, nothing but whitespace before it.
+    """
+    pytest.importorskip("markdown")
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir()
+    (docs_dir / "one.md").write_text("# One\n\ntext\n")
+    (docs_dir / "two.md").write_text("Leading prose.\n\n# Two\n\ntext\n")
+    parts = [("p1", "one", "One"), ("p2", "two", "Two")]
+    with pytest.raises(
+        ValueError, match=r"two\.md: content precedes its first heading"
+    ):
         rb.build_epub(
             docs_dir, tmp_path / "out" / "book.epub", date="2026-09-28", parts=parts
         )
