@@ -204,3 +204,32 @@ def test_a_shape_inheriting_a_light_fill_from_a_translucent_group_is_reported():
         '<rect fill-opacity="1" width="1" height="1"/></g></svg>'
     )
     assert bf.opaque_fill_problems(svg) != []
+
+
+def test_a_shape_inheriting_a_pale_stroke_from_a_translucent_group_is_reported():
+    # Mirrors the fill case above: the group's own stroke-opacity makes the
+    # group itself pass, but the rect re-asserts full opacity for itself
+    # while still inheriting the group's under-contrast stroke colour and no
+    # stroke of its own.
+    svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg">'
+        '<g stroke="#c3bfb1" stroke-opacity="0.1">'
+        '<rect stroke-opacity="1" stroke-width="1" fill="none" width="1" height="1"/>'
+        "</g></svg>"
+    )
+    assert bf.contrast_problems(svg) != []
+
+
+def test_text_inheriting_a_pale_stroke_is_reported_once_not_skipped():
+    # A <text> can carry a stroke like any other shape, so an inherited pale
+    # stroke on it must be judged by the same rule, not silently skipped
+    # because it is text: exactly one problem names the <text>'s own inherited
+    # stroke (the enclosing <g>, which declares that stroke itself, is a
+    # separate, correctly reported element, not a duplicate of the text's).
+    svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg"><g stroke="#c3bfb1">'
+        '<text fill="#1c2024">x</text></g></svg>'
+    )
+    problems = bf.contrast_problems(svg)
+    text_stroke_problems = [p for p in problems if "stroke" in p and "<text>" in p]
+    assert len(text_stroke_problems) == 1

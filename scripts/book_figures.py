@@ -195,24 +195,33 @@ def _walk(el: ET.Element):
         yield from _walk(child)
 
 
-# SVG's initial values for `fill`/`fill-opacity`: opaque black, in force at
-# the root before anything has set either.
+# SVG's initial values for `fill`/`fill-opacity` and `stroke`/`stroke-opacity`:
+# opaque black fill, no stroke at all, in force at the root before anything
+# has set any of the four.
 _INITIAL_FILL = "black"
 _INITIAL_FILL_OPACITY = "1"
+_INITIAL_STROKE = "none"
+_INITIAL_STROKE_OPACITY = "1"
 
 
-def _walk_fill(
-    el: ET.Element, fill: str = _INITIAL_FILL, fill_opacity: str = _INITIAL_FILL_OPACITY
+def _walk_paint(
+    el: ET.Element,
+    fill: str = _INITIAL_FILL,
+    fill_opacity: str = _INITIAL_FILL_OPACITY,
+    stroke: str = _INITIAL_STROKE,
+    stroke_opacity: str = _INITIAL_STROKE_OPACITY,
 ):
-    """Yield `(element, effective_fill, effective_fill_opacity)`, inherited.
+    """Yield `(element, fill, fill_opacity, stroke, stroke_opacity)`, inherited.
 
-    `fill` and `fill-opacity` are inherited SVG properties: an element that
-    sets neither takes them from its nearest ancestor, all the way up to the
-    root's default of opaque black. This is exactly how an Inkscape edit
-    leaves colour on a selected group or layer with the text inside left
-    unset, so a check reading only an element's own attribute would miss a
-    pale colour set on its parent. Skips subtrees in `_SKIP_TAGS`, as `_walk`
-    does.
+    `fill`, `fill-opacity`, `stroke` and `stroke-opacity` are all inherited
+    SVG properties (SVG 1.1 section 11.4; SVG 2's painting-properties table
+    lists `stroke` alongside `fill`, not apart from it): an element that sets
+    none of them takes them from its nearest ancestor, all the way up to the
+    root's defaults (opaque black fill, no stroke). This is exactly how an
+    Inkscape edit leaves colour on a selected group or layer with the shape
+    or text inside left unset, so a check reading only an element's own
+    attribute would miss a pale colour set on its parent, for a stroke just
+    as much as for a fill. Skips subtrees in `_SKIP_TAGS`, as `_walk` does.
     """
     own_fill = _get_prop(el, "fill")
     effective_fill = own_fill if own_fill is not None else fill
@@ -220,13 +229,31 @@ def _walk_fill(
     effective_fill_opacity = (
         own_fill_opacity if own_fill_opacity is not None else fill_opacity
     )
-    yield el, effective_fill, effective_fill_opacity
+    own_stroke = _get_prop(el, "stroke")
+    effective_stroke = own_stroke if own_stroke is not None else stroke
+    own_stroke_opacity = _get_prop(el, "stroke-opacity")
+    effective_stroke_opacity = (
+        own_stroke_opacity if own_stroke_opacity is not None else stroke_opacity
+    )
+    yield (
+        el,
+        effective_fill,
+        effective_fill_opacity,
+        effective_stroke,
+        effective_stroke_opacity,
+    )
     for child in el:
         if not isinstance(child.tag, str):
             continue  # a comment or processing instruction, not an element
         if _local(child.tag) in _SKIP_TAGS:
             continue
-        yield from _walk_fill(child, effective_fill, effective_fill_opacity)
+        yield from _walk_paint(
+            child,
+            effective_fill,
+            effective_fill_opacity,
+            effective_stroke,
+            effective_stroke_opacity,
+        )
 
 
 def _style_props(el: ET.Element) -> dict[str, str]:
@@ -261,18 +288,16 @@ def _prop_opacity(el: ET.Element, name: str) -> float:
     return _parse_opacity(_get_prop(el, name))
 
 
-def _is_translucent(el: ET.Element, kind: str) -> bool:
-    return _prop_opacity(el, "opacity") < 1 or _prop_opacity(el, f"{kind}-opacity") < 1
-
-
-def _fill_translucent(el: ET.Element, fill_opacity: str) -> bool:
-    """Like `_is_translucent(el, "fill")`, but `fill_opacity` is the value
-    `_walk_fill` already resolved (own or inherited), not `el`'s own alone.
+def _paint_translucent(el: ET.Element, paint_opacity: str) -> bool:
+    """Whether a paint is translucent: below-1 group `opacity` on `el` itself
+    (never inherited as a colour property, so always read from `el` alone),
+    or a below-1 `paint_opacity`, a `fill-opacity`/`stroke-opacity` value
+    `_walk_paint` already resolved (own or inherited), not `el`'s own alone.
 
     The element's own `opacity` (group opacity, never inherited as a colour
     property) is still read directly from `el`.
     """
-    return _prop_opacity(el, "opacity") < 1 or _parse_opacity(fill_opacity) < 1
+    return _prop_opacity(el, "opacity") < 1 or _parse_opacity(paint_opacity) < 1
 
 
 def _normalize_hex(value: str) -> str:
@@ -385,7 +410,7 @@ def fit_problems(svg: str) -> list[str]:
 def opaque_fill_problems(svg: str) -> list[str]:
     """Opaque fills, on anything but text, that would wash out on cream paper.
 
-    `fill` is inherited (`_walk_fill`), so a shape left with no fill of its
+    `fill` is inherited (`_walk_paint`), so a shape left with no fill of its
     own, painted by a colour set on an ancestor group or layer, is checked
     under that inherited colour rather than skipped as unset. A fill counts
     once it is opaque (no `fill-opacity`/`opacity` below 1) and recognized as
@@ -395,10 +420,10 @@ def opaque_fill_problems(svg: str) -> list[str]:
     """
     problems: list[str] = []
     root = ET.fromstring(svg)
-    for el, fill, fill_opacity in _walk_fill(root):
+    for el, fill, fill_opacity, _stroke, _stroke_opacity in _walk_paint(root):
         if _local(el.tag) in ("text", "tspan"):
             continue
-        if _fill_translucent(el, fill_opacity):
+        if _paint_translucent(el, fill_opacity):
             continue
         try:
             hex_color = _resolve_paint(fill)
@@ -419,18 +444,19 @@ def contrast_problems(svg: str, paper: str = PAPER_CREAM) -> list[str]:
     """Text and strokes that would not hold their contrast bar against `paper`.
 
     Every opaque `text`/`tspan` fill is held to 4.5:1, every opaque stroke
-    (on any element) to 3:1. `fill` is inherited (`_walk_fill`): a `<text>`
-    left with no fill of its own, coloured by its ancestor group or layer
-    instead, exactly how an Inkscape edit tends to leave it, is checked under
-    that inherited colour. `stroke` is not inherited here, since only a
-    drawn shape's own stroke paints a line. An unrecognized colour is
-    reported rather than silently passed.
+    (on any element) to 3:1. Both `fill` and `stroke` are inherited SVG
+    properties (SVG 1.1 section 11.4; SVG 2's painting-properties table lists
+    them side by side), so a `<text>` or a shape left with no colour of its
+    own, painted by its ancestor group or layer instead, exactly how an
+    Inkscape edit tends to leave it, is checked under that inherited colour
+    via `_walk_paint` rather than read from the element alone. An
+    unrecognized colour is reported rather than silently passed.
     """
     problems: list[str] = []
     root = ET.fromstring(svg)
-    for el, fill, fill_opacity in _walk_fill(root):
+    for el, fill, fill_opacity, stroke, stroke_opacity in _walk_paint(root):
         tag = _local(el.tag)
-        if tag in ("text", "tspan") and not _fill_translucent(el, fill_opacity):
+        if tag in ("text", "tspan") and not _paint_translucent(el, fill_opacity):
             try:
                 hex_color = _resolve_paint(fill)
             except ValueError:
@@ -443,8 +469,7 @@ def contrast_problems(svg: str, paper: str = PAPER_CREAM) -> list[str]:
                             f"text fill {hex_color} on <{tag}> contrasts "
                             f"{ratio:.2f}:1 against the paper, under 4.5:1"
                         )
-        stroke = _get_prop(el, "stroke")
-        if stroke is not None and not _is_translucent(el, "stroke"):
+        if not _paint_translucent(el, stroke_opacity):
             try:
                 hex_color = _resolve_paint(stroke)
             except ValueError:
