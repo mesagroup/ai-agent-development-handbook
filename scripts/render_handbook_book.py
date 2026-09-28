@@ -14,10 +14,12 @@ Usage::
 
     uv run python scripts/render_handbook_book.py --format epub
     uv run python scripts/render_handbook_book.py --format epub --out /tmp/handbook.epub
+    uv run python scripts/render_handbook_book.py --seed-figures
 
-Needs the pandoc CLI (``brew install pandoc``). Everything except
-`run_tool`, `build_epub` and `main` spawns no process and writes no file.
-All of it is unit-tested in ``tests/scripts/test_render_handbook_book.py``.
+Needs the pandoc CLI (``brew install pandoc``) for ``--format epub`` and the
+d2 CLI for ``--seed-figures``. Everything except `run_tool`, `seed_svg`,
+`build_epub` and `main` spawns no process and writes no file. All of it is
+unit-tested in ``tests/scripts/test_render_handbook_book.py``.
 """
 
 from __future__ import annotations
@@ -32,13 +34,18 @@ import uuid
 from html import escape as html_escape
 from pathlib import Path
 
+from book_figures import clean_seed_svg, source_hash, stamp_hash
 from render_handbook_artifact import (
     _DIAGRAM_PLACEHOLDER_RE,
     PARTS,
     AssembledPart,
     DiagramBlock,
     assemble,
+    extract_diagram_blocks,
+    funnel_svg_vertical,
+    parse_funnel,
     render_parts,
+    run_d2,
 )
 
 TITLE = "AI Agent Development Handbook"
@@ -374,6 +381,74 @@ def run_tool(cmd: list[str], timeout: float, install_hint: str) -> None:
         )
 
 
+def figure_path(figures_dir: Path, stem: str, index: int) -> Path:
+    """Where a diagram's seed or hand-corrected figure lives on disk."""
+    return figures_dir / f"{stem}-{index}.svg"
+
+
+def seed_svg(stem: str, block: DiagramBlock) -> str:
+    """Render one diagram block into the SVG an illustrator opens next.
+
+    A d2 block goes through the d2 CLI at the print variant, transparent and
+    salted so its ids are stable; a funnel is drawn directly, top to bottom,
+    for the same print measure. Either way the raw render is cleaned
+    (`clean_seed_svg`) and stamped with the fence body's hash
+    (`stamp_hash`/`source_hash`), so a later run can tell a hand-corrected
+    figure from one still matching its source.
+
+    Raises:
+        ValueError: `block.kind` is neither `d2` nor `funnel`.
+    """
+    figure_id = f"{stem}-{block.index}"
+    if block.kind == "d2":
+        raw = run_d2(block.source, figure_id, "print")
+    elif block.kind == "funnel":
+        raw = funnel_svg_vertical(parse_funnel(block.source, stem))
+    else:
+        raise ValueError(f"{stem}.md: unrecognized diagram kind {block.kind!r}")
+    return stamp_hash(clean_seed_svg(raw, figure_id), source_hash(block.source))
+
+
+def part_blocks(
+    docs_dir: Path, parts: list[tuple[str, str, str]] = PARTS
+) -> list[tuple[str, DiagramBlock]]:
+    """Every diagram block in `parts`, paired with its part's stem.
+
+    Reads each part's Markdown and calls `extract_diagram_blocks` directly,
+    so seeding needs no Markdown-to-HTML conversion and no `markdown`
+    dependency.
+    """
+    pairs: list[tuple[str, DiagramBlock]] = []
+    for _, stem, _ in parts:
+        md = (docs_dir / f"{stem}.md").read_text()
+        _, blocks = extract_diagram_blocks(md, stem)
+        pairs.extend((stem, block) for block in blocks)
+    return pairs
+
+
+def seed_figures(
+    docs_dir: Path, figures_dir: Path, parts: list[tuple[str, str, str]] = PARTS
+) -> list[Path]:
+    """Write a starting SVG for every diagram in `parts` that has none yet.
+
+    Creates `figures_dir` if it does not exist. A figure already on disk is
+    left untouched, hand-corrected or not, so this is safe to re-run after a
+    maintainer has edited a seed.
+
+    Returns:
+        The paths written, in part order.
+    """
+    figures_dir.mkdir(parents=True, exist_ok=True)
+    written: list[Path] = []
+    for stem, block in part_blocks(docs_dir, parts):
+        path = figure_path(figures_dir, stem, block.index)
+        if path.exists():
+            continue
+        path.write_text(seed_svg(stem, block), encoding="utf-8")
+        written.append(path)
+    return written
+
+
 def build_epub(
     docs_dir: Path,
     out: Path,
@@ -427,7 +502,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument("--format", choices=["epub"], required=True)
+    parser.add_argument("--format", choices=["epub"])
     parser.add_argument(
         "--docs-dir",
         type=Path,
@@ -440,7 +515,30 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="Output path (default: build/handbook.epub, gitignored).",
     )
+    parser.add_argument(
+        "--seed-figures",
+        action="store_true",
+        help="Write a starting SVG for every diagram that has none yet, "
+        "under --figures-dir, and exit.",
+    )
+    parser.add_argument(
+        "--figures-dir",
+        type=Path,
+        default=None,
+        help="Directory to seed figures into (default: <docs-dir>/figures).",
+    )
     args = parser.parse_args(argv)
+    if bool(args.format) == bool(args.seed_figures):
+        parser.error("exactly one of --format and --seed-figures is required")
+    figures_dir = args.figures_dir or args.docs_dir / "figures"
+    if args.seed_figures:
+        written = seed_figures(args.docs_dir, figures_dir)
+        if written:
+            for path in written:
+                print(f"wrote {path}")
+        else:
+            print("every diagram already has a figure")
+        return 0
     out = args.out or repo_root / "build" / "handbook.epub"
     build_epub(args.docs_dir, out, _build_date())
     print(f"wrote {out} ({out.stat().st_size} bytes)")
