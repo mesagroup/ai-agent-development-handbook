@@ -169,8 +169,9 @@ def test_curl_quotes_treats_a_mid_word_apostrophe_as_a_closing_mark():
 
 
 def test_curl_quotes_opens_a_quote_flush_against_a_tag_boundary():
-    # The handbook's own pattern: **"We added more patterns"** opens and
-    # closes a quote with no letter beside it, only a <strong> tag.
+    # The handbook's own pattern: **"We added more patterns"** opens a quote
+    # with no letter beside it, only a <strong> tag; the closing quote is
+    # judged by the "s" in "patterns", same as any other prose quote.
     out = rb.curl_quotes('<strong>"We added more patterns"</strong>')
     assert out == "<strong>“We added more patterns”</strong>"
 
