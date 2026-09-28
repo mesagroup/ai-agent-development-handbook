@@ -831,11 +831,11 @@ def render_part(docs_dir: Path, stem: str) -> tuple[str, list[str], list[Diagram
 def heading_ids(docs_dir: Path, parts: list[tuple[str, str, str]] = PARTS) -> set[str]:
     """Every id the page built from ``docs_dir`` carries, without rendering it.
 
-    The part anchors plus every heading id, computed the way `assemble`
-    computes them and without reaching for the d2 CLI, which is what lets the citation
-    check run where no renderer can. A rendered page carries exactly this set
-    plus the figure captions' ids and the two ids of the page chrome, the
-    sidebar and the theme button, and a test holds the two together.
+    The part anchors plus every heading id, computed the way `assemble` computes
+    them and without reaching for the d2 CLI, which is what lets the citation check
+    run where no renderer can. A rendered page carries exactly this set plus the
+    figure captions' ids and the two ids of the page chrome, the sidebar and the
+    theme button, and a test holds the two together.
     """
     ids = {anchor for anchor, _, _ in parts}
     for _, stem, _ in parts:
