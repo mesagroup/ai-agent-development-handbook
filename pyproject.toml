@@ -38,6 +38,7 @@ known_first_party = [
     "grade_python_fixture_run",
     "python_fixture_spec",
     "render_handbook_artifact",
+    "render_handbook_book",
     "render_handbook_traceability",
     "render_python_fixture_expectations",
     "run_python_fixture_lens",
