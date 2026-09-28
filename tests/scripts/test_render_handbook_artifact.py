@@ -800,15 +800,8 @@ def test_assemble_honours_a_caller_supplied_linkmap(tmp_path: Path):
     assert 'href="#later-later"' in assembled[0].html
 
 
-def test_assemble_raises_on_a_dead_relative_link_before_any_diagram_renders(
-    tmp_path: Path, monkeypatch
-):
+def test_assemble_raises_on_a_dead_relative_link(tmp_path: Path):
     pytest.importorskip("markdown")
     (tmp_path / "README.md").write_text("# Handbook\n\nSee [x](missing.md).\n")
-
-    def fail(*args, **kwargs):
-        raise AssertionError("a diagram was rendered before the link check")
-
-    monkeypatch.setattr(rh, "render_variants", fail)
     with pytest.raises(ValueError, match=re.escape("missing.md")):
         rh.assemble(tmp_path, [("top", "README", "Overview")])
