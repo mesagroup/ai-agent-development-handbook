@@ -73,7 +73,7 @@ The page keeps its diagrams as code. The book does not, because d2 and its ELK l
 
 **One scale.** Every figure is placed at one scale: 1 SVG user unit to 2/3 pt, so a 12-unit label prints at 8 pt in every figure beside the 10 pt body text. A figure is never stretched to the text width. Fitting each figure to the width, as the previews did, printed a small figure's labels larger than a large one's. At that scale a figure must fit the text block, 3.6 x 6 inches, which bounds its viewBox at 389 x 648 units. A figure that does not fit is redrawn narrower, never shrunk. In the EPUB the same scale is expressed relative to the body font, as a width of `<viewBox width> / 15` em with `max-width: 100%`, so labels keep their 0.8 ratio to the text when a reader changes the font size. Vertical space belongs to the hand pass: the maintainer compresses a figure wherever its gaps carry nothing.
 
-**Palette.** A book figure paints no opaque surface. The page palette fills every d2 shape with its `surface` colour and draws each funnel stage on a `surface` rectangle, and on cream paper those print as pale rectangles on a warm page. So shape fills and the background are transparent, and any tint a figure needs, such as the funnel's `accent_wash`, is a translucent overlay. Ink, line and accent come from the light palette, and every fill and stroke pair a figure relies on stays distinguishable when the colour is dropped, which serves e-ink screens and paper alike.
+**Palette.** A book figure paints no opaque surface. The page palette fills every d2 shape with its `surface` colour and draws each funnel stage on a `surface` rectangle, and on cream paper those print as pale rectangles on a warm page. So shape fills and the background are transparent, and any tint a figure needs is a translucent overlay: the funnel's wash is the accent at 0.15 opacity. Ink and accent come from the light palette; `line` is darkened for print to `#8a867a`, which holds 3.2:1 on the cream paper where the page's hairline does not. The figure stays legible when the colour is dropped, which serves e-ink screens and paper alike, because every text fill holds 4.5:1 and every stroke 3:1 in luminance contrast against the paper, each paint blended over the paper at its effective opacity first. That contrast is the whole check: nothing compares one fill or stroke against another.
 
 **Dark mode.** A transparent figure with dark ink is unreadable on a reading system's dark background, and reading systems do not invert images. So the EPUB copy of each figure gets an opaque light panel: a `<rect>` inserted behind the drawing at build time, inside the SVG, where a reading system's stylesheet cannot remove it. The committed file and the paperback's copy stay transparent.
 
@@ -108,10 +108,13 @@ A new `scripts/render_handbook_book.py`, with one entry point and a `--format` f
 ### 4. Pure functions the tests hold
 
 - `book_linkmap(parts, first_ids)` builds the book's link map.
-- `figure_markup(stem, block)` builds a figure's HTML.
-- `source_hash(block)` returns the SHA-256 a committed figure records.
-- `figure_fits(svg)` holds a figure's viewBox and text sizes to the one scale.
-- `with_backing_panel(svg)` inserts the EPUB copy's light panel.
+- `figure_markup(stem, block, width_em)` builds a figure's HTML.
+- `source_hash(source)` returns the SHA-256 a committed figure records.
+- `fit_problems(svg)` holds a figure's viewBox and text sizes to the one scale.
+- `opaque_fill_problems(svg)` reports a fill that would print as a pale surface.
+- `contrast_problems(svg, paper)` holds every text fill and stroke to its contrast bar against the paper.
+- `with_backing_panel(svg, colour)` inserts the EPUB copy's light panel.
+- `embed_fonts(svg, font_dir)` embeds each face the figure's text uses, subset to it.
 - `book_metadata(...)` builds the metadata document.
 - `spine_width(pages, paper)` returns the spine width in inches, from KDP's per-page thickness for the paper type. It raises on a page count outside KDP's supported range.
 - `cover_dimensions(trim, pages, paper)` returns the full cover width and height, with bleed.
@@ -138,7 +141,7 @@ Tests that need `pandoc`, `d2` or `typst` skip with a stated reason when the too
 Three pull requests, in dependency order:
 
 1. **#189:** the `assemble` refactor with its byte-identity test, `render_handbook_book.py --format epub`, the book link map, metadata, stylesheet, and `.gitignore`. Diagrams render as listings until #190.
-2. **#190:** the `print` prelude, the vertical funnel, `--seed-figures`, the committed figures corrected by hand, the committed font files, the figure markup, the EPUB's light panel and embedded fonts, the grayscale check, the font-licence finding, and the drift, scale, transparency and figure-count tests.
+2. **#190:** the `print` prelude, the vertical funnel, `--seed-figures`, the committed figures corrected by hand, the committed font files, the figure markup, the EPUB's light panel and embedded fonts, the contrast check against the paper, the font-licence finding, and the drift, scale, transparency and figure-count tests.
 3. **#195:** the Typst template, `--format pdf` and `--format cover`, the spine computation, and the manual previewer step.
 
 Each pull request adds its command to CLAUDE.md's Commands section. Any new module in `scripts/` joins `[tool.deptry] known_first_party`.
