@@ -24,12 +24,13 @@ Needs the pandoc CLI (``brew install pandoc``) for ``--format epub``, and
 the d2 CLI for ``--seed-figures`` and for ``--format epub`` whenever a d2
 diagram has no committed figure, since the build then draws its seed. Only
 `run_tool` and `seed_svg` (through `run_d2`) spawn a process themselves,
-which `load_figure` and `write_figures` reach through `seed_svg` where a d2
-fence has no committed figure; only `seed_figures`, `write_figures`
-and `build_epub` write a file, and `main` calls `seed_figures` or
-`build_epub`, whichever the CLI selected, `build_epub` calling
-`write_figures`. Every other function spawns no process and writes no
-file. All of it is unit-tested in
+which `load_figure`, `seed_figures` and `write_figures` reach through
+`seed_svg` where a d2 fence has no committed figure, and which `build_epub`
+also reaches directly, calling `run_tool` itself to run pandoc; only
+`seed_figures`, `write_figures` and `build_epub` write a file, and `main`
+calls `seed_figures` or `build_epub`, whichever the CLI selected, `build_epub`
+calling `write_figures`. Every other function spawns no process and writes
+no file. All of it is unit-tested in
 ``tests/scripts/test_render_handbook_book.py``.
 """
 
