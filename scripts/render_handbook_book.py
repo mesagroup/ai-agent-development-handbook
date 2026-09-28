@@ -14,9 +14,8 @@ Usage::
     uv run python scripts/render_handbook_book.py --format epub --out /tmp/handbook.epub
 
 Needs the pandoc CLI (``brew install pandoc``). Everything except
-`run_tool`, `build_epub` and `main` spawns no process and writes no file;
-`first_heading_ids` and `require_h1_first` read files. All of it is
-unit-tested in ``tests/scripts/test_render_handbook_book.py``.
+`run_tool`, `build_epub` and `main` spawns no process and writes no file.
+All of it is unit-tested in ``tests/scripts/test_render_handbook_book.py``.
 """
 
 from __future__ import annotations
@@ -37,7 +36,7 @@ from render_handbook_artifact import (
     AssembledPart,
     DiagramBlock,
     assemble,
-    render_part,
+    render_parts,
 )
 
 TITLE = "AI Agent Development Handbook"
@@ -83,38 +82,64 @@ def book_linkmap(
 
 
 def first_heading_ids(
-    docs_dir: Path, parts: list[tuple[str, str, str]]
+    rendered: dict[str, tuple[str, list[str], list[DiagramBlock]]],
+    parts: list[tuple[str, str, str]],
 ) -> dict[str, str]:
-    """Each part's first heading id; a part with no heading is left out."""
+    """Each part's first heading id; a part with no heading is left out.
+
+    Args:
+        rendered: Every part's `render_part` output, keyed by stem - what
+            `render_parts` produces once for the whole build.
+        parts: ``(anchor, stem, label)`` in page order.
+    """
     first = {}
     for _, stem, _ in parts:
-        _, ids, _ = render_part(docs_dir, stem)
+        _, ids, _ = rendered[stem]
         if ids:
             first[stem] = ids[0]
     return first
 
 
-_FIRST_HEADING_LEVEL_RE = re.compile(r'<h([1-6]) id="')
+_LEADING_HEADING_RE = re.compile(r'^\s*<h([1-6]) id="')
 
 
-def require_h1_first(docs_dir: Path, parts: list[tuple[str, str, str]]) -> None:
-    """Raise unless every part with a heading starts with an ``<h1>``.
+def require_h1_first(
+    rendered: dict[str, tuple[str, list[str], list[DiagramBlock]]],
+    parts: list[tuple[str, str, str]],
+) -> None:
+    """Raise unless every part with a heading opens with its own ``<h1>``.
 
     Pandoc splits chapters on ``<h1>`` (``--split-level=1``). A part whose
-    first heading is ``<h2>`` or deeper gives it nothing to split on, so the
-    part merges silently into the previous chapter instead of becoming its
-    own; this check catches that before pandoc ever runs, rather than after,
-    where only a diff of the chapter count would show it.
+    first heading is ``<h2>`` or deeper gives it nothing to split on, and a
+    part carrying content - prose, a list, a placeholder - before its
+    ``<h1>`` leaves that content with nothing to split on either, since a
+    check that only found *some* ``<h1>`` in the part would pass either way;
+    either shape merges silently into the previous chapter instead of
+    becoming its own. This check catches that before pandoc ever runs,
+    rather than after, where only a diff of the chapter count would show it.
+
+    Args:
+        rendered: Every part's `render_part` output, keyed by stem - what
+            `render_parts` produces once for the whole build.
+        parts: ``(anchor, stem, label)`` in page order.
 
     Raises:
-        ValueError: A part's first heading is not level 1.
+        ValueError: A part's first heading is not level 1, or the part
+            carries content before its first heading.
     """
     for _, stem, _ in parts:
-        html, ids, _ = render_part(docs_dir, stem)
+        html, ids, _ = rendered[stem]
         if not ids:
             continue
-        match = _FIRST_HEADING_LEVEL_RE.search(html)
-        if match and match.group(1) != "1":
+        match = _LEADING_HEADING_RE.match(html)
+        if match is None:
+            raise ValueError(
+                f"{stem}.md: content precedes its first heading; pandoc "
+                "splits chapters on <h1> (--split-level=1), so that leading "
+                "content would join the previous chapter instead of starting "
+                "this part's own"
+            )
+        if match.group(1) != "1":
             raise ValueError(
                 f"{stem}.md: first heading is <h{match.group(1)}>, not <h1>; "
                 "pandoc splits chapters on <h1> (--split-level=1), so this "
@@ -267,10 +292,16 @@ def build_epub(
     date: str,
     parts: list[tuple[str, str, str]] = PARTS,
 ) -> Path:
-    """Write the EPUB for ``docs_dir`` to ``out`` and return ``out``."""
-    require_h1_first(docs_dir, parts)
-    linkmap = book_linkmap(parts, first_heading_ids(docs_dir, parts))
-    html = book_html(assemble(docs_dir, parts, linkmap))
+    """Write the EPUB for ``docs_dir`` to ``out`` and return ``out``.
+
+    Renders every part once with `render_parts` and shares that one render
+    across `require_h1_first`, `first_heading_ids` and `assemble`, rather
+    than each converting every part's Markdown on its own.
+    """
+    rendered = render_parts(docs_dir, parts)
+    require_h1_first(rendered, parts)
+    linkmap = book_linkmap(parts, first_heading_ids(rendered, parts))
+    html = book_html(assemble(docs_dir, parts, linkmap, rendered=rendered))
     out.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as tmp:
         work = Path(tmp)
