@@ -148,6 +148,43 @@ def test_a_figure_with_no_text_size_is_reported():
     assert bf.fit_problems(bare)
 
 
+def test_a_halved_nested_viewport_width_is_reported():
+    shrunk = D2_LIKE.replace(
+        '<svg class="d2-1314600225 d2-svg" width="287" height="587"',
+        '<svg class="d2-1314600225 d2-svg" width="143.5" height="587"',
+    )
+    problems = bf.fit_problems(bf.clean_seed_svg(shrunk, "x-0"))
+    assert any("nested <svg>" in p and "0.5" in p for p in problems)
+
+
+def test_a_nested_svg_with_no_width_or_height_is_not_a_scale():
+    svg = _sized('<svg viewBox="0 0 50 50"><text font-size="12">a</text></svg>')
+    assert bf.fit_problems(svg) == []
+
+
+def test_a_nested_svg_with_no_viewbox_is_not_a_scale():
+    svg = _sized('<svg width="25" height="25"><text font-size="12">a</text></svg>')
+    assert bf.fit_problems(svg) == []
+
+
+def test_a_nested_svg_with_unrecognized_dimensions_is_reported():
+    svg = _sized(
+        '<svg width="50%" height="50%" viewBox="0 0 50 50">'
+        '<text font-size="12">a</text></svg>'
+    )
+    problems = bf.fit_problems(svg)
+    assert any("not a recognized size" in p for p in problems)
+
+
+def test_a_nested_svg_with_unequal_x_and_y_scale_is_reported():
+    svg = _sized(
+        '<svg width="50" height="25" viewBox="0 0 50 50">'
+        '<text font-size="12">a</text></svg>'
+    )
+    problems = bf.fit_problems(svg)
+    assert any("nested <svg>" in p for p in problems)
+
+
 def test_an_opaque_light_fill_is_reported_and_a_mask_is_not():
     painted = D2_LIKE.replace(
         'fill="transparent" stroke="#8a867a"', 'fill="#f7f6f2" stroke="#8a867a"'

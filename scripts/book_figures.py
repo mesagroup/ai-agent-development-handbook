@@ -477,11 +477,20 @@ def _fmt(x: float) -> str:
     return f"{x:g}"
 
 
-def _parse_font_size(value: str) -> float:
+def _parse_length(value: str) -> float:
+    """Parse an SVG length: unitless (SVG 1.1) or a `px` value (SVG 2).
+
+    Raises:
+        ValueError: `value` is neither of those two forms.
+    """
     v = value.strip()
     if v.endswith("px"):
         v = v[:-2]
     return float(v)
+
+
+def _parse_font_size(value: str) -> float:
+    return _parse_length(value)
 
 
 # A `transform` that only moves its content keeps every label at the one scale;
@@ -492,6 +501,65 @@ _PURE_TRANSLATE_RE = re.compile(
 )
 # SVG's initial font-size, 16 px: 10.7 pt at the one scale, outside the range.
 _INITIAL_FONT_SIZE_UNITS = 16
+
+# A nested `<svg>` has its own viewport, a second scale a d2 figure always
+# carries beyond the root's: every d2 render wraps its drawing in an inner
+# `<svg class="... d2-svg" width="W" height="H" viewBox="x y W H">`, whose
+# width/height start out equal to its own viewBox size, so the nested
+# viewport itself contributes no scale. Resizing that inner element's
+# width/height in an editor shrinks or stretches everything inside it -
+# labels included - exactly as an untranslated `transform` does, while every
+# descendant `font-size` still reads in range, so `_PURE_TRANSLATE_RE`'s
+# check cannot see it and this one exists beside it.
+_NESTED_SVG_SCALE_TOL = 1e-6
+
+
+def _nested_svg_scale_problem(el: ET.Element) -> str | None:
+    """A non-1:1 (or non-uniform) scale a nested `<svg>`'s viewport applies.
+
+    `width`/`height` on an `<svg>` are plain (non-inherited) presentation
+    attributes, read bare rather than through `_get_prop`'s style-then-
+    attribute lookup, since a viewport's own size is never set from an
+    ancestor. A missing `width` or `height` defaults, per SVG, to 100% of
+    the containing viewport - a value this module cannot resolve without a
+    layout engine - and a missing `viewBox` means the element has no scale
+    of its own to apply at all; either is read as "not a scale by itself"
+    rather than guessed at, so only an element carrying all three is judged.
+
+    Raises nothing; an unparseable `width`/`height` is reported as a problem
+    string, not raised, since the caller collects problems rather than
+    stopping at the first one.
+    """
+    width_attr = el.attrib.get("width")
+    height_attr = el.attrib.get("height")
+    viewbox_attr = el.attrib.get("viewBox")
+    if width_attr is None or height_attr is None or viewbox_attr is None:
+        return None
+    parts = viewbox_attr.split()
+    if len(parts) != 4:
+        return None
+    _, _, vb_width, vb_height = (float(p) for p in parts)
+    try:
+        width = _parse_length(width_attr)
+        height = _parse_length(height_attr)
+    except ValueError:
+        return (
+            f"<svg> width {width_attr!r} height {height_attr!r} is not a "
+            "recognized size"
+        )
+    if vb_width <= 0 or vb_height <= 0:
+        return None
+    scale_x = width / vb_width
+    scale_y = height / vb_height
+    tol = _NESTED_SVG_SCALE_TOL
+    if abs(scale_x - 1) <= tol and abs(scale_y - 1) <= tol:
+        return None
+    return (
+        f"nested <svg> width {_fmt(width)} height {_fmt(height)} against "
+        f"viewBox {_fmt(vb_width)}x{_fmt(vb_height)} scales its content "
+        f"{scale_x:.4g}x horizontally and {scale_y:.4g}x vertically; bake "
+        "the resize into the drawing or redraw it"
+    )
 
 
 def _walk_chain(el: ET.Element, ancestors: tuple[ET.Element, ...] = ()):
@@ -530,6 +598,16 @@ def fit_problems(svg: str) -> list[str]:
     size a label prints at while its `font-size` still reads in range, which
     is how a group shrunk in an editor would otherwise pass. The fix is to
     bake the transform into the drawing, or redraw it, never to shrink it.
+
+    A nested `<svg>` that is an ancestor of a text - the inner viewport every
+    d2 figure carries (`class="... d2-svg" width="W" height="H"
+    viewBox="x y W H"`) - is held to the same 1:1 rule on both axes if it
+    carries both `width`/`height` and a `viewBox`: an unequal ratio, on
+    either axis, changes the size everything inside it prints at exactly as
+    an untranslated `transform` would, so resizing that inner viewport in an
+    editor is reported the same way. A nested `<svg>` with no `width`/
+    `height` (SVG's default, 100% of its container) or no `viewBox` carries
+    no scale of its own and is not reported. See `_nested_svg_scale_problem`.
     """
     problems: list[str] = []
     width, height = viewbox(svg)
@@ -542,6 +620,7 @@ def fit_problems(svg: str) -> list[str]:
     root = ET.fromstring(svg)
     lo, hi = TEXT_PT_RANGE
     bad_transforms: set[int] = set()
+    bad_svg_scales: set[int] = set()
     judged_sizes: set[int] = set()
     for el, chain in _walk_chain(root):
         if _local(el.tag) not in ("text", "tspan"):
@@ -557,6 +636,13 @@ def fit_problems(svg: str) -> list[str]:
                     "size its text prints at; bake the transform into the "
                     "drawing or redraw it"
                 )
+        for node in chain:
+            if node is root or _local(node.tag) != "svg" or id(node) in bad_svg_scales:
+                continue
+            scale_problem = _nested_svg_scale_problem(node)
+            if scale_problem is not None:
+                bad_svg_scales.add(id(node))
+                problems.append(scale_problem)
         setter = next(
             (n for n in reversed(chain) if _get_prop(n, "font-size") is not None),
             None,
