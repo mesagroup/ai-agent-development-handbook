@@ -14,8 +14,8 @@ Usage::
 
 Needs the pandoc CLI (``brew install pandoc``). Everything except
 `run_tool`, `build_epub` and `main` spawns no process and writes no file;
-`first_heading_ids` reads files. All of it is unit-tested in
-``tests/scripts/test_render_handbook_book.py``.
+`first_heading_ids` and `require_h1_first` read files. All of it is
+unit-tested in ``tests/scripts/test_render_handbook_book.py``.
 """
 
 from __future__ import annotations
@@ -23,6 +23,7 @@ from __future__ import annotations
 import argparse
 import datetime
 import os
+import re
 import subprocess
 import tempfile
 import uuid
@@ -90,6 +91,35 @@ def first_heading_ids(
         if ids:
             first[stem] = ids[0]
     return first
+
+
+_FIRST_HEADING_LEVEL_RE = re.compile(r'<h([1-6]) id="')
+
+
+def require_h1_first(docs_dir: Path, parts: list[tuple[str, str, str]]) -> None:
+    """Raise unless every part with a heading starts with an ``<h1>``.
+
+    Pandoc splits chapters on ``<h1>`` (``--split-level=1``). A part whose
+    first heading is ``<h2>`` or deeper gives it nothing to split on, so the
+    part merges silently into the previous chapter instead of becoming its
+    own; this check catches that before pandoc ever runs, rather than after,
+    where only a diff of the chapter count would show it.
+
+    Raises:
+        ValueError: A part's first heading is not level 1.
+    """
+    for _, stem, _ in parts:
+        html, ids, _ = render_part(docs_dir, stem)
+        if not ids:
+            continue
+        match = _FIRST_HEADING_LEVEL_RE.search(html)
+        if match and match.group(1) != "1":
+            raise ValueError(
+                f"{stem}.md: first heading is <h{match.group(1)}>, not <h1>; "
+                "pandoc splits chapters on <h1> (--split-level=1), so this "
+                "part would merge silently into the previous chapter instead "
+                "of starting its own"
+            )
 
 
 def listing_markup(block: DiagramBlock) -> str:
@@ -207,14 +237,15 @@ def build_epub(
     parts: list[tuple[str, str, str]] = PARTS,
 ) -> Path:
     """Write the EPUB for ``docs_dir`` to ``out`` and return ``out``."""
+    require_h1_first(docs_dir, parts)
     linkmap = book_linkmap(parts, first_heading_ids(docs_dir, parts))
     html = book_html(assemble(docs_dir, parts, linkmap))
     out.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as tmp:
         work = Path(tmp)
-        (work / "book.html").write_text(html)
-        (work / "metadata.yaml").write_text(book_metadata(date))
-        (work / "epub.css").write_text(EPUB_CSS)
+        (work / "book.html").write_text(html, encoding="utf-8")
+        (work / "metadata.yaml").write_text(book_metadata(date), encoding="utf-8")
+        (work / "epub.css").write_text(EPUB_CSS, encoding="utf-8")
         cmd = epub_command(
             work / "book.html", work / "metadata.yaml", work / "epub.css", out
         )
@@ -223,10 +254,19 @@ def build_epub(
 
 
 def _build_date() -> str:
-    """``SOURCE_DATE_EPOCH`` when set, so a tagged build is reproducible."""
+    """``SOURCE_DATE_EPOCH`` when set, so a tagged build is reproducible.
+
+    Raises:
+        SystemExit: ``SOURCE_DATE_EPOCH`` is set but is not an integer.
+    """
     epoch = os.environ.get("SOURCE_DATE_EPOCH")
     if epoch:
-        moment = datetime.datetime.fromtimestamp(int(epoch), tz=datetime.UTC)
+        try:
+            moment = datetime.datetime.fromtimestamp(int(epoch), tz=datetime.UTC)
+        except ValueError as exc:
+            raise SystemExit(
+                f"SOURCE_DATE_EPOCH={epoch!r} is not an integer Unix timestamp."
+            ) from exc
     else:
         moment = datetime.datetime.now(tz=datetime.UTC)
     return moment.date().isoformat()

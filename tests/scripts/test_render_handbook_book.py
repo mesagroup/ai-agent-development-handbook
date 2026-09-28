@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import re
 import shutil
 import zipfile
@@ -40,6 +41,27 @@ def test_first_heading_ids_leaves_out_a_part_with_no_heading(tmp_path: Path):
     pytest.importorskip("markdown")
     (tmp_path / "empty.md").write_text("just text\n")
     assert rb.first_heading_ids(tmp_path, [("p1", "empty", "Empty")]) == {}
+
+
+def test_require_h1_first_raises_when_a_parts_first_heading_is_not_h1(tmp_path: Path):
+    pytest.importorskip("markdown")
+    (tmp_path / "one.md").write_text("# One\n\ntext\n")
+    (tmp_path / "two.md").write_text("## Two\n\ntext\n")
+    parts = [("p1", "one", "One"), ("p2", "two", "Two")]
+    with pytest.raises(ValueError, match=r"two\.md: first heading is <h2>, not <h1>"):
+        rb.require_h1_first(tmp_path, parts)
+
+
+def test_require_h1_first_passes_a_part_whose_first_heading_is_h1(tmp_path: Path):
+    pytest.importorskip("markdown")
+    (tmp_path / "one.md").write_text("# One\n\n## Sub\n")
+    rb.require_h1_first(tmp_path, [("p1", "one", "One")])
+
+
+def test_require_h1_first_leaves_a_headingless_part_alone(tmp_path: Path):
+    pytest.importorskip("markdown")
+    (tmp_path / "empty.md").write_text("just text\n")
+    rb.require_h1_first(tmp_path, [("p1", "empty", "Empty")])
 
 
 def test_listing_markup_escapes_the_source_and_keeps_the_title():
@@ -113,11 +135,28 @@ def test_book_html_raises_on_a_placeholder_with_no_matching_diagram_block():
         rb.book_html([part])
 
 
+def test_build_date_uses_source_date_epoch_when_set(monkeypatch):
+    monkeypatch.setenv("SOURCE_DATE_EPOCH", "0")
+    assert rb._build_date() == "1970-01-01"
+
+
+def test_build_date_uses_today_when_source_date_epoch_is_unset(monkeypatch):
+    monkeypatch.delenv("SOURCE_DATE_EPOCH", raising=False)
+    expected = datetime.datetime.now(tz=datetime.UTC).date().isoformat()
+    assert rb._build_date() == expected
+
+
+def test_build_date_refuses_a_malformed_source_date_epoch(monkeypatch):
+    monkeypatch.setenv("SOURCE_DATE_EPOCH", "not-a-number")
+    with pytest.raises(SystemExit, match=r"SOURCE_DATE_EPOCH.*not-a-number"):
+        rb._build_date()
+
+
 REPO = Path(__file__).resolve().parents[2]
 DOCS = REPO / "docs" / "engineering"
 needs_pandoc = pytest.mark.skipif(
     shutil.which("pandoc") is None,
-    reason="pandoc CLI not installed; CI installs it (#192)",
+    reason="pandoc CLI not installed; CI gains it with #192",
 )
 
 
@@ -143,23 +182,41 @@ def _epub_documents(path: Path) -> dict[str, str]:
         return {n: z.read(n).decode() for n in z.namelist() if n.endswith(".xhtml")}
 
 
+_SECTION_OR_HEADING_ID_RE = re.compile(r'<(?:section|h[1-6])\b[^>]*\bid="([^"]+)"')
+
+
+def _chapter_ids(path: Path) -> set[str]:
+    """Every id on a ``<section>`` or ``<h1>``-``<h6>`` element in a chapter file.
+
+    Pandoc moves each heading id onto its enclosing ``<section class="levelN">``
+    rather than leaving it on the heading tag, so a plain ``id="..."`` scan over
+    every element (including the nav and the title page, which carry ids of
+    their own) is not the right comparison; this narrows to the chapter files
+    (``ch\\d+.xhtml``, so ``nav.xhtml``'s ``toc-title`` is excluded) and to the
+    two element kinds that can carry a heading's id.
+    """
+    ids = set()
+    with zipfile.ZipFile(path) as z:
+        for name in z.namelist():
+            if not re.search(r"ch\d+\.xhtml$", name):
+                continue
+            ids.update(_SECTION_OR_HEADING_ID_RE.findall(z.read(name).decode()))
+    return ids
+
+
 @pytest.fixture(scope="module")
 def built_epub(tmp_path_factory) -> Path:
     pytest.importorskip("markdown")
     if shutil.which("pandoc") is None:
-        pytest.skip("pandoc CLI not installed; CI installs it (#192)")
+        pytest.skip("pandoc CLI not installed; CI gains it with #192")
     out = tmp_path_factory.mktemp("epub") / "nested" / "handbook.epub"
     return rb.build_epub(DOCS, out, date="2026-09-28")
 
 
 @needs_pandoc
-def test_the_epub_carries_every_heading_id_the_page_carries(built_epub: Path):
-    docs = _epub_documents(built_epub)
-    in_book = set()
-    for text in docs.values():
-        in_book.update(re.findall(r' id="([^"]+)"', text))
+def test_the_epub_carries_exactly_the_heading_ids_the_page_carries(built_epub: Path):
     part_anchors = {anchor for anchor, _, _ in rh.PARTS}
-    assert rh.heading_ids(DOCS) - part_anchors <= in_book
+    assert _chapter_ids(built_epub) == rh.heading_ids(DOCS) - part_anchors
 
 
 @needs_pandoc
@@ -185,19 +242,24 @@ def test_every_part_is_a_chapter_in_page_order(built_epub: Path):
         assert f'id="{heading_id}"' in docs[chapters[i]]
 
 
-@needs_pandoc
-def test_a_part_with_no_h1_merges_into_the_previous_chapter(tmp_path: Path):
+def test_build_epub_refuses_a_part_whose_first_heading_is_not_h1(tmp_path: Path):
+    """`require_h1_first` guards `build_epub` before pandoc ever runs.
+
+    Without the guard, this part would merge silently into the previous
+    chapter instead of raising - the failure mode `require_h1_first` exists to
+    catch. Reaching pandoc is no longer part of this test: the guard runs
+    first, so this needs only the `markdown` dependency, not pandoc.
+    """
     pytest.importorskip("markdown")
     docs_dir = tmp_path / "docs"
     docs_dir.mkdir()
     (docs_dir / "one.md").write_text("# One\n\ntext\n")
     (docs_dir / "two.md").write_text("## Two\n\ntext\n")
     parts = [("p1", "one", "One"), ("p2", "two", "Two")]
-    built = rb.build_epub(
-        docs_dir, tmp_path / "out" / "book.epub", date="2026-09-28", parts=parts
-    )
-    chapters, _docs = _chapters(built)
-    assert len(chapters) < len(parts)
+    with pytest.raises(ValueError, match=r"two\.md: first heading is <h2>, not <h1>"):
+        rb.build_epub(
+            docs_dir, tmp_path / "out" / "book.epub", date="2026-09-28", parts=parts
+        )
 
 
 @needs_pandoc
