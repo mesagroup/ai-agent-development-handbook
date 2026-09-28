@@ -805,3 +805,22 @@ def test_assemble_raises_on_a_dead_relative_link(tmp_path: Path):
     (tmp_path / "README.md").write_text("# Handbook\n\nSee [x](missing.md).\n")
     with pytest.raises(ValueError, match=re.escape("missing.md")):
         rh.assemble(tmp_path, [("top", "README", "Overview")])
+
+
+def test_assemble_raises_when_two_parts_heading_ids_collide(tmp_path: Path):
+    """`assemble`'s own `ids & set(part_ids)` check, not `add_heading_ids`'s.
+
+    `add_heading_ids` only catches a collision within one part; this is the
+    cross-part half, for two parts whose ``<stem>-<slug>`` land on the same
+    string by different routes. Stem ``a-b`` heading ``C`` and stem ``a``
+    heading ``B C`` both slugify to ``a-b-c``, so the second part rendered
+    collides with the id the first already added to the page.
+    """
+    pytest.importorskip("markdown")
+    (tmp_path / "a-b.md").write_text("# Intro\n\n## C\n")
+    (tmp_path / "a.md").write_text("# Intro\n\n## B C\n")
+    parts = [("p1", "a-b", "AB"), ("p2", "a", "A")]
+    with pytest.raises(
+        ValueError, match=re.escape("a.md: heading id(s) ['a-b-c'] collide")
+    ):
+        rh.assemble(tmp_path, parts)
