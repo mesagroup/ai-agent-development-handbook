@@ -7,7 +7,7 @@ from pathlib import Path
 import book_figures as bf
 import pytest
 import render_handbook_book as rb
-from render_handbook_artifact import PARTS
+from render_handbook_artifact import PALETTE, PARTS
 
 DOCS = Path(__file__).resolve().parents[2] / "docs" / "engineering"
 FIGURES = DOCS / "figures"
@@ -22,9 +22,11 @@ def test_every_committed_figure_names_a_fence():
 @pytest.mark.parametrize("path", COMMITTED, ids=lambda p: p.stem)
 def test_a_committed_figure_was_drawn_from_its_fence_as_it_stands(path):
     block = BLOCKS[path.stem]
-    assert bf.recorded_hash(path.read_text()) == bf.source_hash(block.source), (
+    expected = bf.source_hash(block.source)
+    assert bf.recorded_hash(path.read_text()) == expected, (
         f"{path.name} was drawn from an older version of the fence titled "
-        f"{block.title!r}; redraw it, or confirm it still holds and re-stamp it"
+        f"{block.title!r}; redraw it, or confirm it still holds and re-stamp "
+        f'its root <svg> with data-source-sha256="{expected}"'
     )
 
 
@@ -34,6 +36,12 @@ def test_a_committed_figure_holds_the_print_checks(path):
     assert (
         bf.fit_problems(svg) + bf.opaque_fill_problems(svg) + bf.contrast_problems(svg)
         == []
+    )
+    # The build's EPUB copy of this file, made here without pandoc so a hand
+    # edit that `embed_fonts` cannot read fails on any machine, not only
+    # where the full build runs.
+    assert "@font-face" in bf.embed_fonts(
+        bf.with_backing_panel(svg, PALETTE["light"]["surface"]), rb.FONT_DIR
     )
 
 
@@ -48,5 +56,7 @@ def test_a_figure_stale_against_its_fence_fails_the_hash_check(tmp_path):
     stale = bf.stamp_hash(original.read_text(), bf.source_hash("changed"))
     path = tmp_path / original.name
     path.write_text(stale)
-    with pytest.raises(AssertionError, match="older version of the fence"):
+    expected = bf.source_hash(BLOCKS[original.stem].source)
+    with pytest.raises(AssertionError, match="older version of the fence") as info:
         test_a_committed_figure_was_drawn_from_its_fence_as_it_stands(path)
+    assert f'data-source-sha256="{expected}"' in str(info.value)
