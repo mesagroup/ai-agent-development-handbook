@@ -6,9 +6,45 @@ import shutil
 import zipfile
 from pathlib import Path
 
+import book_figures as bf
 import pytest
 import render_handbook_artifact as rh
 import render_handbook_book as rb
+from render_handbook_artifact import DiagramBlock
+
+
+def test_figure_path_names_stem_and_index(tmp_path):
+    assert rb.figure_path(tmp_path, "README", 0) == tmp_path / "README-0.svg"
+
+
+def test_a_funnel_seed_is_stamped_and_vertical():
+    block = DiagramBlock(index=0, kind="funnel", title="F", source="A 10\nB 1\n")
+    svg = rb.seed_svg("evaluation", block)
+    assert bf.recorded_hash(svg) == bf.source_hash(block.source)
+    assert 'font-family="Source Sans 3"' in svg
+    assert bf.fit_problems(svg) == []
+
+
+def test_seeding_writes_missing_figures_only(tmp_path):
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "a.md").write_text('# A\n\n```funnel title="F"\nA 10\nB 1\n```\n')
+    figures = tmp_path / "figures"
+    parts = [("p1", "a", "A")]
+    assert rb.seed_figures(docs, figures, parts) == [figures / "a-0.svg"]
+    (figures / "a-0.svg").write_text("hand-corrected")
+    assert rb.seed_figures(docs, figures, parts) == []
+    assert (figures / "a-0.svg").read_text() == "hand-corrected"
+
+
+@pytest.mark.skipif(
+    shutil.which("d2") is None, reason="needs the d2 CLI; CI gains it with #192"
+)
+def test_a_d2_seed_is_clean_and_transparent():
+    block = DiagramBlock(index=0, kind="d2", title="T", source="a -> b\n")
+    svg = rb.seed_svg("x", block)
+    assert "@font-face" not in svg
+    assert bf.opaque_fill_problems(svg) == []
 
 
 def test_book_linkmap_points_a_bare_part_link_at_its_first_heading():
