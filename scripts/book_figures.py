@@ -72,6 +72,14 @@ FACE_FILES = {
 # Walking into one of these would misread furniture as figure content, most
 # visibly a mask's opaque white rect, which would otherwise fail the opaque-
 # fill check for a mask that paints nothing.
+#
+# `image` is a narrower case, judged by `_walk_paint` rather than skipped by
+# `_walk`: it paints its embedded bitmap, so `fill`/`stroke` reaching it
+# through inheritance describes no pixel it actually draws. `use` is not the
+# same case despite looking like it: SVG 1.1 section 5.6 has the referenced
+# instance inherit from the `use` element itself, so `<use fill="...">`
+# genuinely paints its reference and stays judged, even though the walk never
+# resolves what that reference is.
 _SKIP_TAGS = frozenset({"mask", "defs", "metadata", "namedview"})
 
 _NAMED_COLORS = {"white": "#ffffff", "black": "#000000"}
@@ -252,6 +260,11 @@ _INITIAL_STROKE = "none"
 _INITIAL_STROKE_OPACITY = "1"
 
 
+# Painted only through an embedded bitmap, never through its own
+# `fill`/`stroke`; see the note beside `_SKIP_TAGS` for why `use` is not here.
+_NO_PAINT_TAGS = frozenset({"image"})
+
+
 def _walk_paint(
     el: ET.Element,
     fill: str = _INITIAL_FILL,
@@ -260,7 +273,9 @@ def _walk_paint(
     stroke_opacity: str = _INITIAL_STROKE_OPACITY,
     group_opacity: float = 1.0,
 ):
-    """Yield `(element, fill, fill_alpha, stroke, stroke_alpha)`, inherited.
+    """Yield `(element, fill, fill_alpha, fill_bad, stroke, stroke_alpha, stroke_bad)`.
+
+    `fill_bad`/`stroke_bad` is `(property, raw) | None`; see below.
 
     `fill`, `fill-opacity`, `stroke` and `stroke-opacity` are all inherited
     SVG properties (SVG 1.1 section 11.4; SVG 2's painting-properties table
@@ -270,7 +285,9 @@ def _walk_paint(
     Inkscape edit leaves colour on a selected group or layer with the shape
     or text inside left unset, so a check reading only an element's own
     attribute would miss a pale colour set on its parent, for a stroke just
-    as much as for a fill.
+    as much as for a fill. An `image` element is never yielded (it paints an
+    embedded bitmap, not `fill`/`stroke`), though its subtree, if any, is
+    still walked; `use` is still yielded (see `_NO_PAINT_TAGS`'s comment).
 
     `opacity` is not inherited but composited: a group's `opacity` fades
     everything inside it, and nested groups multiply. So each alpha yielded
@@ -278,6 +295,20 @@ def _walk_paint(
     product of `opacity` on the element and every ancestor, which is how
     much of the colour reaches the paper. Skips subtrees in `_SKIP_TAGS`, as
     `_walk` does.
+
+    `fill_alpha`/`stroke_alpha` is `None`, with the corresponding
+    `fill_bad`/`stroke_bad` carrying `(property, raw)` - the property name and
+    the raw string that defeated `_parse_opacity` - wherever a `fill-opacity`,
+    `stroke-opacity` or `opacity` in force for this element is not one of its
+    recognized forms, so a caller reports it the way it already reports an
+    unrecognized colour, rather than the alpha silently reading as fully
+    opaque. A bad `opacity` poisons both channels, since it composites into
+    each, and is named `opacity` in both rather than misattributed to
+    `fill-opacity`/`stroke-opacity`; a bad `fill-opacity`/`stroke-opacity`
+    poisons only its own channel, and, inherited unchanged like the colour it
+    travels with, is reported again on every descendant that does not
+    override it - the same duplication an unrecognized inherited colour
+    already produces.
     """
     own_fill = _get_prop(el, "fill")
     effective_fill = own_fill if own_fill is not None else fill
@@ -291,14 +322,35 @@ def _walk_paint(
     effective_stroke_opacity = (
         own_stroke_opacity if own_stroke_opacity is not None else stroke_opacity
     )
-    composite = group_opacity * _prop_opacity(el, "opacity")
-    yield (
-        el,
-        effective_fill,
-        _parse_opacity(effective_fill_opacity) * composite,
-        effective_stroke,
-        _parse_opacity(effective_stroke_opacity) * composite,
-    )
+    own_opacity = _get_prop(el, "opacity")
+    try:
+        own_alpha = _parse_opacity(own_opacity)
+        group_bad: tuple[str, str] | None = None
+    except ValueError:
+        own_alpha = 1.0
+        group_bad = ("opacity", own_opacity)
+    composite = group_opacity * own_alpha
+
+    def _alpha(raw: str, prop: str) -> tuple[float | None, tuple[str, str] | None]:
+        if group_bad is not None:
+            return None, group_bad
+        try:
+            return _parse_opacity(raw) * composite, None
+        except ValueError:
+            return None, (prop, raw)
+
+    fill_alpha, fill_bad = _alpha(effective_fill_opacity, "fill-opacity")
+    stroke_alpha, stroke_bad = _alpha(effective_stroke_opacity, "stroke-opacity")
+    if _local(el.tag) not in _NO_PAINT_TAGS:
+        yield (
+            el,
+            effective_fill,
+            fill_alpha,
+            fill_bad,
+            effective_stroke,
+            stroke_alpha,
+            stroke_bad,
+        )
     for child in el:
         if not isinstance(child.tag, str):
             continue  # a comment or processing instruction, not an element
@@ -334,16 +386,20 @@ def _get_prop(el: ET.Element, name: str) -> str | None:
 
 
 def _parse_opacity(value: str | None) -> float:
+    """Parse an SVG alpha: a bare number (SVG 1.1) or a percentage (SVG 2).
+
+    Clamped to 0..1, since that is the only range that means anything as an
+    alpha and an author value outside it should not paint as more or less
+    opaque than fully.
+
+    Raises:
+        ValueError: `value` is set but neither of those two forms.
+    """
     if value is None:
         return 1.0
-    try:
-        return float(value)
-    except ValueError:
-        return 1.0
-
-
-def _prop_opacity(el: ET.Element, name: str) -> float:
-    return _parse_opacity(_get_prop(el, name))
+    v = value.strip()
+    number = float(v[:-1]) / 100 if v.endswith("%") else float(v)
+    return max(0.0, min(1.0, number))
 
 
 def _normalize_hex(value: str) -> str:
@@ -543,15 +599,32 @@ def opaque_fill_problems(svg: str, paper: str = PAPER_CREAM) -> list[str]:
     fill at or below `TINT_MAX_ALPHA` is a tint and passes; any other is
     blended over `paper` at its alpha and reported when the colour that
     prints has a luminance over 0.5, so a pale fill at 0.99 is judged as the
-    pale surface it is. An alpha of 0 paints nothing. An unrecognized colour
-    is reported rather than silently passed. `text`/`tspan` fills are
+    pale surface it is. An alpha of 0 paints nothing. An unrecognized colour,
+    or a `fill-opacity`/`opacity` in none of `_parse_opacity`'s recognized
+    forms, is reported rather than silently passed. `text`/`tspan` fills are
     `contrast_problems`'s concern, held to a paper-contrast bar rather than a
-    bare luminance cutoff.
+    bare luminance cutoff. An `image` element is never judged (`_walk_paint`
+    never yields one): it paints an embedded bitmap, not its inherited
+    `fill`.
     """
     problems: list[str] = []
     root = ET.fromstring(svg)
-    for el, fill, fill_alpha, _stroke, _stroke_alpha in _walk_paint(root):
+    for (
+        el,
+        fill,
+        fill_alpha,
+        fill_bad,
+        _stroke,
+        _stroke_alpha,
+        _stroke_bad,
+    ) in _walk_paint(root):
         if _local(el.tag) in ("text", "tspan"):
+            continue
+        if fill_bad is not None:
+            prop, raw = fill_bad
+            problems.append(
+                f"{prop} {raw!r} on <{_local(el.tag)}> is not a recognized opacity"
+            )
             continue
         if fill_alpha <= TINT_MAX_ALPHA:
             continue
@@ -609,22 +682,37 @@ def contrast_problems(svg: str, paper: str = PAPER_CREAM) -> list[str]:
     colour is blended over `paper` at its alpha (the resolved paint opacity
     composited with every `opacity` above it) and the colour that prints is
     what is held to the bar, so ink under a faded group is judged as the grey
-    it becomes. An alpha of 0 paints nothing. An unrecognized colour is
-    reported rather than silently passed.
+    it becomes. An alpha of 0 paints nothing. An unrecognized colour, or a
+    `fill-opacity`/`stroke-opacity`/`opacity` in none of `_parse_opacity`'s
+    recognized forms, is reported rather than silently passed. An `image`
+    element is never judged (`_walk_paint` never yields one): it paints an
+    embedded bitmap, not its inherited `fill`/`stroke`.
     """
     problems: list[str] = []
     root = ET.fromstring(svg)
-    for el, fill, fill_alpha, stroke, stroke_alpha in _walk_paint(root):
+    for el, fill, fill_alpha, fill_bad, stroke, stroke_alpha, stroke_bad in _walk_paint(
+        root
+    ):
         tag = _local(el.tag)
         if tag in ("text", "tspan"):
-            try:
-                problem = _contrast_problem(
-                    "text fill", fill, fill_alpha, tag, paper, 4.5
+            if fill_bad is not None:
+                prop, raw = fill_bad
+                problems.append(
+                    f"text {prop} {raw!r} on <{tag}> is not a recognized opacity"
                 )
-            except ValueError:
-                problem = f"unrecognized text fill {fill!r} on <{tag}>"
-            if problem is not None:
-                problems.append(problem)
+            else:
+                try:
+                    problem = _contrast_problem(
+                        "text fill", fill, fill_alpha, tag, paper, 4.5
+                    )
+                except ValueError:
+                    problem = f"unrecognized text fill {fill!r} on <{tag}>"
+                if problem is not None:
+                    problems.append(problem)
+        if stroke_bad is not None:
+            prop, raw = stroke_bad
+            problems.append(f"{prop} {raw!r} on <{tag}> is not a recognized opacity")
+            continue
         try:
             problem = _contrast_problem("stroke", stroke, stroke_alpha, tag, paper, 3.0)
         except ValueError:

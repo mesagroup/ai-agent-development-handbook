@@ -218,6 +218,24 @@ def test_a_shape_inheriting_a_light_fill_from_a_translucent_group_is_reported():
     assert bf.opaque_fill_problems(svg) != []
 
 
+def test_an_image_does_not_paint_its_inherited_fill_but_a_rect_does():
+    # An <image> paints its bitmap, not `fill`/`stroke`, so a pale fill it
+    # inherits is furniture the check should not judge; the same fill
+    # inherited onto a <rect> in an identical tree, mirroring the group
+    # shape above, is a real problem and must still be reported. The
+    # group's own low fill-opacity makes the group itself pass, isolating
+    # the leaf's own re-asserted full opacity as the only thing in play.
+    def tree(tag: str) -> str:
+        return (
+            '<svg xmlns="http://www.w3.org/2000/svg">'
+            '<g fill="#f7f6f2" fill-opacity="0.1">'
+            f'<{tag} fill-opacity="1" width="1" height="1"/></g></svg>'
+        )
+
+    assert bf.opaque_fill_problems(tree("image")) == []
+    assert bf.opaque_fill_problems(tree("rect")) != []
+
+
 def test_a_shape_inheriting_a_pale_stroke_from_a_translucent_group_is_reported():
     # Mirrors the fill case above: the group's own stroke-opacity makes the
     # group itself pass, but the rect re-asserts full opacity for itself
@@ -422,6 +440,44 @@ def test_the_funnels_accent_wash_passes():
 def test_a_near_opaque_pale_fill_is_reported():
     svg = _sized('<rect width="1" height="1" fill="#eeeeee" fill-opacity="0.99"/>')
     assert bf.opaque_fill_problems(svg) != []
+
+
+def test_an_svg2_percentage_opacity_reads_as_its_fraction():
+    # "50%" is SVG 2's own spelling of 0.5 (SVG 1.1 only allows a bare
+    # number), and 0.5 sits at TINT_MAX_ALPHA, the pass/fail boundary, so a
+    # fill that reads "50%" as 1.0 (the old silent default) would fail here
+    # while the correct 0.5 reading passes.
+    svg = _sized('<rect width="1" height="1" fill="#eeeeee" fill-opacity="50%"/>')
+    assert bf.opaque_fill_problems(svg) == []
+
+
+def test_an_unparseable_fill_opacity_is_reported_naming_element_and_value():
+    svg = _sized('<rect width="1" height="1" fill="#eeeeee" fill-opacity="abc"/>')
+    problems = bf.opaque_fill_problems(svg)
+    assert len(problems) == 1
+    assert "abc" in problems[0] and "<rect>" in problems[0]
+
+
+def test_an_unparseable_opacity_is_reported_by_contrast_problems_too():
+    svg = _sized(
+        '<rect width="1" height="1" stroke="#c3bfb1" stroke-width="1" '
+        'fill="none" stroke-opacity="abc"/>'
+    )
+    problems = bf.contrast_problems(svg)
+    assert len(problems) == 1
+    assert "abc" in problems[0] and "<rect>" in problems[0]
+
+
+def test_an_unparseable_group_opacity_is_named_opacity_not_fill_opacity():
+    # The group `opacity` attribute, not `fill-opacity`, is what failed to
+    # parse here, so the report must name it as such rather than blaming an
+    # attribute the element never carries; and it should surface once per
+    # channel, not once per (poisoned) alpha computation.
+    svg = _sized('<rect width="1" height="1" fill="#eeeeee" opacity="abc"/>')
+    problems = bf.opaque_fill_problems(svg)
+    assert len(problems) == 1
+    assert "opacity" in problems[0] and "<rect>" in problems[0]
+    assert "fill-opacity" not in problems[0]
 
 
 def test_ink_text_under_a_faded_group_is_blended_and_judged():
