@@ -7,9 +7,9 @@ book's ids are the page's by construction and every citation a report
 emits lands on the same heading in both. Each diagram is a captioned figure
 (`figure_markup`): its committed SVG under ``docs/engineering/figures/``, or,
 where none is committed yet, its seed, with a NOTE on stderr naming the
-fence (`load_figure`). The EPUB's copy of each carries a light backing panel
-and the subset faces its text uses, and is placed at the one scale through an
-em width (`book_figures`). A checklist item carries a ☐/☒ glyph
+fence (`load_figure`, `write_figures`). The EPUB's copy of each carries a
+light backing panel and the subset faces its text uses, and is placed at the
+one scale through an em width (`book_figures`). A checklist item carries a ☐/☒ glyph
 (`restore_task_boxes`) so it reads as a box rather than a plain bullet.
 Prose quotes are curled to typographic ones and inline code is left
 untouched (`curl_quotes`) before the document ever reaches pandoc.
@@ -23,10 +23,13 @@ Usage::
 Needs the pandoc CLI (``brew install pandoc``) for ``--format epub``, and
 the d2 CLI for ``--seed-figures`` and for ``--format epub`` whenever a d2
 diagram has no committed figure, since the build then draws its seed. Only
-`run_tool` and `seed_svg` (through `run_d2`) spawn a process; only
-`seed_figures` and `build_epub` write a file, and `main` calls whichever of
-those two the CLI selected. Every other function spawns no process and
-writes no file. All of it is unit-tested in
+`run_tool` and `seed_svg` (through `run_d2`) spawn a process themselves,
+which `load_figure` and `write_figures` reach through `seed_svg` where a d2
+fence has no committed figure; only `seed_figures`, `write_figures`
+and `build_epub` write a file, and `main` calls `seed_figures` or
+`build_epub`, whichever the CLI selected, `build_epub` calling
+`write_figures`. Every other function spawns no process and writes no
+file. All of it is unit-tested in
 ``tests/scripts/test_render_handbook_book.py``.
 """
 
@@ -297,8 +300,9 @@ def curl_quotes(html: str) -> str:
 
     Walks `html` as a stream of tag and text tokens, skipping every run of
     text inside ``<code>`` or ``<pre>`` (nested or not) so inline code and
-    code blocks reach pandoc, and the EPUB, exactly as written. In the text that is curled, a straight double quote opens
-    (``\u201c``) when the character before it is missing, whitespace, or an
+    code blocks reach pandoc, and the EPUB, exactly as written. In the text
+    that is curled, a straight double quote opens (``\u201c``) when the
+    character before it is missing, whitespace, or an
     opening bracket, and closes (``\u201d``) otherwise; a straight single
     quote is an apostrophe (``\u2019``) when the character before it is a
     letter or digit, an opening quote (``\u2018``) under the same rule as a
@@ -504,6 +508,46 @@ def seed_figures(
     return written
 
 
+def write_figures(
+    assembled: list[AssembledPart], figures_dir: Path, media: Path
+) -> tuple[dict[str, dict[int, str]], list[str]]:
+    """Write each diagram's EPUB copy into `media` and build its figure markup.
+
+    Each figure comes from `load_figure`; its copy, on the light panel
+    (`with_backing_panel`) and carrying the faces its text uses
+    (`embed_fonts`), is written as ``media/<stem>-<index>.svg``. For every
+    fence with no committed figure, one line goes to stderr, exactly
+    ``NOTE: <stem>-<index> has no committed figure; the book uses its seed``,
+    which the release workflow (#192) turns into a failure.
+
+    Returns:
+        Each diagram's `figure_markup`, by part stem and block index, and the
+        ``<stem>-<index>`` of every fence that used its seed, in part order.
+    """
+    surface = PALETTE["light"]["surface"]
+    figures: dict[str, dict[int, str]] = {}
+    seeded_ids: list[str] = []
+    for part in assembled:
+        for block in part.blocks:
+            figure_id = f"{part.stem}-{block.index}"
+            svg, seeded = load_figure(figures_dir, part.stem, block)
+            if seeded:
+                seeded_ids.append(figure_id)
+                print(
+                    f"NOTE: {figure_id} has no committed figure; "
+                    "the book uses its seed",
+                    file=sys.stderr,
+                )
+            (media / f"{figure_id}.svg").write_text(
+                embed_fonts(with_backing_panel(svg, surface), FONT_DIR),
+                encoding="utf-8",
+            )
+            figures.setdefault(part.stem, {})[block.index] = figure_markup(
+                part.stem, block, epub_width_em(svg)
+            )
+    return figures, seeded_ids
+
+
 def build_epub(
     docs_dir: Path,
     out: Path,
@@ -518,10 +562,10 @@ def build_epub(
     than each converting every part's Markdown on its own.
 
     Each diagram's figure is read from `figures_dir` (default
-    ``docs_dir / "figures"``) by `load_figure`, which falls back to its seed
-    with a NOTE on stderr. Its EPUB copy, on the light panel and carrying
-    the faces its text uses, is written to the work directory's ``media/``,
-    where pandoc resolves it from.
+    ``docs_dir / "figures"``) by `write_figures`, which falls back to its
+    seed with a NOTE on stderr and writes its EPUB copy, on the light panel
+    and carrying the faces its text uses, to the work directory's
+    ``media/``, where pandoc resolves it from.
     """
     if figures_dir is None:
         figures_dir = docs_dir / "figures"
@@ -534,24 +578,7 @@ def build_epub(
         work = Path(tmp)
         media = work / "media"
         media.mkdir()
-        surface = PALETTE["light"]["surface"]
-        figures: dict[str, dict[int, str]] = {}
-        for part in assembled:
-            for block in part.blocks:
-                svg, seeded = load_figure(figures_dir, part.stem, block)
-                if seeded:
-                    print(
-                        f"NOTE: {part.stem}-{block.index} has no committed figure; "
-                        "the book uses its seed",
-                        file=sys.stderr,
-                    )
-                (media / f"{part.stem}-{block.index}.svg").write_text(
-                    embed_fonts(with_backing_panel(svg, surface), FONT_DIR),
-                    encoding="utf-8",
-                )
-                figures.setdefault(part.stem, {})[block.index] = figure_markup(
-                    part.stem, block, epub_width_em(svg)
-                )
+        figures, _ = write_figures(assembled, figures_dir, media)
         html = curl_quotes(book_html(assembled, figures))
         (work / "book.html").write_text(html, encoding="utf-8")
         (work / "metadata.yaml").write_text(book_metadata(date), encoding="utf-8")

@@ -146,6 +146,43 @@ def test_a_missing_figure_falls_back_to_its_seed(tmp_path):
     assert seeded and bf.recorded_hash(svg) == bf.source_hash(block.source)
 
 
+def _funnel_part(stem: str, count: int) -> AssembledPart:
+    blocks = [DiagramBlock(i, "funnel", f"F{i}", "A 10\nB 1\n") for i in range(count)]
+    return AssembledPart(anchor="p1", stem=stem, html="", blocks=blocks)
+
+
+def test_write_figures_names_each_seeded_fence_on_stderr(tmp_path, capsys):
+    # The release workflow (#192) turns this exact line into a failure, so its
+    # shape is a contract: one line per fence with no committed figure.
+    figures, media = tmp_path / "figures", tmp_path / "media"
+    figures.mkdir()
+    media.mkdir()
+    committed = rb.seed_svg("a", _funnel_part("a", 1).blocks[0])
+    (figures / "a-0.svg").write_text(committed, encoding="utf-8")
+    parts = [_funnel_part("a", 2), _funnel_part("b", 1)]
+    markup, seeded = rb.write_figures(parts, figures, media)
+    assert seeded == ["a-1", "b-0"]
+    assert capsys.readouterr().err.splitlines() == [
+        "NOTE: a-1 has no committed figure; the book uses its seed",
+        "NOTE: b-0 has no committed figure; the book uses its seed",
+    ]
+    assert sorted(p.name for p in media.iterdir()) == ["a-0.svg", "a-1.svg", "b-0.svg"]
+    assert set(markup) == {"a", "b"} and set(markup["a"]) == {0, 1}
+    assert 'src="media/a-1.svg"' in markup["a"][1]
+
+
+def test_write_figures_writes_the_panelled_font_embedded_copy(tmp_path):
+    figures, media = tmp_path / "figures", tmp_path / "media"
+    figures.mkdir()
+    media.mkdir()
+    _, seeded = rb.write_figures([_funnel_part("a", 1)], figures, media)
+    assert seeded == ["a-0"]
+    copy = (media / "a-0.svg").read_text(encoding="utf-8")
+    assert f'fill="{rh.PALETTE["light"]["surface"]}"' in copy
+    assert "@font-face" in copy
+    assert not list(figures.iterdir()), "the build never writes a committed figure"
+
+
 def test_book_html_places_figures_not_listings():
     part = AssembledPart(
         anchor="p1",
@@ -341,12 +378,20 @@ needs_pandoc = pytest.mark.skipif(
     shutil.which("pandoc") is None,
     reason="pandoc CLI not installed; CI gains it with #192",
 )
-# Until every fence has a committed figure, the build seeds the missing ones
-# through the d2 CLI, so a full build needs d2 as well as pandoc.
-needs_pandoc_and_d2 = pytest.mark.skipif(
-    shutil.which("pandoc") is None or shutil.which("d2") is None,
-    reason="needs the pandoc and d2 CLIs; CI gains them with #192",
+# A full build draws a seed through the d2 CLI only for a d2 fence with no
+# committed figure, so a build needs d2 exactly while one exists. Computed
+# rather than assumed, so the gate stays right the day a fence lands before
+# its figure.
+BUILD_NEEDS_D2 = any(
+    block.kind == "d2"
+    and not rb.figure_path(DOCS / "figures", stem, block.index).exists()
+    for stem, block in rb.part_blocks(DOCS, rh.PARTS)
 )
+
+
+def _skip_unless_the_build_can_draw_its_seeds() -> None:
+    if BUILD_NEEDS_D2 and shutil.which("d2") is None:
+        pytest.skip("a d2 fence has no committed figure, so the build needs d2")
 
 
 def test_run_tool_names_a_missing_tool_and_how_to_install_it():
@@ -398,8 +443,7 @@ def built_epub(tmp_path_factory) -> Path:
     pytest.importorskip("markdown")
     if shutil.which("pandoc") is None:
         pytest.skip("pandoc CLI not installed; CI gains it with #192")
-    if shutil.which("d2") is None:
-        pytest.skip("needs the d2 CLI; CI gains it with #192")
+    _skip_unless_the_build_can_draw_its_seeds()
     out = tmp_path_factory.mktemp("epub") / "nested" / "handbook.epub"
     return rb.build_epub(DOCS, out, date="2026-09-28")
 
@@ -583,11 +627,12 @@ def test_build_epub_creates_a_missing_output_directory(built_epub: Path):
     assert built_epub.exists() and built_epub.parent.name == "nested"
 
 
-@needs_pandoc_and_d2
+@needs_pandoc
 def test_main_resolves_the_docs_from_the_repository_not_the_cwd(
     tmp_path: Path, monkeypatch
 ):
     pytest.importorskip("markdown")
+    _skip_unless_the_build_can_draw_its_seeds()
     monkeypatch.chdir(tmp_path)
     out = tmp_path / "handbook.epub"
     assert rb.main(["--format", "epub", "--out", str(out)]) == 0
@@ -619,7 +664,7 @@ def _resolve_in_archive(chapter: str, src: str) -> str:
     return "/".join(parts)
 
 
-@needs_pandoc_and_d2
+@needs_pandoc
 def test_the_epub_carries_one_image_per_fence(built_epub: Path):
     # Pandoc renames each media file (``media/file0.svg``, ...), so the check
     # resolves every src against its chapter rather than looking for the
@@ -636,7 +681,7 @@ _STYLE_OR_DEFS_RE = re.compile(r"\s*<(style|defs)\b[^>]*(?:/>|>.*?</\1>)", re.S)
 _WEIGHT_STYLE_RE = re.compile(r"font-weight:\s*(\d+);\s*font-style:\s*(\w+)")
 
 
-@needs_pandoc_and_d2
+@needs_pandoc
 def test_every_epub_figure_has_its_panel_and_fonts(built_epub: Path):
     surface = rh.PALETTE["light"]["surface"]
     media = _epub_media_svgs(built_epub)
@@ -667,7 +712,7 @@ def test_every_epub_figure_has_its_panel_and_fonts(built_epub: Path):
     assert literal_checks, "no figure carried a literal weight or style to check"
 
 
-@needs_pandoc_and_d2
+@needs_pandoc
 def test_no_fence_survives_as_a_listing(built_epub: Path):
     import html as html_mod
 
@@ -685,7 +730,7 @@ def test_no_fence_survives_as_a_listing(built_epub: Path):
                 assert line not in pre_texts, (stem, block.index, line)
 
 
-@needs_pandoc_and_d2
+@needs_pandoc
 def test_the_epub_image_keeps_its_em_width(built_epub: Path):
     chapters, docs = _chapters(built_epub)
     imgs = [tag for name in chapters for tag in _IMG_TAG_RE.findall(docs[name])]
