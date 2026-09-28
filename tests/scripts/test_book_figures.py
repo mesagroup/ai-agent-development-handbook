@@ -114,6 +114,16 @@ def test_clean_seed_replaces_the_salt_and_the_base64_names():
     assert "dGFzay5h" not in out
 
 
+def test_clean_seed_keeps_a_user_class_beside_the_base64_group_name():
+    # d2 writes `class="<base64> <user class>"` for a node carrying a
+    # `{class: ...}` (as README-0's `s`/`h` classes and `d2_icon_classes`'
+    # `step`/`human` do), unlike the base64-alone form `D2_LIKE` covers.
+    # `aWRlYQ==` is `idea`'s base64.
+    svg = '<svg viewBox="0 0 1 1"><g class="aWRlYQ== s"></g></svg>'
+    out = bf.clean_seed_svg(svg, "x-0")
+    assert '<g id="x-0-idea" class="s">' in out
+
+
 def test_clean_seed_refuses_an_unknown_text_class():
     with pytest.raises(ValueError, match="text-mono"):
         bf.clean_seed_svg(D2_LIKE.replace("text-bold", "text-mono"), "x-0")

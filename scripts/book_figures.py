@@ -159,7 +159,15 @@ def _replace_g_class(svg: str, figure_id: str) -> str:
     seen: dict[str, int] = {}
 
     def repl(match: re.Match[str]) -> str:
-        token = match.group(1)
+        value = match.group(1)
+        # d2 writes the base64 group name alone for a plain shape, but
+        # `class="<base64> <user class>"` for one carrying a `{class: ...}`
+        # (e.g. an icon class from `d2_icon_classes`), so only the first
+        # whitespace-separated token is ever the base64 name; the rest, if
+        # any, is a real CSS class this figure's own classes block styles.
+        parts = value.split(None, 1)
+        token = parts[0]
+        rest = parts[1] if len(parts) > 1 else ""
         try:
             decoded = base64.b64decode(token, validate=True).decode("utf-8")
         except (binascii.Error, UnicodeDecodeError):
@@ -170,6 +178,9 @@ def _replace_g_class(svg: str, figure_id: str) -> str:
         seen[slug] = seen.get(slug, 0) + 1
         if seen[slug] > 1:
             slug = f"{slug}-{seen[slug]}"
+        rest = rest.strip()
+        if rest:
+            return f'<g id="{figure_id}-{slug}" class="{rest}">'
         return f'<g id="{figure_id}-{slug}">'
 
     return _G_CLASS_RE.sub(repl, svg)
