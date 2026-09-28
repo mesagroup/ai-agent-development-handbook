@@ -17,9 +17,11 @@ Usage::
     uv run python scripts/render_handbook_book.py --seed-figures
 
 Needs the pandoc CLI (``brew install pandoc``) for ``--format epub`` and the
-d2 CLI for ``--seed-figures``. Everything except `run_tool`, `seed_svg`,
-`build_epub` and `main` spawns no process and writes no file. All of it is
-unit-tested in ``tests/scripts/test_render_handbook_book.py``.
+d2 CLI for ``--seed-figures``. Only `run_tool` and `seed_svg` (through
+`run_d2`) spawn a process; only `seed_figures` and `build_epub` write a file,
+and `main` calls whichever of those two the CLI selected. Every other
+function spawns no process and writes no file. All of it is unit-tested in
+``tests/scripts/test_render_handbook_book.py``.
 """
 
 from __future__ import annotations
