@@ -10,6 +10,7 @@ uv run ruff check . && uv run ruff format --check .
 uv run python scripts/render_handbook_traceability.py --check   # integrity gate
 uv run python scripts/render_handbook_traceability.py           # regenerate the matrix Markdown
 uv run python scripts/render_handbook_artifact.py               # needs the d2 CLI
+uv run python scripts/render_handbook_book.py --format epub      # needs the pandoc CLI; writes build/handbook.epub
 uv run python scripts/check_handbook_citations.py               # every citation a report emits resolves to an anchor in the page
 uv run python scripts/render_python_fixture_expectations.py --check   # integrity gate
 uv run python scripts/render_python_fixture_expectations.py           # regenerate the fixture expectations

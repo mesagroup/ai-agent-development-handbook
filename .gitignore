@@ -21,3 +21,6 @@ fixtures/
 # project in its own organisation or its origin's. They stay on the host that ran
 # the sweep; the pull request carries counts and placeholder terms instead.
 sweeps/
+
+# Default output dir of scripts/render_handbook_book.py
+build/

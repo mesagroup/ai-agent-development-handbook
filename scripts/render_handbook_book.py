@@ -13,20 +13,28 @@ Usage::
     uv run python scripts/render_handbook_book.py --format epub --out /tmp/handbook.epub
 
 Needs the pandoc CLI (``brew install pandoc``). Everything except
-`run_tool`, `build_epub` and `main` is pure and unit-tested in
+`run_tool`, `build_epub` and `main` spawns no process and writes no file;
+`first_heading_ids` reads files. All of it is unit-tested in
 ``tests/scripts/test_render_handbook_book.py``.
 """
 
 from __future__ import annotations
 
+import argparse
+import datetime
+import os
+import subprocess
+import tempfile
 import uuid
 from html import escape as html_escape
 from pathlib import Path
 
 from render_handbook_artifact import (
     _DIAGRAM_PLACEHOLDER_RE,
+    PARTS,
     AssembledPart,
     DiagramBlock,
+    assemble,
     render_part,
 )
 
@@ -159,3 +167,95 @@ def epub_command(
         "-o", str(out),
         str(html_path),
     ]  # fmt: skip
+
+
+_PANDOC_TIMEOUT_S = 120
+_PANDOC_HINT = (
+    "Install it with `brew install pandoc`, or see https://pandoc.org/installing.html."
+)
+
+
+def run_tool(cmd: list[str], timeout: float, install_hint: str) -> None:
+    """Run one external tool, bounded, and turn every failure into a message.
+
+    Raises:
+        SystemExit: The tool is absent, did not finish within ``timeout``
+            seconds, or exited non-zero; the message names the tool and, for
+            a missing one, how to install it.
+    """
+    try:
+        proc = subprocess.run(
+            cmd, capture_output=True, text=True, check=False, timeout=timeout
+        )
+    except FileNotFoundError as exc:
+        raise SystemExit(f"{cmd[0]} not found on PATH. {install_hint}") from exc
+    except subprocess.TimeoutExpired as exc:
+        raise SystemExit(
+            f"{cmd[0]} did not finish within {timeout}s. An unbounded call would "
+            "hang the build with no diagnosis."
+        ) from exc
+    if proc.returncode != 0:
+        raise SystemExit(
+            f"{cmd[0]} failed (exit {proc.returncode}):\n{proc.stderr.strip()}"
+        )
+
+
+def build_epub(
+    docs_dir: Path,
+    out: Path,
+    date: str,
+    parts: list[tuple[str, str, str]] = PARTS,
+) -> Path:
+    """Write the EPUB for ``docs_dir`` to ``out`` and return ``out``."""
+    linkmap = book_linkmap(parts, first_heading_ids(docs_dir, parts))
+    html = book_html(assemble(docs_dir, parts, linkmap))
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory() as tmp:
+        work = Path(tmp)
+        (work / "book.html").write_text(html)
+        (work / "metadata.yaml").write_text(book_metadata(date))
+        (work / "epub.css").write_text(EPUB_CSS)
+        cmd = epub_command(
+            work / "book.html", work / "metadata.yaml", work / "epub.css", out
+        )
+        run_tool(cmd, _PANDOC_TIMEOUT_S, _PANDOC_HINT)
+    return out
+
+
+def _build_date() -> str:
+    """``SOURCE_DATE_EPOCH`` when set, so a tagged build is reproducible."""
+    epoch = os.environ.get("SOURCE_DATE_EPOCH")
+    if epoch:
+        moment = datetime.datetime.fromtimestamp(int(epoch), tz=datetime.UTC)
+    else:
+        moment = datetime.datetime.now(tz=datetime.UTC)
+    return moment.date().isoformat()
+
+
+def main(argv: list[str] | None = None) -> int:
+    repo_root = Path(__file__).resolve().parents[1]
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument("--format", choices=["epub"], required=True)
+    parser.add_argument(
+        "--docs-dir",
+        type=Path,
+        default=repo_root / "docs" / "engineering",
+        help="Directory holding the handbook markdown (default: docs/engineering).",
+    )
+    parser.add_argument(
+        "--out",
+        type=Path,
+        default=None,
+        help="Output path (default: build/handbook.epub, gitignored).",
+    )
+    args = parser.parse_args(argv)
+    out = args.out or repo_root / "build" / "handbook.epub"
+    build_epub(args.docs_dir, out, _build_date())
+    print(f"wrote {out} ({out.stat().st_size} bytes)")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
