@@ -5,7 +5,13 @@ description = "Engineering handbook for agentic systems, and the audit skill fam
 requires-python = ">=3.11"
 # markdown is used by scripts/render_handbook_artifact.py. In the origin repository it
 # arrived transitively via mkdocs; here it is a direct dependency.
-dependencies = ["pyyaml>=6.0", "markdown>=3.5"]
+# fonttools is used by scripts/book_figures.py: the book build subsets the figure font
+# into each of the EPUB's figures, so a reader draws the labels in the face they were set in.
+dependencies = [
+    "pyyaml>=6.0",
+    "markdown>=3.5",
+    "fonttools>=4.66.0",
+]
 
 [dependency-groups]
 dev = ["pytest>=8.0", "ruff>=0.6", "deptry>=0.20"]

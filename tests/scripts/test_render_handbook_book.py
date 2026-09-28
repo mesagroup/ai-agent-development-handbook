@@ -10,7 +10,7 @@ import book_figures as bf
 import pytest
 import render_handbook_artifact as rh
 import render_handbook_book as rb
-from render_handbook_artifact import DiagramBlock
+from render_handbook_artifact import AssembledPart, DiagramBlock
 
 
 def test_figure_path_names_stem_and_index(tmp_path):
@@ -125,11 +125,36 @@ def test_require_h1_first_leaves_a_headingless_part_alone(tmp_path: Path):
     rb.require_h1_first(rh.render_parts(tmp_path, parts), parts)
 
 
-def test_listing_markup_escapes_the_source_and_keeps_the_title():
-    block = rh.DiagramBlock(index=0, kind="d2", title="A & B", source="a -> b: <x>\n")
-    html = rb.listing_markup(block)
-    assert "<pre><code>a -&gt; b: &lt;x&gt;\n</code></pre>" in html
-    assert "<figcaption>A &amp; B</figcaption>" in html
+def test_figure_markup_escapes_the_title():
+    block = DiagramBlock(index=2, kind="d2", title='A & <b> "c"', source="")
+    html = rb.figure_markup("s", block, 12.5)
+    assert 'src="media/s-2.svg"' in html
+    assert 'alt="A &amp; &lt;b&gt; &quot;c&quot;"' in html
+    assert '<figcaption>A &amp; &lt;b&gt; "c"</figcaption>' in html
+    assert "width: 12.50em" in html
+
+
+def test_a_committed_figure_is_used(tmp_path):
+    block = DiagramBlock(index=0, kind="funnel", title="F", source="A 10\nB 1\n")
+    (tmp_path / "e-0.svg").write_text("<svg/>")
+    assert rb.load_figure(tmp_path, "e", block) == ("<svg/>", False)
+
+
+def test_a_missing_figure_falls_back_to_its_seed(tmp_path):
+    block = DiagramBlock(index=0, kind="funnel", title="F", source="A 10\nB 1\n")
+    svg, seeded = rb.load_figure(tmp_path, "e", block)
+    assert seeded and bf.recorded_hash(svg) == bf.source_hash(block.source)
+
+
+def test_book_html_places_figures_not_listings():
+    part = AssembledPart(
+        anchor="p1",
+        stem="a",
+        html='<h1 id="a-x">X</h1><div class="dgph" data-i="0"></div>',
+        blocks=[DiagramBlock(0, "d2", "T", "a -> b")],
+    )
+    html = rb.book_html([part], {"a": {0: "<figure>F</figure>"}})
+    assert "<figure>F</figure>" in html and "<pre>" not in html
 
 
 def test_restore_task_boxes_marks_open_and_done_items():
@@ -169,7 +194,7 @@ def test_book_html_substitutes_every_placeholder_and_wraps_no_section():
         html='<h1 id="lifecycle-x">X</h1>\n<div class="dgph" data-i="0"></div>',
         blocks=[block],
     )
-    html = rb.book_html([part])
+    html = rb.book_html([part], {"lifecycle": {0: "<figure>F</figure>"}})
     assert 'class="dgph"' not in html
     assert "<section" not in html
     assert '<h1 id="lifecycle-x">X</h1>' in html
@@ -268,6 +293,7 @@ def test_epub_command_reads_plain_html_and_splits_on_parts(tmp_path: Path):
         tmp_path / "meta.yaml",
         tmp_path / "epub.css",
         tmp_path / "out.epub",
+        tmp_path / "work",
     )
     assert cmd[0] == "pandoc"
     assert cmd[cmd.index("-f") + 1] == "html"
@@ -277,6 +303,7 @@ def test_epub_command_reads_plain_html_and_splits_on_parts(tmp_path: Path):
     assert cmd[cmd.index("--metadata-file") + 1] == str(tmp_path / "meta.yaml")
     assert cmd[cmd.index("--css") + 1] == str(tmp_path / "epub.css")
     assert cmd[cmd.index("-o") + 1] == str(tmp_path / "out.epub")
+    assert cmd[cmd.index("--resource-path") + 1] == str(tmp_path / "work")
     assert cmd[-1] == str(tmp_path / "book.html")
 
 
@@ -288,7 +315,7 @@ def test_book_html_raises_on_a_placeholder_with_no_matching_diagram_block():
         blocks=[],
     )
     with pytest.raises(ValueError, match=r"lifecycle\.md.*placeholder 0"):
-        rb.book_html([part])
+        rb.book_html([part], {})
 
 
 def test_build_date_uses_source_date_epoch_when_set(monkeypatch):
@@ -313,6 +340,12 @@ DOCS = REPO / "docs" / "engineering"
 needs_pandoc = pytest.mark.skipif(
     shutil.which("pandoc") is None,
     reason="pandoc CLI not installed; CI gains it with #192",
+)
+# Until every fence has a committed figure, the build seeds the missing ones
+# through the d2 CLI, so a full build needs d2 as well as pandoc.
+needs_pandoc_and_d2 = pytest.mark.skipif(
+    shutil.which("pandoc") is None or shutil.which("d2") is None,
+    reason="needs the pandoc and d2 CLIs; CI gains them with #192",
 )
 
 
@@ -365,6 +398,8 @@ def built_epub(tmp_path_factory) -> Path:
     pytest.importorskip("markdown")
     if shutil.which("pandoc") is None:
         pytest.skip("pandoc CLI not installed; CI gains it with #192")
+    if shutil.which("d2") is None:
+        pytest.skip("needs the d2 CLI; CI gains it with #192")
     out = tmp_path_factory.mktemp("epub") / "nested" / "handbook.epub"
     return rb.build_epub(DOCS, out, date="2026-09-28")
 
@@ -548,7 +583,7 @@ def test_build_epub_creates_a_missing_output_directory(built_epub: Path):
     assert built_epub.exists() and built_epub.parent.name == "nested"
 
 
-@needs_pandoc
+@needs_pandoc_and_d2
 def test_main_resolves_the_docs_from_the_repository_not_the_cwd(
     tmp_path: Path, monkeypatch
 ):
@@ -557,3 +592,91 @@ def test_main_resolves_the_docs_from_the_repository_not_the_cwd(
     out = tmp_path / "handbook.epub"
     assert rb.main(["--format", "epub", "--out", str(out)]) == 0
     assert out.exists()
+
+
+_IMG_SRC_RE = re.compile(r'<img\b[^>]*\bsrc="([^"]+)"')
+_IMG_TAG_RE = re.compile(r"<img\b[^>]*>")
+
+
+def _epub_media_svgs(epub_path: Path) -> dict[str, str]:
+    """Every SVG under the archive's media directory, by archive path."""
+    with zipfile.ZipFile(epub_path) as z:
+        return {
+            n: z.read(n).decode()
+            for n in z.namelist()
+            if "/media/" in n and n.endswith(".svg")
+        }
+
+
+def _resolve_in_archive(chapter: str, src: str) -> str:
+    """`src` as written in `chapter`, resolved to an archive path."""
+    parts = chapter.split("/")[:-1]
+    for piece in src.split("/"):
+        if piece == "..":
+            parts.pop()
+        elif piece != ".":
+            parts.append(piece)
+    return "/".join(parts)
+
+
+@needs_pandoc_and_d2
+def test_the_epub_carries_one_image_per_fence(built_epub: Path):
+    # Pandoc renames each media file (``media/file0.svg``, ...), so the check
+    # resolves every src against its chapter rather than looking for the
+    # ``<stem>-<index>.svg`` name the build wrote.
+    chapters, docs = _chapters(built_epub)
+    media = _epub_media_svgs(built_epub)
+    srcs = [(name, src) for name in chapters for src in _IMG_SRC_RE.findall(docs[name])]
+    assert len(srcs) == len(rb.part_blocks(DOCS, rh.PARTS))
+    for name, src in srcs:
+        assert _resolve_in_archive(name, src) in media, (name, src)
+
+
+_STYLE_OR_DEFS_RE = re.compile(r"\s*<(style|defs)\b[^>]*(?:/>|>.*?</\1>)", re.S)
+_WEIGHT_STYLE_RE = re.compile(r"font-weight:\s*(\d+);\s*font-style:\s*(\w+)")
+
+
+@needs_pandoc_and_d2
+def test_every_epub_figure_has_its_panel_and_fonts(built_epub: Path):
+    surface = rh.PALETTE["light"]["surface"]
+    media = _epub_media_svgs(built_epub)
+    assert media
+    for name, svg in media.items():
+        root = bf._root_tag(svg)
+        # `embed_fonts` puts its <style> right after the root tag, ahead of
+        # the panel; neither it nor a <defs> is drawn, so both are skipped.
+        rest = svg[root.end() :]
+        while (skipped := _STYLE_OR_DEFS_RE.match(rest)) is not None:
+            rest = rest[skipped.end() :]
+        first = re.match(r"\s*<(\w+)[^>]*>", rest)
+        assert first and first.group(1) == "rect", name
+        assert f'fill="{surface}"' in first.group(0), name
+        declared = {(int(w), s) for w, s in _WEIGHT_STYLE_RE.findall(svg)}
+        assert declared == bf.used_faces(svg), name
+
+
+@needs_pandoc_and_d2
+def test_no_fence_survives_as_a_listing(built_epub: Path):
+    import html as html_mod
+
+    chapters, docs = _chapters(built_epub)
+    pre_texts = html_mod.unescape(
+        "\n".join(
+            m.group(0)
+            for name in chapters
+            for m in re.finditer(r"<pre\b.*?</pre>", docs[name], re.S)
+        )
+    )
+    for stem, block in rb.part_blocks(DOCS, rh.PARTS):
+        for line in block.source.splitlines():
+            if line.strip():
+                assert line not in pre_texts, (stem, block.index, line)
+
+
+@needs_pandoc_and_d2
+def test_the_epub_image_keeps_its_em_width(built_epub: Path):
+    chapters, docs = _chapters(built_epub)
+    imgs = [tag for name in chapters for tag in _IMG_TAG_RE.findall(docs[name])]
+    assert imgs
+    for tag in imgs:
+        assert re.search(r'style="width: \d+\.\d{2}em; max-width: 100%"', tag), tag
