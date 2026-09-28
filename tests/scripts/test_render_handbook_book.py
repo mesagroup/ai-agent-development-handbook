@@ -71,6 +71,16 @@ def test_listing_markup_escapes_the_source_and_keeps_the_title():
     assert "<figcaption>A &amp; B</figcaption>" in html
 
 
+def test_restore_task_boxes_marks_open_and_done_items():
+    html = (
+        '<li class="task">open item</li>'
+        '<li class="task done">done item</li>'
+        "<li>plain item</li>"
+    )
+    result = rb.restore_task_boxes(html)
+    assert result == ("<li>☐ open item</li><li>☒ done item</li><li>plain item</li>")
+
+
 def test_book_html_substitutes_every_placeholder_and_wraps_no_section():
     block = rh.DiagramBlock(index=0, kind="d2", title="T", source="a -> b\n")
     part = rh.AssembledPart(
@@ -260,6 +270,31 @@ def test_build_epub_refuses_a_part_whose_first_heading_is_not_h1(tmp_path: Path)
         rb.build_epub(
             docs_dir, tmp_path / "out" / "book.epub", date="2026-09-28", parts=parts
         )
+
+
+_CHECKLIST_LINE_RE = re.compile(r"^\s*-\s*\[[ xX]\]\s", re.MULTILINE)
+_TASK_CHECKBOX_RE = re.compile(r'<input type="checkbox"')
+
+
+@needs_pandoc
+def test_the_epub_carries_a_checkbox_for_every_source_checklist_item(built_epub: Path):
+    """`restore_task_boxes` writes the ☐/☒ glyph pandoc's HTML reader keeps.
+
+    Pandoc's HTML reader recognizes that glyph-prefixed ``<li>`` and
+    rewrites it as a real ``<input type="checkbox">`` in the EPUB -
+    confirmed clean under epubcheck - so the marker to count in the built
+    book is the checkbox, not the glyph the source HTML carried into
+    pandoc. See `render_handbook_book.restore_task_boxes` for what pinned
+    this down: it is not gated by the ``task_lists`` extension.
+    """
+    source_count = sum(
+        len(_CHECKLIST_LINE_RE.findall(path.read_text()))
+        for path in sorted(DOCS.glob("*.md"))
+    )
+    chapters, docs = _chapters(built_epub)
+    epub_count = sum(len(_TASK_CHECKBOX_RE.findall(docs[name])) for name in chapters)
+    assert source_count > 0
+    assert epub_count == source_count
 
 
 @needs_pandoc
