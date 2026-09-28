@@ -485,16 +485,17 @@ def fit_problems(svg: str) -> list[str]:
 
     root = ET.fromstring(svg)
     lo, hi = TEXT_PT_RANGE
-    judged: set[int] = set()
+    bad_transforms: set[int] = set()
+    judged_sizes: set[int] = set()
     for el, chain in _walk_chain(root):
         if _local(el.tag) not in ("text", "tspan"):
             continue
         for node in chain:
             transform = _get_prop(node, "transform")
-            if transform is None or id(node) in judged:
+            if transform is None or id(node) in bad_transforms:
                 continue
             if not _PURE_TRANSLATE_RE.fullmatch(transform):
-                judged.add(id(node))
+                bad_transforms.add(id(node))
                 problems.append(
                     f"transform {transform!r} on <{_local(node.tag)}> changes the "
                     "size its text prints at; bake the transform into the "
@@ -513,18 +514,18 @@ def fit_problems(svg: str) -> list[str]:
                     f"{pt:.1f} pt, outside {_fmt(lo)}-{_fmt(hi)} pt"
                 )
             continue
-        if id(setter) in judged:
+        if id(setter) in judged_sizes:
             continue
         value = _get_prop(setter, "font-size")
         try:
             units = _parse_font_size(value)
         except ValueError:
-            judged.add(id(setter))
+            judged_sizes.add(id(setter))
             problems.append(f"font-size {value!r} is not a recognized size")
             continue
         pt = units * PT_PER_UNIT
         if pt < lo or pt > hi:
-            judged.add(id(setter))
+            judged_sizes.add(id(setter))
             problems.append(
                 f"font-size {_fmt(units)} units is {pt:.1f} pt, "
                 f"outside {_fmt(lo)}-{_fmt(hi)} pt"

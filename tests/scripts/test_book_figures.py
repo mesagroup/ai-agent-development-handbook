@@ -455,3 +455,10 @@ def test_a_pale_style_fill_wins_over_an_ink_fill_attribute():
 def test_an_ink_style_fill_wins_over_a_pale_fill_attribute():
     svg = _sized('<text font-size="12" fill="#c3bfb1" style="fill:#1c2024">a</text>')
     assert bf.contrast_problems(svg) == []
+
+
+def test_a_bad_transform_and_a_bad_size_on_one_group_are_both_reported():
+    svg = _sized('<g transform="scale(2)" font-size="16"><text>a</text></g>')
+    problems = bf.fit_problems(svg)
+    assert any("scale(2)" in p for p in problems)
+    assert any("font-size 16" in p for p in problems)
