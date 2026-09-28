@@ -1180,7 +1180,7 @@ _TS_DEPCRUISE_COMPLETION = TsCompletion(
     note=(
         "depcruise takes the directory to cruise and the record's prefix names "
         "none; the seeded source is src/ in the seeded package. Neither `--config` "
-        "nor `--no-config` is supplied: the record's own caveat says the prefix "
+        "nor `--no-config` is supplied: the record's note says the prefix "
         "answers only with one of them and that neither is free - an audit-owned "
         "config is an artefact this round would be writing, and `--no-config` "
         "drops the rules the check reads - so the command runs as the record "
