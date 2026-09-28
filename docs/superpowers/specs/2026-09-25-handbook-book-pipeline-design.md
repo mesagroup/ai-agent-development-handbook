@@ -89,7 +89,7 @@ The caption is the fence's `title`, escaped. SVG serves both formats: it is nati
 
 ### 3. The book builder (#189, #195)
 
-A new `scripts/render_handbook_book.py`, with one entry point and a `--format` flag:
+A new `scripts/render_handbook_book.py`, with one entry point, a `--format` flag, and a `--seed-figures` flag (section 2 describes it):
 
 - **`--format epub`** writes `build/handbook.epub`. It runs `pandoc -f html -t epub3 --split-level=1 --toc --toc-depth=2` with a metadata file, `--css` pointing at a book stylesheet, and `--resource-path` pointing at the media directory. The metadata carries title, creator (Janos Tolgyesi), `lang: en`, rights (CC BY 4.0), date, and an identifier `urn:uuid:<uuid5 of the title>`, so the identifier stays stable across builds. This covers what `epubcheck` requires; #191 adds the cover, the title and copyright pages, and the rest of the metadata.
 - **`--format pdf`** writes `build/handbook-interior.pdf`. It runs `pandoc -f html -t typst` with a Typst template, then `typst compile`. The quotes arrive already curled by `curl_quotes`, which #189 added because pandoc's `+smart` also rewrites inline code; without curled quotes pandoc escapes `"` for Typst and the book prints straight quotes, which the preview showed. The template sets:
