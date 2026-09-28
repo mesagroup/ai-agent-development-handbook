@@ -162,12 +162,26 @@ PALETTE: dict[str, dict[str, str]] = {
     },
 }  # fmt: skip
 
+# The paperback's palette, and the EPUB's through the same figures. Not a
+# third entry in `PALETTE`: the page reads that dict as its two themes, and a
+# print figure paints no surface at all, so it has no `surface` slot to fill.
+# `line` is darker than the page's, because the page's hairline measures 1.6:1
+# against cream paper and a box border has to hold 3:1 once colour is dropped.
+# The wash is the accent at low opacity rather than a pale opaque colour, so
+# paper of any shade shows through it.
+PRINT_PALETTE: dict[str, str] = {
+    "ink": "#1c2024", "ink_soft": "#4b5057", "accent": "#9a6a1c",
+    "accent_ink": "#6f4c12", "line": "#8a867a",
+}  # fmt: skip
+PRINT_WASH_OPACITY = 0.15
+
 # Not the same palette slot in both themes: the icon is a hairline drawing, so
 # it takes the darker accent on the light background and the brighter one on the
 # dark background, where `accent_ink` would be too close to the panel fill.
 _D2_ICON_STROKE = {
     "light": PALETTE["light"]["accent_ink"],
     "dark": PALETTE["dark"]["accent"],
+    "print": PRINT_PALETTE["accent_ink"],
 }
 # Held for the process lifetime so the files outlive every d2 call; its
 # finalizer removes the directory at interpreter exit.
@@ -191,6 +205,17 @@ D2_PRELUDES: dict[str, str] = {
     )
     for variant, p in PALETTE.items()
 }
+
+# Everything transparent, so cream paper, e-ink and the EPUB's own light panel
+# all show through the same drawing.
+D2_PRINT_PRELUDE = (
+    "style.fill: transparent\n" + _D2_FONT_SIZE + "**.style.fill: transparent\n"
+    f'**.style.stroke: "{PRINT_PALETTE["line"]}"\n'
+    f'**.style.font-color: "{PRINT_PALETTE["ink"]}"\n'
+    "**.style.shadow: false\n"
+    f'(** -> **)[*].style.stroke: "{PRINT_PALETTE["accent"]}"\n'
+    f'(** -> **)[*].style.font-color: "{PRINT_PALETTE["ink_soft"]}"\n'
+)
 
 # Funnel geometry, in SVG user units, which are CSS pixels here because the
 # figure is drawn at its natural size. The width sits inside the 771px prose
@@ -234,9 +259,9 @@ _DIAGRAM_FENCE_RE = re.compile(
 # reported as a missing title, rather than being truncated to a wrong caption.
 _DIAGRAM_TITLE_RE = re.compile(r'^\s*title="([^"]+)"\s*$')
 _DIAGRAM_PLACEHOLDER_RE = re.compile(r'<div class="dgph" data-i="(\d+)"></div>')
-# The six d2 diagrams render in well under a second; a bound this loose only
-# ever fires on a d2 that has genuinely wedged. (The seventh figure, the
-# screening funnel, is a `funnel` fence and never reaches the CLI.)
+# The d2 diagrams render in well under a second; a bound this loose only ever
+# fires on a d2 that has genuinely wedged. (The screening funnel is a `funnel`
+# fence and never reaches the CLI.)
 _D2_TIMEOUT_S = 60
 _SCHEME_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*:|^//")
 _SVG_OPEN_RE = re.compile(r"<svg\b[^>]*>")
@@ -484,6 +509,88 @@ def funnel_svg(stages: list[FunnelStage], variant: str) -> str:
     )
 
 
+# The vertical funnel's geometry, in SVG user units. The book places every
+# figure at one scale (2/3 pt per unit), so the width has to stay inside the
+# 388.8-unit text block rather than being scaled into it.
+_VFUNNEL_WIDTH = 340
+_VFUNNEL_LABEL_RIGHT = 150
+_VFUNNEL_BAND_MAX = 170
+_VFUNNEL_BAND_MIN = 14
+_VFUNNEL_ROW = 30
+_VFUNNEL_GAP = 16
+_VFUNNEL_PAD = 10
+_VFUNNEL_LABEL_BUDGET = 24
+# Below this a band cannot hold its count, which then sits to its right.
+_VFUNNEL_COUNT_INSIDE_MIN = 44
+
+
+def funnel_svg_vertical(stages: list[FunnelStage]) -> str:
+    """Draw the funnel top to bottom for print: labels left, bands narrowing.
+
+    The horizontal `funnel_svg` spreads the stages across 700 units, which
+    prints its labels at about 4 pt in the book's text block. Stacking them
+    keeps every label at the book's one scale. The scale of the band widths
+    is logarithmic for the reason `funnel_svg` gives.
+
+    Returns:
+        An `<svg>` with a viewBox, in `PRINT_PALETTE`, painting no opaque
+        surface.
+    """
+    p = PRINT_PALETTE
+    counts = [s.count for s in stages]
+    hi, lo = max(counts), min(counts)
+    span = math.log(hi) - math.log(lo)
+
+    def band_width(count: int) -> float:
+        if span == 0:
+            return _VFUNNEL_BAND_MAX
+        t = (math.log(count) - math.log(lo)) / span
+        return _VFUNNEL_BAND_MIN + t * (_VFUNNEL_BAND_MAX - _VFUNNEL_BAND_MIN)
+
+    cx = _VFUNNEL_LABEL_RIGHT + 14 + _VFUNNEL_BAND_MAX / 2
+    parts: list[str] = []
+    for i, stage in enumerate(stages):
+        y = _VFUNNEL_PAD + i * (_VFUNNEL_ROW + _VFUNNEL_GAP)
+        w = band_width(stage.count)
+        parts.append(
+            f'<rect x="{cx - w / 2:.1f}" y="{y}" width="{w:.1f}"'
+            f' height="{_VFUNNEL_ROW}" fill="none" stroke="{p["line"]}"'
+            ' stroke-width="1.5"/>'
+        )
+        if i + 1 < len(stages):
+            w2 = band_width(stages[i + 1].count)
+            y2 = y + _VFUNNEL_ROW + _VFUNNEL_GAP
+            parts.append(
+                f'<path d="M {cx - w / 2:.1f} {y + _VFUNNEL_ROW} L {cx + w / 2:.1f}'
+                f" {y + _VFUNNEL_ROW} L {cx + w2 / 2:.1f} {y2} L {cx - w2 / 2:.1f}"
+                f' {y2} Z" fill="{p["accent"]}" fill-opacity="{PRINT_WASH_OPACITY}"'
+                f' stroke="{p["line"]}" stroke-width="1"/>'
+            )
+        inside = w >= _VFUNNEL_COUNT_INSIDE_MIN
+        tx = cx if inside else cx + w / 2 + 6
+        anchor = "middle" if inside else "start"
+        parts.append(
+            f'<text x="{tx:.1f}" y="{y + _VFUNNEL_ROW / 2 + 4.5:.1f}"'
+            f' text-anchor="{anchor}" fill="{p["accent_ink"]}" font-size="13"'
+            f' font-weight="700">{group_digits(stage.count)}</text>'
+        )
+        lines = wrap_label(stage.label, _VFUNNEL_LABEL_BUDGET)
+        for j, line in enumerate(lines):
+            ly = y + _VFUNNEL_ROW / 2 + 4 + (j - (len(lines) - 1) / 2) * _FUNNEL_LINE_H
+            parts.append(
+                f'<text x="{_VFUNNEL_LABEL_RIGHT}" y="{ly:.1f}" text-anchor="end"'
+                f' fill="{p["ink"]}" font-size="12" font-weight="600">'
+                f"{html_escape(line)}</text>"
+            )
+    height = (
+        2 * _VFUNNEL_PAD + len(stages) * _VFUNNEL_ROW + (len(stages) - 1) * _VFUNNEL_GAP
+    )
+    return (
+        '<svg xmlns="http://www.w3.org/2000/svg" class="funnel"'
+        f' viewBox="0 0 {_VFUNNEL_WIDTH} {height}">' + "".join(parts) + "</svg>"
+    )
+
+
 @cache
 def d2_icon_classes(variant: str) -> str:
     """Write this theme's icon files and declare the classes that use them.
@@ -493,7 +600,8 @@ def d2_icon_classes(variant: str) -> str:
     filesystem path.
 
     Args:
-        variant: Which palette the icon stroke should match, `light` or `dark`.
+        variant: Which palette the icon stroke should match, `light`, `dark`,
+            or `print`.
 
     Returns:
         A d2 `classes` block declaring `human` and `step`.
@@ -518,7 +626,8 @@ def run_d2(source: str, salt: str, variant: str) -> str:
         source: The fence body.
         salt: Appended to every generated SVG element id, so two variants of one
             diagram (or two identical diagrams) cannot collide on one page.
-        variant: Which palette prelude to prepend, `light` or `dark`.
+        variant: Which palette prelude to prepend, `light`, `dark`, or `print`
+            for the paperback's transparent-surface drawing.
 
     Returns:
         The SVG markup, with no XML prolog.
@@ -536,10 +645,11 @@ def run_d2(source: str, salt: str, variant: str) -> str:
         "--salt", salt,
         "-", "-",
     ]  # fmt: skip
+    prelude = D2_PRINT_PRELUDE if variant == "print" else D2_PRELUDES[variant]
     try:
         proc = subprocess.run(
             command,
-            input=D2_PRELUDES[variant] + d2_icon_classes(variant) + source,
+            input=prelude + d2_icon_classes(variant) + source,
             capture_output=True,
             text=True,
             check=False,
