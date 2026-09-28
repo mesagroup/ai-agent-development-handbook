@@ -4,8 +4,12 @@ The page renderer's first pass, `assemble`, produces each part's HTML with
 the heading ids and in-page links the rendered page carries. This module
 joins those parts into one HTML document and hands it to pandoc, so the
 book's ids are the page's by construction and every citation a report
-emits lands on the same heading in both. Diagrams render as listings here
-until #190 draws them as figures, and a checklist item carries a ☐/☒ glyph
+emits lands on the same heading in both. Each diagram is a captioned figure
+(`figure_markup`): its committed SVG under ``docs/engineering/figures/``, or,
+where none is committed yet, its seed, with a NOTE on stderr naming the
+fence (`load_figure`). The EPUB's copy of each carries a light backing panel
+and the subset faces its text uses, and is placed at the one scale through an
+em width (`book_figures`). A checklist item carries a ☐/☒ glyph
 (`restore_task_boxes`) so it reads as a box rather than a plain bullet.
 Prose quotes are curled to typographic ones and inline code is left
 untouched (`curl_quotes`) before the document ever reaches pandoc.
@@ -16,11 +20,13 @@ Usage::
     uv run python scripts/render_handbook_book.py --format epub --out /tmp/handbook.epub
     uv run python scripts/render_handbook_book.py --seed-figures
 
-Needs the pandoc CLI (``brew install pandoc``) for ``--format epub`` and the
-d2 CLI for ``--seed-figures``. Only `run_tool` and `seed_svg` (through
-`run_d2`) spawn a process; only `seed_figures` and `build_epub` write a file,
-and `main` calls whichever of those two the CLI selected. Every other
-function spawns no process and writes no file. All of it is unit-tested in
+Needs the pandoc CLI (``brew install pandoc``) for ``--format epub``, and
+the d2 CLI for ``--seed-figures`` and for ``--format epub`` whenever a d2
+diagram has no committed figure, since the build then draws its seed. Only
+`run_tool` and `seed_svg` (through `run_d2`) spawn a process; only
+`seed_figures` and `build_epub` write a file, and `main` calls whichever of
+those two the CLI selected. Every other function spawns no process and
+writes no file. All of it is unit-tested in
 ``tests/scripts/test_render_handbook_book.py``.
 """
 
@@ -31,14 +37,23 @@ import datetime
 import os
 import re
 import subprocess
+import sys
 import tempfile
 import uuid
 from html import escape as html_escape
 from pathlib import Path
 
-from book_figures import clean_seed_svg, source_hash, stamp_hash
+from book_figures import (
+    clean_seed_svg,
+    embed_fonts,
+    epub_width_em,
+    source_hash,
+    stamp_hash,
+    with_backing_panel,
+)
 from render_handbook_artifact import (
     _DIAGRAM_PLACEHOLDER_RE,
+    PALETTE,
     PARTS,
     AssembledPart,
     DiagramBlock,
@@ -57,6 +72,8 @@ RIGHTS = (
     "Licensed under the Creative Commons Attribution 4.0 International "
     "License (CC BY 4.0), https://creativecommons.org/licenses/by/4.0/"
 )
+# The committed Source Sans 3 faces `embed_fonts` subsets into each figure.
+FONT_DIR = Path(__file__).resolve().parents[1] / "fonts" / "source-sans-3"
 
 EPUB_CSS = """\
 body { font-family: serif; line-height: 1.45; }
@@ -66,6 +83,7 @@ pre { white-space: pre-wrap; }
 table { border-collapse: collapse; font-size: 0.85em; }
 th, td { border: 1px solid #888; padding: 0.25em 0.4em; text-align: left; vertical-align: top; }
 figure { margin: 1em 0; }
+figure img { display: block; margin: 0 auto; }
 figcaption { font-size: 0.85em; font-style: italic; }
 """
 
@@ -159,19 +177,38 @@ def require_h1_first(
             )
 
 
-def listing_markup(block: DiagramBlock) -> str:
-    """Stand a diagram in as its escaped source under its caption.
+def figure_markup(stem: str, block: DiagramBlock, width_em: float) -> str:
+    """A diagram as a captioned ``<img>`` of its media SVG, ``width_em`` wide.
 
-    Until #190 draws figures, the book shows each diagram's source. The source
-    is escaped: d2 syntax such as ``a -> b: <x>`` would otherwise reach pandoc
-    as markup and be dropped without a word.
+    The title is the image's ``alt`` and its caption, escaped both times: a
+    title such as ``A & <b>`` would otherwise reach pandoc as markup. The
+    width is in em so the figure keeps the one scale relative to the body
+    text when a reader changes the font size, and ``max-width: 100%`` stops
+    it overflowing a screen narrower than that.
     """
+    alt = html_escape(block.title, quote=True)
+    caption = html_escape(block.title, quote=False)
     return (
         "<figure>"
-        f"<pre><code>{html_escape(block.source, quote=False)}</code></pre>"
-        f"<figcaption>{html_escape(block.title, quote=False)}</figcaption>"
+        f'<img src="media/{stem}-{block.index}.svg" alt="{alt}"'
+        f' style="width: {width_em:.2f}em; max-width: 100%">'
+        f"<figcaption>{caption}</figcaption>"
         "</figure>"
     )
+
+
+def load_figure(figures_dir: Path, stem: str, block: DiagramBlock) -> tuple[str, bool]:
+    """A diagram's committed figure, or its seed standing in for one.
+
+    Returns:
+        The SVG, and whether it is a seed standing in because no figure is
+        committed at `figure_path` - in which case this runs `seed_svg`, and
+        with it the d2 CLI for a d2 block.
+    """
+    path = figure_path(figures_dir, stem, block.index)
+    if path.exists():
+        return path.read_text(encoding="utf-8"), False
+    return seed_svg(stem, block), True
 
 
 _TASK_ITEM_RE = re.compile(r'<li class="task( done)?">')
@@ -204,17 +241,27 @@ def restore_task_boxes(html: str) -> str:
     return _TASK_ITEM_RE.sub(repl, html)
 
 
-def book_html(assembled: list[AssembledPart]) -> str:
-    """Join the parts into one document, with each diagram as a listing."""
+def book_html(
+    assembled: list[AssembledPart], figures: dict[str, dict[int, str]]
+) -> str:
+    """Join the parts into one document, with each diagram as its figure.
+
+    Args:
+        assembled: The parts, as `assemble` returns them.
+        figures: Each diagram's figure markup, by part stem and block index.
+
+    Raises:
+        ValueError: A placeholder has no figure in `figures`.
+    """
     bodies = []
     for part in assembled:
-        listings = {block.index: listing_markup(block) for block in part.blocks}
+        markup = figures.get(part.stem, {})
 
-        def repl(match, listings=listings, stem=part.stem):
+        def repl(match, markup=markup, stem=part.stem):
             index = int(match.group(1))
-            if index not in listings:
+            if index not in markup:
                 raise ValueError(f"{stem}.md: no diagram block for placeholder {index}")
-            return listings[index]
+            return markup[index]
 
         bodies.append(restore_task_boxes(_DIAGRAM_PLACEHOLDER_RE.sub(repl, part.html)))
     return (
@@ -250,8 +297,7 @@ def curl_quotes(html: str) -> str:
 
     Walks `html` as a stream of tag and text tokens, skipping every run of
     text inside ``<code>`` or ``<pre>`` (nested or not) so inline code and
-    the book's diagram-source listings reach pandoc, and the EPUB, exactly as
-    written. In the text that is curled, a straight double quote opens
+    code blocks reach pandoc, and the EPUB, exactly as written. In the text that is curled, a straight double quote opens
     (``\u201c``) when the character before it is missing, whitespace, or an
     opening bracket, and closes (``\u201d``) otherwise; a straight single
     quote is an apostrophe (``\u2019``) when the character before it is a
@@ -329,7 +375,11 @@ def book_metadata(date: str) -> str:
 
 
 def epub_command(
-    html_path: Path, metadata_path: Path, css_path: Path, out: Path
+    html_path: Path,
+    metadata_path: Path,
+    css_path: Path,
+    out: Path,
+    resource_path: Path,
 ) -> list[str]:
     """The pandoc argv that turns the book document into an EPUB3.
 
@@ -337,6 +387,8 @@ def epub_command(
     the book document's prose quotes before it reached this command, and
     ``+smart`` would also rewrite ``--`` inside an inline ``<code>`` span
     (see `curl_quotes`), which no step in this pipeline should ever do.
+    ``--resource-path`` is where pandoc resolves each figure's
+    ``media/<stem>-<index>.svg`` from.
     """
     return [
         "pandoc",
@@ -347,6 +399,7 @@ def epub_command(
         "--toc-depth=2",
         "--metadata-file", str(metadata_path),
         "--css", str(css_path),
+        "--resource-path", str(resource_path),
         "-o", str(out),
         str(html_path),
     ]  # fmt: skip
@@ -456,25 +509,55 @@ def build_epub(
     out: Path,
     date: str,
     parts: list[tuple[str, str, str]] = PARTS,
+    figures_dir: Path | None = None,
 ) -> Path:
     """Write the EPUB for ``docs_dir`` to ``out`` and return ``out``.
 
     Renders every part once with `render_parts` and shares that one render
     across `require_h1_first`, `first_heading_ids` and `assemble`, rather
     than each converting every part's Markdown on its own.
+
+    Each diagram's figure is read from `figures_dir` (default
+    ``docs_dir / "figures"``) by `load_figure`, which falls back to its seed
+    with a NOTE on stderr. Its EPUB copy, on the light panel and carrying
+    the faces its text uses, is written to the work directory's ``media/``,
+    where pandoc resolves it from.
     """
+    if figures_dir is None:
+        figures_dir = docs_dir / "figures"
     rendered = render_parts(docs_dir, parts)
     require_h1_first(rendered, parts)
     linkmap = book_linkmap(parts, first_heading_ids(rendered, parts))
-    html = curl_quotes(book_html(assemble(docs_dir, parts, linkmap, rendered=rendered)))
+    assembled = assemble(docs_dir, parts, linkmap, rendered=rendered)
     out.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as tmp:
         work = Path(tmp)
+        media = work / "media"
+        media.mkdir()
+        surface = PALETTE["light"]["surface"]
+        figures: dict[str, dict[int, str]] = {}
+        for part in assembled:
+            for block in part.blocks:
+                svg, seeded = load_figure(figures_dir, part.stem, block)
+                if seeded:
+                    print(
+                        f"NOTE: {part.stem}-{block.index} has no committed figure; "
+                        "the book uses its seed",
+                        file=sys.stderr,
+                    )
+                (media / f"{part.stem}-{block.index}.svg").write_text(
+                    embed_fonts(with_backing_panel(svg, surface), FONT_DIR),
+                    encoding="utf-8",
+                )
+                figures.setdefault(part.stem, {})[block.index] = figure_markup(
+                    part.stem, block, epub_width_em(svg)
+                )
+        html = curl_quotes(book_html(assembled, figures))
         (work / "book.html").write_text(html, encoding="utf-8")
         (work / "metadata.yaml").write_text(book_metadata(date), encoding="utf-8")
         (work / "epub.css").write_text(EPUB_CSS, encoding="utf-8")
         cmd = epub_command(
-            work / "book.html", work / "metadata.yaml", work / "epub.css", out
+            work / "book.html", work / "metadata.yaml", work / "epub.css", out, work
         )
         run_tool(cmd, _PANDOC_TIMEOUT_S, _PANDOC_HINT)
     return out
@@ -527,7 +610,9 @@ def main(argv: list[str] | None = None) -> int:
         "--figures-dir",
         type=Path,
         default=None,
-        help="Directory to seed figures into (default: <docs-dir>/figures).",
+        help="Directory holding each diagram's figure: --seed-figures writes "
+        "missing ones there and --format epub reads them from there "
+        "(default: <docs-dir>/figures).",
     )
     args = parser.parse_args(argv)
     if bool(args.format) == bool(args.seed_figures):
@@ -542,7 +627,7 @@ def main(argv: list[str] | None = None) -> int:
             print("every diagram already has a figure")
         return 0
     out = args.out or repo_root / "build" / "handbook.epub"
-    build_epub(args.docs_dir, out, _build_date())
+    build_epub(args.docs_dir, out, _build_date(), figures_dir=figures_dir)
     print(f"wrote {out} ({out.stat().st_size} bytes)")
     return 0
 

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import hashlib
+import re
+from pathlib import Path
 
 import book_figures as bf
 import pytest
@@ -233,3 +235,66 @@ def test_text_inheriting_a_pale_stroke_is_reported_once_not_skipped():
     problems = bf.contrast_problems(svg)
     text_stroke_problems = [p for p in problems if "stroke" in p and "<text>" in p]
     assert len(text_stroke_problems) == 1
+
+
+FONTS = Path(__file__).resolve().parents[2] / "fonts" / "source-sans-3"
+
+
+def test_the_panel_is_the_first_drawn_element():
+    out = bf.with_backing_panel(bf.clean_seed_svg(D2_LIKE, "x-0"), "#f7f6f2")
+    first = re.search(r"<svg[^>]*>\s*<(\w+)[^>]*>", out)
+    assert first.group(1) == "rect" and 'fill="#f7f6f2"' in first.group(0)
+
+
+def test_the_panel_covers_the_viewbox():
+    out = bf.with_backing_panel(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="3 4 50 60"></svg>', "#fff"
+    )
+    assert 'x="3" y="4" width="50" height="60"' in out
+
+
+def test_embed_fonts_carries_only_the_faces_used():
+    out = bf.embed_fonts(bf.clean_seed_svg(D2_LIKE, "x-0"), FONTS)
+    assert out.count("@font-face") == 1
+    assert "font-weight:700" in out.replace(" ", "")
+
+
+def test_embed_fonts_reads_an_inkscape_style_weight():
+    out = bf.embed_fonts(INKSCAPE_LIKE, FONTS)
+    assert "font-weight:700" in out.replace(" ", "")
+
+
+def test_the_embedded_face_is_a_small_subset():
+    out = bf.embed_fonts(bf.clean_seed_svg(D2_LIKE, "x-0"), FONTS)
+    assert len(out) < 40_000
+
+
+def test_embed_fonts_resolves_weight_and_style_through_ancestors():
+    # A funnel's 600-weight labels snap to the bold face, and an italic set
+    # on a group reaches the text inside it, as Inkscape leaves it.
+    svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1">'
+        '<text font-weight="600">a</text>'
+        '<g style="font-style:italic"><text>b</text></g>'
+        "</svg>"
+    )
+    faces = sorted(
+        re.findall(
+            r"font-weight:\s*(\d+);\s*font-style:\s*(\w+)", bf.embed_fonts(svg, FONTS)
+        )
+    )
+    assert faces == [("400", "italic"), ("700", "normal")]
+
+
+def test_embed_fonts_leaves_a_textless_figure_alone():
+    svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"><rect/></svg>'
+    assert bf.embed_fonts(svg, FONTS) == svg
+
+
+def test_embed_fonts_names_the_font_directory_when_a_face_is_missing(tmp_path):
+    with pytest.raises(FileNotFoundError, match=re.escape(str(tmp_path))):
+        bf.embed_fonts(INKSCAPE_LIKE, tmp_path)
+
+
+def test_the_epub_width_keeps_the_one_scale():
+    assert bf.epub_width_em('<svg viewBox="0 0 300 100"></svg>') == pytest.approx(20.0)

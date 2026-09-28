@@ -12,8 +12,13 @@ reading the `data-source-sha256` hash a figure was seeded from, cleaning up
 what `run_d2` hands the illustrator before it is committed as a seed, and the
 checks a fixer or a CI gate runs over a finished figure (does it fit the
 block, is every fill dark enough not to wash out on cream paper, does every
-text and stroke colour hold its WCAG contrast bar). Nothing here spawns a
-process or writes a file; that belongs to the scripts built on top of it.
+text and stroke colour hold its WCAG contrast bar), and the three steps that
+turn a committed figure into the EPUB's copy of it: a light backing panel
+(`with_backing_panel`) so dark ink stays legible in a reading system's dark
+mode, the subset faces its text uses (`embed_fonts`), since an SVG an `<img>`
+references cannot reach the book's other files, and the em width that places
+it at the one scale (`epub_width_em`). Nothing here spawns a process or
+writes a file; that belongs to the scripts built on top of it.
 """
 
 from __future__ import annotations
@@ -21,8 +26,13 @@ from __future__ import annotations
 import base64
 import binascii
 import hashlib
+import io
 import re
 import xml.etree.ElementTree as ET
+from pathlib import Path
+
+from fontTools import subset
+from fontTools.ttLib import TTFont
 
 FIGURE_FONT = "Source Sans 3"
 # SVG user units per point: the book places every figure at one scale, chosen
@@ -40,6 +50,17 @@ TEXT_PT_RANGE = (7.0, 9.0)
 # and stroke a figure paints. Text needs 4.5:1 against it, strokes 3:1 (the
 # same bars `render_handbook_artifact.PRINT_PALETTE` was chosen to hold).
 PAPER_CREAM = "#f7f0dc"
+# The body's nominal size in the EPUB, in points: `epub_width_em` expresses a
+# figure's one-scale width relative to it, so labels keep their ratio to the
+# text when a reader changes the font size.
+BODY_PT = 10
+# The committed faces under `fonts/source-sans-3/`, by the (weight, style)
+# each one sets. `embed_fonts` snaps any other weight to the nearest of these.
+FACE_FILES = {
+    (400, "normal"): "SourceSans3-Regular.ttf",
+    (700, "normal"): "SourceSans3-Bold.ttf",
+    (400, "italic"): "SourceSans3-It.ttf",
+}
 
 # Elements whose whole subtree never contributes a drawn shape: a clip mask,
 # shared definitions, editor metadata, or Inkscape's own view-state element.
@@ -103,8 +124,8 @@ def recorded_hash(svg: str) -> str | None:
     return hash_match.group(0).split('"')[1]
 
 
-def viewbox(svg: str) -> tuple[float, float]:
-    """The root `<svg>`'s width and height, read from its `viewBox`.
+def _viewbox_box(svg: str) -> tuple[float, float, float, float]:
+    """The root `<svg>`'s `viewBox` as its four numbers: x, y, width, height.
 
     Raises:
         ValueError: there is no root `<svg>` tag, or it has no `viewBox`.
@@ -116,7 +137,18 @@ def viewbox(svg: str) -> tuple[float, float]:
     parts = vb_match.group(1).split()
     if len(parts) != 4:
         raise ValueError(f"viewBox {vb_match.group(1)!r} does not have four components")
-    return float(parts[2]), float(parts[3])
+    x, y, width, height = (float(p) for p in parts)
+    return x, y, width, height
+
+
+def viewbox(svg: str) -> tuple[float, float]:
+    """The root `<svg>`'s width and height, read from its `viewBox`.
+
+    Raises:
+        ValueError: there is no root `<svg>` tag, or it has no `viewBox`.
+    """
+    _, _, width, height = _viewbox_box(svg)
+    return width, height
 
 
 def _slugify(decoded: str) -> str:
@@ -483,3 +515,165 @@ def contrast_problems(svg: str, paper: str = PAPER_CREAM) -> list[str]:
                             f"{ratio:.2f}:1 against the paper, under 3:1"
                         )
     return problems
+
+
+def _insert_after_root(svg: str, markup: str) -> str:
+    end = _root_tag(svg).end()
+    return svg[:end] + markup + svg[end:]
+
+
+def with_backing_panel(svg: str, colour: str) -> str:
+    """The EPUB copy's opaque light panel, drawn behind everything else.
+
+    A book figure is transparent, so on a reading system's dark background its
+    dark ink would vanish, and reading systems do not invert images. The panel
+    is a `<rect>` covering the root `viewBox`, inserted as the root's first
+    child, inside the SVG, where a reading system's stylesheet cannot remove
+    it. The committed file stays transparent; only the EPUB copy carries this.
+
+    Raises:
+        ValueError: there is no root `<svg>` tag, or it has no `viewBox`.
+    """
+    x, y, width, height = _viewbox_box(svg)
+    panel = (
+        f'<rect x="{x:g}" y="{y:g}" width="{width:g}" height="{height:g}"'
+        f' fill="{colour}"/>'
+    )
+    return _insert_after_root(svg, panel)
+
+
+# CSS's initial font-weight and font-style, in force at the root before any
+# element sets either.
+_INITIAL_WEIGHT = "400"
+_INITIAL_STYLE = "normal"
+_WEIGHT_KEYWORDS = {"normal": 400, "bold": 700}
+_STYLE_KEYWORDS = {"normal": "normal", "italic": "italic", "oblique": "italic"}
+
+
+def _walk_font(
+    el: ET.Element, weight: str = _INITIAL_WEIGHT, style: str = _INITIAL_STYLE
+):
+    """Yield `(element, font_weight, font_style)`, inherited as `_walk_paint` does.
+
+    Both are inherited properties: an element that sets neither takes them
+    from its nearest ancestor that does, `style` winning over the bare
+    attribute (`_get_prop`), up to CSS's initial `400`/`normal` at the root.
+    Skips subtrees in `_SKIP_TAGS`.
+    """
+    own_weight = _get_prop(el, "font-weight")
+    effective_weight = own_weight if own_weight is not None else weight
+    own_style = _get_prop(el, "font-style")
+    effective_style = own_style if own_style is not None else style
+    yield el, effective_weight, effective_style
+    for child in el:
+        if not isinstance(child.tag, str):
+            continue  # a comment or processing instruction, not an element
+        if _local(child.tag) in _SKIP_TAGS:
+            continue
+        yield from _walk_font(child, effective_weight, effective_style)
+
+
+def _face_for(weight: str, style: str) -> tuple[int, str]:
+    """The committed face in `FACE_FILES` that sets text of this weight and style.
+
+    `bold` reads as 700 and `normal` as 400; a numeric weight snaps to the
+    nearer of 400 and 700, a tie going to 400 as CSS's own font matching
+    would for 500 (a funnel's 600-weight labels set in the bold face). Italic
+    text of any weight sets in the one italic face, which is 400.
+
+    Raises:
+        ValueError: the weight or style is neither a keyword above nor, for
+            the weight, a number.
+    """
+    w = weight.strip().lower()
+    if w in _WEIGHT_KEYWORDS:
+        numeric = _WEIGHT_KEYWORDS[w]
+    else:
+        try:
+            numeric = int(float(w))
+        except ValueError:
+            raise ValueError(f"unrecognized font-weight {weight!r}") from None
+    font_style = _STYLE_KEYWORDS.get(style.strip().lower())
+    if font_style is None:
+        raise ValueError(f"unrecognized font-style {style!r}")
+    if font_style == "italic":
+        return 400, "italic"
+    return (400 if abs(numeric - 400) <= abs(numeric - 700) else 700), "normal"
+
+
+def _faces_and_text(svg: str) -> dict[tuple[int, str], set[str]]:
+    """Each committed face a `<text>` element sets, and the characters it sets."""
+    used: dict[tuple[int, str], set[str]] = {}
+    for el, weight, style in _walk_font(ET.fromstring(svg)):
+        if _local(el.tag) != "text":
+            continue
+        chars = "".join(el.itertext())
+        if not chars:
+            continue
+        used.setdefault(_face_for(weight, style), set()).update(chars)
+    return used
+
+
+def used_faces(svg: str) -> set[tuple[int, str]]:
+    """The `(weight, style)` of every committed face the figure's text sets."""
+    return set(_faces_and_text(svg))
+
+
+def _subset_woff(font_path: Path, chars: set[str]) -> bytes:
+    options = subset.Options()
+    options.flavor = "woff"
+    # A fresh TTFont per call: `Subsetter.subset` shrinks the font in place.
+    font = TTFont(font_path)
+    subsetter = subset.Subsetter(options)
+    subsetter.populate(text="".join(sorted(chars | {" "})))
+    subsetter.subset(font)
+    font.flavor = "woff"
+    buf = io.BytesIO()
+    font.save(buf)
+    return buf.getvalue()
+
+
+def embed_fonts(svg: str, font_dir: Path) -> str:
+    """Embed, as one `<style>`, each face the figure's text uses, subset to it.
+
+    An SVG an `<img>` references cannot reach the book's other files, and a
+    reading system's fallback font sets wider than Source Sans 3 and would
+    push labels out of their boxes. So each `<text>` element's weight and
+    style are resolved through its ancestors (`_walk_font`) and snapped to a
+    committed face (`_face_for`); each face in use is subset with fontTools
+    to the characters set in it, plus a space, as WOFF, and declared as one
+    `@font-face` under `FIGURE_FONT`, the family the figure already names.
+    A figure with no text is returned unchanged.
+
+    Raises:
+        FileNotFoundError: a face the figure uses is missing from `font_dir`.
+        ValueError: a `<text>` resolves to an unrecognized weight or style.
+    """
+    used = _faces_and_text(svg)
+    if not used:
+        return svg
+    rules = []
+    for (weight, style), chars in sorted(used.items()):
+        font_path = font_dir / FACE_FILES[(weight, style)]
+        if not font_path.is_file():
+            raise FileNotFoundError(
+                f"{font_path.name} not found in {font_dir}; the figure's text "
+                f"uses the {weight} {style} face"
+            )
+        data = base64.b64encode(_subset_woff(font_path, chars)).decode("ascii")
+        rules.append(
+            f'@font-face {{ font-family: "{FIGURE_FONT}"; font-weight: {weight}; '
+            f"font-style: {style}; src: url(data:font/woff;base64,{data}); }}"
+        )
+    return _insert_after_root(svg, "<style>" + "\n".join(rules) + "</style>")
+
+
+def epub_width_em(svg: str) -> float:
+    """The figure's EPUB width in em, at the one scale.
+
+    The viewBox width times `PT_PER_UNIT` is the figure's printed width in
+    points; over the body's nominal `BODY_PT` that is its width relative to
+    the body font, which is width / 15 at the book's scale.
+    """
+    width, _ = viewbox(svg)
+    return width * PT_PER_UNIT / BODY_PT
