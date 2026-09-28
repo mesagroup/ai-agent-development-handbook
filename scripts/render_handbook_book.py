@@ -247,10 +247,15 @@ def curl_quotes(html: str) -> str:
     opening bracket, and closes (``\u201d``) otherwise; a straight single
     quote is an apostrophe (``\u2019``) when the character before it is a
     letter or digit, an opening quote (``\u2018``) under the same rule as a
-    double quote, and otherwise a closing one. A tag boundary counts as
+    double quote, and otherwise a closing one. An *opening* tag counts as
     whitespace for this rule, since the handbook's own quoted asides
-    (```**"We added more patterns"**```) open and close a quote flush
-    against ``<strong>``/``</strong>`` with no letter beside it to judge by.
+    (```**"We added more patterns"**```) open a quote flush against
+    ``<strong>`` with no letter beside it to judge by; a *closing* tag does
+    not reset the context, so ``Part 1</a>'s gates`` - a real
+    ``docs/engineering/lifecycle.md`` link followed immediately by a
+    possessive - still sees the ``1`` before the apostrophe and curls it as
+    one, rather than resetting to whitespace and misreading it as an opening
+    single quote.
     """
     out: list[str] = []
     skip_depth = 0
@@ -259,15 +264,19 @@ def curl_quotes(html: str) -> str:
         if token.startswith("<"):
             out.append(token)
             name_match = _QUOTE_TAG_NAME_RE.match(token)
+            closing = token.startswith("</")
             if name_match and name_match.group(1).lower() in _QUOTE_SKIP_TAGS:
-                if token.startswith("</"):
+                if closing:
                     skip_depth = max(0, skip_depth - 1)
                 elif not token.rstrip().endswith("/>"):
                     skip_depth += 1
-            prev = " "
+            if not closing and not token.rstrip().endswith("/>"):
+                prev = " "
             continue
         if skip_depth:
             out.append(token)
+            if token:
+                prev = token[-1]
             continue
         chars = []
         for ch in token:
