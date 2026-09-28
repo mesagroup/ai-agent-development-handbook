@@ -110,6 +110,21 @@ def test_restore_task_boxes_marks_open_and_done_items():
     )
 
 
+def test_restore_task_boxes_reads_mark_task_items_own_output():
+    """The two functions share markup that no test held until now.
+
+    `mark_task_items` (in `render_handbook_artifact`) is what actually
+    produces `restore_task_boxes`'s input on a real build; the test above
+    hand-writes that markup instead, so a change to either function's side of
+    the ``<li class="task...">`` contract could drift silently. Feeding one's
+    real output to the other is what a pandoc-free CI run can still check.
+    """
+    html = rh.mark_task_items("<li>[ ] open item</li><li>[x] done item</li>")
+    result = rb.restore_task_boxes(html)
+    assert '<li><span class="task-box">☐</span> open item</li>' in result
+    assert '<li><span class="task-box">☒</span> done item</li>' in result
+
+
 def test_book_html_substitutes_every_placeholder_and_wraps_no_section():
     block = rh.DiagramBlock(index=0, kind="d2", title="T", source="a -> b\n")
     part = rh.AssembledPart(
