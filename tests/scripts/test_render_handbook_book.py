@@ -168,18 +168,36 @@ def test_no_link_in_the_epub_points_at_a_markdown_file(built_epub: Path):
         assert not re.search(r'href="[^"#]*\.md', text), name
 
 
+def _chapters(epub_path: Path) -> tuple[list[str], dict[str, str]]:
+    """The book's chapter files, in name order, and every xhtml document by name."""
+    docs = _epub_documents(epub_path)
+    chapters = sorted(n for n in docs if re.search(r"ch\d+\.xhtml$", n))
+    return chapters, docs
+
+
 @needs_pandoc
 def test_every_part_is_a_chapter_in_page_order(built_epub: Path):
-    docs = _epub_documents(built_epub)
-    chapters = sorted(n for n in docs if re.search(r"ch\d+\.xhtml$", n))
+    chapters, docs = _chapters(built_epub)
     firsts = rb.first_heading_ids(DOCS, rh.PARTS)
     order = [firsts[stem] for _, stem, _ in rh.PARTS]
-    found = []
-    for name in chapters:
-        for heading_id in order:
-            if f'id="{heading_id}"' in docs[name]:
-                found.append(heading_id)
-    assert found == order
+    assert len(chapters) == len(rh.PARTS)
+    for i, heading_id in enumerate(order):
+        assert f'id="{heading_id}"' in docs[chapters[i]]
+
+
+@needs_pandoc
+def test_a_part_with_no_h1_merges_into_the_previous_chapter(tmp_path: Path):
+    pytest.importorskip("markdown")
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir()
+    (docs_dir / "one.md").write_text("# One\n\ntext\n")
+    (docs_dir / "two.md").write_text("## Two\n\ntext\n")
+    parts = [("p1", "one", "One"), ("p2", "two", "Two")]
+    built = rb.build_epub(
+        docs_dir, tmp_path / "out" / "book.epub", date="2026-09-28", parts=parts
+    )
+    chapters, _docs = _chapters(built)
+    assert len(chapters) < len(parts)
 
 
 @needs_pandoc
