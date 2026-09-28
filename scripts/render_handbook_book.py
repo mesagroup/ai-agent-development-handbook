@@ -7,6 +7,8 @@ book's ids are the page's by construction and every citation a report
 emits lands on the same heading in both. Diagrams render as listings here
 until #190 draws them as figures, and a checklist item carries a ☐/☒ glyph
 (`restore_task_boxes`) so it reads as a box rather than a plain bullet.
+Prose quotes are curled to typographic ones and inline code is left
+untouched (`curl_quotes`) before the document ever reaches pandoc.
 
 Usage::
 
@@ -214,6 +216,77 @@ def book_html(assembled: list[AssembledPart]) -> str:
     )
 
 
+_QUOTE_TOKEN_RE = re.compile(r"<[^>]*>|[^<]+")
+_QUOTE_TAG_NAME_RE = re.compile(r"</?\s*([a-zA-Z][a-zA-Z0-9]*)")
+_QUOTE_SKIP_TAGS = frozenset({"code", "pre"})
+_QUOTE_OPEN_CONTEXT = frozenset(" \t\n\r([{\u2018\u201c")
+
+
+def curl_quotes(html: str) -> str:
+    """Curl straight quotes to typographic ones in prose, verbatim in code.
+
+    Pandoc's own ``+smart`` reader extension would do this, but it also
+    rewrites ``--`` inside an inline ``<code>`` span (``--rebase`` becomes an
+    en dash), because pandoc's HTML reader applies smart typography to a
+    ``Code`` span's text the same as to prose, unlike its Markdown reader,
+    which exempts code spans by design - confirmed against pandoc 3.8.2 with
+    ``echo '<p><code>--rebase</code></p>' | pandoc -f html+smart -t html``.
+    Doing the curling here instead, and dropping ``+smart`` from
+    `epub_command`, sidesteps that reader entirely, at the cost of narrowing
+    to what the handbook's own prose needs: every ``docs/engineering/*.md``
+    straight quote is either a double quote or a mid-word apostrophe/
+    possessive (verified by sweeping the corpus for one-word single-quoted
+    phrases and finding none), and the corpus carries no ``--`` or em dash
+    outside a fenced or inline code span, so dashes need no handling here.
+
+    Walks `html` as a stream of tag and text tokens, skipping every run of
+    text inside ``<code>`` or ``<pre>`` (nested or not) so inline code and
+    the book's diagram-source listings reach pandoc, and the EPUB, exactly as
+    written. In the text that is curled, a straight double quote opens
+    (``\u201c``) when the character before it is missing, whitespace, or an
+    opening bracket, and closes (``\u201d``) otherwise; a straight single
+    quote is an apostrophe (``\u2019``) when the character before it is a
+    letter or digit, an opening quote (``\u2018``) under the same rule as a
+    double quote, and otherwise a closing one. A tag boundary counts as
+    whitespace for this rule, since the handbook's own quoted asides
+    (```**"We added more patterns"**```) open and close a quote flush
+    against ``<strong>``/``</strong>`` with no letter beside it to judge by.
+    """
+    out: list[str] = []
+    skip_depth = 0
+    prev = " "
+    for token in _QUOTE_TOKEN_RE.findall(html):
+        if token.startswith("<"):
+            out.append(token)
+            name_match = _QUOTE_TAG_NAME_RE.match(token)
+            if name_match and name_match.group(1).lower() in _QUOTE_SKIP_TAGS:
+                if token.startswith("</"):
+                    skip_depth = max(0, skip_depth - 1)
+                elif not token.rstrip().endswith("/>"):
+                    skip_depth += 1
+            prev = " "
+            continue
+        if skip_depth:
+            out.append(token)
+            continue
+        chars = []
+        for ch in token:
+            if ch == '"':
+                chars.append("\u201c" if prev in _QUOTE_OPEN_CONTEXT else "\u201d")
+            elif ch == "'":
+                if prev.isalnum():
+                    chars.append("\u2019")
+                elif prev in _QUOTE_OPEN_CONTEXT:
+                    chars.append("\u2018")
+                else:
+                    chars.append("\u2019")
+            else:
+                chars.append(ch)
+            prev = ch
+        out.append("".join(chars))
+    return "".join(out)
+
+
 def book_identifier(title: str) -> str:
     """A ``urn:uuid`` derived from the title, so every build carries the same one."""
     return f"urn:uuid:{uuid.uuid5(uuid.NAMESPACE_URL, title)}"
@@ -240,10 +313,16 @@ def book_metadata(date: str) -> str:
 def epub_command(
     html_path: Path, metadata_path: Path, css_path: Path, out: Path
 ) -> list[str]:
-    """The pandoc argv that turns the book document into an EPUB3."""
+    """The pandoc argv that turns the book document into an EPUB3.
+
+    Reads plain ``html``, not ``html+smart``: `curl_quotes` already curled
+    the book document's prose quotes before it reached this command, and
+    ``+smart`` would also rewrite ``--`` inside an inline ``<code>`` span
+    (see `curl_quotes`), which no step in this pipeline should ever do.
+    """
     return [
         "pandoc",
-        "-f", "html+smart",
+        "-f", "html",
         "-t", "epub3",
         "--split-level=1",
         "--toc",
@@ -301,7 +380,7 @@ def build_epub(
     rendered = render_parts(docs_dir, parts)
     require_h1_first(rendered, parts)
     linkmap = book_linkmap(parts, first_heading_ids(rendered, parts))
-    html = book_html(assemble(docs_dir, parts, linkmap, rendered=rendered))
+    html = curl_quotes(book_html(assemble(docs_dir, parts, linkmap, rendered=rendered)))
     out.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as tmp:
         work = Path(tmp)
