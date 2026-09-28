@@ -887,6 +887,74 @@ def to_ascii_entities(html: str) -> str:
     return html.encode("ascii", "xmlcharrefreplace").decode("ascii")
 
 
+@dataclass(frozen=True)
+class AssembledPart:
+    """One part after ids and links, before diagrams and page chrome."""
+
+    anchor: str
+    stem: str
+    html: str
+    blocks: list[DiagramBlock]
+
+
+def assemble(
+    docs_dir: Path,
+    parts: list[tuple[str, str, str]] = PARTS,
+    linkmap: dict[str, str] | None = None,
+) -> list[AssembledPart]:
+    """Render every part with heading ids and rewritten links.
+
+    The half of the build the page and the book share. Every part is
+    rendered before any link is rewritten, so a fragment into a later part
+    finds its id. Diagrams stay as placeholders for the caller, which is what
+    lets the page draw two themed variants and the book one print variant.
+
+    Args:
+        docs_dir: Directory holding the handbook Markdown.
+        parts: ``(anchor, stem, label)`` in page order.
+        linkmap: ``<stem>.md`` to the fragment a bare link to that part
+            lands on. ``None`` means the page's map, the part anchors.
+
+    Raises:
+        ValueError: A heading id collides with another id, or a relative
+            link names no part or no heading. See `build` for why each is a
+            raise rather than a warning.
+    """
+    if linkmap is None:
+        linkmap = {stem + ".md": "#" + anchor for anchor, stem, _ in parts}
+    rendered = {stem: render_part(docs_dir, stem) for _, stem, _ in parts}
+    ids = {anchor for anchor, _, _ in parts}
+    for stem, (_, part_ids, _) in rendered.items():
+        clash = ids & set(part_ids)
+        if clash:
+            raise ValueError(
+                f"{stem}.md: heading id(s) {sorted(clash)} collide with an id the "
+                "page already carries, so a link to one of them would land on "
+                "the other"
+            )
+        ids.update(part_ids)
+    assembled = []
+    for anchor, stem, _ in parts:
+        html, _, blocks = rendered[stem]
+        html, unmapped, unlinked = post_process(html, linkmap, ids)
+        dead = [h for h in unmapped if not _SCHEME_RE.match(h)]
+        if dead:
+            raise ValueError(
+                f"{stem}.md: relative link(s) the artifact cannot resolve: "
+                + ", ".join(dead)
+                + ". A sibling link must name a part this artifact contains, and "
+                "a fragment on it must name a heading of that part; a target "
+                "outside the handbook is written relatively and gets unlinked "
+                "here."
+            )
+        for href in unmapped:
+            print(f"  WARNING unmapped link in {stem}.md: {href}")
+        for href in unlinked:
+            print(f"  NOTE unlinked out-of-tree link in {stem}.md: {href}")
+        assembled.append(AssembledPart(anchor, stem, html, blocks))
+    return assembled
+
+
 def build(docs_dir: Path, parts: list[tuple[str, str, str]] = PARTS) -> str:
     """Render the full handbook artifact HTML from ``docs_dir``.
 
@@ -905,49 +973,22 @@ def build(docs_dir: Path, parts: list[tuple[str, str, str]] = PARTS) -> str:
             with an id the page already carries, because either would send a
             citation to the wrong element.
     """
-    linkmap = {stem + ".md": "#" + anchor for anchor, stem, _ in parts}
-    rendered = {stem: render_part(docs_dir, stem) for _, stem, _ in parts}
-    ids = {anchor for anchor, _, _ in parts}
-    for stem, (_, part_ids, _) in rendered.items():
-        clash = ids & set(part_ids)
-        if clash:
-            raise ValueError(
-                f"{stem}.md: heading id(s) {sorted(clash)} collide with an id the "
-                "page already carries, so a link to one of them would land on "
-                "the other"
-            )
-        ids.update(part_ids)
     sections = []
-    for anchor, stem, _ in parts:
-        cls = "part intro" if anchor == "top" else "part"
-        html, _, blocks = rendered[stem]
-        html, unmapped, unlinked = post_process(html, linkmap, ids)
-        if blocks:
+    for part in assemble(docs_dir, parts):
+        cls = "part intro" if part.anchor == "top" else "part"
+        html = part.html
+        if part.blocks:
             html = substitute_diagrams(
                 html,
                 {
                     block.index: diagram_figure(
-                        stem, block, *render_variants(block, stem)
+                        part.stem, block, *render_variants(block, part.stem)
                     )
-                    for block in blocks
+                    for block in part.blocks
                 },
             )
-        dead = [h for h in unmapped if not _SCHEME_RE.match(h)]
-        if dead:
-            raise ValueError(
-                f"{stem}.md: relative link(s) the artifact cannot resolve: "
-                + ", ".join(dead)
-                + ". A sibling link must name a part this artifact contains, and "
-                "a fragment on it must name a heading of that part; a target "
-                "outside the handbook is written relatively and gets unlinked "
-                "here."
-            )
-        for href in unmapped:
-            print(f"  WARNING unmapped link in {stem}.md: {href}")
-        for href in unlinked:
-            print(f"  NOTE unlinked out-of-tree link in {stem}.md: {href}")
         sections.append(
-            f'    <section id="{anchor}" class="{cls}">\n'
+            f'    <section id="{part.anchor}" class="{cls}">\n'
             f'      <div class="col doc">\n{html}\n      </div>\n    </section>'
         )
     body = _BODY % {"nav": render_nav(parts), "sections": "\n".join(sections)}
