@@ -78,7 +78,7 @@ A new `scripts/render_handbook_book.py`, with one entry point and a `--format` f
 
 - **`--format epub`** writes `build/handbook.epub`. It runs `pandoc -f html -t epub3 --split-level=1 --toc --toc-depth=2` with a metadata file, `--css` pointing at a book stylesheet, and `--resource-path` pointing at the media directory. The metadata carries title, creator (Janos Tolgyesi), `lang: en`, rights (CC BY 4.0), date, and an identifier `urn:uuid:<uuid5 of the title>`, so the identifier stays stable across builds. This covers what `epubcheck` requires; #191 adds the cover, the title and copyright pages, and the rest of the metadata.
 - **`--format pdf`** writes `build/handbook-interior.pdf`. It runs `pandoc -f html -t typst` with a Typst template, then `typst compile`. The template sets:
-  - the trim size, 6 x 9 inches;
+  - the trim size, 5 x 8 inches;
   - mirrored margins with a gutter meeting KDP's minimum for the page count;
   - every part starting on a recto page;
   - a table of contents with page numbers;
@@ -127,5 +127,7 @@ Each pull request adds its command to CLAUDE.md's Commands section. Any new modu
 - **Pandoc reads the renderer's HTML, not the Markdown,** so the ids and links are the page's by construction. #189's body names `pandoc -f gfm`; this spec supersedes that line, and the #189 pull request records it.
 - **Typst over LaTeX for the PDF.** It is a single binary, much lighter than a TeX distribution, embeds SVG natively, and pandoc 3.8 writes it. Install with `brew install typst` locally; #192 pins a version.
 - **SVG for every figure** in both formats, so one render serves both and print needs no raster step.
-- **Trim size 6 x 9 inches, black and white on white paper.** Assumed on 2026-09-25 as the usual size for a technical book, and not yet confirmed by the maintainer. #195's open questions stay open until confirmed. The trim size and paper type are template parameters, so changing either is a one-line edit.
+- **Trim size 5 x 8 inches.** Decided by the maintainer on 2026-09-28, for a pocket-manual feel. It is the smallest trim KDP offers for a paperback, so a true pocket size would need another printer. At about 28,100 words of prose, an estimate from typical densities puts the book near 125 pages at this size, against about 95 at 6 x 9. That estimate comes before any typesetting, and the #195 pull request records the real count.
+- **The narrow text block has costs the template has to meet.** About 3.6 inches of text width forces three things: a rule for the 4- and 5-column tables (smaller type, a rotated page, or a reshaped table), a check that the wide left-to-right diagrams stay legible or get a top-to-bottom print layout, and a line-breaking rule for long inline code. The #195 pull request settles each and records the choice.
+- **Black and white on white paper.** Assumed on 2026-09-25 and not yet confirmed by the maintainer. White paper keeps the spine formula at KDP's white-paper thickness. The paper type is a template parameter, so changing it is a one-line edit.
 - **`epubcheck` from Homebrew** locally. #192 chooses how CI obtains it.
