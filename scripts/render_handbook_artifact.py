@@ -39,7 +39,7 @@ NOT a CI test. Everything except ``run_d2`` is unit-tested in
 ``tests/scripts/``: the pure transforms (``unlink_out_of_tree``,
 ``heading_id``, ``add_heading_ids``, ``rewrite_links``, ``wrap_tables``,
 ``heading_ids`` and ``render_part`` through ``build`` and the id-set tests,
-``mark_task_items``, ``extract_diagram_blocks``, ``parse_funnel``,
+``assemble``, ``mark_task_items``, ``extract_diagram_blocks``, ``parse_funnel``,
 ``wrap_label``, ``group_digits``, ``funnel_svg``, ``prepare_svg``,
 ``diagram_figure``, ``substitute_diagrams``, ``count_em_dashes``), the
 per-fence dispatch (``render_variants``), and ``d2_icon_classes``, which
