@@ -78,7 +78,11 @@ def test_restore_task_boxes_marks_open_and_done_items():
         "<li>plain item</li>"
     )
     result = rb.restore_task_boxes(html)
-    assert result == ("<li>☐ open item</li><li>☒ done item</li><li>plain item</li>")
+    assert result == (
+        '<li><span class="task-box">☐</span> open item</li>'
+        '<li><span class="task-box">☒</span> done item</li>'
+        "<li>plain item</li>"
+    )
 
 
 def test_book_html_substitutes_every_placeholder_and_wraps_no_section():
@@ -273,28 +277,33 @@ def test_build_epub_refuses_a_part_whose_first_heading_is_not_h1(tmp_path: Path)
 
 
 _CHECKLIST_LINE_RE = re.compile(r"^\s*-\s*\[[ xX]\]\s", re.MULTILINE)
-_TASK_CHECKBOX_RE = re.compile(r'<input type="checkbox"')
+_TASK_BOX_GLYPH_RE = re.compile(r'<li><span class="task-box">[☐☒]</span>')
 
 
 @needs_pandoc
-def test_the_epub_carries_a_checkbox_for_every_source_checklist_item(built_epub: Path):
-    """`restore_task_boxes` writes the ☐/☒ glyph pandoc's HTML reader keeps.
+def test_the_epub_carries_a_literal_glyph_for_every_source_checklist_item(
+    built_epub: Path,
+):
+    """`restore_task_boxes` spans the ☐/☒ glyph so it survives as text.
 
-    Pandoc's HTML reader recognizes that glyph-prefixed ``<li>`` and
-    rewrites it as a real ``<input type="checkbox">`` in the EPUB -
-    confirmed clean under epubcheck - so the marker to count in the built
-    book is the checkbox, not the glyph the source HTML carried into
-    pandoc. See `render_handbook_book.restore_task_boxes` for what pinned
-    this down: it is not gated by the ``task_lists`` extension.
+    A bare ☐/☒-prefixed ``<li>`` is rewritten by pandoc's HTML reader into a
+    real ``<input type="checkbox">`` (observed under pandoc 3.8.2,
+    independent of the ``task_lists`` extension - see
+    `render_handbook_book.restore_task_boxes`), but an EPUB reading system
+    need not render a form control, and a tick in one cannot persist. The
+    ``<span>`` defeats that detection, so the marker to count in the built
+    book is the literal glyph, and no chapter file should carry an
+    ``<input`` at all.
     """
     source_count = sum(
         len(_CHECKLIST_LINE_RE.findall(path.read_text()))
         for path in sorted(DOCS.glob("*.md"))
     )
     chapters, docs = _chapters(built_epub)
-    epub_count = sum(len(_TASK_CHECKBOX_RE.findall(docs[name])) for name in chapters)
+    epub_count = sum(len(_TASK_BOX_GLYPH_RE.findall(docs[name])) for name in chapters)
     assert source_count > 0
     assert epub_count == source_count
+    assert not any("<input" in docs[name] for name in chapters)
 
 
 @needs_pandoc
