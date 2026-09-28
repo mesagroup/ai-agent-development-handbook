@@ -298,3 +298,50 @@ def test_embed_fonts_names_the_font_directory_when_a_face_is_missing(tmp_path):
 
 def test_the_epub_width_keeps_the_one_scale():
     assert bf.epub_width_em('<svg viewBox="0 0 300 100"></svg>') == pytest.approx(20.0)
+
+
+def _text_svg(body: str) -> str:
+    return f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1">{body}</svg>'
+
+
+def test_a_bold_tspan_sets_its_own_characters_in_the_bold_face():
+    # Inkscape's habit: the weight sits on the tspan, not on the <text>, and
+    # the tspan's tail belongs to the <text>'s own face.
+    svg = _text_svg(
+        '<text style="font-size:12px"><tspan style="font-weight:bold">Qz</tspan>'
+        " ab</text>"
+    )
+    assert bf._faces_and_text(svg) == {
+        (700, "normal"): {"Q", "z"},
+        (400, "normal"): {" ", "a", "b"},
+    }
+
+
+def test_a_nested_tspan_can_reset_to_the_normal_weight():
+    svg = _text_svg(
+        '<text font-weight="700">A<tspan>B<tspan style="font-weight:normal">c'
+        "</tspan>D</tspan>E</text>"
+    )
+    assert bf._faces_and_text(svg) == {
+        (700, "normal"): {"A", "B", "D", "E"},
+        (400, "normal"): {"c"},
+    }
+
+
+def test_an_italic_tspan_sets_in_the_italic_face():
+    svg = _text_svg('<text>x<tspan font-style="italic">yi</tspan></text>')
+    assert bf._faces_and_text(svg) == {
+        (400, "normal"): {"x"},
+        (400, "italic"): {"y", "i"},
+    }
+
+
+def test_a_tspan_face_is_embedded():
+    svg = _text_svg(
+        '<text style="font-size:12px"><tspan style="font-weight:bold">Qz</tspan>'
+        " ab</text>"
+    )
+    out = bf.embed_fonts(svg, FONTS).replace(" ", "")
+    assert out.count("@font-face") == 2
+    assert "font-weight:700;font-style:normal" in out
+    assert "font-weight:400;font-style:normal" in out
