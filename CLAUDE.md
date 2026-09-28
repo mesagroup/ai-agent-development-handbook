@@ -10,7 +10,8 @@ uv run ruff check . && uv run ruff format --check .
 uv run python scripts/render_handbook_traceability.py --check   # integrity gate
 uv run python scripts/render_handbook_traceability.py           # regenerate the matrix Markdown
 uv run python scripts/render_handbook_artifact.py               # needs the d2 CLI
-uv run python scripts/render_handbook_book.py --format epub      # needs the pandoc CLI; writes build/handbook.epub
+uv run python scripts/render_handbook_book.py --format epub      # needs the pandoc and d2 CLIs; writes build/handbook.epub
+uv run python scripts/render_handbook_book.py --seed-figures     # write a starting SVG for every diagram without a committed book figure
 uv run python scripts/check_handbook_citations.py               # every citation a report emits resolves to an anchor in the page
 uv run python scripts/render_python_fixture_expectations.py --check   # integrity gate
 uv run python scripts/render_python_fixture_expectations.py           # regenerate the fixture expectations
@@ -26,6 +27,8 @@ Run `ruff check` AND `ruff format --check` before committing. CI runs both.
 ## Repository layout
 
 - `docs/engineering/` — the handbook. Normative prose, ten parts.
+- `docs/engineering/figures/` - the book's figures, one SVG per diagram fence, corrected by hand from a seed and stamped with the hash of the fence body it was drawn from; editing a fence fails `tests/scripts/test_book_figures_tree.py` until the figure is redrawn or re-stamped.
+- `fonts/source-sans-3/` - the figures' font, unmodified, under its OFL licence.
 - `docs/audit/handbook-traceability.yaml` — the matrix. Source of truth.
 - `docs/audit/handbook-traceability.md` — generated. Never edit it; edit the YAML and re-render.
 - `docs/audit/sweep-obligations.md` — hand-maintained, unlike its neighbour: one row per `audit-core` obligation, recording how the `audit` sweep discharges it. Editing `audit-core/SKILL.md`, a file under `audit-core/references/`, or `audit/SKILL.md` means checking it. `tests/test_sweep_obligations.py` catches a row whose anchor no longer occurs in `audit-core` exactly once, a quotation that is no longer verbatim, and a row that has slipped out of the checked set; it cannot judge whether a disposition is still true, which is a reading pass over the whole of `audit-core`.
