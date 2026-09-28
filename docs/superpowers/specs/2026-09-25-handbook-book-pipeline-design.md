@@ -64,6 +64,8 @@ Each diagram block renders once, in a new `print` variant, rather than twice for
 
 The `print` variant paints no opaque surface. The page palette fills every d2 shape with its `surface` colour (the `**.style.fill` line in the prelude) and draws each funnel stage on a `surface` rectangle. On cream paper those print as pale rectangles on a warm page, which a preview on 2026-09-28 showed. So the variant sets shape fills and the diagram background to transparent, and draws any tint a figure needs, such as the funnel's `accent_wash`, as a translucent overlay. The paper then shows through every figure, whatever its colour, and the same SVG serves an EPUB reading system's own background. A test holds that no `print` SVG carries an opaque fill on a shape or background.
 
+A diagram laid out left to right is not legible in print at this trim. A preview on 2026-09-28 printed the story-of-a-change figure's labels at about 4 pt. So the `print` variant lays out a wide diagram top to bottom, and a test holds every `print` SVG's aspect ratio within what the text block can show with labels at a readable size. The page variants keep their layouts.
+
 Each SVG is written to a temporary media directory as `<stem>-<index>.svg` and referenced as:
 
 ```html
@@ -78,14 +80,16 @@ Fonts: d2 embeds its own font faces in the SVG. The implementation confirms thei
 
 A new `scripts/render_handbook_book.py`, with one entry point and a `--format` flag:
 
-- **`--format epub`** writes `build/handbook.epub`. It runs `pandoc -f html -t epub3 --split-level=1 --toc --toc-depth=2` with a metadata file, `--css` pointing at a book stylesheet, and `--resource-path` pointing at the media directory. The metadata carries title, creator (Janos Tolgyesi), `lang: en`, rights (CC BY 4.0), date, and an identifier `urn:uuid:<uuid5 of the title>`, so the identifier stays stable across builds. This covers what `epubcheck` requires; #191 adds the cover, the title and copyright pages, and the rest of the metadata.
-- **`--format pdf`** writes `build/handbook-interior.pdf`. It runs `pandoc -f html -t typst` with a Typst template, then `typst compile`. The template sets:
+- **`--format epub`** writes `build/handbook.epub`. It runs `pandoc -f html+smart -t epub3 --split-level=1 --toc --toc-depth=2` with a metadata file, `--css` pointing at a book stylesheet, and `--resource-path` pointing at the media directory. The metadata carries title, creator (Janos Tolgyesi), `lang: en`, rights (CC BY 4.0), date, and an identifier `urn:uuid:<uuid5 of the title>`, so the identifier stays stable across builds. This covers what `epubcheck` requires; #191 adds the cover, the title and copyright pages, and the rest of the metadata.
+- **`--format pdf`** writes `build/handbook-interior.pdf`. It runs `pandoc -f html+smart -t typst` with a Typst template, then `typst compile`. The `smart` extension turns straight quotes into typographic ones on the way in; without it pandoc escapes `"` for Typst and the book prints straight quotes, which the preview showed. The template sets:
   - the trim size, 5 x 8 inches;
   - mirrored margins with a gutter meeting KDP's minimum for the page count;
   - every part starting on a recto page;
   - a table of contents with page numbers;
   - in-book links printed as page references;
-  - external links with their URL printed after the link text.
+  - external links with their URL printed after the link text;
+  - table cells set ragged-right rather than justified;
+  - a line-breaking rule for long inline code.
 - **`--format cover`** writes `build/handbook-cover.pdf`. It reads the interior's page count, computes the spine width, and lays out back, spine and front with 0.125 inch bleed on every side. Spine text is printed only above KDP's minimum page count for it.
 
 `--out` overrides the output path. `build/` joins `.gitignore`.
@@ -107,7 +111,7 @@ A missing external tool (`pandoc`, `d2`, `typst`, `epubcheck`) raises `SystemExi
 - **Unit tests** over every pure function above, in `tests/scripts/`.
 - **Id parity.** A test opens the built EPUB, collects every `id` in its XHTML documents, and holds the set of heading ids equal to `heading_ids(docs_dir)` minus the part anchors, which the book deliberately does not emit. For the PDF, parity holds through `assemble`, because the same HTML feeds both formats; the test asserts that the Typst source names every heading id as a label.
 - **No `.md` link survives** in any EPUB document.
-- **Figure count.** The EPUB carries exactly one image per diagram fence in the source, and the Typst source one figure per fence.
+- **Figure count.** The EPUB carries exactly one image per diagram fence in the source, and so does the Typst source. The count is of images, not figures, because pandoc wraps tables in Typst figures too.
 - **Spine width** against KDP's published values at a few page counts.
 - **`epubcheck`** runs locally on the built EPUB, and its clean result is recorded in the #189 and #190 pull requests. CI takes it over in #192.
 - **KDP's previewer** on the interior and cover PDFs is a manual step, recorded in #195.
@@ -119,7 +123,7 @@ Tests that need `pandoc`, `d2` or `typst` skip with a stated reason when the too
 Three pull requests, in dependency order:
 
 1. **#189:** the `assemble` refactor with its byte-identity test, `render_handbook_book.py --format epub`, the book link map, metadata, stylesheet, and `.gitignore`. Diagrams render as listings until #190.
-2. **#190:** the `print` variant, figure files and markup, the grayscale check, the font-licence finding, and the figure-count test.
+2. **#190:** the `print` variant with transparent fills and top-to-bottom layouts for wide diagrams, figure files and markup, the grayscale check, the font-licence finding, and the transparency, aspect-ratio and figure-count tests.
 3. **#195:** the Typst template, `--format pdf` and `--format cover`, the spine computation, and the manual previewer step.
 
 Each pull request adds its command to CLAUDE.md's Commands section. Any new module in `scripts/` joins `[tool.deptry] known_first_party`.
@@ -130,6 +134,6 @@ Each pull request adds its command to CLAUDE.md's Commands section. Any new modu
 - **Typst over LaTeX for the PDF.** It is a single binary, much lighter than a TeX distribution, embeds SVG natively, and pandoc 3.8 writes it. Install with `brew install typst` locally; #192 pins a version.
 - **SVG for every figure** in both formats, so one render serves both and print needs no raster step.
 - **Trim size 5 x 8 inches.** Decided by the maintainer on 2026-09-28, for a pocket-manual feel. It is the smallest trim KDP offers for a paperback, so a true pocket size would need another printer. A throwaway typesetting run on 2026-09-28 (pandoc to Typst 0.15.1, 10 pt Libertinus Serif, parts on recto pages, four front-matter pages and the table of contents) came to 115 pages at this size, against 85 at 6 x 9. The #195 pull request records the count of the final build.
-- **The narrow text block has costs the template has to meet.** About 3.6 inches of text width forces three things, and the same run showed which of them bite. The 4- and 5-column tables fit at 8 pt, but justified cell text spaces badly, so table cells are set ragged-right. The wide left-to-right diagrams are not legible: the story-of-a-change figure's labels print at about 4 pt, so a wide diagram gets a top-to-bottom layout in the `print` variant. Long inline code needs a line-breaking rule. The #195 pull request settles each and records the choice.
+- **The narrow text block has costs the template has to meet.** About 3.6 inches of text width forces three things, and the same run showed which of them bite. The 4- and 5-column tables fit at 8 pt, but justified cell text spaces badly, so table cells are set ragged-right. The wide left-to-right diagrams are not legible: the story-of-a-change figure's labels print at about 4 pt, so a wide diagram gets a top-to-bottom layout in the `print` variant. Long inline code needs a line-breaking rule. The diagrams belong to #190; the tables and inline code to #195, each pull request recording its choice.
 - **Black and white on cream paper.** Decided by the maintainer on 2026-09-28, after comparing a white and a simulated cream preview. Cream is warmer and has less glare for a book read cover to cover. It costs two things the design absorbs: the figures carry transparent fills, and the spine uses KDP's cream-paper thickness, which is greater than white's. The paper type is a template parameter, so `spine_width` takes it as an argument rather than assuming one.
 - **`epubcheck` from Homebrew** locally. #192 chooses how CI obtains it.
