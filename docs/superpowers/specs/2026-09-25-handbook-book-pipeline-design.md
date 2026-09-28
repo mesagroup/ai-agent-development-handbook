@@ -64,9 +64,9 @@ The page keeps its diagrams as code. The book does not, because d2 and its ELK l
 
 **Files.** Each diagram fence has one book figure at `docs/engineering/figures/<stem>-<index>.svg`, the index being the fence's position in its part. The EPUB and the paperback both use it. Where a fence has no committed figure, the build renders its seed in the figure's place and prints a note naming the fence, so a new diagram builds before its figure is drawn. The release workflow (#192) turns that note into a failure.
 
-**Seed.** `render_handbook_book.py --seed-figures` writes the seed of every fence that has no committed figure, and never overwrites one. A d2 fence renders through `run_d2` with the `print` prelude and ELK, as the page's diagrams do, with a tighter layer spacing for print. The funnel fence draws through a vertical layout of `funnel_svg`: stages top to bottom, each label left of its band and each count inside it, because the horizontal layout prints its labels at about 4 pt. A seed is a starting point, not reproducible output, so the seed step also prepares the file for editing:
+**Seed.** `render_handbook_book.py --seed-figures` writes the seed of every fence that has no committed figure, and never overwrites one. A d2 fence renders through `run_d2` with the `print` prelude and ELK, with the page's layout settings. The funnel fence draws through a vertical layout of `funnel_svg`: stages top to bottom, each label left of its band and each count inside it, because the horizontal layout prints its labels at about 4 pt. A seed is a starting point, not reproducible output, so the seed step also prepares the file for editing:
 
-- d2 embeds Source Sans Pro as WOFF data that neither SVG editors nor Typst read, which is why the previews fell back to a serif. The seed removes the embedded faces and names the font in plain `font-family` attributes, which an editor and Typst resolve from installed font files.
+- d2 embeds Source Sans Pro as WOFF data that neither SVG editors nor Typst read, which is why the previews fell back to a serif. The seed removes the embedded faces and names Source Sans 3, the family's current name, in plain `font-family` attributes, which an editor resolves from an installed font.
 - d2's salted ids and generated class names are replaced with readable ones, so the file opens cleanly and a hand edit reads as a small diff.
 
 **Drift.** Each committed figure carries the SHA-256 of the fence body it was drawn from, as `data-source-sha256` on its root `<svg>`. A test fails when a fence body no longer matches its figure's hash, so a fence edited after its figure was drawn cannot ship a stale figure. Redrawing the figure, or confirming it still holds, updates the hash.
@@ -85,7 +85,7 @@ The page keeps its diagrams as code. The book does not, because d2 and its ELK l
 
 The caption is the fence's `title`, escaped. SVG serves both formats: it is native to EPUB3, and Typst embeds it as vector, so the 300 DPI minimum for raster images never applies.
 
-**Fonts.** d2 embeds Source Sans Pro, licensed under the SIL Open Font License 1.1 with an `fsType` of 0, read with fontTools from the embedded faces on 2026-09-28. Embedding it in a distributed book is permitted, so no replacement is needed. The paperback build passes the font files to Typst with `--font-path`; the #190 pull request records where those files come from.
+**Fonts.** d2 embeds Source Sans Pro, licensed under the SIL Open Font License 1.1 with an `fsType` of 0, read with fontTools from the embedded faces on 2026-09-28. Embedding it in a distributed book is permitted, so no replacement is needed. The regular, bold and italic faces of Source Sans 3 are committed unmodified under `fonts/source-sans-3/` with the licence, from Adobe's release, so every build uses the same files. A figure's committed file names the font and does not carry it. The EPUB copy does carry it, because an SVG an `<img>` references cannot reach the book's other files, and a reading system's fallback font sets wider and would push labels out of their boxes: the build embeds each face the figure uses, subset with fontTools to the glyphs it uses, as d2 does. The paperback build passes the committed files to Typst with `--font-path`.
 
 ### 3. The book builder (#189, #195)
 
@@ -126,7 +126,7 @@ A missing external tool (`pandoc`, `d2`, `typst`, `epubcheck`) raises `SystemExi
 - **Id parity.** A test opens the built EPUB, collects every `id` in its XHTML documents, and holds the set of heading ids equal to `heading_ids(docs_dir)` minus the part anchors, which the book deliberately does not emit. For the PDF, parity holds through `assemble`, because the same HTML feeds both formats; the test asserts that the Typst source names every heading id as a label.
 - **No `.md` link survives** in any EPUB document.
 - **Figure count.** The EPUB carries exactly one image per diagram fence in the source, and so does the Typst source. The count is of images, not figures, because pandoc wraps tables in Typst figures too. No diagram fence survives as a code listing.
-- **Committed figures.** Every committed figure names a fence that exists, carries the hash of that fence's body, fits the text block at the one scale with every text size between 7 and 9 pt, and paints no opaque fill on a shape or background. Every EPUB copy carries the light panel.
+- **Committed figures.** Every committed figure names a fence that exists, carries the hash of that fence's body, fits the text block at the one scale with every text size between 7 and 9 pt, and paints no opaque fill on a shape or background. Every EPUB copy carries the light panel and embeds the faces its text uses.
 - **Spine width** against KDP's published values at a few page counts.
 - **`epubcheck`** runs locally on the built EPUB, and its clean result is recorded in the #189 and #190 pull requests. CI takes it over in #192.
 - **KDP's previewer** on the interior and cover PDFs is a manual step, recorded in #195.
@@ -138,7 +138,7 @@ Tests that need `pandoc`, `d2` or `typst` skip with a stated reason when the too
 Three pull requests, in dependency order:
 
 1. **#189:** the `assemble` refactor with its byte-identity test, `render_handbook_book.py --format epub`, the book link map, metadata, stylesheet, and `.gitignore`. Diagrams render as listings until #190.
-2. **#190:** the `print` prelude, the vertical funnel, `--seed-figures`, the committed figures corrected by hand, the figure markup and the EPUB's light panel, the grayscale check, the font-licence finding, and the drift, scale, transparency and figure-count tests.
+2. **#190:** the `print` prelude, the vertical funnel, `--seed-figures`, the committed figures corrected by hand, the committed font files, the figure markup, the EPUB's light panel and embedded fonts, the grayscale check, the font-licence finding, and the drift, scale, transparency and figure-count tests.
 3. **#195:** the Typst template, `--format pdf` and `--format cover`, the spine computation, and the manual previewer step.
 
 Each pull request adds its command to CLAUDE.md's Commands section. Any new module in `scripts/` joins `[tool.deptry] known_first_party`.
