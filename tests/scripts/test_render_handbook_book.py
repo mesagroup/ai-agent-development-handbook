@@ -145,7 +145,49 @@ def test_book_metadata_carries_what_epubcheck_requires_and_names_no_holder():
     assert "©" not in meta and "Copyright" not in meta
 
 
-def test_epub_command_reads_html_with_smart_quotes_and_splits_on_parts(tmp_path: Path):
+def test_curl_quotes_curls_double_quotes_in_prose():
+    assert rb.curl_quotes('<p>He said "hi" today.</p>') == "<p>He said “hi” today.</p>"
+
+
+def test_curl_quotes_treats_a_mid_word_apostrophe_as_a_closing_mark():
+    assert rb.curl_quotes("<p>it's done</p>") == "<p>it\u2019s done</p>"
+
+
+def test_curl_quotes_opens_a_quote_flush_against_a_tag_boundary():
+    # The handbook's own pattern: **"We added more patterns"** opens and
+    # closes a quote with no letter beside it, only a <strong> tag.
+    out = rb.curl_quotes('<strong>"We added more patterns"</strong>')
+    assert out == "<strong>“We added more patterns”</strong>"
+
+
+def test_curl_quotes_leaves_inline_code_byte_identical():
+    out = rb.curl_quotes("<p>merged with <code>--rebase</code>.</p>")
+    assert "<code>--rebase</code>" in out
+
+
+def test_curl_quotes_leaves_a_pre_code_block_byte_identical():
+    src = '<pre><code>label: "x"\na -&gt; b: &lt;y&gt;\n</code></pre>'
+    assert rb.curl_quotes(src) == src
+
+
+def test_curl_quotes_curls_prose_around_untouched_code():
+    out = rb.curl_quotes('<p>Run <code>--rebase</code>; say "done".</p>')
+    assert out == "<p>Run <code>--rebase</code>; say “done”.</p>"
+
+
+def test_curl_quotes_does_not_touch_attribute_values():
+    out = rb.curl_quotes('<a href="x.html" title="a &quot;b&quot;">"y"</a>')
+    assert 'href="x.html"' in out
+    assert 'title="a &quot;b&quot;"' in out
+    assert "“y”" in out
+
+
+def test_epub_command_reads_plain_html_and_splits_on_parts(tmp_path: Path):
+    """No ``+smart``: `curl_quotes` curls the book's prose before pandoc sees it.
+
+    ``+smart`` also rewrites ``--`` inside an inline ``<code>`` span (see
+    `curl_quotes`'s docstring), so this command must never carry it.
+    """
     cmd = rb.epub_command(
         tmp_path / "book.html",
         tmp_path / "meta.yaml",
@@ -153,7 +195,7 @@ def test_epub_command_reads_html_with_smart_quotes_and_splits_on_parts(tmp_path:
         tmp_path / "out.epub",
     )
     assert cmd[0] == "pandoc"
-    assert cmd[cmd.index("-f") + 1] == "html+smart"
+    assert cmd[cmd.index("-f") + 1] == "html"
     assert cmd[cmd.index("-t") + 1] == "epub3"
     assert "--split-level=1" in cmd
     assert "--toc" in cmd and "--toc-depth=2" in cmd
@@ -262,6 +304,69 @@ def test_the_epub_carries_exactly_the_heading_ids_the_page_carries(built_epub: P
 def test_no_link_in_the_epub_points_at_a_markdown_file(built_epub: Path):
     for name, text in _epub_documents(built_epub).items():
         assert not re.search(r'href="[^"#]*\.md', text), name
+
+
+_INLINE_CODE_SPAN_RE = re.compile(r"`([^`\n]+)`")
+_FENCED_BLOCK_RE = re.compile(r"```.*?```", re.S)
+_CODE_TAG_TEXT_RE = re.compile(r"<code>(.*?)</code>", re.S)
+
+
+def _inline_code_spans_in_sources() -> set[str]:
+    """Every `` `span` `` in the handbook's Markdown, fenced blocks excluded."""
+    spans: set[str] = set()
+    for path in sorted(DOCS.glob("*.md")):
+        prose = _FENCED_BLOCK_RE.sub("", path.read_text())
+        spans.update(_INLINE_CODE_SPAN_RE.findall(prose))
+    return spans
+
+
+@needs_pandoc
+def test_the_epub_carries_every_inline_code_span_verbatim(built_epub: Path):
+    """`--rebase` (docs/engineering/lifecycle.md) is the reported case, not the only one.
+
+    `curl_quotes` exists because pandoc's ``+smart`` HTML reader rewrites
+    ``--`` inside an inline ``<code>`` span into an en dash; this checks the
+    fix on the real build rather than on one hand-picked example, over every
+    inline code span the handbook's Markdown carries.
+    """
+    import html as html_mod
+
+    spans = _inline_code_spans_in_sources()
+    assert "--rebase" in spans, "the reported case is gone from the source"
+    chapters, docs = _chapters(built_epub)
+    code_texts = {
+        html_mod.unescape(text)
+        for name in chapters
+        for text in _CODE_TAG_TEXT_RE.findall(docs[name])
+    }
+    missing = spans - code_texts
+    assert not missing, f"inline code spans absent from the EPUB verbatim: {missing}"
+
+
+_PRE_OR_CODE_ELEMENT_RE = re.compile(r"<(pre|code)\b[^>]*>.*?</\1>", re.S)
+_ANY_TAG_RE = re.compile(r"<[^>]+>")
+
+
+@needs_pandoc
+def test_the_epub_carries_typographic_quotes_in_prose(built_epub: Path):
+    """No straight ``"``/``'`` survives in prose text; code and tags are excluded.
+
+    A tag's own markup (``class="..."``, ``href="..."``) carries straight
+    quotes too, so this strips every ``<pre>``/``<code>`` element (content
+    and tag alike) and then every remaining tag, leaving only the visible
+    prose text `curl_quotes` was meant to curl, before counting.
+    """
+    chapters, docs = _chapters(built_epub)
+    straight_quotes = 0
+    curly_found = False
+    for name in chapters:
+        no_code = _PRE_OR_CODE_ELEMENT_RE.sub("", docs[name])
+        prose = _ANY_TAG_RE.sub("", no_code)
+        straight_quotes += prose.count('"') + prose.count("'")
+        if any(c in prose for c in "“”\u2018\u2019"):
+            curly_found = True
+    assert straight_quotes == 0
+    assert curly_found
 
 
 def _chapters(epub_path: Path) -> tuple[list[str], dict[str, str]]:
