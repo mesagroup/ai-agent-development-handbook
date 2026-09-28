@@ -172,3 +172,35 @@ def test_an_inkscape_saved_figure_passes_every_check():
     assert bf.fit_problems(INKSCAPE_LIKE) == []
     assert bf.opaque_fill_problems(INKSCAPE_LIKE) == []
     assert bf.contrast_problems(INKSCAPE_LIKE) == []
+
+
+def test_pale_text_inside_a_filled_group_is_reported():
+    svg = '<svg xmlns="http://www.w3.org/2000/svg"><g fill="#c3bfb1"><text>x</text></g></svg>'
+    assert bf.contrast_problems(svg) != []
+
+
+def test_pale_text_under_a_filled_root_is_reported():
+    svg = '<svg xmlns="http://www.w3.org/2000/svg" fill="#c3bfb1"><text>x</text></svg>'
+    assert bf.contrast_problems(svg) != []
+
+
+def test_ink_text_with_its_own_fill_overrides_a_pale_group():
+    svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg"><g fill="#c3bfb1">'
+        '<text fill="#1c2024">x</text></g></svg>'
+    )
+    assert bf.contrast_problems(svg) == []
+
+
+def test_a_shape_inheriting_a_light_fill_from_a_translucent_group_is_reported():
+    # The group's own fill-opacity makes the group itself pass (it is
+    # translucent), but the rect re-asserts full opacity for itself while
+    # still inheriting the group's pale colour, so the rect alone should be
+    # reported; a check that only reads an element's own `fill` misses this
+    # because the rect never sets `fill` at all.
+    svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg">'
+        '<g fill="#f7f6f2" fill-opacity="0.1">'
+        '<rect fill-opacity="1" width="1" height="1"/></g></svg>'
+    )
+    assert bf.opaque_fill_problems(svg) != []
