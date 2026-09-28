@@ -795,7 +795,7 @@ def post_process(
     """Apply all HTML transforms; return the result, unmapped and unlinked hrefs.
 
     Out-of-tree links are unwrapped before the in-tree rewrite, so they never
-    reach `unmapped` - they were handled rather than skipped, and `build`
+    reach `unmapped` - they were handled rather than skipped, and `assemble`
     raises on an unmapped relative link. Heading ids are not added here: they
     are added per part before any link is rewritten, because `ids` has to
     hold the whole page's for a cross-part fragment to resolve.
@@ -810,7 +810,7 @@ def post_process(
 def render_part(docs_dir: Path, stem: str) -> tuple[str, list[str], list[DiagramBlock]]:
     """Convert one part to HTML with heading ids, links and diagrams untouched.
 
-    The first of `build`'s two passes: every part goes through this before
+    The first of `assemble`'s two passes: every part goes through this before
     any link is rewritten, so the ids a cross-part fragment needs exist
     before the link that needs them is read. Lazy-imports markdown, so the
     pure helpers stay importable without the dependency.
@@ -831,8 +831,8 @@ def render_part(docs_dir: Path, stem: str) -> tuple[str, list[str], list[Diagram
 def heading_ids(docs_dir: Path, parts: list[tuple[str, str, str]] = PARTS) -> set[str]:
     """Every id the page built from ``docs_dir`` carries, without rendering it.
 
-    The part anchors plus every heading id, computed the way `build` computes
-    them and without reaching for the d2 CLI, which is what lets the citation
+    The part anchors plus every heading id, computed the way `assemble`
+    computes them and without reaching for the d2 CLI, which is what lets the citation
     check run where no renderer can. A rendered page carries exactly this set
     plus the figure captions' ids and the two ids of the page chrome, the
     sidebar and the theme button, and a test holds the two together.
