@@ -1,6 +1,6 @@
 # The handbook book pipeline (#189, #190, #195)
 
-**Status:** design approved in conversation on 2026-09-25; this written spec awaits the maintainer's review.
+**Status:** design approved in conversation on 2026-09-25. The book figures section was amended on 2026-09-28, after print previews of the diagrams: figures are committed files corrected by hand, placed at one scale.
 
 ## Problem
 
@@ -35,7 +35,7 @@ docs/engineering/*.md
    assemble()                       shared with the page renderer
         |  per part: HTML with ids and rewritten links, diagram blocks
         |
-   book figures                     one print-safe SVG per diagram
+   book figures                     one committed, hand-corrected SVG per diagram
         |
    book HTML (one document)
         |
@@ -60,28 +60,39 @@ The book passes its own link map: `<stem>.md` maps to `#<first heading id of tha
 
 ### 2. Book figures (#190)
 
-Each diagram block renders once, in a new `print` variant, rather than twice for the page's light and dark toggle. The variant starts from the light palette and is checked for grayscale contrast: every fill and stroke pair a figure relies on stays distinguishable when the colour is dropped. That serves e-ink screens and paper alike. d2 blocks go through `run_d2` with a `print` prelude, and funnel blocks through `funnel_svg` with the `print` variant.
+The page keeps its diagrams as code. The book does not, because d2 and its ELK layout cannot place a figure well enough for print. Previews at the 5 x 8 trim on 2026-09-28 found three placements that none of the d2 settings tried could fix: an icon on a box costs the box its height even when the icon sits outside it; an edge returning to the top of a column pushes the nodes it joins off that column; and two edges leaving one shape split along its lower side, so neither enters the next shape at its centre. So each book figure is a committed SVG that a maintainer corrects by hand, starting from a seed the pipeline renders.
 
-The `print` variant paints no opaque surface. The page palette fills every d2 shape with its `surface` colour (the `**.style.fill` line in the prelude) and draws each funnel stage on a `surface` rectangle. On cream paper those print as pale rectangles on a warm page, which a preview on 2026-09-28 showed. So the variant sets shape fills and the diagram background to transparent, and draws any tint a figure needs, such as the funnel's `accent_wash`, as a translucent overlay. The paper then shows through every figure, whatever its colour, and the same SVG serves an EPUB reading system's own background. A test holds that no `print` SVG carries an opaque fill on a shape or background.
+**Files.** Each diagram fence has one book figure at `docs/engineering/figures/<stem>-<index>.svg`, the index being the fence's position in its part. The EPUB and the paperback both use it. Where a fence has no committed figure, the build renders its seed in the figure's place and prints a note naming the fence, so a new diagram builds before its figure is drawn. The release workflow (#192) turns that note into a failure.
 
-A diagram laid out left to right is not legible in print at this trim. A preview on 2026-09-28 printed the story-of-a-change figure's labels at about 4 pt. So the `print` variant lays out a wide diagram top to bottom, and a test holds every `print` SVG's aspect ratio within what the text block can show with labels at a readable size. The page variants keep their layouts.
+**Seed.** `render_handbook_book.py --seed-figures` writes the seed of every fence that has no committed figure, and never overwrites one. A d2 fence renders through `run_d2` with the `print` prelude and ELK, as the page's diagrams do, with a tighter layer spacing for print. The funnel fence draws through a vertical layout of `funnel_svg`: stages top to bottom, each label left of its band and each count inside it, because the horizontal layout prints its labels at about 4 pt. A seed is a starting point, not reproducible output, so the seed step also prepares the file for editing:
 
-Each SVG is written to a temporary media directory as `<stem>-<index>.svg` and referenced as:
+- d2 embeds Source Sans Pro as WOFF data that neither SVG editors nor Typst read, which is why the previews fell back to a serif. The seed removes the embedded faces and names the font in plain `font-family` attributes, which an editor and Typst resolve from installed font files.
+- d2's salted ids and generated class names are replaced with readable ones, so the file opens cleanly and a hand edit reads as a small diff.
+
+**Drift.** Each committed figure carries the SHA-256 of the fence body it was drawn from, as `data-source-sha256` on its root `<svg>`. A test fails when a fence body no longer matches its figure's hash, so a fence edited after its figure was drawn cannot ship a stale figure. Redrawing the figure, or confirming it still holds, updates the hash.
+
+**One scale.** Every figure is placed at one scale: 1 SVG user unit to 2/3 pt, so a 12-unit label prints at 8 pt in every figure beside the 10 pt body text. A figure is never stretched to the text width. Fitting each figure to the width, as the previews did, printed a small figure's labels larger than a large one's. At that scale a figure must fit the text block, 3.6 x 6 inches, which bounds its viewBox at 389 x 648 units. A figure that does not fit is redrawn narrower, never shrunk. In the EPUB the same scale is expressed relative to the body font, as a width of `<viewBox width> / 15` em with `max-width: 100%`, so labels keep their 0.8 ratio to the text when a reader changes the font size. Vertical space belongs to the hand pass: the maintainer compresses a figure wherever its gaps carry nothing.
+
+**Palette.** A book figure paints no opaque surface. The page palette fills every d2 shape with its `surface` colour and draws each funnel stage on a `surface` rectangle, and on cream paper those print as pale rectangles on a warm page. So shape fills and the background are transparent, and any tint a figure needs, such as the funnel's `accent_wash`, is a translucent overlay. Ink, line and accent come from the light palette, and every fill and stroke pair a figure relies on stays distinguishable when the colour is dropped, which serves e-ink screens and paper alike.
+
+**Dark mode.** A transparent figure with dark ink is unreadable on a reading system's dark background, and reading systems do not invert images. So the EPUB copy of each figure gets an opaque light panel: a `<rect>` inserted behind the drawing at build time, inside the SVG, where a reading system's stylesheet cannot remove it. The committed file and the paperback's copy stay transparent.
+
+**Markup.** Each figure is written to a temporary media directory as `<stem>-<index>.svg` and referenced as:
 
 ```html
 <figure><img src="media/<stem>-<index>.svg" alt="<title>"><figcaption><title></figcaption></figure>
 ```
 
-The caption is the fence's `title`, escaped. SVG serves both formats: it is native to EPUB3, and Typst embeds it as vector, so the 300 DPI minimum for raster images never applies. This is the vector output #190's triage note asks the figure step to keep.
+The caption is the fence's `title`, escaped. SVG serves both formats: it is native to EPUB3, and Typst embeds it as vector, so the 300 DPI minimum for raster images never applies.
 
-Fonts: d2 embeds its own font faces in the SVG. The implementation confirms their licence permits embedding in a distributed book, and replaces them with a font that does if not. The result is recorded in the #190 pull request.
+**Fonts.** d2 embeds Source Sans Pro, licensed under the SIL Open Font License 1.1 with an `fsType` of 0, read with fontTools from the embedded faces on 2026-09-28. Embedding it in a distributed book is permitted, so no replacement is needed. The paperback build passes the font files to Typst with `--font-path`; the #190 pull request records where those files come from.
 
 ### 3. The book builder (#189, #195)
 
 A new `scripts/render_handbook_book.py`, with one entry point and a `--format` flag:
 
-- **`--format epub`** writes `build/handbook.epub`. It runs `pandoc -f html+smart -t epub3 --split-level=1 --toc --toc-depth=2` with a metadata file, `--css` pointing at a book stylesheet, and `--resource-path` pointing at the media directory. The metadata carries title, creator (Janos Tolgyesi), `lang: en`, rights (CC BY 4.0), date, and an identifier `urn:uuid:<uuid5 of the title>`, so the identifier stays stable across builds. This covers what `epubcheck` requires; #191 adds the cover, the title and copyright pages, and the rest of the metadata.
-- **`--format pdf`** writes `build/handbook-interior.pdf`. It runs `pandoc -f html+smart -t typst` with a Typst template, then `typst compile`. The `smart` extension turns straight quotes into typographic ones on the way in; without it pandoc escapes `"` for Typst and the book prints straight quotes, which the preview showed. The template sets:
+- **`--format epub`** writes `build/handbook.epub`. It runs `pandoc -f html -t epub3 --split-level=1 --toc --toc-depth=2` with a metadata file, `--css` pointing at a book stylesheet, and `--resource-path` pointing at the media directory. The metadata carries title, creator (Janos Tolgyesi), `lang: en`, rights (CC BY 4.0), date, and an identifier `urn:uuid:<uuid5 of the title>`, so the identifier stays stable across builds. This covers what `epubcheck` requires; #191 adds the cover, the title and copyright pages, and the rest of the metadata.
+- **`--format pdf`** writes `build/handbook-interior.pdf`. It runs `pandoc -f html -t typst` with a Typst template, then `typst compile`. The quotes arrive already curled by `curl_quotes`, which #189 added because pandoc's `+smart` also rewrites inline code; without curled quotes pandoc escapes `"` for Typst and the book prints straight quotes, which the preview showed. The template sets:
   - the trim size, 5 x 8 inches;
   - mirrored margins with a gutter meeting KDP's minimum for the page count;
   - every part starting on a recto page;
@@ -98,6 +109,9 @@ A new `scripts/render_handbook_book.py`, with one entry point and a `--format` f
 
 - `book_linkmap(parts, first_ids)` builds the book's link map.
 - `figure_markup(stem, block)` builds a figure's HTML.
+- `source_hash(block)` returns the SHA-256 a committed figure records.
+- `figure_fits(svg)` holds a figure's viewBox and text sizes to the one scale.
+- `with_backing_panel(svg)` inserts the EPUB copy's light panel.
 - `book_metadata(...)` builds the metadata document.
 - `spine_width(pages, paper)` returns the spine width in inches, from KDP's per-page thickness for the paper type. It raises on a page count outside KDP's supported range.
 - `cover_dimensions(trim, pages, paper)` returns the full cover width and height, with bleed.
@@ -111,7 +125,8 @@ A missing external tool (`pandoc`, `d2`, `typst`, `epubcheck`) raises `SystemExi
 - **Unit tests** over every pure function above, in `tests/scripts/`.
 - **Id parity.** A test opens the built EPUB, collects every `id` in its XHTML documents, and holds the set of heading ids equal to `heading_ids(docs_dir)` minus the part anchors, which the book deliberately does not emit. For the PDF, parity holds through `assemble`, because the same HTML feeds both formats; the test asserts that the Typst source names every heading id as a label.
 - **No `.md` link survives** in any EPUB document.
-- **Figure count.** The EPUB carries exactly one image per diagram fence in the source, and so does the Typst source. The count is of images, not figures, because pandoc wraps tables in Typst figures too.
+- **Figure count.** The EPUB carries exactly one image per diagram fence in the source, and so does the Typst source. The count is of images, not figures, because pandoc wraps tables in Typst figures too. No diagram fence survives as a code listing.
+- **Committed figures.** Every committed figure names a fence that exists, carries the hash of that fence's body, fits the text block at the one scale with every text size between 7 and 9 pt, and paints no opaque fill on a shape or background. Every EPUB copy carries the light panel.
 - **Spine width** against KDP's published values at a few page counts.
 - **`epubcheck`** runs locally on the built EPUB, and its clean result is recorded in the #189 and #190 pull requests. CI takes it over in #192.
 - **KDP's previewer** on the interior and cover PDFs is a manual step, recorded in #195.
@@ -123,7 +138,7 @@ Tests that need `pandoc`, `d2` or `typst` skip with a stated reason when the too
 Three pull requests, in dependency order:
 
 1. **#189:** the `assemble` refactor with its byte-identity test, `render_handbook_book.py --format epub`, the book link map, metadata, stylesheet, and `.gitignore`. Diagrams render as listings until #190.
-2. **#190:** the `print` variant with transparent fills and top-to-bottom layouts for wide diagrams, figure files and markup, the grayscale check, the font-licence finding, and the transparency, aspect-ratio and figure-count tests.
+2. **#190:** the `print` prelude, the vertical funnel, `--seed-figures`, the committed figures corrected by hand, the figure markup and the EPUB's light panel, the grayscale check, the font-licence finding, and the drift, scale, transparency and figure-count tests.
 3. **#195:** the Typst template, `--format pdf` and `--format cover`, the spine computation, and the manual previewer step.
 
 Each pull request adds its command to CLAUDE.md's Commands section. Any new module in `scripts/` joins `[tool.deptry] known_first_party`.
@@ -132,8 +147,11 @@ Each pull request adds its command to CLAUDE.md's Commands section. Any new modu
 
 - **Pandoc reads the renderer's HTML, not the Markdown,** so the ids and links are the page's by construction. #189's body names `pandoc -f gfm`; this spec supersedes that line, and the #189 pull request records it.
 - **Typst over LaTeX for the PDF.** It is a single binary, much lighter than a TeX distribution, embeds SVG natively, and pandoc 3.8 writes it. Install with `brew install typst` locally; #192 pins a version.
-- **SVG for every figure** in both formats, so one render serves both and print needs no raster step.
+- **SVG for every figure** in both formats, so one file serves both and print needs no raster step.
+- **Book figures are committed and corrected by hand**, decided by the maintainer on 2026-09-28 after the print previews: the d2 and ELK placements above are not acceptable in print, and none of the d2 settings tried fixed them. d2 only seeds a figure; the page keeps rendering its diagrams from code. A per-diagram layout engine, dagre for the data-protection figure, was tried the same day and rejected: it centred one edge and loosened every gap, and the hand pass fixes the edge without either cost.
+- **One scale for every figure**, 8 pt labels at 2/3 pt per user unit, decided by the maintainer on 2026-09-28, because fitting each figure to the text width printed labels from about 7 to 10 pt across figures.
+- **The EPUB's figures carry a light panel** and the paperback's do not. The design approved on 2026-09-25 had one transparent SVG serve a reading system's own background; that fails in a dark mode, where dark ink meets a dark page.
 - **Trim size 5 x 8 inches.** Decided by the maintainer on 2026-09-28, for a pocket-manual feel. It is the smallest trim KDP offers for a paperback, so a true pocket size would need another printer. A throwaway typesetting run on 2026-09-28 (pandoc to Typst 0.15.1, 10 pt Libertinus Serif, parts on recto pages, four front-matter pages and the table of contents) came to 115 pages at this size, against 85 at 6 x 9. The #195 pull request records the count of the final build.
-- **The narrow text block has costs the template has to meet.** About 3.6 inches of text width forces three things, and the same run showed which of them bite. The 4- and 5-column tables fit at 8 pt, but justified cell text spaces badly, so table cells are set ragged-right. The wide left-to-right diagrams are not legible: the story-of-a-change figure's labels print at about 4 pt, so a wide diagram gets a top-to-bottom layout in the `print` variant. Long inline code needs a line-breaking rule. The diagrams belong to #190; the tables and inline code to #195, each pull request recording its choice.
+- **The narrow text block has costs the template has to meet.** About 3.6 inches of text width forces three things, and the same run showed which of them bite. The 4- and 5-column tables fit at 8 pt, but justified cell text spaces badly, so table cells are set ragged-right. The wide left-to-right diagrams are not legible: the story-of-a-change figure's labels print at about 4 pt, so its book figure is drawn top to bottom. Long inline code needs a line-breaking rule. The diagrams belong to #190; the tables and inline code to #195, each pull request recording its choice.
 - **Black and white on cream paper.** Decided by the maintainer on 2026-09-28, after comparing a white and a simulated cream preview. Cream is warmer and has less glare for a book read cover to cover. It costs two things the design absorbs: the figures carry transparent fills, and the spine uses KDP's cream-paper thickness, which is greater than white's. The paper type is a template parameter, so `spine_width` takes it as an argument rather than assuming one.
 - **`epubcheck` from Homebrew** locally. #192 chooses how CI obtains it.
