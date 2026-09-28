@@ -6,8 +6,7 @@ joins those parts into one HTML document and hands it to pandoc, so the
 book's ids are the page's by construction and every citation a report
 emits lands on the same heading in both. Diagrams render as listings here
 until #190 draws them as figures, and a checklist item carries a ☐/☒ glyph
-(`restore_task_boxes`) so pandoc renders it as a checkbox rather than a
-plain bullet.
+(`restore_task_boxes`) so it reads as a box rather than a plain bullet.
 
 Usage::
 
@@ -143,24 +142,28 @@ _TASK_ITEM_RE = re.compile(r'<li class="task( done)?">')
 
 
 def restore_task_boxes(html: str) -> str:
-    """Turn the page's task-list markup into the glyph pandoc reads as a box.
+    """Turn the page's task-list markup into a literal box glyph.
 
     `render_handbook_artifact.mark_task_items` strips a checklist item's
     ``[ ]``/``[x]`` and marks it ``<li class="task">``/``<li class="task
     done">``; the page's CSS draws the box from that class. Pandoc's HTML
     reader drops the class, so this writes ☐ (U+2610, open) or ☒ (U+2612,
-    done) as the item's leading text instead, each followed by a space. That
-    glyph is only the input spelling: checked against pandoc 3.8.2, its HTML
-    reader turns a ☐/☒-prefixed ``<li>`` into a checkbox regardless of the
-    ``task_lists`` extension - `-task_lists` on both reader and writer left
-    it unchanged - so the EPUB itself carries an ``<input type="checkbox">``,
-    not the glyph. Spelling the source as raw ``<input type="checkbox">``
-    instead does not work: the same reader drops the surrounding
-    ``<ul>``/``<li>`` entirely and the item survives only as a bare ``<p>``.
+    done) as the item's leading text instead. The glyph is wrapped in a
+    ``<span>`` rather than left bare: checked against pandoc 3.8.2, its HTML
+    reader turns a bare ☐/☒-prefixed ``<li>`` into an ``<input
+    type="checkbox">`` regardless of the ``task_lists`` extension - disabling
+    it on both reader and writer left the behaviour unchanged - and an EPUB
+    reading system is not required to render a form control at all, nor can
+    a reader's tick of it persist. The span defeats that detection, so the
+    glyph reaches the EPUB as the literal character it is. Spelling the
+    source as a raw ``<input type="checkbox">`` fares worse still: the same
+    reader drops the surrounding ``<ul>``/``<li>`` entirely and the item
+    survives only as a bare ``<p>``.
     """
 
     def repl(match: re.Match[str]) -> str:
-        return "<li>☒ " if match.group(1) else "<li>☐ "
+        glyph = "☒" if match.group(1) else "☐"
+        return f'<li><span class="task-box">{glyph}</span> '
 
     return _TASK_ITEM_RE.sub(repl, html)
 
