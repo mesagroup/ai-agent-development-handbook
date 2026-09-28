@@ -334,7 +334,7 @@ def render_typescript() -> str:
         "",
         "## What a result still owes",
         "",
-        f"An entry whose check has a TypeScript route naming a tool that carries `alone_insufficient` states what is still owed, {len(owed)} of the {len(TS_EXPECTATIONS)} entries. Where the record uses the field for an invocation requirement - a command not complete as written - the entry says what the invocation needs. The row's status is the engine's and does not move for either.",
+        f"An entry whose check has a TypeScript route naming a tool that carries `alone_insufficient` states what is still owed, {len(owed)} of the {len(TS_EXPECTATIONS)} entries. The row's status is the engine's and does not move for it.",
         "",
         "| Check | Partitions | Still owed |",
         "|---|---|---|",

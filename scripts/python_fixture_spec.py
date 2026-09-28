@@ -1619,13 +1619,12 @@ _TS_SRC_NOTE = (
     f"{TS_CORE}/ on pnpm"
 )
 
-_TS_DEPCRUISE_OWED = (
-    "nothing a read of the result adds: the record's field on `dependency-cruiser` "
-    "states an invocation requirement, that the spelling is a prefix and answers "
-    "only once given `--config` with an audit-owned config (the record prefers one "
-    "setting `options.tsConfig`) or `--no-config`, and a run with neither exits 1 "
-    "with `Can't open a config file`, which is no-evidence (tool-failed) rather than "
-    "an empty graph"
+_TS_DEPCRUISE_EXIT = (
+    "The `dependency-cruiser` route's argv is a prefix, which the record's note "
+    "completes with `--config` naming an audit-owned config (the record prefers one "
+    "setting `options.tsConfig`) or with `--no-config`; this round supplies neither, "
+    "so under target-execution it exits 1 with `Can't open a config file`, which is "
+    "no-evidence (tool-failed) rather than an empty graph"
 )
 
 TS_EXPECTATIONS = (
@@ -1774,21 +1773,20 @@ TS_EXPECTATIONS = (
         "own tsconfig.json. "
         "That tsconfig extends nothing, so the route's applies_when holds by "
         "construction, and madge needs no grant, so the claim holds in both states. "
-        f"{_TS_SRC_NOTE}",
+        f"{_TS_DEPCRUISE_EXIT}. {_TS_SRC_NOTE}",
         ("cycle",),
-        owed=_TS_DEPCRUISE_OWED,
     ),
     Expectation(
         "arch/coupling",
         _TS_ALL,
         "floor",
         "the two modules in the cycle are each other's dependents, so neither is a "
-        "leaf, from the dependency map the tiered `dependency-cruiser` route builds",
+        "leaf, from the dependency map the tiered `dependency-cruiser` route builds. "
+        f"{_TS_DEPCRUISE_EXIT}",
         ("cycle",),
         "the tiered command route does not run, so the harness records no-evidence "
         "(not-permitted); the same claim is what the record's untiered madge procedure "
         "answers from a read-only clone, which this round does not execute",
-        owed=_TS_DEPCRUISE_OWED,
     ),
     Expectation(
         "arch/over-decomposition",
@@ -1798,7 +1796,8 @@ TS_EXPECTATIONS = (
         "src/domain/model.ts forwards to read in src/infra/store.ts, and loadViaDomain "
         "in src/infra/store.ts forwards to load. Minor on the record's band, and "
         "neither becomes a finding without the read the record requires, so the "
-        f"expected observation is the pair, not a verdict on it. {_TS_SRC_NOTE}",
+        f"expected observation is the pair, not a verdict on it. {_TS_DEPCRUISE_EXIT}. "
+        f"{_TS_SRC_NOTE}",
         ("pass-through",),
         "the tiered `dependency-cruiser` route does not run, so the harness records "
         "no-evidence (not-permitted); the record's untiered madge procedure answers the "
@@ -1806,8 +1805,7 @@ TS_EXPECTATIONS = (
         owed=(
             "a read confirming each forwarding module is genuinely trivial and that "
             "merging it raises cohesion, as the record requires once the graph is "
-            "complete; and the `dependency-cruiser` invocation requirement, an "
-            "audit-owned `--config` or `--no-config`, without which the prefix exits 1"
+            "complete"
         ),
     ),
     Expectation(
