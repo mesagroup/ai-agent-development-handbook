@@ -641,6 +641,7 @@ def test_every_epub_figure_has_its_panel_and_fonts(built_epub: Path):
     surface = rh.PALETTE["light"]["surface"]
     media = _epub_media_svgs(built_epub)
     assert media
+    literal_checks = 0
     for name, svg in media.items():
         root = bf._root_tag(svg)
         # `embed_fonts` puts its <style> right after the root tag, ahead of
@@ -652,7 +653,18 @@ def test_every_epub_figure_has_its_panel_and_fonts(built_epub: Path):
         assert first and first.group(1) == "rect", name
         assert f'fill="{surface}"' in first.group(0), name
         declared = {(int(w), s) for w, s in _WEIGHT_STYLE_RE.findall(svg)}
+        # `used_faces` is pinned literally by the unit tests in
+        # test_book_figures.py (tspan runs included), so it is the oracle for
+        # the exact set; the two checks below hold the build to the seeds'
+        # own attributes without going through that walk at all.
         assert declared == bf.used_faces(svg), name
+        if re.search(r'font-weight="(?:700|bold)"', svg):
+            assert (700, "normal") in declared, name
+            literal_checks += 1
+        if 'font-style="italic"' in svg:
+            assert (400, "italic") in declared, name
+            literal_checks += 1
+    assert literal_checks, "no figure carried a literal weight or style to check"
 
 
 @needs_pandoc_and_d2

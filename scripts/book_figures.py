@@ -601,16 +601,50 @@ def _face_for(weight: str, style: str) -> tuple[int, str]:
     return (400 if abs(numeric - 400) <= abs(numeric - 700) else 700), "normal"
 
 
+def _set_text_run(
+    used: dict[tuple[int, str], set[str]], face: tuple[int, str], run: str | None
+) -> None:
+    # A whitespace-only run (Inkscape's indentation between tspans) sets no
+    # glyph worth a face of its own; the space every subset carries covers it.
+    if run and run.strip():
+        used.setdefault(face, set()).update(run)
+
+
+def _collect_text(
+    el: ET.Element, weight: str, style: str, used: dict[tuple[int, str], set[str]]
+) -> None:
+    """Assign each run of text inside `el` to the face that sets it.
+
+    A text-content child (`tspan`, `textPath`) may set its own weight or
+    style, inherited by its descendants exactly as `_walk_font` resolves it,
+    so its `.text` is set in its own face while its `.tail` - the characters
+    after it, still inside its parent - is set in the parent's.
+    """
+    face = _face_for(weight, style)
+    _set_text_run(used, face, el.text)
+    for child in el:
+        if isinstance(child.tag, str) and _local(child.tag) not in _SKIP_TAGS:
+            own_weight = _get_prop(child, "font-weight")
+            own_style = _get_prop(child, "font-style")
+            _collect_text(
+                child,
+                own_weight if own_weight is not None else weight,
+                own_style if own_style is not None else style,
+                used,
+            )
+        _set_text_run(used, face, child.tail)
+
+
 def _faces_and_text(svg: str) -> dict[tuple[int, str], set[str]]:
-    """Each committed face a `<text>` element sets, and the characters it sets."""
+    """Each committed face the figure's text sets, and the characters it sets.
+
+    Resolved per run of text rather than per `<text>` element, so a weight
+    or style an editor left on a `<tspan>` reaches the characters inside it.
+    """
     used: dict[tuple[int, str], set[str]] = {}
     for el, weight, style in _walk_font(ET.fromstring(svg)):
-        if _local(el.tag) != "text":
-            continue
-        chars = "".join(el.itertext())
-        if not chars:
-            continue
-        used.setdefault(_face_for(weight, style), set()).update(chars)
+        if _local(el.tag) == "text":
+            _collect_text(el, weight, style, used)
     return used
 
 
@@ -638,9 +672,10 @@ def embed_fonts(svg: str, font_dir: Path) -> str:
 
     An SVG an `<img>` references cannot reach the book's other files, and a
     reading system's fallback font sets wider than Source Sans 3 and would
-    push labels out of their boxes. So each `<text>` element's weight and
-    style are resolved through its ancestors (`_walk_font`) and snapped to a
-    committed face (`_face_for`); each face in use is subset with fontTools
+    push labels out of their boxes. So the weight and style of each run of
+    text, inside a `<text>` or any `<tspan>` in it, are resolved through its
+    ancestors (`_walk_font`, `_collect_text`) and snapped to a committed face
+    (`_face_for`); each face in use is subset with fontTools
     to the characters set in it, plus a space, as WOFF, and declared as one
     `@font-face` under `FIGURE_FONT`, the family the figure already names.
     A figure with no text is returned unchanged.
