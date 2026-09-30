@@ -214,8 +214,8 @@ D2_PRELUDES: dict[str, str] = {
     for variant, p in PALETTE.items()
 }
 
-# Everything transparent, so cream paper, e-ink and the EPUB's own light panel
-# all show through the same drawing.
+# Everything transparent, so cream paper, e-ink and an EPUB reading system's
+# page colour all show through the same drawing.
 D2_PRINT_PRELUDE = (
     "style.fill: transparent\n" + _D2_FONT_SIZE + "**.style.fill: transparent\n"
     f'**.style.stroke: "{PRINT_PALETTE["line"]}"\n'

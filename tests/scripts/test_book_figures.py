@@ -305,19 +305,6 @@ def test_text_inheriting_a_pale_stroke_is_reported_once_not_skipped():
 FONTS = Path(__file__).resolve().parents[2] / "fonts" / "source-sans-3"
 
 
-def test_the_panel_is_the_first_drawn_element():
-    out = bf.with_backing_panel(bf.clean_seed_svg(D2_LIKE, "x-0"), "#f7f6f2")
-    first = re.search(r"<svg[^>]*>\s*<(\w+)[^>]*>", out)
-    assert first.group(1) == "rect" and 'fill="#f7f6f2"' in first.group(0)
-
-
-def test_the_panel_covers_the_viewbox():
-    out = bf.with_backing_panel(
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="3 4 50 60"></svg>', "#fff"
-    )
-    assert 'x="3" y="4" width="50" height="60"' in out
-
-
 def test_embed_fonts_carries_only_the_faces_used():
     out = bf.embed_fonts(bf.clean_seed_svg(D2_LIKE, "x-0"), FONTS)
     assert out.count("@font-face") == 1

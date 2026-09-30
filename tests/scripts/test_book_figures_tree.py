@@ -7,7 +7,7 @@ from pathlib import Path
 import book_figures as bf
 import pytest
 import render_handbook_book as rb
-from render_handbook_artifact import PALETTE, PARTS
+from render_handbook_artifact import PARTS
 
 DOCS = Path(__file__).resolve().parents[2] / "docs" / "engineering"
 FIGURES = DOCS / "figures"
@@ -40,9 +40,7 @@ def test_a_committed_figure_holds_the_print_checks(path):
     # The build's EPUB copy of this file, made here without pandoc so a hand
     # edit that `embed_fonts` cannot read fails on any machine, not only
     # where the full build runs.
-    assert "@font-face" in bf.embed_fonts(
-        bf.with_backing_panel(svg, PALETTE["light"]["surface"]), rb.FONT_DIR
-    )
+    assert "@font-face" in bf.embed_fonts(svg, rb.FONT_DIR)
 
 
 def test_a_figure_stale_against_its_fence_fails_the_hash_check(tmp_path):

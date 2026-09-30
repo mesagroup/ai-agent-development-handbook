@@ -171,14 +171,25 @@ def test_write_figures_names_each_seeded_fence_on_stderr(tmp_path, capsys):
     assert 'src="media/a-1.svg"' in markup["a"][1]
 
 
-def test_write_figures_writes_the_panelled_font_embedded_copy(tmp_path):
+def test_write_figures_writes_a_transparent_font_embedded_copy(tmp_path):
     figures, media = tmp_path / "figures", tmp_path / "media"
     figures.mkdir()
     media.mkdir()
     _, seeded = rb.write_figures([_funnel_part("a", 1)], figures, media)
     assert seeded == ["a-0"]
     copy = (media / "a-0.svg").read_text(encoding="utf-8")
-    assert f'fill="{rh.PALETTE["light"]["surface"]}"' in copy
+    # No backing fill: the copy is as transparent as the committed file, so
+    # a reading system's page colour shows through it.
+    assert bf.opaque_fill_problems(copy) == []
+    # ...and that check would see one: a page-coloured panel behind the
+    # drawing is reported.
+    panelled = re.sub(
+        r"(<svg[^>]*>)",
+        r'\1<rect width="10" height="10" fill="#f7f6f2"/>',
+        copy,
+        count=1,
+    )
+    assert bf.opaque_fill_problems(panelled) != []
     assert "@font-face" in copy
     assert not list(figures.iterdir()), "the build never writes a committed figure"
 
@@ -677,26 +688,18 @@ def test_the_epub_carries_one_image_per_fence(built_epub: Path):
         assert _resolve_in_archive(name, src) in media, (name, src)
 
 
-_STYLE_OR_DEFS_RE = re.compile(r"\s*<(style|defs)\b[^>]*(?:/>|>.*?</\1>)", re.S)
 _WEIGHT_STYLE_RE = re.compile(r"font-weight:\s*(\d+);\s*font-style:\s*(\w+)")
 
 
 @needs_pandoc
-def test_every_epub_figure_has_its_panel_and_fonts(built_epub: Path):
-    surface = rh.PALETTE["light"]["surface"]
+def test_every_epub_figure_is_transparent_and_has_its_fonts(built_epub: Path):
     media = _epub_media_svgs(built_epub)
     assert media
     literal_checks = 0
     for name, svg in media.items():
-        root = bf._root_tag(svg)
-        # `embed_fonts` puts its <style> right after the root tag, ahead of
-        # the panel; neither it nor a <defs> is drawn, so both are skipped.
-        rest = svg[root.end() :]
-        while (skipped := _STYLE_OR_DEFS_RE.match(rest)) is not None:
-            rest = rest[skipped.end() :]
-        first = re.match(r"\s*<(\w+)[^>]*>", rest)
-        assert first and first.group(1) == "rect", name
-        assert f'fill="{surface}"' in first.group(0), name
+        # The print check that refuses a light opaque fill on a committed
+        # figure refuses a backing panel the build might add, too.
+        assert bf.opaque_fill_problems(svg) == [], name
         declared = {(int(w), s) for w, s in _WEIGHT_STYLE_RE.findall(svg)}
         # `used_faces` is pinned literally by the unit tests in
         # test_book_figures.py (tspan runs included), so it is the oracle for

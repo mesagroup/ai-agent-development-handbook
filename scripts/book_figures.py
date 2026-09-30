@@ -12,12 +12,12 @@ reading the `data-source-sha256` hash a figure was seeded from, cleaning up
 what `run_d2` hands the illustrator before it is committed as a seed, and the
 checks a fixer or a CI gate runs over a finished figure (does it fit the
 block, is every fill dark enough not to wash out on cream paper, does every
-text and stroke colour hold its WCAG contrast bar), and the three steps that
-turn a committed figure into the EPUB's copy of it: a light backing panel
-(`with_backing_panel`) so dark ink stays legible in a reading system's dark
-mode, the subset faces its text uses (`embed_fonts`), since an SVG an `<img>`
-references cannot reach the book's other files, and the em width that places
-it at the one scale (`epub_width_em`). Nothing here spawns a process or
+text and stroke colour hold its WCAG contrast bar), and the two steps that
+turn a committed figure into the EPUB's copy of it: the subset faces its text
+uses (`embed_fonts`), since an SVG an `<img>` references cannot reach the
+book's other files, and the em width that places it at the one scale
+(`epub_width_em`). The copy stays transparent like the committed file, so the
+page colour shows through in the EPUB as the paper does in print. Nothing here spawns a process or
 writes a file; that belongs to the scripts built on top of it.
 """
 
@@ -811,26 +811,6 @@ def contrast_problems(svg: str, paper: str = PAPER_CREAM) -> list[str]:
 def _insert_after_root(svg: str, markup: str) -> str:
     end = _root_tag(svg).end()
     return svg[:end] + markup + svg[end:]
-
-
-def with_backing_panel(svg: str, colour: str) -> str:
-    """The EPUB copy's opaque light panel, drawn behind everything else.
-
-    A book figure is transparent, so on a reading system's dark background its
-    dark ink would vanish, and reading systems do not invert images. The panel
-    is a `<rect>` covering the root `viewBox`, inserted as the root's first
-    child, inside the SVG, where a reading system's stylesheet cannot remove
-    it. The committed file stays transparent; only the EPUB copy carries this.
-
-    Raises:
-        ValueError: there is no root `<svg>` tag, or it has no `viewBox`.
-    """
-    x, y, width, height = _viewbox_box(svg)
-    panel = (
-        f'<rect x="{x:g}" y="{y:g}" width="{width:g}" height="{height:g}"'
-        f' fill="{colour}"/>'
-    )
-    return _insert_after_root(svg, panel)
 
 
 # CSS's initial font-weight and font-style, in force at the root before any
