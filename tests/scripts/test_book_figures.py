@@ -7,13 +7,19 @@ from pathlib import Path
 import book_figures as bf
 import pytest
 
+# The label size, in user units, that prints at 8 pt at the one scale: the
+# middle of the 7-9 pt range, derived so the fixtures follow `PT_PER_UNIT`.
+L = f"{8 / bf.PT_PER_UNIT:.4g}"
+
 # A trimmed, hand-shaped stand-in for what `render_handbook_artifact.run_d2`
 # produces in "print" variant: an outer sized `<svg>`, d2's own salted inner
 # `<svg>`, a transparent background rect, two `<style>` blocks (one carrying
 # an `@font-face` with a base64 font payload shortened to a stand-in, one
 # carrying d2's `.shape` CSS), one drawn node (`task.a`, base64
 # `dGFzay5h`) as a `<g>` wrapping a rect and a bold label, and the clip mask
-# d2 always emits. `PRINT_PALETTE["line"]` is `#8a867a`, `PRINT_PALETTE["ink"]`
+# d2 always emits. Its label is set at `L`, the size that prints at 8 pt at the
+# one scale, where d2's own seeds set 12 and so print smaller (see `fit_problems`
+# on a seed). `PRINT_PALETTE["line"]` is `#8a867a`, `PRINT_PALETTE["ink"]`
 # is `#1c2024` (see `render_handbook_artifact.PRINT_PALETTE`).
 D2_LIKE = (
     '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"'
@@ -38,7 +44,7 @@ D2_LIKE = (
     '<g class="dGFzay5h">'
     '<rect fill="transparent" stroke="#8a867a" style="stroke-width:2;"/>'
     '<text class="text-bold" fill="#1c2024"'
-    ' style="text-anchor:middle;font-size:12px">Agent A</text>'
+    f' style="text-anchor:middle;font-size:{L}px">Agent A</text>'
     "</g>"
     '<mask id="d2-1314600225" maskUnits="userSpaceOnUse" x="1" y="1"'
     ' width="287" height="587">'
@@ -68,7 +74,7 @@ INKSCAPE_LIKE = (
     '<rect x="32" y="38" width="87" height="61" fill="none" stroke="#8a867a"'
     ' style="stroke-width:2;"/>'
     '<text x="75.5" y="72.5"'
-    ' style="text-anchor:middle;font-size:12px;font-weight:bold;fill:#1c2024">'
+    f' style="text-anchor:middle;font-size:{L}px;font-weight:bold;fill:#1c2024">'
     "Agent A</text>"
     "</g>"
     "</svg>"
@@ -134,12 +140,13 @@ def test_a_figure_inside_the_block_at_8pt_fits():
 
 
 def test_a_figure_wider_than_the_block_does_not_fit():
-    wide = D2_LIKE.replace('viewBox="0 0 287 587"', 'viewBox="0 0 424 361"', 1)
+    wide_w = bf.MAX_VIEWBOX[0] + 1
+    wide = D2_LIKE.replace('viewBox="0 0 287 587"', f'viewBox="0 0 {wide_w} 361"', 1)
     assert any("wide" in p for p in bf.fit_problems(wide))
 
 
 def test_a_label_outside_7_to_9pt_is_reported():
-    big = D2_LIKE.replace("font-size:12px", "font-size:16px")
+    big = D2_LIKE.replace(f"font-size:{L}px", "font-size:16px")
     assert any("16" in p for p in bf.fit_problems(big))
 
 
@@ -158,19 +165,19 @@ def test_a_halved_nested_viewport_width_is_reported():
 
 
 def test_a_nested_svg_with_no_width_or_height_is_not_a_scale():
-    svg = _sized('<svg viewBox="0 0 50 50"><text font-size="12">a</text></svg>')
+    svg = _sized(f'<svg viewBox="0 0 50 50"><text font-size="{L}">a</text></svg>')
     assert bf.fit_problems(svg) == []
 
 
 def test_a_nested_svg_with_no_viewbox_is_not_a_scale():
-    svg = _sized('<svg width="25" height="25"><text font-size="12">a</text></svg>')
+    svg = _sized(f'<svg width="25" height="25"><text font-size="{L}">a</text></svg>')
     assert bf.fit_problems(svg) == []
 
 
 def test_a_nested_svg_with_unrecognized_dimensions_is_reported():
     svg = _sized(
         '<svg width="50%" height="50%" viewBox="0 0 50 50">'
-        '<text font-size="12">a</text></svg>'
+        f'<text font-size="{L}">a</text></svg>'
     )
     problems = bf.fit_problems(svg)
     assert any("not a recognized size" in p for p in problems)
@@ -179,7 +186,7 @@ def test_a_nested_svg_with_unrecognized_dimensions_is_reported():
 def test_a_nested_svg_with_unequal_x_and_y_scale_is_reported():
     svg = _sized(
         '<svg width="50" height="25" viewBox="0 0 50 50">'
-        '<text font-size="12">a</text></svg>'
+        f'<text font-size="{L}">a</text></svg>'
     )
     problems = bf.fit_problems(svg)
     assert any("nested <svg>" in p for p in problems)
@@ -349,7 +356,9 @@ def test_embed_fonts_names_the_font_directory_when_a_face_is_missing(tmp_path):
 
 
 def test_the_epub_width_keeps_the_one_scale():
-    assert bf.epub_width_em('<svg viewBox="0 0 300 100"></svg>') == pytest.approx(20.0)
+    # A figure as wide as the block is the block's width in body ems.
+    full = f'<svg viewBox="0 0 {bf.MAX_VIEWBOX[0]} 100"></svg>'
+    assert bf.epub_width_em(full) == pytest.approx(bf.TEXT_BLOCK_PT[0] / bf.BODY_PT)
 
 
 def _text_svg(body: str) -> str:
@@ -360,7 +369,7 @@ def test_a_bold_tspan_sets_its_own_characters_in_the_bold_face():
     # Inkscape's habit: the weight sits on the tspan, not on the <text>, and
     # the tspan's tail belongs to the <text>'s own face.
     svg = _text_svg(
-        '<text style="font-size:12px"><tspan style="font-weight:bold">Qz</tspan>'
+        f'<text style="font-size:{L}px"><tspan style="font-weight:bold">Qz</tspan>'
         " ab</text>"
     )
     assert bf._faces_and_text(svg) == {
@@ -390,7 +399,7 @@ def test_an_italic_tspan_sets_in_the_italic_face():
 
 def test_a_tspan_face_is_embedded():
     svg = _text_svg(
-        '<text style="font-size:12px"><tspan style="font-weight:bold">Qz</tspan>'
+        f'<text style="font-size:{L}px"><tspan style="font-weight:bold">Qz</tspan>'
         " ab</text>"
     )
     out = bf.embed_fonts(svg, FONTS).replace(" ", "")
@@ -404,20 +413,20 @@ def _sized(body: str) -> str:
 
 
 def test_a_scale_on_a_group_holding_text_is_reported():
-    # 12 units prints at 8 pt only at the one scale; scale(2) prints it at 16.
-    svg = _sized('<g transform="scale(2)"><text font-size="12">a</text></g>')
+    # L units prints at 8 pt only at the one scale; scale(2) prints it at 16.
+    svg = _sized(f'<g transform="scale(2)"><text font-size="{L}">a</text></g>')
     assert any("scale(2)" in p for p in bf.fit_problems(svg))
 
 
 def test_a_matrix_on_the_text_itself_is_reported():
-    svg = _sized('<text transform="matrix(1 0 0 1 5 5)" font-size="12">a</text>')
+    svg = _sized(f'<text transform="matrix(1 0 0 1 5 5)" font-size="{L}">a</text>')
     assert any("matrix" in p for p in bf.fit_problems(svg))
 
 
 def test_a_pure_translate_passes():
     svg = _sized(
         '<g transform="translate(10, 20)"><text transform="translate(3)"'
-        ' font-size="12">a</text></g>'
+        f' font-size="{L}">a</text></g>'
     )
     assert bf.fit_problems(svg) == []
 
@@ -425,13 +434,13 @@ def test_a_pure_translate_passes():
 def test_a_transform_on_a_textless_shape_is_not_a_fit_problem():
     svg = _sized(
         '<rect transform="rotate(45)" width="1" height="1"/>'
-        '<text font-size="12">a</text>'
+        f'<text font-size="{L}">a</text>'
     )
     assert bf.fit_problems(svg) == []
 
 
 def test_a_text_inherits_its_font_size_from_its_group():
-    svg = _sized('<g style="font-size:12px"><text>a</text></g>')
+    svg = _sized(f'<g style="font-size:{L}px"><text>a</text></g>')
     assert bf.fit_problems(svg) == []
 
 
@@ -441,13 +450,13 @@ def test_an_inherited_out_of_range_size_is_reported():
 
 
 def test_a_bare_text_beside_a_sized_one_is_reported():
-    svg = _sized('<text font-size="12">a</text><text>b</text>')
+    svg = _sized(f'<text font-size="{L}">a</text><text>b</text>')
     problems = bf.fit_problems(svg)
     assert len(problems) == 1 and "no font-size" in problems[0]
 
 
 def test_a_near_opaque_pale_text_is_reported():
-    svg = _sized('<text font-size="12" fill="#eeeeee" fill-opacity="0.99">a</text>')
+    svg = _sized(f'<text font-size="{L}" fill="#eeeeee" fill-opacity="0.99">a</text>')
     assert bf.contrast_problems(svg) != []
 
 
@@ -506,7 +515,7 @@ def test_an_unparseable_group_opacity_is_named_opacity_not_fill_opacity():
 
 def test_ink_text_under_a_faded_group_is_blended_and_judged():
     # Ink passes on its own; under a 0.3 group opacity it prints as a pale grey.
-    ink = '<text font-size="12" fill="#1c2024">a</text>'
+    ink = f'<text font-size="{L}" fill="#1c2024">a</text>'
     assert bf.contrast_problems(_sized(ink)) == []
     assert bf.contrast_problems(_sized(f'<g opacity="0.3">{ink}</g>')) != []
 
@@ -515,7 +524,7 @@ def test_group_opacity_multiplies_down_the_tree():
     # Two nested 0.8 groups composite to 0.64, which still holds ink at 4.7:1;
     # a third 0.5 group takes it to 0.32, under the bar, only if all three
     # multiply rather than the nearest one standing alone.
-    ink = '<text font-size="12" fill="#1c2024">a</text>'
+    ink = f'<text font-size="{L}" fill="#1c2024">a</text>'
     two = f'<g opacity="0.8"><g opacity="0.8">{ink}</g></g>'
     three = f'<g opacity="0.5">{two}</g>'
     assert bf.contrast_problems(_sized(two)) == []
@@ -528,12 +537,12 @@ def test_a_fully_transparent_stroke_paints_nothing():
 
 
 def test_a_pale_style_fill_wins_over_an_ink_fill_attribute():
-    svg = _sized('<text font-size="12" fill="#1c2024" style="fill:#c3bfb1">a</text>')
+    svg = _sized(f'<text font-size="{L}" fill="#1c2024" style="fill:#c3bfb1">a</text>')
     assert bf.contrast_problems(svg) != []
 
 
 def test_an_ink_style_fill_wins_over_a_pale_fill_attribute():
-    svg = _sized('<text font-size="12" fill="#c3bfb1" style="fill:#1c2024">a</text>')
+    svg = _sized(f'<text font-size="{L}" fill="#c3bfb1" style="fill:#1c2024">a</text>')
     assert bf.contrast_problems(svg) == []
 
 
@@ -542,3 +551,40 @@ def test_a_bad_transform_and_a_bad_size_on_one_group_are_both_reported():
     problems = bf.fit_problems(svg)
     assert any("scale(2)" in p for p in problems)
     assert any("font-size 16" in p for p in problems)
+
+
+def test_an_rgb_function_colour_is_read_as_its_hex():
+    ink = _sized('<path d="M0 0" fill="none" stroke="rgb(28, 32, 36)"/>')
+    pale = _sized('<path d="M0 0" fill="none" stroke="rgb(195, 191, 177)"/>')
+    assert bf.contrast_problems(ink) == []
+    assert bf.contrast_problems(pale) != []
+
+
+def test_an_rgba_alpha_folds_into_the_tint_rule():
+    # White at an rgba() alpha of 0.3 is a tint; at 0.9 it prints as a surface.
+    tint = _sized('<rect width="1" height="1" fill="rgba(255,255,255,0.3)"/>')
+    surface = _sized('<rect width="1" height="1" fill="rgba(255,255,255,0.9)"/>')
+    assert bf.opaque_fill_problems(tint) == []
+    assert bf.opaque_fill_problems(surface) != []
+
+
+def test_an_rgba_alpha_folds_into_the_contrast_rule():
+    # Ink that passes opaque fails once an rgba() alpha greys it out.
+    faded = _sized(f'<text font-size="{L}" fill="rgba(28,32,36,0.3)">a</text>')
+    assert bf.contrast_problems(faded) != []
+
+
+def test_an_unreadable_rgba_alpha_is_reported():
+    svg = _sized('<path d="M0 0" fill="none" stroke="rgba(0,0,0,lots)"/>')
+    assert bf.contrast_problems(svg) != []
+
+
+def test_a_faint_texture_stroke_is_not_judged_and_a_faded_line_is():
+    # A hand-drawn figure's shading: rgba alpha 0.14 under opacity 0.4.
+    texture = _sized(
+        '<path d="M0 0" fill="none" stroke="rgba(0,0,0,0.14)" opacity="0.4"/>'
+    )
+    # Above TEXTURE_MAX_ALPHA, a pale line is a line and is held to 3:1.
+    faded = _sized('<path d="M0 0" fill="none" stroke="#c3bfb1" opacity="0.3"/>')
+    assert bf.contrast_problems(texture) == []
+    assert bf.contrast_problems(faded) != []

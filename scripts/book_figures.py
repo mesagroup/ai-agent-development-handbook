@@ -1,11 +1,14 @@
-"""A book figure: a committed SVG under `docs/engineering/figures/`, seeded by
-running `d2` once through `render_handbook_artifact.run_d2`, then corrected by
-hand in an SVG editor (Inkscape) so it sits inside the book's print measure.
+"""A book figure: a committed SVG under `docs/engineering/figures/`, drawn by
+hand, in an SVG editor or a design tool, from a seed made by running `d2` once
+through `render_handbook_artifact.run_d2`, so it sits inside the book's print
+measure.
 
-Every figure is drawn at one scale, `PT_PER_UNIT` (2/3 pt per SVG user unit),
+Every figure is drawn at one scale, `PT_PER_UNIT` (0.38 pt per SVG user unit),
 so a figure's own viewBox is also its footprint on the page: `MAX_VIEWBOX` is
 the 3.6 x 6.0 in text block converted into that scale, and `TEXT_PT_RANGE`
-bounds what a label may print at once the scale is applied.
+bounds what a live-text label may print at once the scale is applied. A
+figure whose lettering is converted to outlines has no text for that check to
+read; its labels print at whatever size they were drawn.
 
 This module holds the pure logic three later steps share: stamping and
 reading the `data-source-sha256` hash a figure was seeded from, cleaning up
@@ -35,14 +38,17 @@ from fontTools import subset
 from fontTools.ttLib import TTFont
 
 FIGURE_FONT = "Source Sans 3"
-# Points per SVG user unit: the book places every figure at one scale, chosen
-# so a figure's own viewBox reads directly as its footprint on the page.
-PT_PER_UNIT = 2 / 3
-# The paperback's text block is 3.6 x 6.0 in; converted through PT_PER_UNIT
-# (72 pt/in) that is 388.8 x 648.0 units. A figure wider or taller than this
+# Points per SVG user unit: the book places every figure at one scale, so a
+# figure's own viewBox reads directly as its footprint on the page and the
+# lettering is the same size in every figure. 0.38 lets a drawing about 680
+# units wide, the widest the figures are drawn at, fill the text block's width.
+PT_PER_UNIT = 0.38
+# The paperback's text block, 3.6 x 6.0 in at 72 pt/in.
+TEXT_BLOCK_PT = (3.6 * 72, 6.0 * 72)
+# That block converted through PT_PER_UNIT. A figure wider or taller than this
 # would either overflow the block or force pandoc to scale it, shrinking its
 # labels with it.
-MAX_VIEWBOX = (388.8, 648.0)
+MAX_VIEWBOX = (TEXT_BLOCK_PT[0] / PT_PER_UNIT, TEXT_BLOCK_PT[1] / PT_PER_UNIT)
 # A label has to stay legible in print without also swamping the diagram; 7-9
 # pt is the book's body-adjacent caption range.
 TEXT_PT_RANGE = (7.0, 9.0)
@@ -55,6 +61,10 @@ PAPER_CREAM = "#f7f0dc"
 # which the book allows. Above it, a fill covers more paper than it lets
 # through, so it is blended over the paper and judged as the surface it prints.
 TINT_MAX_ALPHA = 0.5
+# A stroke whose effective alpha is at most this is texture: a hand-drawn
+# figure's faint shading lines, which carry nothing a reader must see. Any
+# stroke above it is a line that means something and is held to 3:1.
+TEXTURE_MAX_ALPHA = 0.2
 # The body's nominal size in the EPUB, in points: `epub_width_em` expresses a
 # figure's one-scale width relative to it, so labels keep their ratio to the
 # text when a reader changes the font size.
@@ -403,7 +413,8 @@ def _parse_opacity(value: str | None) -> float:
 
 
 def _normalize_hex(value: str) -> str:
-    """Normalize `#rgb`, `#rrggbb`, `white` or `black` to lowercase `#rrggbb`.
+    """Normalize `#rgb`, `#rrggbb`, `rgb()`/`rgba()`, `white` or `black` to
+    lowercase `#rrggbb`, dropping an `rgba()` alpha, which `_paint_alpha` reads.
 
     Raises:
         ValueError: `value` is not one of the recognized forms.
@@ -416,7 +427,29 @@ def _normalize_hex(value: str) -> str:
         return low
     if re.fullmatch(r"#[0-9a-fA-F]{3}", v):
         return "#" + "".join(c * 2 for c in v[1:]).lower()
+    rgb = _RGB_FUNC_RE.fullmatch(low)
+    if rgb is not None and all(0 <= int(c) <= 255 for c in rgb.group(1, 2, 3)):
+        return "#" + "".join(f"{int(c):02x}" for c in rgb.group(1, 2, 3))
     raise ValueError(f"unrecognized colour {value!r}")
+
+
+# `rgb(r, g, b)` or `rgba(r, g, b, a)` with integer channels, the form design
+# tools write; the alpha is `_paint_alpha`'s.
+_RGB_FUNC_RE = re.compile(
+    r"rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+%?)\s*)?\)"
+)
+
+
+def _paint_alpha(value: str) -> float:
+    """The alpha a paint value carries in itself: an `rgba()`'s, else 1.
+
+    Raises:
+        ValueError: the `rgba()` alpha is not a recognized opacity.
+    """
+    rgb = _RGB_FUNC_RE.fullmatch(value.strip().lower())
+    if rgb is None or rgb.group(4) is None:
+        return 1.0
+    return _parse_opacity(rgb.group(4))
 
 
 def _resolve_paint(value: str) -> str | None:
@@ -682,7 +715,8 @@ def opaque_fill_problems(svg: str, paper: str = PAPER_CREAM) -> list[str]:
     own, painted by a colour set on an ancestor group or layer, is checked
     under that inherited colour rather than skipped as unset. Its alpha is
     the resolved `fill-opacity` composited with every `opacity` above it. A
-    fill at or below `TINT_MAX_ALPHA` is a tint and passes; any other is
+    fill at or below `TINT_MAX_ALPHA`, an `rgba()` colour's own alpha
+    included, is a tint and passes; any other is
     blended over `paper` at its alpha and reported when the colour that
     prints has a luminance over 0.5, so a pale fill at 0.99 is judged as the
     pale surface it is. An alpha of 0 paints nothing. An unrecognized colour,
@@ -712,14 +746,13 @@ def opaque_fill_problems(svg: str, paper: str = PAPER_CREAM) -> list[str]:
                 f"{prop} {raw!r} on <{_local(el.tag)}> is not a recognized opacity"
             )
             continue
-        if fill_alpha <= TINT_MAX_ALPHA:
-            continue
         try:
+            fill_alpha *= _paint_alpha(fill)
             hex_color = _resolve_paint(fill)
         except ValueError:
             problems.append(f"unrecognized fill {fill!r} on <{_local(el.tag)}>")
             continue
-        if hex_color is None:
+        if hex_color is None or fill_alpha <= TINT_MAX_ALPHA:
             continue
         printed = _blend(hex_color, fill_alpha, paper)
         if _relative_luminance(printed) > 0.5:
@@ -739,10 +772,13 @@ def _contrast_problem(
     Raises:
         ValueError: `paint` is set but not a recognized colour.
     """
+    alpha *= _paint_alpha(paint)
     if alpha <= 0:
         return None
     hex_color = _resolve_paint(paint)
     if hex_color is None:
+        return None
+    if kind == "stroke" and alpha <= TEXTURE_MAX_ALPHA:
         return None
     printed = _blend(hex_color, alpha, paper)
     ratio = contrast_ratio(printed, paper)
@@ -768,7 +804,9 @@ def contrast_problems(svg: str, paper: str = PAPER_CREAM) -> list[str]:
     colour is blended over `paper` at its alpha (the resolved paint opacity
     composited with every `opacity` above it) and the colour that prints is
     what is held to the bar, so ink under a faded group is judged as the grey
-    it becomes. An alpha of 0 paints nothing. An unrecognized colour, or a
+    it becomes; an `rgba()` colour's own alpha is composited in too. A stroke
+    at or below `TEXTURE_MAX_ALPHA` is texture and is not judged. An alpha of
+    0 paints nothing. An unrecognized colour, or a
     `fill-opacity`/`stroke-opacity`/`opacity` in none of `_parse_opacity`'s
     recognized forms, is reported rather than silently passed. An `image`
     element is never judged (`_walk_paint` never yields one): it paints an
@@ -984,7 +1022,7 @@ def epub_width_em(svg: str) -> float:
 
     The viewBox width times `PT_PER_UNIT` is the figure's printed width in
     points; over the body's nominal `BODY_PT` that is its width relative to
-    the body font, which is width / 15 at the book's scale.
+    the body font, in em.
     """
     width, _ = viewbox(svg)
     return width * PT_PER_UNIT / BODY_PT
