@@ -22,7 +22,9 @@ def test_a_funnel_seed_is_stamped_and_vertical():
     svg = rb.seed_svg("evaluation", block)
     assert bf.recorded_hash(svg) == bf.source_hash(block.source)
     assert 'font-family="Source Sans 3"' in svg
-    assert bf.fit_problems(svg) == []
+    # A seed is drawn at the funnel's own size, not at the book's one scale,
+    # so it is not held to `fit_problems`: it is a starting drawing, and the
+    # committed figure drawn from it is what the tree test holds.
 
 
 def test_seeding_writes_missing_figures_only(tmp_path):
@@ -712,7 +714,12 @@ def test_every_epub_figure_is_transparent_and_has_its_fonts(built_epub: Path):
         if 'font-style="italic"' in svg:
             assert (400, "italic") in declared, name
             literal_checks += 1
-    assert literal_checks, "no figure carried a literal weight or style to check"
+    # A figure whose lettering is outlined carries no text and so nothing to
+    # check here; the font path is then held by the unit tests alone.
+    has_text = any("<text" in svg for svg in media.values())
+    assert literal_checks or not has_text, (
+        "no figure carried a literal weight or style to check"
+    )
 
 
 @needs_pandoc

@@ -39,8 +39,10 @@ def test_a_committed_figure_holds_the_print_checks(path):
     )
     # The build's EPUB copy of this file, made here without pandoc so a hand
     # edit that `embed_fonts` cannot read fails on any machine, not only
-    # where the full build runs.
-    assert "@font-face" in bf.embed_fonts(svg, rb.FONT_DIR)
+    # where the full build runs. A figure whose lettering is outlined has no
+    # text and gets no face; one with live text gets every face it uses.
+    embedded = bf.embed_fonts(svg, rb.FONT_DIR)
+    assert ("@font-face" in embedded) == bool(bf.used_faces(svg))
 
 
 def test_a_figure_stale_against_its_fence_fails_the_hash_check(tmp_path):
