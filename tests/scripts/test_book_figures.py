@@ -10,6 +10,8 @@ import pytest
 # The label size, in user units, that prints at 8 pt at the one scale: the
 # middle of the 7-9 pt range, derived so the fixtures follow `PT_PER_UNIT`.
 L = f"{8 / bf.PT_PER_UNIT:.4g}"
+# A label size that prints at 12 pt, above the range at any scale this suite runs at.
+BIG = f"{12 / bf.PT_PER_UNIT:.4g}"
 
 # A trimmed, hand-shaped stand-in for what `render_handbook_artifact.run_d2`
 # produces in "print" variant: an outer sized `<svg>`, d2's own salted inner
@@ -146,8 +148,8 @@ def test_a_figure_wider_than_the_block_does_not_fit():
 
 
 def test_a_label_outside_7_to_9pt_is_reported():
-    big = D2_LIKE.replace(f"font-size:{L}px", "font-size:16px")
-    assert any("16" in p for p in bf.fit_problems(big))
+    big = D2_LIKE.replace(f"font-size:{L}px", f"font-size:{BIG}px")
+    assert any(BIG in p for p in bf.fit_problems(big))
 
 
 def test_a_figure_with_no_text_size_is_reported():
@@ -445,8 +447,8 @@ def test_a_text_inherits_its_font_size_from_its_group():
 
 
 def test_an_inherited_out_of_range_size_is_reported():
-    svg = _sized('<g font-size="16"><text>a</text></g>')
-    assert any("16" in p for p in bf.fit_problems(svg))
+    svg = _sized(f'<g font-size="{BIG}"><text>a</text></g>')
+    assert any(BIG in p for p in bf.fit_problems(svg))
 
 
 def test_a_bare_text_beside_a_sized_one_is_reported():
@@ -547,10 +549,10 @@ def test_an_ink_style_fill_wins_over_a_pale_fill_attribute():
 
 
 def test_a_bad_transform_and_a_bad_size_on_one_group_are_both_reported():
-    svg = _sized('<g transform="scale(2)" font-size="16"><text>a</text></g>')
+    svg = _sized(f'<g transform="scale(2)" font-size="{BIG}"><text>a</text></g>')
     problems = bf.fit_problems(svg)
     assert any("scale(2)" in p for p in problems)
-    assert any("font-size 16" in p for p in problems)
+    assert any(f"font-size {BIG}" in p for p in problems)
 
 
 def test_an_rgb_function_colour_is_read_as_its_hex():
