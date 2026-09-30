@@ -7,8 +7,8 @@ book's ids are the page's by construction and every citation a report
 emits lands on the same heading in both. Each diagram is a captioned figure
 (`figure_markup`): its committed SVG under ``docs/engineering/figures/``, or,
 where none is committed yet, its seed, with a NOTE on stderr naming the
-fence (`load_figure`, `write_figures`). The EPUB's copy of each carries a
-light backing panel and the subset faces its text uses, and is placed at the
+fence (`load_figure`, `write_figures`). The EPUB's copy of each stays
+transparent, carries the subset faces its text uses, and is placed at the
 one scale through an em width (`book_figures`). A checklist item carries a ☐/☒ glyph
 (`restore_task_boxes`) so it reads as a box rather than a plain bullet.
 Prose quotes are curled to typographic ones and inline code is left
@@ -53,11 +53,9 @@ from book_figures import (
     epub_width_em,
     source_hash,
     stamp_hash,
-    with_backing_panel,
 )
 from render_handbook_artifact import (
     _DIAGRAM_PLACEHOLDER_RE,
-    PALETTE,
     PARTS,
     AssembledPart,
     DiagramBlock,
@@ -514,10 +512,10 @@ def write_figures(
 ) -> tuple[dict[str, dict[int, str]], list[str]]:
     """Write each diagram's EPUB copy into `media` and build its figure markup.
 
-    Each figure comes from `load_figure`; its copy, on the light panel
-    (`with_backing_panel`) and carrying the faces its text uses
-    (`embed_fonts`), is written as ``media/<stem>-<index>.svg``. For every
-    fence with no committed figure, one line goes to stderr, exactly
+    Each figure comes from `load_figure`; its copy, transparent like the
+    committed file and carrying the faces its text uses (`embed_fonts`), is
+    written as ``media/<stem>-<index>.svg``. For every fence with no
+    committed figure, one line goes to stderr, exactly
     ``NOTE: <stem>-<index> has no committed figure; the book uses its seed``,
     which the release workflow (#192) turns into a failure.
 
@@ -525,7 +523,6 @@ def write_figures(
         Each diagram's `figure_markup`, by part stem and block index, and the
         ``<stem>-<index>`` of every fence that used its seed, in part order.
     """
-    surface = PALETTE["light"]["surface"]
     figures: dict[str, dict[int, str]] = {}
     seeded_ids: list[str] = []
     for part in assembled:
@@ -540,7 +537,7 @@ def write_figures(
                     file=sys.stderr,
                 )
             (media / f"{figure_id}.svg").write_text(
-                embed_fonts(with_backing_panel(svg, surface), FONT_DIR),
+                embed_fonts(svg, FONT_DIR),
                 encoding="utf-8",
             )
             figures.setdefault(part.stem, {})[block.index] = figure_markup(
@@ -564,8 +561,8 @@ def build_epub(
 
     Each diagram's figure is read from `figures_dir` (default
     ``docs_dir / "figures"``) by `write_figures`, which falls back to its
-    seed with a NOTE on stderr and writes its EPUB copy, on the light panel
-    and carrying the faces its text uses, to the work directory's
+    seed with a NOTE on stderr and writes its EPUB copy, transparent and
+    carrying the faces its text uses, to the work directory's
     ``media/``, where pandoc resolves it from.
     """
     if figures_dir is None:
