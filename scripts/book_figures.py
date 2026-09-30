@@ -3,8 +3,9 @@ hand, in an SVG editor or a design tool, from a seed made by running `d2` once
 through `render_handbook_artifact.run_d2`, so it sits inside the book's print
 measure.
 
-Every figure is drawn at one scale, `PT_PER_UNIT` (0.38 pt per SVG user unit),
-so a figure's own viewBox is also its footprint on the page: `MAX_VIEWBOX` is
+Every figure is drawn at one scale, `PT_PER_UNIT` (about 0.465 pt per SVG
+user unit, so `FULL_WIDTH_UNITS` fills the text block's width), so a
+figure's own viewBox is also its footprint on the page: `MAX_VIEWBOX` is
 the 3.6 x 6.0 in text block converted into that scale, and `TEXT_PT_RANGE`
 bounds what a live-text label may print at once the scale is applied. A
 figure whose lettering is converted to outlines has no text for that check to
@@ -38,13 +39,16 @@ from fontTools import subset
 from fontTools.ttLib import TTFont
 
 FIGURE_FONT = "Source Sans 3"
-# Points per SVG user unit: the book places every figure at one scale, so a
-# figure's own viewBox reads directly as its footprint on the page and the
-# lettering is the same size in every figure. 0.38 lets a drawing about 680
-# units wide, the widest the figures are drawn at, fill the text block's width.
-PT_PER_UNIT = 0.38
 # The paperback's text block, 3.6 x 6.0 in at 72 pt/in.
 TEXT_BLOCK_PT = (3.6 * 72, 6.0 * 72)
+# The width, in user units, that fills the text block: the widest committed
+# figure's viewBox. Every figure is scaled by the one factor this sets rather
+# than fitted to the width on its own.
+FULL_WIDTH_UNITS = 557
+# Points per SVG user unit: the book places every figure at one scale, so a
+# figure's own viewBox reads directly as its footprint on the page and the
+# lettering is the same size in every figure. About 0.465 pt, 0.0065 in.
+PT_PER_UNIT = TEXT_BLOCK_PT[0] / FULL_WIDTH_UNITS
 # That block converted through PT_PER_UNIT. A figure wider or taller than this
 # would either overflow the block or force pandoc to scale it, shrinking its
 # labels with it.
