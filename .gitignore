@@ -24,3 +24,6 @@ sweeps/
 
 # Default output dir of scripts/render_handbook_book.py
 build/
+
+# macOS Finder metadata
+.DS_Store
