@@ -114,23 +114,16 @@ def font_face_css(faces=EPUB_FACES) -> str:
     )
 
 
-# A heading never splits across pages and never ends one. Apple Books honours
-# `break-inside: avoid` but ignores `break-after: avoid`, so each heading also
-# carries an empty block two body lines tall (`::after`, 2 x the body's 1.45
-# line height, in `rem` so it tracks the reader's font size rather than the
-# heading's) that its own negative margin takes back out of the layout: the
-# heading must then fit on a page together with room for two lines of what
-# follows, or it moves to the next page. `break-after: avoid` and `orphans`
-# stay for the reading systems that do honour them; each property is spelled
-# three ways because reading systems paginate with CSS columns or paged media
-# and honour different spellings.
+# A heading never splits across pages and never ends one: `break-after: avoid`
+# on it and `orphans: 2` on the paragraph after it keep at least two lines of
+# text with it. Each property is spelled three ways because reading systems
+# paginate with CSS columns or paged media and honour different spellings.
 EPUB_CSS = (
     font_face_css()
     + """\
 body { font-family: "Source Serif 4", serif; line-height: 1.45; }
 h1, h2, h3, h4 { font-family: "Source Sans 3", sans-serif; line-height: 1.2; }
 h1, h2, h3, h4, h5, h6 { break-inside: avoid; break-after: avoid; page-break-inside: avoid; page-break-after: avoid; -webkit-column-break-inside: avoid; -webkit-column-break-after: avoid; }
-h1::after, h2::after, h3::after, h4::after, h5::after, h6::after { content: ""; display: block; height: 2.9rem; margin-bottom: -2.9rem; }
 p, li { text-align: justify; -webkit-hyphens: auto; hyphens: auto; orphans: 2; widows: 2; }
 code, pre { font-family: "Source Code Pro", monospace; font-size: 0.85em; }
 pre { white-space: pre-wrap; }
