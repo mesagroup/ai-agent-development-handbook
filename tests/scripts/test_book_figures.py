@@ -478,11 +478,11 @@ def test_a_near_opaque_pale_fill_is_reported():
 
 
 def test_an_svg2_percentage_opacity_reads_as_its_fraction():
-    # "50%" is SVG 2's own spelling of 0.5 (SVG 1.1 only allows a bare
-    # number), and 0.5 sits at TINT_MAX_ALPHA, the pass/fail boundary, so a
-    # fill that reads "50%" as 1.0 (the old silent default) would fail here
-    # while the correct 0.5 reading passes.
-    svg = _sized('<rect width="1" height="1" fill="#eeeeee" fill-opacity="50%"/>')
+    # "20%" is SVG 2's own spelling of 0.2 (SVG 1.1 only allows a bare
+    # number), and 0.2 sits at TINT_MAX_ALPHA, the pass/fail boundary, so a
+    # fill that reads "20%" as 1.0 (the old silent default) would fail here
+    # while the correct 0.2 reading passes.
+    svg = _sized('<rect width="1" height="1" fill="#eeeeee" fill-opacity="20%"/>')
     assert bf.opaque_fill_problems(svg) == []
 
 
@@ -563,8 +563,8 @@ def test_an_rgb_function_colour_is_read_as_its_hex():
 
 
 def test_an_rgba_alpha_folds_into_the_tint_rule():
-    # White at an rgba() alpha of 0.3 is a tint; at 0.9 it prints as a surface.
-    tint = _sized('<rect width="1" height="1" fill="rgba(255,255,255,0.3)"/>')
+    # White at an rgba() alpha of 0.15 is a tint; at 0.9 it prints as a surface.
+    tint = _sized('<rect width="1" height="1" fill="rgba(255,255,255,0.15)"/>')
     surface = _sized('<rect width="1" height="1" fill="rgba(255,255,255,0.9)"/>')
     assert bf.opaque_fill_problems(tint) == []
     assert bf.opaque_fill_problems(surface) != []
@@ -590,3 +590,9 @@ def test_a_faint_texture_stroke_is_not_judged_and_a_faded_line_is():
     faded = _sized('<path d="M0 0" fill="none" stroke="#c3bfb1" opacity="0.3"/>')
     assert bf.contrast_problems(texture) == []
     assert bf.contrast_problems(faded) != []
+
+
+def test_a_white_panel_at_half_opacity_is_reported():
+    # White at 0.5 over cream prints as #fbf8ee, a visible pale panel.
+    svg = _sized('<rect width="1" height="1" fill="#ffffff" fill-opacity="0.5"/>')
+    assert bf.opaque_fill_problems(svg) != []
