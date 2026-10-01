@@ -357,6 +357,49 @@ def test_epub_command_reads_plain_html_and_splits_on_parts(tmp_path: Path):
     assert cmd[-1] == str(tmp_path / "book.html")
 
 
+def test_epub_command_embeds_each_font_it_is_given(tmp_path: Path):
+    fonts = (tmp_path / "a.ttf", tmp_path / "b.ttf")
+    cmd = rb.epub_command(
+        tmp_path / "book.html",
+        tmp_path / "meta.yaml",
+        tmp_path / "epub.css",
+        tmp_path / "out.epub",
+        tmp_path / "work",
+        fonts=fonts,
+    )
+    embedded = [cmd[i + 1] for i, arg in enumerate(cmd) if arg == "--epub-embed-font"]
+    assert embedded == [str(f) for f in fonts]
+
+
+def test_font_face_css_points_each_face_at_its_embedded_basename():
+    css = rb.font_face_css((("Fam", "bold", "italic", "dir/Fam-BoldIt.ttf"),))
+    assert css == (
+        '@font-face { font-family: "Fam"; font-weight: bold; '
+        'font-style: italic; src: url("../fonts/Fam-BoldIt.ttf"); }\n'
+    )
+
+
+def test_every_epub_face_is_committed_with_its_licence():
+    paths = [rb.FONTS_ROOT / path for *_, path in rb.EPUB_FACES]
+    for path in paths:
+        assert path.is_file(), path
+        assert (path.parent / "OFL.txt").is_file(), path.parent
+    # pandoc flattens the files into one fonts/ directory by basename.
+    assert len({p.name for p in paths}) == len(paths)
+    assert len({face[:3] for face in rb.EPUB_FACES}) == len(rb.EPUB_FACES)
+
+
+_CSS_FAMILY_RE = re.compile(r'font-family:\s*"([^"]+)"')
+
+
+def test_every_family_the_stylesheet_names_has_a_face():
+    named = set(_CSS_FAMILY_RE.findall(rb.EPUB_CSS))
+    assert named == {family for family, *_ in rb.EPUB_FACES}
+    # Each rule keeps a generic fallback for a reader that ignores the face.
+    for rule in re.findall(r"font-family:[^;]+;", rb.EPUB_CSS.split("}\nbody", 1)[1]):
+        assert re.search(r",\s*(serif|sans-serif|monospace);", rule), rule
+
+
 def test_book_html_raises_on_a_placeholder_with_no_matching_diagram_block():
     part = rh.AssembledPart(
         anchor="p1",
@@ -747,3 +790,13 @@ def test_the_epub_image_keeps_its_em_width(built_epub: Path):
     assert imgs
     for tag in imgs:
         assert re.search(r'style="width: \d+\.\d{2}em; max-width: 100%"', tag), tag
+
+
+@needs_pandoc
+def test_the_epub_ships_exactly_the_fonts_its_stylesheet_declares(built_epub: Path):
+    with zipfile.ZipFile(built_epub) as z:
+        names = z.namelist()
+        css = "".join(z.read(n).decode() for n in names if n.endswith(".css"))
+    shipped = {n.rsplit("/", 1)[1] for n in names if n.startswith("EPUB/fonts/")}
+    declared = set(re.findall(r'src: url\("\.\./fonts/([^"]+)"\)', css))
+    assert shipped and shipped == declared

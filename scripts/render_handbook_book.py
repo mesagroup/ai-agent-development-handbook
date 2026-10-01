@@ -13,6 +13,8 @@ one scale through an em width (`book_figures`). A checklist item carries a â˜/â
 (`restore_task_boxes`) so it reads as a box rather than a plain bullet.
 Prose quotes are curled to typographic ones and inline code is left
 untouched (`curl_quotes`) before the document ever reaches pandoc.
+The text is set in the committed faces `EPUB_FACES` names, which pandoc
+embeds and `font_face_css` declares.
 
 Usage::
 
@@ -74,13 +76,43 @@ RIGHTS = (
     "Licensed under the Creative Commons Attribution 4.0 International "
     "License (CC BY 4.0), https://creativecommons.org/licenses/by/4.0/"
 )
+# The faces the book is set in, each a committed, unmodified file under
+# `FONTS_ROOT` that pandoc embeds (`epub_command`) and `font_face_css` declares:
+# (family, weight, style, path under `FONTS_ROOT`). A face the text uses and
+# this table leaves out is synthesised by the reading system, or substituted.
+FONTS_ROOT = Path(__file__).resolve().parents[1] / "fonts"
 # The committed Source Sans 3 faces `embed_fonts` subsets into each figure.
-FONT_DIR = Path(__file__).resolve().parents[1] / "fonts" / "source-sans-3"
+FONT_DIR = FONTS_ROOT / "source-sans-3"
+EPUB_FACES = (
+    ("Source Serif 4", "normal", "normal", "source-serif-4/SourceSerif4-Regular.ttf"),
+    ("Source Serif 4", "normal", "italic", "source-serif-4/SourceSerif4-It.ttf"),
+    ("Source Serif 4", "bold", "normal", "source-serif-4/SourceSerif4-Bold.ttf"),
+    ("Source Serif 4", "bold", "italic", "source-serif-4/SourceSerif4-BoldIt.ttf"),
+    ("Source Sans 3", "bold", "normal", "source-sans-3/SourceSans3-Bold.ttf"),
+    ("Source Code Pro", "normal", "normal", "source-code-pro/SourceCodePro-Regular.ttf"),
+)  # fmt: skip
 
-EPUB_CSS = """\
-body { font-family: serif; line-height: 1.45; }
-h1, h2, h3, h4 { font-family: sans-serif; line-height: 1.2; }
-code, pre { font-family: monospace; font-size: 0.85em; }
+
+def font_face_css(faces=EPUB_FACES) -> str:
+    """One ``@font-face`` rule per face, pointing where pandoc puts the file.
+
+    Pandoc copies each ``--epub-embed-font`` file to the EPUB's ``fonts/``
+    under its own basename, and the stylesheet sits in the sibling
+    ``styles/``, hence ``../fonts/``.
+    """
+    return "".join(
+        f'@font-face {{ font-family: "{family}"; font-weight: {weight}; '
+        f'font-style: {style}; src: url("../fonts/{Path(path).name}"); }}\n'
+        for family, weight, style, path in faces
+    )
+
+
+EPUB_CSS = (
+    font_face_css()
+    + """\
+body { font-family: "Source Serif 4", serif; line-height: 1.45; }
+h1, h2, h3, h4 { font-family: "Source Sans 3", sans-serif; line-height: 1.2; }
+code, pre { font-family: "Source Code Pro", monospace; font-size: 0.85em; }
 pre { white-space: pre-wrap; }
 table { border-collapse: collapse; font-size: 0.85em; }
 th, td { border: 1px solid #888; padding: 0.25em 0.4em; text-align: left; vertical-align: top; }
@@ -88,6 +120,7 @@ figure { margin: 1em 0; }
 figure img { display: block; margin: 0 auto; }
 figcaption { font-size: 0.85em; font-style: italic; }
 """
+)
 
 
 def book_linkmap(
@@ -383,6 +416,7 @@ def epub_command(
     css_path: Path,
     out: Path,
     resource_path: Path,
+    fonts: tuple[Path, ...] = (),
 ) -> list[str]:
     """The pandoc argv that turns the book document into an EPUB3.
 
@@ -391,8 +425,10 @@ def epub_command(
     ``+smart`` would also rewrite ``--`` inside an inline ``<code>`` span
     (see `curl_quotes`), which no step in this pipeline should ever do.
     ``--resource-path`` is where pandoc resolves each figure's
-    ``media/<stem>-<index>.svg`` from.
+    ``media/<stem>-<index>.svg`` from. Each of ``fonts`` is embedded with
+    ``--epub-embed-font``, which `build_epub` fills from `EPUB_FACES`.
     """
+    embed = [arg for font in fonts for arg in ("--epub-embed-font", str(font))]
     return [
         "pandoc",
         "-f", "html",
@@ -403,6 +439,7 @@ def epub_command(
         "--metadata-file", str(metadata_path),
         "--css", str(css_path),
         "--resource-path", str(resource_path),
+        *embed,
         "-o", str(out),
         str(html_path),
     ]  # fmt: skip
@@ -582,7 +619,12 @@ def build_epub(
         (work / "metadata.yaml").write_text(book_metadata(date), encoding="utf-8")
         (work / "epub.css").write_text(EPUB_CSS, encoding="utf-8")
         cmd = epub_command(
-            work / "book.html", work / "metadata.yaml", work / "epub.css", out, work
+            work / "book.html",
+            work / "metadata.yaml",
+            work / "epub.css",
+            out,
+            work,
+            fonts=tuple(FONTS_ROOT / path for *_, path in EPUB_FACES),
         )
         run_tool(cmd, _PANDOC_TIMEOUT_S, _PANDOC_HINT)
     return out
