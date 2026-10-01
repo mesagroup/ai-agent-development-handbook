@@ -114,15 +114,23 @@ def font_face_css(faces=EPUB_FACES) -> str:
     )
 
 
-# A heading never splits across pages and never ends one: `break-after: avoid`
-# on it and `orphans: 2` on the paragraph after it keep at least two lines of
-# text with it. Each property is spelled three ways because reading systems
-# paginate with CSS columns or paged media and honour different spellings.
+# Each part's <h1> opens its own chapter file, so it always stands at the top
+# of a page, where its top margin would push it below the line a mid-chapter
+# heading starts on after a page break, which drops that heading's margin.
+#
+# A heading asks not to be split across pages or to end one: `break-after:
+# avoid` on it and `orphans: 2` on the paragraph after it ask for at least two
+# lines of text with it. Each property is spelled three ways because reading
+# systems paginate with CSS columns or paged media and honour different
+# spellings. These are requests: Apple Books keeps a heading whole but still
+# lets one end a page, and an empty block reserving two lines under each
+# heading did not change that there either.
 EPUB_CSS = (
     font_face_css()
     + """\
 body { font-family: "Source Serif 4", serif; line-height: 1.45; }
 h1, h2, h3, h4 { font-family: "Source Sans 3", sans-serif; line-height: 1.2; }
+h1 { margin-top: 0; }
 h1, h2, h3, h4, h5, h6 { break-inside: avoid; break-after: avoid; page-break-inside: avoid; page-break-after: avoid; -webkit-column-break-inside: avoid; -webkit-column-break-after: avoid; }
 p, li { text-align: justify; -webkit-hyphens: auto; hyphens: auto; orphans: 2; widows: 2; }
 code, pre { font-family: "Source Code Pro", monospace; font-size: 0.85em; }
