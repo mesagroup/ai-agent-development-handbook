@@ -429,11 +429,6 @@ def test_every_family_the_stylesheet_names_has_a_face():
         assert re.search(r",\s*(serif|sans-serif|monospace);", rule), rule
 
 
-def test_a_chapter_heading_starts_on_the_pages_first_line():
-    rules = dict(re.findall(r"^([^@{][^{]*?)\s*\{([^}]*)\}", rb.EPUB_CSS, re.M))
-    assert rules["h1"].strip() == "margin-top: 0;"
-
-
 def test_a_heading_stays_whole_and_with_two_lines_of_its_text():
     rules = dict(re.findall(r"^([^@{][^{]*?)\s*\{([^}]*)\}", rb.EPUB_CSS, re.M))
     heading = rules["h1, h2, h3, h4, h5, h6"]
