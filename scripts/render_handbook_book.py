@@ -112,6 +112,7 @@ EPUB_CSS = (
     + """\
 body { font-family: "Source Serif 4", serif; line-height: 1.45; }
 h1, h2, h3, h4 { font-family: "Source Sans 3", sans-serif; line-height: 1.2; }
+p, li { text-align: justify; -webkit-hyphens: auto; hyphens: auto; }
 code, pre { font-family: "Source Code Pro", monospace; font-size: 0.85em; }
 pre { white-space: pre-wrap; }
 table { border-collapse: collapse; font-size: 0.85em; }

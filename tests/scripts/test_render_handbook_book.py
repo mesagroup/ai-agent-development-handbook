@@ -400,6 +400,14 @@ def test_every_family_the_stylesheet_names_has_a_face():
         assert re.search(r",\s*(serif|sans-serif|monospace);", rule), rule
 
 
+def test_prose_is_justified_and_hyphenated_and_nothing_else_is():
+    rules = dict(re.findall(r"^([^@{][^{]*?)\s*\{([^}]*)\}", rb.EPUB_CSS, re.M))
+    justified = {sel for sel, body in rules.items() if "justify" in body}
+    assert justified == {"p, li"}
+    # Justified text with no hyphenation opens wide gaps in a narrow column.
+    assert "hyphens: auto" in rules["p, li"]
+
+
 def test_book_html_raises_on_a_placeholder_with_no_matching_diagram_block():
     part = rh.AssembledPart(
         anchor="p1",
