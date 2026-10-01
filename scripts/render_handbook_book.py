@@ -114,12 +114,17 @@ def font_face_css(faces=EPUB_FACES) -> str:
     )
 
 
+# A heading never splits across pages and never ends one: `break-after: avoid`
+# on it and `orphans: 2` on the paragraph after it keep at least two lines of
+# text with it. Each property is spelled three ways because reading systems
+# paginate with CSS columns or paged media and honour different spellings.
 EPUB_CSS = (
     font_face_css()
     + """\
 body { font-family: "Source Serif 4", serif; line-height: 1.45; }
 h1, h2, h3, h4 { font-family: "Source Sans 3", sans-serif; line-height: 1.2; }
-p, li { text-align: justify; -webkit-hyphens: auto; hyphens: auto; }
+h1, h2, h3, h4, h5, h6 { break-inside: avoid; break-after: avoid; page-break-inside: avoid; page-break-after: avoid; -webkit-column-break-inside: avoid; -webkit-column-break-after: avoid; }
+p, li { text-align: justify; -webkit-hyphens: auto; hyphens: auto; orphans: 2; widows: 2; }
 code, pre { font-family: "Source Code Pro", monospace; font-size: 0.85em; }
 pre { white-space: pre-wrap; }
 table { border-collapse: collapse; font-size: 0.85em; }

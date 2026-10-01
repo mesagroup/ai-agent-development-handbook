@@ -429,6 +429,21 @@ def test_every_family_the_stylesheet_names_has_a_face():
         assert re.search(r",\s*(serif|sans-serif|monospace);", rule), rule
 
 
+def test_a_heading_stays_whole_and_with_two_lines_of_its_text():
+    rules = dict(re.findall(r"^([^@{][^{]*?)\s*\{([^}]*)\}", rb.EPUB_CSS, re.M))
+    heading = rules["h1, h2, h3, h4, h5, h6"]
+    for prop in (
+        "break-inside",
+        "break-after",
+        "page-break-inside",
+        "page-break-after",
+        "-webkit-column-break-inside",
+        "-webkit-column-break-after",
+    ):
+        assert re.search(rf"(?:^|[ ;]){prop}: avoid;", heading), prop
+    assert "orphans: 2;" in rules["p, li"] and "widows: 2;" in rules["p, li"]
+
+
 def test_prose_is_justified_and_hyphenated_and_nothing_else_is():
     rules = dict(re.findall(r"^([^@{][^{]*?)\s*\{([^}]*)\}", rb.EPUB_CSS, re.M))
     justified = {sel for sel, body in rules.items() if "justify" in body}
