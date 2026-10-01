@@ -215,8 +215,8 @@ def test_restore_task_boxes_marks_open_and_done_items():
     )
     result = rb.restore_task_boxes(html)
     assert result == (
-        '<li><span class="task-box">☐</span> open item</li>'
-        '<li><span class="task-box">☒</span> done item</li>'
+        '<li><span class="task-box">☐</span>open item</li>'
+        '<li><span class="task-box">☒</span>done item</li>'
         "<li>plain item</li>"
     )
 
@@ -232,8 +232,32 @@ def test_restore_task_boxes_reads_mark_task_items_own_output():
     """
     html = rh.mark_task_items("<li>[ ] open item</li><li>[x] done item</li>")
     result = rb.restore_task_boxes(html)
-    assert '<li><span class="task-box">☐</span> open item</li>' in result
-    assert '<li><span class="task-box">☒</span> done item</li>' in result
+    assert '<li><span class="task-box">☐</span>open item</li>' in result
+    assert '<li><span class="task-box">☒</span>done item</li>' in result
+
+
+def test_restore_task_boxes_marks_a_list_of_checklist_items_only():
+    checklist = '<ul>\n<li class="task">a</li>\n<li class="task done">b</li>\n</ul>'
+    mixed = '<ul>\n<li class="task">a</li>\n<li>b</li>\n</ul>'
+    plain = "<ul>\n<li>a</li>\n</ul>"
+    nested = '<ul>\n<li>x<ul>\n<li class="task">a</li>\n</ul></li>\n</ul>'
+    result = rb.restore_task_boxes(checklist + mixed + plain + nested)
+    assert result.count('<div class="checklist">') == 2
+    assert result.startswith('<div class="checklist"><ul>\n<li><span')
+    assert (
+        '<div class="checklist"><ul>\n<li><span class="task-box">☐</span>a</li>\n</ul></div></li>'
+        in result
+    )
+    assert '<ul>\n<li><span class="task-box">☐</span>a</li>\n<li>b</li>' in result
+
+
+def test_a_checklist_draws_its_box_in_place_of_a_bullet():
+    rules = dict(re.findall(r"^([^@{][^{]*?)\s*\{([^}]*)\}", rb.EPUB_CSS, re.M))
+    assert "list-style-type: none;" in rules["div.checklist ul"]
+    indent = re.search(r"padding-left: ([\d.]+em);", rules["div.checklist li"]).group(1)
+    assert f"text-indent: -{indent};" in rules["div.checklist li"]
+    assert f"width: {indent};" in rules[".task-box"]
+    assert "display: inline-block;" in rules[".task-box"]
 
 
 def test_book_html_substitutes_every_placeholder_and_wraps_no_section():
@@ -427,6 +451,12 @@ def test_every_family_the_stylesheet_names_has_a_face():
     # Each rule keeps a generic fallback for a reader that ignores the face.
     for rule in re.findall(r"font-family:[^;]+;", rb.EPUB_CSS.split("}\nbody", 1)[1]):
         assert re.search(r",\s*(serif|sans-serif|monospace);", rule), rule
+
+
+def test_a_part_opens_on_a_right_hand_page():
+    rules = dict(re.findall(r"^([^@{][^{]*?)\s*\{([^}]*)\}", rb.EPUB_CSS, re.M))
+    assert "break-before: right;" in rules["h1"]
+    assert "page-break-before: right;" in rules["h1"]
 
 
 def test_a_heading_stays_whole_and_with_two_lines_of_its_text():
