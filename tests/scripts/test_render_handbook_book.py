@@ -252,6 +252,33 @@ def test_book_html_substitutes_every_placeholder_and_wraps_no_section():
     assert f"<title>{rb.TITLE}</title>" in html
 
 
+def test_retitle_part_replaces_the_text_and_keeps_the_id():
+    html = '<h1 id="README-x">Old <em>t</em></h1>\n<h1 id="b">B</h1>'
+    out = rb.retitle_part(html, "A & B")
+    assert out == '<h1 id="README-x">A &amp; B</h1>\n<h1 id="b">B</h1>'
+
+
+def test_retitle_part_refuses_a_part_with_no_h1():
+    with pytest.raises(ValueError, match="no <h1>"):
+        rb.retitle_part("<h2>x</h2>", "Introduction")
+
+
+def test_book_html_retitles_the_readme_chapter():
+    part = rh.AssembledPart(
+        anchor="p0",
+        stem="README",
+        html='<h1 id="README-ai-agent-development-handbook">AI Agent Development Handbook</h1>',
+        blocks=[],
+    )
+    html = rb.book_html([part], {})
+    assert '<h1 id="README-ai-agent-development-handbook">Introduction</h1>' in html
+
+
+def test_the_contents_page_reads_as_plain_text():
+    assert "nav#toc ol { list-style-type: none;" in rb.EPUB_CSS
+    assert "nav#toc a { color: inherit; text-decoration: none; }" in rb.EPUB_CSS
+
+
 def test_book_identifier_is_a_stable_urn_uuid():
     first = rb.book_identifier(rb.TITLE)
     assert first == rb.book_identifier(rb.TITLE)
@@ -268,6 +295,7 @@ def test_book_metadata_carries_what_epubcheck_requires_and_names_no_holder():
     assert "date: '2026-09-28'" in meta
     assert f"identifier: {rb.book_identifier(rb.TITLE)!r}" in meta
     assert "CC BY 4.0" in meta
+    assert "toc-title: 'Contents'" in meta
     assert "©" not in meta and "Copyright" not in meta
 
 
@@ -349,7 +377,8 @@ def test_epub_command_reads_plain_html_and_splits_on_parts(tmp_path: Path):
     assert cmd[cmd.index("-f") + 1] == "html"
     assert cmd[cmd.index("-t") + 1] == "epub3"
     assert "--split-level=1" in cmd
-    assert "--toc" in cmd and "--toc-depth=2" in cmd
+    # The contents list the parts only; each part's own headings are not in it.
+    assert "--toc" in cmd and "--toc-depth=1" in cmd
     assert cmd[cmd.index("--metadata-file") + 1] == str(tmp_path / "meta.yaml")
     assert cmd[cmd.index("--css") + 1] == str(tmp_path / "epub.css")
     assert cmd[cmd.index("-o") + 1] == str(tmp_path / "out.epub")
@@ -808,3 +837,15 @@ def test_the_epub_ships_exactly_the_fonts_its_stylesheet_declares(built_epub: Pa
     shipped = {n.rsplit("/", 1)[1] for n in names if n.startswith("EPUB/fonts/")}
     declared = set(re.findall(r'src: url\("\.\./fonts/([^"]+)"\)', css))
     assert shipped and shipped == declared
+
+
+@needs_pandoc
+def test_the_contents_list_the_parts_and_nothing_below_them(built_epub: Path):
+    with zipfile.ZipFile(built_epub) as z:
+        nav = z.read("EPUB/nav.xhtml").decode()
+    toc = re.search(r'<nav epub:type="toc".*?</nav>', nav, re.S).group(0)
+    assert '<h1 id="toc-title">Contents</h1>' in toc
+    entries = re.findall(r"<a [^>]*>([^<]*)</a>", toc)
+    assert len(entries) == len(rh.PARTS)
+    assert entries[0] == rb.BOOK_PART_TITLES["README"]
+    assert toc.count("<ol") == 1

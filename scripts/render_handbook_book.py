@@ -76,6 +76,13 @@ RIGHTS = (
     "Licensed under the Creative Commons Attribution 4.0 International "
     "License (CC BY 4.0), https://creativecommons.org/licenses/by/4.0/"
 )
+# A part whose heading suits the page but not a book chapter, by stem. The
+# README's heading is the handbook's own title, which the book already carries
+# as its title, so its chapter is named for what it is. Only the text changes:
+# the heading keeps its id, so every citation still lands on it.
+BOOK_PART_TITLES = {"README": "Introduction"}
+_H1_RE = re.compile(r"(<h1\b[^>]*>).*?(</h1>)", re.S)
+
 # The faces the book is set in, each a committed, unmodified file under
 # `FONTS_ROOT` that pandoc embeds (`epub_command`) and `font_face_css` declares:
 # (family, weight, style, path under `FONTS_ROOT`). A face the text uses and
@@ -120,6 +127,8 @@ th, td { border: 1px solid #888; padding: 0.25em 0.4em; text-align: left; vertic
 figure { margin: 1em 0; }
 figure img { display: block; margin: 0 auto; }
 figcaption { font-size: 0.85em; font-style: italic; }
+nav#toc ol { list-style-type: none; padding-left: 0; }
+nav#toc a { color: inherit; text-decoration: none; }
 """
 )
 
@@ -277,10 +286,26 @@ def restore_task_boxes(html: str) -> str:
     return _TASK_ITEM_RE.sub(repl, html)
 
 
+def retitle_part(html: str, title: str) -> str:
+    """Replace the text of ``html``'s first ``<h1>`` with ``title``, keeping its id.
+
+    Raises:
+        ValueError: ``html`` has no ``<h1>``.
+    """
+    retitled, count = _H1_RE.subn(
+        lambda m: m.group(1) + html_escape(title) + m.group(2), html, count=1
+    )
+    if not count:
+        raise ValueError(f"no <h1> to retitle as {title!r}")
+    return retitled
+
+
 def book_html(
     assembled: list[AssembledPart], figures: dict[str, dict[int, str]]
 ) -> str:
     """Join the parts into one document, with each diagram as its figure.
+
+    A part named in `BOOK_PART_TITLES` gets its chapter title from there.
 
     Args:
         assembled: The parts, as `assemble` returns them.
@@ -299,7 +324,10 @@ def book_html(
                 raise ValueError(f"{stem}.md: no diagram block for placeholder {index}")
             return markup[index]
 
-        bodies.append(restore_task_boxes(_DIAGRAM_PLACEHOLDER_RE.sub(repl, part.html)))
+        html = _DIAGRAM_PLACEHOLDER_RE.sub(repl, part.html)
+        if part.stem in BOOK_PART_TITLES:
+            html = retitle_part(html, BOOK_PART_TITLES[part.stem])
+        bodies.append(restore_task_boxes(html))
     return (
         '<!DOCTYPE html>\n<html lang="en">\n<head>\n'
         f'<meta charset="utf-8">\n<title>{TITLE}</title>\n</head>\n<body>\n'
@@ -406,6 +434,8 @@ def book_metadata(date: str) -> str:
         "date": date,
         "identifier": book_identifier(TITLE),
         "rights": RIGHTS,
+        # Pandoc otherwise heads the contents page with the book's title.
+        "toc-title": "Contents",
     }
     lines = [f"{key}: {value!r}" for key, value in fields.items()]
     return "---\n" + "\n".join(lines) + "\n---\n"
@@ -436,7 +466,7 @@ def epub_command(
         "-t", "epub3",
         "--split-level=1",
         "--toc",
-        "--toc-depth=2",
+        "--toc-depth=1",
         "--metadata-file", str(metadata_path),
         "--css", str(css_path),
         "--resource-path", str(resource_path),
