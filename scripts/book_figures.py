@@ -62,9 +62,10 @@ TEXT_PT_RANGE = (7.0, 9.0)
 PAPER_CREAM = "#f7f0dc"
 # A fill whose effective alpha is at most this is a tint: a translucent
 # overlay the paper shows through, such as the funnel's accent wash at 0.15,
-# which the book allows. Above it, a fill covers more paper than it lets
-# through, so it is blended over the paper and judged as the surface it prints.
-TINT_MAX_ALPHA = 0.5
+# which the book allows. Above it, a pale fill already reads as a panel on the
+# paper (white at 0.5 over cream prints as #fbf8ee), so it is blended over the
+# paper and judged as the surface it prints.
+TINT_MAX_ALPHA = 0.2
 # A stroke whose effective alpha is at most this is texture: a hand-drawn
 # figure's faint shading lines, which carry nothing a reader must see. Any
 # stroke above it is a line that means something and is held to 3:1.
