@@ -442,6 +442,13 @@ def test_a_heading_stays_whole_and_with_two_lines_of_its_text():
     ):
         assert re.search(rf"(?:^|[ ;]){prop}: avoid;", heading), prop
     assert "orphans: 2;" in rules["p, li"] and "widows: 2;" in rules["p, li"]
+    # The block that reserves two body lines below each heading, for the
+    # reading systems that ignore `break-after: avoid`, takes no space itself.
+    keep = rules[", ".join(f"h{n}::after" for n in range(1, 7))]
+    height = re.search(r"(?:^|[ ;])height: ([\d.]+)rem;", keep).group(1)
+    assert float(height) == 2 * 1.45
+    assert f"margin-bottom: -{height}rem;" in keep
+    assert "line-height: 1.45;" in rules["body"]
 
 
 def test_prose_is_justified_and_hyphenated_and_nothing_else_is():
