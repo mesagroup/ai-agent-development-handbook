@@ -114,15 +114,23 @@ def font_face_css(faces=EPUB_FACES) -> str:
     )
 
 
-# A heading never splits across pages and never ends one: `break-after: avoid`
-# on it and `orphans: 2` on the paragraph after it keep at least two lines of
-# text with it. Each property is spelled three ways because reading systems
-# paginate with CSS columns or paged media and honour different spellings.
+# A part opens on a right-hand page where the reading system honours the
+# request (a two-page spread can then show its title where every other part's
+# is, with its top margin).
+#
+# A heading asks not to be split across pages or to end one: `break-after:
+# avoid` on it and `orphans: 2` on the paragraph after it ask for at least two
+# lines of text with it. Each property is spelled three ways because reading
+# systems paginate with CSS columns or paged media and honour different
+# spellings. These are requests: Apple Books keeps a heading whole but still
+# lets one end a page, and an empty block reserving two lines under each
+# heading did not change that there either.
 EPUB_CSS = (
     font_face_css()
     + """\
 body { font-family: "Source Serif 4", serif; line-height: 1.45; }
 h1, h2, h3, h4 { font-family: "Source Sans 3", sans-serif; line-height: 1.2; }
+h1 { break-before: right; page-break-before: right; }
 h1, h2, h3, h4, h5, h6 { break-inside: avoid; break-after: avoid; page-break-inside: avoid; page-break-after: avoid; -webkit-column-break-inside: avoid; -webkit-column-break-after: avoid; }
 p, li { text-align: justify; -webkit-hyphens: auto; hyphens: auto; orphans: 2; widows: 2; }
 code, pre { font-family: "Source Code Pro", monospace; font-size: 0.85em; }
@@ -132,6 +140,9 @@ th, td { border: 1px solid #888; padding: 0.25em 0.4em; text-align: left; vertic
 figure { margin: 1em 0; }
 figure img { display: block; margin: 0 auto; }
 figcaption { font-size: 0.85em; font-style: italic; }
+div.checklist ul { list-style-type: none; }
+div.checklist li { padding-left: 1.4em; text-indent: -1.4em; }
+.task-box { display: inline-block; width: 1.4em; text-indent: 0; }
 nav#toc ol { list-style-type: none; padding-left: 0; }
 nav#toc a { color: inherit; text-decoration: none; }
 """
@@ -262,6 +273,9 @@ def load_figure(figures_dir: Path, stem: str, block: DiagramBlock) -> tuple[str,
 
 
 _TASK_ITEM_RE = re.compile(r'<li class="task( done)?">')
+# An innermost list: one that contains no other list.
+_INNER_UL_RE = re.compile(r"<ul>(?:(?!</?ul\b).)*?</ul>", re.S)
+_LI_RE = re.compile(r"<li\b[^>]*>")
 
 
 def restore_task_boxes(html: str) -> str:
@@ -282,13 +296,26 @@ def restore_task_boxes(html: str) -> str:
     source as a raw ``<input type="checkbox">`` fares worse still: the same
     reader drops the surrounding ``<ul>``/``<li>`` entirely and the item
     survives only as a bare ``<p>``.
+
+    A list whose every item is a checklist item is wrapped in ``<div
+    class="checklist">``, the one way to mark it that survives pandoc, which
+    drops a ``<ul>``'s class as it drops an ``<li>``'s: the stylesheet then
+    draws it with the box in place of the bullet. No space follows the box,
+    because justification would stretch it differently on every line; the
+    stylesheet gives the box a fixed width instead.
     """
+
+    def wrap(match: re.Match[str]) -> str:
+        items = _LI_RE.findall(match.group(0))
+        if items and all(_TASK_ITEM_RE.fullmatch(item) for item in items):
+            return f'<div class="checklist">{match.group(0)}</div>'
+        return match.group(0)
 
     def repl(match: re.Match[str]) -> str:
         glyph = "☒" if match.group(1) else "☐"
-        return f'<li><span class="task-box">{glyph}</span> '
+        return f'<li><span class="task-box">{glyph}</span>'
 
-    return _TASK_ITEM_RE.sub(repl, html)
+    return _TASK_ITEM_RE.sub(repl, _INNER_UL_RE.sub(wrap, html))
 
 
 def retitle_part(html: str, title: str) -> str:
