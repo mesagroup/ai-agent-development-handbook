@@ -95,4 +95,10 @@ Run the counterpart to standing gates too, the **periodic audit**: a deliberate,
 
 ## See also
 
-- [README / the stance](README.md) · [Part 2. Implementation disciplines](implementation-disciplines.md) · [Part 3. Codebase structure](codebase-structure.md) · [Part 6. Observability](observability.md) (no swallowed exceptions) · [Part 7. Evaluation](evaluation.md) (the quality gate uses a checklist; deeper decisions use the eval loop) · [Part 8. Documentation](documentation.md) (specs, plans, and the trail) · [Part 9. Security & supply chain](security-supply-chain.md) (the safety gates)
+- [Part 2. Implementation disciplines](implementation-disciplines.md).
+- [Part 3. Codebase structure](codebase-structure.md).
+- [Part 6. Observability](observability.md), no swallowed exceptions.
+- [Part 7. Evaluation](evaluation.md), the quality gate uses a checklist; deeper decisions use the eval loop.
+- [Part 8. Documentation](documentation.md), specs, plans, and the trail.
+- [Part 9. Security & supply chain](security-supply-chain.md), the safety gates.
+- [Handbook index](README.md), the stance.
