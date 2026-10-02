@@ -106,4 +106,3 @@ Each surface here has a counterpart that *verifies* it against the real artifact
 - [Part 6. Observability](observability.md), errors that don't leak secrets/PII, and no swallowed exceptions hiding a security failure.
 - [Part 7. Evaluation](evaluation.md), behavioral injection-resistance as an eval dimension.
 - [Part 10. Data protection & privacy](data-protection.md), the legal basis for every processor, residency, minimization before the boundary, retention and deletion.
-- [Handbook index](README.md).

@@ -138,4 +138,3 @@ Each of these *feels* like progress, which is why it's worth naming. Scan for th
 - [Part 4. Three-layer model](three-layer-model.md), separately-evaluable layers.
 - [Part 8. Documentation](documentation.md), recording the results trail.
 - [Part 10. Data protection & privacy](data-protection.md), a dataset built from real inputs as a store of personal data, and redaction's quality cost as an eval dimension.
-- [Handbook index](README.md).

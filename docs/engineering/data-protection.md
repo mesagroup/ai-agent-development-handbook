@@ -134,4 +134,3 @@ One rule makes such a report worth reading, and it is the easiest one to break h
 - [Part 7. Evaluation](evaluation.md), datasets built from real inputs, and redaction's quality cost as an eval dimension.
 - [Part 9. Security, dependencies & supply chain](security-supply-chain.md), the other standing obligation, and the provider-as-dependency rule this part's register extends.
 - [Part 8. Documentation & knowledge capture](documentation.md), the decision trail, which is a store of personal data whenever a spec or a story quotes a real case.
-- [Handbook index](README.md).

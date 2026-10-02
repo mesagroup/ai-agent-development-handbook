@@ -112,4 +112,3 @@ So any combination worth reusing gets a name. Bundle it into a machine-readable 
 
 - [Part 5. The extended agent harness](agent-harness.md), the shared machinery agents reuse.
 - [Part 4. The three-layer document model](three-layer-model.md), the same reusable-core-vs-task-layer idea, one level down.
-- [Handbook index](README.md).
