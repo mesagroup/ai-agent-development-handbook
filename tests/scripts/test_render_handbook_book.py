@@ -267,6 +267,22 @@ def test_a_figure_and_its_caption_are_centred():
     assert "text-align: center;" in rules["figcaption"]
 
 
+def test_omit_from_book_drops_only_the_marked_item():
+    html = (
+        "<ul>\n<li>keep</li>\n<li><strong>gone.</strong> text <!-- book: omit --></li>\n"
+        "<li>also kept</li>\n</ul>"
+    )
+    assert rb.omit_from_book(html) == "<ul>\n<li>keep</li>\n<li>also kept</li>\n</ul>"
+
+
+def test_omit_from_book_refuses_a_marker_it_cannot_place():
+    with pytest.raises(ValueError, match="outside a list item"):
+        rb.omit_from_book("<p>prose <!-- book: omit --></p>")
+    nested = "<ul><li>outer <!-- book: omit --><ul><li>inner</li></ul></li></ul>"
+    with pytest.raises(ValueError, match="outside a list item"):
+        rb.omit_from_book(nested)
+
+
 def test_book_html_substitutes_every_placeholder_and_wraps_no_section():
     block = rh.DiagramBlock(index=0, kind="d2", title="T", source="a -> b\n")
     part = rh.AssembledPart(
@@ -637,10 +653,17 @@ _CODE_TAG_TEXT_RE = re.compile(r"<code>(.*?)</code>", re.S)
 
 
 def _inline_code_spans_in_sources() -> set[str]:
-    """Every `` `span` `` in the handbook's Markdown, fenced blocks excluded."""
+    """Every `` `span` `` in the handbook's Markdown, fenced blocks excluded.
+
+    A line carrying `rb.BOOK_OMIT_MARKER` is left out too: a list item is one
+    source line, and the book omits it.
+    """
     spans: set[str] = set()
     for path in sorted(DOCS.glob("*.md")):
         prose = _FENCED_BLOCK_RE.sub("", path.read_text())
+        prose = "\n".join(
+            line for line in prose.splitlines() if rb.BOOK_OMIT_MARKER not in line
+        )
         spans.update(_INLINE_CODE_SPAN_RE.findall(prose))
     return spans
 
@@ -927,3 +950,17 @@ def test_the_contents_list_the_parts_and_nothing_below_them(built_epub: Path):
     assert len(entries) == len(rh.PARTS)
     assert entries[0] == rb.BOOK_PART_TITLES["README"]
     assert toc.count("<ol") == 1
+
+
+def test_the_book_leaves_out_what_its_source_marks_for_omission(built_epub: Path):
+    marked = [
+        line
+        for md in sorted(DOCS.glob("*.md"))
+        for line in md.read_text(encoding="utf-8").splitlines()
+        if rb.BOOK_OMIT_MARKER in line
+    ]
+    assert marked, "no source line carries the marker, so this proves nothing"
+    with zipfile.ZipFile(built_epub) as z:
+        text = "".join(z.read(n).decode() for n in z.namelist() if n.endswith(".xhtml"))
+    assert "Not part of the handbook" not in text
+    assert "book: omit" not in text

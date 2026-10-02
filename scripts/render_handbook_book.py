@@ -11,7 +11,8 @@ fence (`load_figure`, `write_figures`). The EPUB's copy of each stays
 transparent, carries the subset faces its text uses, and is placed at the
 one scale through an em width (`book_figures`). A checklist item carries a ☐/☒ glyph
 (`restore_task_boxes`) so it reads as a box rather than a plain bullet.
-Prose quotes are curled to typographic ones and inline code is left
+A list item marked `BOOK_OMIT_MARKER` in the source is left out of the
+book (`omit_from_book`). Prose quotes are curled to typographic ones and inline code is left
 untouched (`curl_quotes`) before the document ever reaches pandoc.
 The text is set in the committed faces `EPUB_FACES` names, which pandoc
 embeds and `font_face_css` declares.
@@ -329,6 +330,34 @@ def restore_task_boxes(html: str) -> str:
     return _TASK_ITEM_RE.sub(repl, _INNER_UL_RE.sub(wrap, html))
 
 
+BOOK_OMIT_MARKER = "<!-- book: omit -->"
+# A list item holding the marker, and no other list item.
+_OMITTED_LI_RE = re.compile(
+    r"<li\b[^>]*>(?:(?!</?li\b).)*?"
+    + re.escape(BOOK_OMIT_MARKER)
+    + r"(?:(?!</?li\b).)*?</li>\s*",
+    re.S,
+)
+
+
+def omit_from_book(html: str) -> str:
+    """Drop each list item that carries `BOOK_OMIT_MARKER`.
+
+    The marker is an HTML comment in the Markdown source, so GitHub and the
+    rendered page show the item and only the book leaves it out: an entry
+    pointing at something the book does not contain, such as a file outside
+    the handbook tree.
+
+    Raises:
+        ValueError: The marker stands anywhere but inside a list item that
+            holds no other one, where this cannot drop exactly what it marks.
+    """
+    kept = _OMITTED_LI_RE.sub("", html)
+    if BOOK_OMIT_MARKER in kept:
+        raise ValueError(f"{BOOK_OMIT_MARKER} outside a list item it can omit")
+    return kept
+
+
 def retitle_part(html: str, title: str) -> str:
     """Replace the text of ``html``'s first ``<h1>`` with ``title``, keeping its id.
 
@@ -370,7 +399,7 @@ def book_html(
         html = _DIAGRAM_PLACEHOLDER_RE.sub(repl, part.html)
         if part.stem in BOOK_PART_TITLES:
             html = retitle_part(html, BOOK_PART_TITLES[part.stem])
-        bodies.append(restore_task_boxes(html))
+        bodies.append(restore_task_boxes(omit_from_book(html)))
     return (
         '<!DOCTYPE html>\n<html lang="en">\n<head>\n'
         f'<meta charset="utf-8">\n<title>{TITLE}</title>\n</head>\n<body>\n'

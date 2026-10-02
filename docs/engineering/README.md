@@ -51,7 +51,7 @@ decide -> idea: the next issue
 - **[10. Data protection & privacy](data-protection.md).** The second: what the system owes the people whose data passes through it.
 - **[Troubleshooting](troubleshooting.md).** The other entry point: from a symptom (it burns money, it hangs, it hallucinates) to the sections that fix it.
 - **[Coda](coda.md).** Closing words: the loop, and what stays.
-- **[Engineering notes](../engineering-notes.md).** *Not part of the handbook.* An advisory sidecar, outside this tree (`docs/engineering-notes.md`), for practices too contingent on one execution environment to be normative here, kept with the reason each was cut.
+- **[Engineering notes](../engineering-notes.md).** *Not part of the handbook.* An advisory sidecar, outside this tree (`docs/engineering-notes.md`), for practices too contingent on one execution environment to be normative here, kept with the reason each was cut. <!-- book: omit -->
 
 ## Starting from zero
 
