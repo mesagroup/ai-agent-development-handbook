@@ -310,6 +310,14 @@ def test_the_contents_page_reads_as_plain_text():
     assert "nav#toc a { color: inherit; text-decoration: none; }" in rb.EPUB_CSS
 
 
+def test_a_link_is_set_in_the_text_colour_and_underlined():
+    rules = dict(re.findall(r"^([^@{][^{]*?)\s*\{([^}]*)\}", rb.EPUB_CSS, re.M))
+    assert "color: inherit;" in rules["a"]
+    assert "text-decoration: underline;" in rules["a"]
+    # The contents page keeps its own, more specific rule: no underline there.
+    assert "text-decoration: none;" in rules["nav#toc a"]
+
+
 def test_book_identifier_is_a_stable_urn_uuid():
     first = rb.book_identifier(rb.TITLE)
     assert first == rb.book_identifier(rb.TITLE)
