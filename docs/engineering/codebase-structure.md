@@ -16,7 +16,7 @@ Pick your own tier list; what matters is the *ordering principle*. Sort the code
 | **External integrations** | Clients and adapters for third-party services and APIs. | Broad |
 | **Capabilities** | Opt-in, cross-agent units of behaviour an application composes. | Broad |
 | **Evaluation** | The harness that measures the tiers above. | Broad |
-| **Agents / applications** | The task-shaped layer, a specific product built from everything below. | Single-use |
+| **Agents / applications** | The task-shaped layer, a specific product built from everything below. | Single&#8209;use |
 
 ## Point every dependency toward the core, and never cycle
 
