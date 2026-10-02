@@ -1,6 +1,6 @@
 # AI Agent Development Handbook
 
-How to build software and AI agents: the practices, and the reasons behind them. The premise is doubly agentic: what you build is AI agents, and you build it with coding agents that write most of the code under your direction. Read each section as a set of **directives backed by their reasons**: it states what to do, then why the practice earns its place. The reasons matter (they are what let you apply a rule to a case it doesn't literally cover), but when you just need to act, the directives and the checklists are the operational surface.
+You are building agents with agents. What you ship is AI agents, and what writes most of its code is coding agents working under your direction. This handbook is how to do both well: each section is a set of **directives backed by their reasons**. It states what to do, then why the practice earns its place. The reasons matter (they are what let you apply a rule to a case it doesn't literally cover), but when you just need to act, the directives and the checklists are the operational surface.
 
 The practices are meant to be portable. Some lean on shared infrastructure (a model catalog, a configuration system, a run harness), but nothing below *depends* on any particular implementation of it: a project that has none of it should still recognize every directive as its own. Where a section describes a capability, read it as "here is what a good setup provides, and what to build or demand if you don't have it", not "here is a specific tool."
 
