@@ -132,6 +132,9 @@ def font_face_css(faces=EPUB_FACES) -> str:
 # its header row on each page it continues onto.
 # Its rules are horizontal only, so a split leaves no box open at the page edge
 # and reads as the gap between two rows.
+# A cell is never hyphenated: pandoc sets no column widths, so the reader
+# sizes each column from its narrowest unbreakable run, and Apple Books, which
+# hyphenates by default, would otherwise squeeze a short column to a syllable.
 EPUB_CSS = (
     font_face_css()
     + """\
@@ -145,7 +148,7 @@ pre { white-space: pre-wrap; }
 table { border-collapse: collapse; font-size: 0.85em; border-top: 1.5px solid; border-bottom: 1.5px solid; }
 table, tr { break-inside: avoid; page-break-inside: avoid; -webkit-column-break-inside: avoid; }
 thead { display: table-header-group; }
-th, td { border: none; padding: 0.25em 0.4em; text-align: left; vertical-align: top; }
+th, td { border: none; padding: 0.25em 0.4em; text-align: left; vertical-align: top; -webkit-hyphens: manual; hyphens: manual; }
 th { border-bottom: 1px solid; }
 td { border-top: 1px solid #bbb; }
 figure { margin: 1em 0; text-align: center; }

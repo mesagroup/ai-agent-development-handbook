@@ -523,6 +523,12 @@ def test_a_table_is_ruled_horizontally_only():
     assert "border-top:" in rules["td"]
 
 
+def test_a_table_cell_is_never_hyphenated():
+    rules = dict(re.findall(r"^([^@{][^{]*?)\s*\{([^}]*)\}", rb.EPUB_CSS, re.M))
+    assert re.search(r"(?:^|[ ;])hyphens: manual;", rules["th, td"])
+    assert "-webkit-hyphens: manual;" in rules["th, td"]
+
+
 def test_prose_is_justified_and_hyphenated_and_nothing_else_is():
     rules = dict(re.findall(r"^([^@{][^{]*?)\s*\{([^}]*)\}", rb.EPUB_CSS, re.M))
     justified = {sel for sel, body in rules.items() if "justify" in body}
