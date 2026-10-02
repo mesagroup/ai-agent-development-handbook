@@ -129,6 +129,8 @@ def font_face_css(faces=EPUB_FACES) -> str:
 # A table asks to move whole to the next page rather than split. One too tall
 # for any page still splits, between rows and never through one, and repeats
 # its header row on each page it continues onto.
+# Its rules are horizontal only, so a split leaves no box open at the page edge
+# and reads as the gap between two rows.
 EPUB_CSS = (
     font_face_css()
     + """\
@@ -139,10 +141,12 @@ h1, h2, h3, h4, h5, h6 { break-inside: avoid; break-after: avoid; page-break-ins
 p, li { text-align: justify; -webkit-hyphens: auto; hyphens: auto; orphans: 2; widows: 2; }
 code, pre { font-family: "Source Code Pro", monospace; font-size: 0.85em; }
 pre { white-space: pre-wrap; }
-table { border-collapse: collapse; font-size: 0.85em; }
+table { border-collapse: collapse; font-size: 0.85em; border-top: 1.5px solid; border-bottom: 1.5px solid; }
 table, tr { break-inside: avoid; page-break-inside: avoid; -webkit-column-break-inside: avoid; }
 thead { display: table-header-group; }
-th, td { border: 1px solid #888; padding: 0.25em 0.4em; text-align: left; vertical-align: top; }
+th, td { border: none; padding: 0.25em 0.4em; text-align: left; vertical-align: top; }
+th { border-bottom: 1px solid; }
+td { border-top: 1px solid #bbb; }
 figure { margin: 1em 0; text-align: center; }
 figure img { display: block; margin: 0 auto; }
 figcaption { font-size: 0.85em; font-style: italic; text-align: center; }
