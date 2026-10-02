@@ -13,7 +13,8 @@ one scale through an em width (`book_figures`). A checklist item carries a â˜/â
 (`restore_task_boxes`) so it reads as a box rather than a plain bullet.
 A list item marked `BOOK_OMIT_MARKER` in the source is left out of the
 book (`omit_from_book`). Prose quotes are curled to typographic ones and inline code is left
-untouched (`curl_quotes`) before the document ever reaches pandoc.
+untouched (`curl_quotes`) before the document ever reaches pandoc, and
+"Part" is kept on the line of its number (`glue_part_numbers`).
 The text is set in the committed faces `EPUB_FACES` names, which pandoc
 embeds and `font_face_css` declares.
 
@@ -493,6 +494,35 @@ def curl_quotes(html: str) -> str:
     return "".join(out)
 
 
+_PART_NUMBER_RE = re.compile(r"\b(Parts?) (?=\d)")
+
+
+def glue_part_numbers(html: str) -> str:
+    """Join "Part" and its number with a no-break space, outside code.
+
+    Running text names a part as ``Part 4`` or ``Parts 2, 3 and 6``, and a
+    justified line may otherwise break between the word and the number. Only
+    text is rewritten, never a tag, so heading ids and link targets are the
+    page's as before; text inside ``<code>`` or ``<pre>`` is left as written.
+    """
+    out: list[str] = []
+    skip_depth = 0
+    for token in _QUOTE_TOKEN_RE.findall(html):
+        if token.startswith("<"):
+            name_match = _QUOTE_TAG_NAME_RE.match(token)
+            if name_match and name_match.group(1).lower() in _QUOTE_SKIP_TAGS:
+                if token.startswith("</"):
+                    skip_depth = max(0, skip_depth - 1)
+                elif not token.rstrip().endswith("/>"):
+                    skip_depth += 1
+            out.append(token)
+        elif skip_depth:
+            out.append(token)
+        else:
+            out.append(_PART_NUMBER_RE.sub("\\1\u00a0", token))
+    return "".join(out)
+
+
 def book_identifier(title: str) -> str:
     """A ``urn:uuid`` derived from the title, so every build carries the same one."""
     return f"urn:uuid:{uuid.uuid5(uuid.NAMESPACE_URL, title)}"
@@ -722,7 +752,7 @@ def build_epub(
         media = work / "media"
         media.mkdir()
         figures, _ = write_figures(assembled, figures_dir, media)
-        html = curl_quotes(book_html(assembled, figures))
+        html = glue_part_numbers(curl_quotes(book_html(assembled, figures)))
         (work / "book.html").write_text(html, encoding="utf-8")
         (work / "metadata.yaml").write_text(book_metadata(date), encoding="utf-8")
         (work / "epub.css").write_text(EPUB_CSS, encoding="utf-8")
