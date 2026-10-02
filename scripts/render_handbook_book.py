@@ -137,9 +137,9 @@ code, pre { font-family: "Source Code Pro", monospace; font-size: 0.85em; }
 pre { white-space: pre-wrap; }
 table { border-collapse: collapse; font-size: 0.85em; }
 th, td { border: 1px solid #888; padding: 0.25em 0.4em; text-align: left; vertical-align: top; }
-figure { margin: 1em 0; }
+figure { margin: 1em 0; text-align: center; }
 figure img { display: block; margin: 0 auto; }
-figcaption { font-size: 0.85em; font-style: italic; }
+figcaption { font-size: 0.85em; font-style: italic; text-align: center; }
 div.checklist ul { list-style-type: none; }
 div.checklist li { padding-left: 1.4em; text-indent: -1.4em; }
 .task-box { display: inline-block; width: 1.4em; text-indent: 0; }

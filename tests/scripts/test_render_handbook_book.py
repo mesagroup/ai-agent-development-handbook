@@ -260,6 +260,13 @@ def test_a_checklist_draws_its_box_in_place_of_a_bullet():
     assert "display: inline-block;" in rules[".task-box"]
 
 
+def test_a_figure_and_its_caption_are_centred():
+    rules = dict(re.findall(r"^([^@{][^{]*?)\s*\{([^}]*)\}", rb.EPUB_CSS, re.M))
+    assert "margin: 0 auto;" in rules["figure img"]
+    assert "text-align: center;" in rules["figure"]
+    assert "text-align: center;" in rules["figcaption"]
+
+
 def test_book_html_substitutes_every_placeholder_and_wraps_no_section():
     block = rh.DiagramBlock(index=0, kind="d2", title="T", source="a -> b\n")
     part = rh.AssembledPart(
