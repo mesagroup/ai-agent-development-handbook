@@ -66,7 +66,7 @@ Each surface here has a counterpart that *verifies* it against the real artifact
 
 **First-party code**
 
-- [ ] Each finding names a real **source → sink** path, verified in the code.
+- [ ] Each reported vulnerability names a real **source → sink** path, verified in the code.
 - [ ] Model/tool outputs treated as **untrusted** input.
 - [ ] Dangerous sinks neutralized at the sink; input validated/canonicalized at the boundary.
 
