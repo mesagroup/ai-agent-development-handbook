@@ -481,6 +481,13 @@ def test_a_heading_stays_whole_and_with_two_lines_of_its_text():
     assert "orphans: 2;" in rules["p, li"] and "widows: 2;" in rules["p, li"]
 
 
+def test_a_table_stays_whole_or_splits_between_rows_under_its_header():
+    rules = dict(re.findall(r"^([^@{][^{]*?)\s*\{([^}]*)\}", rb.EPUB_CSS, re.M))
+    for prop in ("break-inside", "page-break-inside", "-webkit-column-break-inside"):
+        assert re.search(rf"(?:^|[ ;]){prop}: avoid;", rules["table, tr"]), prop
+    assert "display: table-header-group;" in rules["thead"]
+
+
 def test_prose_is_justified_and_hyphenated_and_nothing_else_is():
     rules = dict(re.findall(r"^([^@{][^{]*?)\s*\{([^}]*)\}", rb.EPUB_CSS, re.M))
     justified = {sel for sel, body in rules.items() if "justify" in body}

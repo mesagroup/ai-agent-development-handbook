@@ -125,6 +125,10 @@ def font_face_css(faces=EPUB_FACES) -> str:
 # spellings. These are requests: Apple Books keeps a heading whole but still
 # lets one end a page, and an empty block reserving two lines under each
 # heading did not change that there either.
+#
+# A table asks to move whole to the next page rather than split. One too tall
+# for any page still splits, between rows and never through one, and repeats
+# its header row on each page it continues onto.
 EPUB_CSS = (
     font_face_css()
     + """\
@@ -136,6 +140,8 @@ p, li { text-align: justify; -webkit-hyphens: auto; hyphens: auto; orphans: 2; w
 code, pre { font-family: "Source Code Pro", monospace; font-size: 0.85em; }
 pre { white-space: pre-wrap; }
 table { border-collapse: collapse; font-size: 0.85em; }
+table, tr { break-inside: avoid; page-break-inside: avoid; -webkit-column-break-inside: avoid; }
+thead { display: table-header-group; }
 th, td { border: 1px solid #888; padding: 0.25em 0.4em; text-align: left; vertical-align: top; }
 figure { margin: 1em 0; text-align: center; }
 figure img { display: block; margin: 0 auto; }
