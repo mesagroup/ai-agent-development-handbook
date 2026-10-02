@@ -96,16 +96,16 @@ The map of throughlines to parts (● a primary home, ○ drawn on):
 
 | Part | Evidence over intuition | Capture the trail | Core vs. task layer | Executable standards |
 |---|:-:|:-:|:-:|:-:|
-| 1 Lifecycle | ○ | ● | | ● |
-| 2 Implementation disciplines | ● | ○ | | ● |
-| 3 Codebase structure | | | ● | ○ |
-| 4 Three-layer model | ○ | | ● | |
-| 5 Agent harness | ○ | | ● | |
-| 6 Observability | ● | ○ | | |
-| 7 Evaluation | ● | ○ | | |
-| 8 Documentation | | ● | | ○ |
-| 9 Security | ○ | | | ● |
-| 10 Data protection | ○ | ● | | ○ |
+| 1&nbsp;Lifecycle | ○ | ● | | ● |
+| 2&nbsp;Implementation disciplines | ● | ○ | | ● |
+| 3&nbsp;Codebase structure | | | ● | ○ |
+| 4&nbsp;Three-layer model | ○ | | ● | |
+| 5&nbsp;Agent harness | ○ | | ● | |
+| 6&nbsp;Observability | ● | ○ | | |
+| 7&nbsp;Evaluation | ● | ○ | | |
+| 8&nbsp;Documentation | | ● | | ○ |
+| 9&nbsp;Security | ○ | | | ● |
+| 10&nbsp;Data protection | ○ | ● | | ○ |
 
 ## How to use this handbook
 
