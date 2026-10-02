@@ -149,6 +149,7 @@ figcaption { font-size: 0.85em; font-style: italic; text-align: center; }
 div.checklist ul { list-style-type: none; }
 div.checklist li { padding-left: 1.4em; text-indent: -1.4em; }
 .task-box { display: inline-block; width: 1.4em; text-indent: 0; }
+a { color: inherit; text-decoration: underline; }
 nav#toc ol { list-style-type: none; padding-left: 0; }
 nav#toc a { color: inherit; text-decoration: none; }
 """
