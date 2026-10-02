@@ -360,6 +360,20 @@ def test_book_metadata_carries_what_epubcheck_requires_and_names_no_holder():
     assert "©" not in meta and "Copyright" not in meta
 
 
+def test_glue_part_numbers_joins_part_and_its_number_in_prose():
+    out = rb.glue_part_numbers("<p>See Part 4 and Parts 2, 3 and 6.</p>")
+    assert out == "<p>See Part\u00a04 and Parts\u00a02, 3 and 6.</p>"
+
+
+def test_glue_part_numbers_leaves_tags_and_code_as_written():
+    html = '<h2 id="p-part-1">Part 1</h2><a href="#Part 2">x</a><code>Part 3</code>'
+    out = rb.glue_part_numbers(html)
+    assert (
+        out
+        == '<h2 id="p-part-1">Part\u00a01</h2><a href="#Part 2">x</a><code>Part 3</code>'
+    )
+
+
 def test_curl_quotes_curls_double_quotes_in_prose():
     assert rb.curl_quotes('<p>He said "hi" today.</p>') == "<p>He said “hi” today.</p>"
 
