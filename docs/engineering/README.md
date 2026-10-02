@@ -39,21 +39,19 @@ decide -> idea: the next issue
 
 ### The parts, at a glance
 
-| Part | Role in the story |
-|---|---|
-| **[1. Development lifecycle](lifecycle.md)** | The spine: issue to spec to plan to implementation to review to merge, with the human gates placed where they pay. |
-| **[2. Implementation disciplines](implementation-disciplines.md)** | The craft of the stations: TDD, prompt and SOP engineering, and the mechanical, human, and behavioural gates. |
-| **[3. Codebase structure](codebase-structure.md)** | The change needs a home: layered tiers, acyclic dependencies, composition over forking. |
-| **[4. The three-layer document model](three-layer-model.md)** | The same shape inside the domain: intrinsic structure, domain entities, workflow knowledge. |
-| **[5. The extended agent harness](agent-harness.md)** | The machinery the change runs on: aliases, profiles, headless CLIs, mocks, bounded calls. |
-| **[6. Observability](observability.md)** | The change ships: instrument before you tune, account for the full cost. |
-| **[7. Evaluation: how to decide](evaluation.md)** | The loop closes: was it actually better, measured against a dataset you trust? |
-| **[8. Documentation & knowledge capture](documentation.md)** | What the change leaves behind: the trail that outlives the moment. |
-| **[9. Security, dependencies & supply chain](security-supply-chain.md)** | The first standing obligation: safe code, accounted dependencies, a trustworthy pipeline. |
-| **[10. Data protection & privacy](data-protection.md)** | The second: what the system owes the people whose data passes through it. |
-| **[Troubleshooting](troubleshooting.md)** | The other entry point: from a symptom (it burns money, it hangs, it hallucinates) to the sections that fix it. |
-| **[Coda](coda.md)** | Closing words: the loop, and what stays. |
-| **[Engineering notes](../engineering-notes.md)** (`docs/engineering-notes.md`) | *Not part of the handbook.* An advisory sidecar, outside this tree, for practices too contingent on one execution environment to be normative here, kept with the reason each was cut. |
+- **[1. Development lifecycle](lifecycle.md).** The spine: issue to spec to plan to implementation to review to merge, with the human gates placed where they pay.
+- **[2. Implementation disciplines](implementation-disciplines.md).** The craft of the stations: TDD, prompt and SOP engineering, and the mechanical, human, and behavioural gates.
+- **[3. Codebase structure](codebase-structure.md).** The change needs a home: layered tiers, acyclic dependencies, composition over forking.
+- **[4. The three-layer document model](three-layer-model.md).** The same shape inside the domain: intrinsic structure, domain entities, workflow knowledge.
+- **[5. The extended agent harness](agent-harness.md).** The machinery the change runs on: aliases, profiles, headless CLIs, mocks, bounded calls.
+- **[6. Observability](observability.md).** The change ships: instrument before you tune, account for the full cost.
+- **[7. Evaluation: how to decide](evaluation.md).** The loop closes: was it actually better, measured against a dataset you trust?
+- **[8. Documentation & knowledge capture](documentation.md).** What the change leaves behind: the trail that outlives the moment.
+- **[9. Security, dependencies & supply chain](security-supply-chain.md).** The first standing obligation: safe code, accounted dependencies, a trustworthy pipeline.
+- **[10. Data protection & privacy](data-protection.md).** The second: what the system owes the people whose data passes through it.
+- **[Troubleshooting](troubleshooting.md).** The other entry point: from a symptom (it burns money, it hangs, it hallucinates) to the sections that fix it.
+- **[Coda](coda.md).** Closing words: the loop, and what stays.
+- **[Engineering notes](../engineering-notes.md).** *Not part of the handbook.* An advisory sidecar, outside this tree (`docs/engineering-notes.md`), for practices too contingent on one execution environment to be normative here, kept with the reason each was cut.
 
 ## Starting from zero
 
