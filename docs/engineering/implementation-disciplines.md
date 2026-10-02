@@ -119,4 +119,3 @@ The general principle: **test each thing at the level where its failures actuall
 - [Part 1. Development lifecycle](lifecycle.md), the route these disciplines equip.
 - [Part 7. Evaluation](evaluation.md), the eval loop the end-to-end quality gate draws on.
 - [Part 6. Observability](observability.md), the developer-facing half of "no swallowed exceptions".
-- [Handbook index](README.md).

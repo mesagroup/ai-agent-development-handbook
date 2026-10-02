@@ -222,7 +222,7 @@
 
 - id: lifecycle/see-also
   section: "See also"
-  claim: Cross-links to the stance and Parts 2, 3, 6, 7, 8 and 9.
+  claim: Cross-links to Parts 2, 3, 6, 7, 8 and 9.
   class: informative
 
 # --- Part 2: Implementation disciplines -------------------------------------
@@ -405,7 +405,7 @@
 
 - id: implementation-disciplines/see-also
   section: "See also"
-  claim: Cross-links to Parts 1, 6 and 7 and the handbook index.
+  claim: Cross-links to Parts 1, 6 and 7.
   class: informative
 
 # --- Part 3: Codebase structure ---------------------------------------------
@@ -568,7 +568,7 @@
 
 - id: codebase-structure/see-also
   section: "See also"
-  claim: Cross-links to Parts 4 and 5 and the handbook index.
+  claim: Cross-links to Parts 4 and 5.
   class: informative
 
 # --- Part 4: The three-layer document model ---------------------------------
@@ -645,7 +645,7 @@
 
 - id: three-layer-model/see-also
   section: "See also"
-  claim: Cross-links to Parts 3 and 7 and the handbook index.
+  claim: Cross-links to Parts 3 and 7.
   class: informative
 
 # --- Part 5: The extended agent harness -------------------------------------
@@ -725,7 +725,7 @@
 
 - id: agent-harness/see-also
   section: "See also"
-  claim: Cross-links to Parts 3, 6 and 7 and the handbook index.
+  claim: Cross-links to Parts 3, 6 and 7.
   class: informative
 
 # --- Part 6: Observability --------------------------------------------------
@@ -802,7 +802,7 @@
 
 - id: observability/see-also
   section: "See also"
-  claim: Cross-links to Parts 2, 5, 7 and 10 and the handbook index.
+  claim: Cross-links to Parts 2, 5, 7 and 10.
   class: informative
 
 # --- Part 7: Evaluation -----------------------------------------------------
@@ -970,7 +970,7 @@
 
 - id: evaluation/see-also
   section: "See also"
-  claim: Cross-links to Parts 4, 6, 8 and 10 and the handbook index.
+  claim: Cross-links to Parts 4, 6, 8 and 10.
   class: informative
 
 # --- Part 8: Documentation & knowledge capture ------------------------------
@@ -1115,7 +1115,7 @@
 
 - id: documentation/see-also
   section: "See also"
-  claim: Cross-links to Parts 1 and 7 and the handbook index.
+  claim: Cross-links to Parts 1 and 7.
   class: informative
 
 # --- Part 9: Security, dependencies & supply chain --------------------------
@@ -1225,7 +1225,7 @@
 
 - id: security-supply-chain/see-also
   section: "See also"
-  claim: Cross-links to Parts 1, 2, 6, 7 and 10 and the handbook index.
+  claim: Cross-links to Parts 1, 2, 6, 7 and 10.
   class: informative
 
 # --- Part 10: Data protection & privacy -------------------------------------
@@ -1325,7 +1325,7 @@
 
 - id: data-protection/see-also
   section: "See also"
-  claim: Cross-links to Parts 6, 7 and 9 and the handbook index.
+  claim: Cross-links to Parts 6, 7 and 9.
   class: informative
 
 # --- Troubleshooting guide --------------------------------------------------

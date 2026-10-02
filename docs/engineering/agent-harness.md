@@ -75,4 +75,3 @@ Carry this principle into any new integration and any new loop: an unbounded cal
 - [Part 3. Codebase structure](codebase-structure.md), the tier boundaries the harness lives in, and the configuration polymorphism under named profiles.
 - [Part 6. Observability](observability.md), the per-(sub)agent metrics the harness emits, and full-cost accounting.
 - [Part 7. Evaluation](evaluation.md), why headless, reproducible, cheap-to-run agents are the precondition for deciding with evidence.
-- [Handbook index](README.md).

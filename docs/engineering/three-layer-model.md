@@ -86,4 +86,3 @@ The same shape recurs one level up, in [how the codebase is structured](codebase
 
 - [Part 3. Codebase structure](codebase-structure.md), the same reusable-core-vs-task-layer idea in the module graph.
 - [Part 7. Evaluation](evaluation.md), why separable layers are separately evaluable.
-- [Handbook index](README.md).

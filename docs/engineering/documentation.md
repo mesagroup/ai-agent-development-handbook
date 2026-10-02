@@ -80,4 +80,3 @@ Write one paragraph as one line in the source; let the renderer wrap. Never hard
 
 - [Part 1. Development lifecycle](lifecycle.md), where specs and plans are produced and the review gates live.
 - [Part 7. Evaluation](evaluation.md), the loop that the results log and stories feed.
-- [Handbook index](README.md).
