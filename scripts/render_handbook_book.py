@@ -141,6 +141,9 @@ def font_face_css(faces=EPUB_FACES) -> str:
 # a hyphen inserted into an identifier or a command changes what it says.
 #
 # A figure asks not to split, so its caption stays on the page of its image.
+# An image is capped below a page's height so its caption always fits beside
+# it: calibre's reader shrinks an image taller than a page to fill the page
+# exactly, and the caption then has nowhere to go but the next one.
 EPUB_CSS = (
     font_face_css()
     + """\
@@ -158,7 +161,7 @@ th, td { border: none; padding: 0.25em 0.4em; text-align: left; vertical-align: 
 th { border-bottom: 1px solid; }
 td { border-top: 1px solid #bbb; }
 figure { margin: 1em 0; text-align: center; break-inside: avoid; page-break-inside: avoid; -webkit-column-break-inside: avoid; }
-figure img { display: block; margin: 0 auto; }
+figure img { display: block; margin: 0 auto; max-height: calc(100vh - 4em); object-fit: contain; }
 figcaption { font-size: 0.85em; font-style: italic; text-align: center; }
 div.checklist ul { list-style-type: none; }
 div.checklist li { padding-left: 1.4em; text-indent: -1.4em; }
@@ -266,7 +269,8 @@ def figure_markup(stem: str, block: DiagramBlock, width_em: float) -> str:
     title such as ``A & <b>`` would otherwise reach pandoc as markup. The
     width is in em so the figure keeps the one scale relative to the body
     text when a reader changes the font size, and ``max-width: 100%`` stops
-    it overflowing a screen narrower than that.
+    it overflowing a screen narrower than that. `EPUB_CSS` caps its height
+    the same way, below a page's, so the caption always fits under it.
     """
     alt = html_escape(block.title, quote=True)
     caption = html_escape(block.title, quote=False)

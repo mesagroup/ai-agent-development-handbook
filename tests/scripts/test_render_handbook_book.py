@@ -267,6 +267,13 @@ def test_a_figure_and_its_caption_are_centred():
     assert "text-align: center;" in rules["figcaption"]
 
 
+def test_a_figure_image_leaves_room_on_its_page_for_the_caption():
+    rules = dict(re.findall(r"^([^@{][^{]*?)\s*\{([^}]*)\}", rb.EPUB_CSS, re.M))
+    cap = re.search(r"max-height: calc\(100vh - ([\d.]+)em\);", rules["figure img"])
+    assert cap and float(cap.group(1)) > 0
+    assert "object-fit: contain;" in rules["figure img"]
+
+
 def test_code_is_never_hyphenated():
     rules = dict(re.findall(r"^([^@{][^{]*?)\s*\{([^}]*)\}", rb.EPUB_CSS, re.M))
     assert re.search(r"(?:^|[ ;])hyphens: none;", rules["code, pre"])
