@@ -137,6 +137,9 @@ def font_face_css(faces=EPUB_FACES) -> str:
 # sizes each column from its narrowest unbreakable run, and Apple Books, which
 # hyphenates by default, would otherwise squeeze a short column to a syllable.
 #
+# Code is never hyphenated: it would inherit the prose's `hyphens: auto`, and
+# a hyphen inserted into an identifier or a command changes what it says.
+#
 # A figure asks not to split, so its caption stays on the page of its image.
 EPUB_CSS = (
     font_face_css()
@@ -146,7 +149,7 @@ h1, h2, h3, h4 { font-family: "Source Sans 3", sans-serif; line-height: 1.2; }
 h1 { break-before: right; page-break-before: right; }
 h1, h2, h3, h4, h5, h6 { break-inside: avoid; break-after: avoid; page-break-inside: avoid; page-break-after: avoid; -webkit-column-break-inside: avoid; -webkit-column-break-after: avoid; }
 p, li { text-align: justify; -webkit-hyphens: auto; hyphens: auto; orphans: 2; widows: 2; }
-code, pre { font-family: "Source Code Pro", monospace; font-size: 0.85em; }
+code, pre { font-family: "Source Code Pro", monospace; font-size: 0.85em; -webkit-hyphens: none; hyphens: none; }
 pre { white-space: pre-wrap; }
 table { border-collapse: collapse; font-size: 0.85em; border-top: 1.5px solid; border-bottom: 1.5px solid; }
 table, tr { break-inside: avoid; page-break-inside: avoid; -webkit-column-break-inside: avoid; }
