@@ -496,6 +496,17 @@ def test_a_table_stays_whole_or_splits_between_rows_under_its_header():
     assert "display: table-header-group;" in rules["thead"]
 
 
+def test_a_table_is_ruled_horizontally_only():
+    rules = dict(re.findall(r"^([^@{][^{]*?)\s*\{([^}]*)\}", rb.EPUB_CSS, re.M))
+    for sel, body in rules.items():
+        if re.search(r"\b(table|th|td|tr)\b", sel):
+            values = re.findall(r"border(?:-left|-right)?:\s*([^;]+);", body)
+            assert all(v == "none" for v in values), sel
+    assert "border-top:" in rules["table"] and "border-bottom:" in rules["table"]
+    assert "border-bottom:" in rules["th"]
+    assert "border-top:" in rules["td"]
+
+
 def test_prose_is_justified_and_hyphenated_and_nothing_else_is():
     rules = dict(re.findall(r"^([^@{][^{]*?)\s*\{([^}]*)\}", rb.EPUB_CSS, re.M))
     justified = {sel for sel, body in rules.items() if "justify" in body}
