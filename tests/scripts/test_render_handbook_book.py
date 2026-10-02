@@ -267,6 +267,12 @@ def test_a_figure_and_its_caption_are_centred():
     assert "text-align: center;" in rules["figcaption"]
 
 
+def test_a_figure_keeps_its_caption_on_the_page_of_its_image():
+    rules = dict(re.findall(r"^([^@{][^{]*?)\s*\{([^}]*)\}", rb.EPUB_CSS, re.M))
+    for prop in ("break-inside", "page-break-inside", "-webkit-column-break-inside"):
+        assert re.search(rf"(?:^|[ ;]){prop}: avoid;", rules["figure"]), prop
+
+
 def test_omit_from_book_drops_only_the_marked_item():
     html = (
         "<ul>\n<li>keep</li>\n<li><strong>gone.</strong> text <!-- book: omit --></li>\n"

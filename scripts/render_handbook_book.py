@@ -135,6 +135,8 @@ def font_face_css(faces=EPUB_FACES) -> str:
 # A cell is never hyphenated: pandoc sets no column widths, so the reader
 # sizes each column from its narrowest unbreakable run, and Apple Books, which
 # hyphenates by default, would otherwise squeeze a short column to a syllable.
+#
+# A figure asks not to split, so its caption stays on the page of its image.
 EPUB_CSS = (
     font_face_css()
     + """\
@@ -151,7 +153,7 @@ thead { display: table-header-group; }
 th, td { border: none; padding: 0.25em 0.4em; text-align: left; vertical-align: top; -webkit-hyphens: manual; hyphens: manual; }
 th { border-bottom: 1px solid; }
 td { border-top: 1px solid #bbb; }
-figure { margin: 1em 0; text-align: center; }
+figure { margin: 1em 0; text-align: center; break-inside: avoid; page-break-inside: avoid; -webkit-column-break-inside: avoid; }
 figure img { display: block; margin: 0 auto; }
 figcaption { font-size: 0.85em; font-style: italic; text-align: center; }
 div.checklist ul { list-style-type: none; }
