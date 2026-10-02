@@ -1105,7 +1105,7 @@ def build(docs_dir: Path, parts: list[tuple[str, str, str]] = PARTS) -> str:
             handbook's links, so a warning here would be a silent pass.
             This raise is the only check there is. Absolute URLs are
             unmapped by design and pass; the one link out of the handbook
-            tree (`engineering-notes.md`, from the README's parts table) is
+            tree (`engineering-notes.md`, from the README's parts list) is
             relative and is unlinked by `unlink_out_of_tree` before the
             rewrite sees it. Also raised when two headings of one part
             slugify alike (from `add_heading_ids`) or a heading id collides
