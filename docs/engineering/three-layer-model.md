@@ -14,9 +14,9 @@ But, and this is the part that keeps the idea from collapsing into "everything i
 
 | Layer | What it answers | Reuse profile | Epistemic status |
 |---|---|---|---|
-| **Layer 1: intrinsic structure** | What is physically on the page: pages, blocks, tables, reading order, sections, signatures. Domain-free, engine-detectable. | **Fully reusable**: modeled in advance. | **Perception** |
-| **Layer 2: domain entities** | What the document is about, in domain terms: parties, dates, citations, obligations. Domain-shaped but reusable across workflows. | **Partially reusable**: a sparse upper vocabulary each domain extends. | **Grounding** |
-| **Layer 3: workflow knowledge** | What *this* workflow needs to conclude: "is this citation correct?", "what's the indemnity cap?", "summarize for the board." | **Not reusable, and should not be**: built when a task runs. | **Inference** |
+| **Layer&nbsp;1: intrinsic structure** | What is physically on the page: pages, blocks, tables, reading order, sections, signatures. Domain-free, engine-detectable. | **Fully reusable**: modeled in advance. | **Perception** |
+| **Layer&nbsp;2: domain entities** | What the document is about, in domain terms: parties, dates, citations, obligations. Domain-shaped but reusable across workflows. | **Partially reusable**: a sparse upper vocabulary each domain extends. | **Grounding** |
+| **Layer&nbsp;3: workflow knowledge** | What *this* workflow needs to conclude: "is this citation correct?", "what's the indemnity cap?", "summarize for the board." | **Not reusable, and should not be**: built when a task runs. | **Inference** |
 
 The model is domain-general: the layers fall out just as cleanly for an invoice as for a novel. Perception, grounding, and inference are three genuinely different questions, not three degrees of one.
 
