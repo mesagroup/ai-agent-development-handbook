@@ -267,6 +267,12 @@ def test_a_figure_and_its_caption_are_centred():
     assert "text-align: center;" in rules["figcaption"]
 
 
+def test_code_is_never_hyphenated():
+    rules = dict(re.findall(r"^([^@{][^{]*?)\s*\{([^}]*)\}", rb.EPUB_CSS, re.M))
+    assert re.search(r"(?:^|[ ;])hyphens: none;", rules["code, pre"])
+    assert "-webkit-hyphens: none;" in rules["code, pre"]
+
+
 def test_a_figure_keeps_its_caption_on_the_page_of_its_image():
     rules = dict(re.findall(r"^([^@{][^{]*?)\s*\{([^}]*)\}", rb.EPUB_CSS, re.M))
     for prop in ("break-inside", "page-break-inside", "-webkit-column-break-inside"):
