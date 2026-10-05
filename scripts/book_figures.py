@@ -16,12 +16,14 @@ reading the `data-source-sha256` hash a figure was seeded from, cleaning up
 what `run_d2` hands the illustrator before it is committed as a seed, and the
 checks a fixer or a CI gate runs over a finished figure (does it fit the
 block, is every fill dark enough not to wash out on cream paper, does every
-text and stroke colour hold its WCAG contrast bar), and the two steps that
-turn a committed figure into the EPUB's copy of it: the subset faces its text
-uses (`embed_fonts`), since an SVG an `<img>` references cannot reach the
-book's other files, and the em width that places it at the one scale
-(`epub_width_em`). The copy stays transparent like the committed file, so the
-page colour shows through in the EPUB as the paper does in print. Nothing here spawns a process or
+text and stroke colour hold its WCAG contrast bar), and the steps that turn
+a committed figure into a book's copy of it. The EPUB's carries the subset
+faces its text uses (`embed_fonts`), since an SVG an `<img>` references
+cannot reach the book's other files, and is placed at the one scale by an em
+width (`epub_width_em`); the paperback's is the figure as it stands, placed
+by a width in points (`print_width_pt`). Every copy stays transparent like
+the committed file, so the page colour shows through in the EPUB as the
+paper does in print. Nothing here spawns a process or
 writes a file; that belongs to the scripts built on top of it.
 """
 

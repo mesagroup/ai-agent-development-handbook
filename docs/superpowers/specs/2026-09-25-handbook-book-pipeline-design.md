@@ -98,17 +98,17 @@ A new `scripts/render_handbook_book.py`, with one entry point, a `--format` flag
   - every part starting on a recto page;
   - a table of contents with page numbers;
   - in-book links printed as page references;
-  - external links with their URL printed after the link text;
+  - external links with their URL printed in a footnote after the link text;
   - table cells set ragged-right rather than justified;
   - a line-breaking rule for long inline code.
-- **`--format cover`** writes `build/handbook-cover.pdf`. It reads the interior's page count, computes the spine width, and lays out back, spine and front with 0.125 inch bleed on every side. Spine text is printed only above KDP's minimum page count for it.
+- **`--format cover`** writes `build/handbook-cover.pdf`. It reads the interior's page count, computes the spine width, and lays out back, spine and front with 0.125 inch bleed on every side. Spine text is printed only above KDP's minimum page count for it, and only where its line fits between the fold margins.
 
 `--out` overrides the output path. `build/` joins `.gitignore`.
 
 ### 4. Pure functions the tests hold
 
 - `book_linkmap(parts, first_ids)` builds the book's link map.
-- `figure_markup(stem, block, width_em)` builds a figure's HTML.
+- `figure_markup(stem, block, width, target)` builds a figure's HTML, its width in em for the EPUB and in points for print.
 - `source_hash(source)` returns the SHA-256 a committed figure records.
 - `fit_problems(svg)` holds a figure's viewBox and text sizes to the one scale.
 - `opaque_fill_problems(svg, paper)` reports a fill that would print as a pale surface.
@@ -162,5 +162,5 @@ Each pull request adds its command to CLAUDE.md's Commands section. Any new modu
 - **External links print their URL in a footnote**, not inline after the link text, because a URL inline in a 3.6 inch measure breaks lines badly. In-book links print `(p. N)` after the link text.
 - **The undecided details live in `docs/book/publication.toml`**: the copyright holder and year, KDP's ISBN, the cover art and the back-cover text. They reach Typst as `typst compile --input` strings, printed as text and never evaluated, and each prints as a bracketed placeholder until set. `--final` refuses to build while any is unset, which is the check #192's release workflow runs.
 - **The cover reads the interior's page count by building the interior**, never from a PDF on disk, so a cover cannot be sized from a stale interior. The count is the physical last page, front matter included, read with `typst eval` over a marker the template places.
-- **Typst reads only the committed faces** (`--font-path fonts/ --ignore-system-fonts`). Source Sans 3 stands in for the three marks Source Serif 4 lacks (● ○ ↔), so no other face is ever embedded.
+- **Typst reads only the committed faces** (`--font-path fonts/ --ignore-system-fonts`). Source Sans 3 stands in for the marks Source Serif 4 lacks (● ○ ↔), so no other face is ever embedded.
 - **Figures with translucent shading are placed as they are.** KDP asks for flattened transparency; four figures carry translucent overlays. KDP's previewer decides whether they need flattening, and if it does, the print copy composites them to opaque grey in `write_figures`.

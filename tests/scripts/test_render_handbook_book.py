@@ -704,7 +704,7 @@ def test_the_epub_carries_exactly_the_heading_ids_the_page_carries(built_epub: P
     assert _chapter_ids(built_epub) == rh.heading_ids(DOCS) - part_anchors
 
 
-def test_the_epub_document_is_unchanged_by_the_shared_assembly(tmp_path):
+def test_the_shared_book_document_takes_the_epub_builds_passes(tmp_path):
     pytest.importorskip("markdown")
     _skip_unless_the_build_can_draw_its_seeds()
     media_a, media_b = tmp_path / "a", tmp_path / "b"
