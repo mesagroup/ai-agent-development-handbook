@@ -36,9 +36,16 @@ def test_an_unknown_paper_raises():
         kp.spine_width(100, "glossy")
 
 
-def test_spine_text_needs_79_pages():
-    assert not kp.spine_text_allowed(78)
-    assert kp.spine_text_allowed(79)
+def test_spine_text_needs_more_than_79_pages():
+    assert not kp.spine_text_allowed(79)
+    assert kp.spine_text_allowed(80)
+
+
+def test_cream_paper_stops_at_776_pages_and_white_at_828():
+    assert kp.spine_width(776, "cream") == pytest.approx(1.94)
+    with pytest.raises(ValueError, match="777"):
+        kp.spine_width(777, "cream")
+    assert kp.spine_width(828, "white") == pytest.approx(828 * 0.002252)
 
 
 def test_cover_dimensions_add_bleed_on_the_outside_edges_and_the_spine_between():

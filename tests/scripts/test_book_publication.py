@@ -47,7 +47,15 @@ def test_a_valid_isbn13_loads(tmp_path, isbn):
 
 
 @pytest.mark.parametrize(
-    "isbn", ["978-0-306-40615-8", "97803064061", "978030640615X", "978 0306406157"]
+    "isbn",
+    # The last is a TOML escape: the value ends in a newline.
+    [
+        "978-0-306-40615-8",
+        "97803064061",
+        "978030640615X",
+        "978 0306406157",
+        "9780306406157\\n",
+    ],
 )
 def test_an_invalid_isbn_is_refused_at_load(tmp_path, isbn):
     with pytest.raises(SystemExit, match="ISBN"):

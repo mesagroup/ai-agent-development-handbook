@@ -30,12 +30,12 @@ PLACEHOLDERS = {
     "back_cover_text": "[Back cover text]",
 }
 _FIELDS = tuple(f.name for f in dataclasses.fields(PublicationDetails))
-_ISBN_CHARS_RE = re.compile(r"^[0-9]+(?:-[0-9]+)*$")
+_ISBN_CHARS_RE = re.compile(r"[0-9]+(?:-[0-9]+)*")
 
 
 def valid_isbn13(value: str) -> bool:
     """Whether ``value`` is an ISBN-13: 13 digits, optional hyphens, a valid check digit."""
-    if not _ISBN_CHARS_RE.match(value):
+    if not _ISBN_CHARS_RE.fullmatch(value):
         return False
     digits = [int(c) for c in value if c.isdigit()]
     if len(digits) != 13:
