@@ -44,6 +44,7 @@ import argparse
 import datetime
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -60,6 +61,8 @@ from book_figures import (
     source_hash,
     stamp_hash,
 )
+from book_publication import load_details, require_resolved, typst_inputs
+from kdp_print import Paper, gutter_minimum
 from render_handbook_artifact import (
     _DIAGRAM_PLACEHOLDER_RE,
     PARTS,
@@ -626,8 +629,11 @@ _PANDOC_HINT = (
 )
 
 
-def run_tool(cmd: list[str], timeout: float, install_hint: str) -> None:
+def run_tool(cmd: list[str], timeout: float, install_hint: str) -> str:
     """Run one external tool, bounded, and turn every failure into a message.
+
+    Returns:
+        The tool's standard output.
 
     Raises:
         SystemExit: The tool is absent, did not finish within ``timeout``
@@ -649,6 +655,7 @@ def run_tool(cmd: list[str], timeout: float, install_hint: str) -> None:
         raise SystemExit(
             f"{cmd[0]} failed (exit {proc.returncode}):\n{proc.stderr.strip()}"
         )
+    return proc.stdout
 
 
 def figure_path(figures_dir: Path, stem: str, index: int) -> Path:
@@ -827,6 +834,137 @@ def build_epub(
     return out
 
 
+# The paperback (#195): 5 x 8 in on cream paper. The margins leave exactly the
+# text block the figures are scaled to (`book_figures.TEXT_BLOCK_PT`), and
+# `book_interior.typ` states the same numbers; a test holds the two together.
+TRIM_IN = (5.0, 8.0)
+PAPER: Paper = "cream"
+INTERIOR_MARGINS_IN = {"inside": 0.75, "outside": 0.65, "top": 0.875, "bottom": 1.125}
+INTERIOR_TEMPLATE = Path(__file__).resolve().with_name("book_interior.typ")
+DETAILS_PATH = (
+    Path(__file__).resolve().parents[1] / "docs" / "book" / "publication.toml"
+)
+_TYPST_TIMEOUT_S = 300
+_TYPST_HINT = (
+    "Install it with `brew install typst`, or see https://typst.app/open-source/."
+)
+
+
+def typst_body_command(html_path: Path, out: Path) -> list[str]:
+    """The pandoc argv that writes the book document as a Typst body.
+
+    No ``--standalone``: pandoc writes only the body and none of its own
+    template, so `book_interior.typ` is the only page setup there is. Plain
+    ``html`` for the reason `epub_command` gives.
+    """
+    return ["pandoc", "-f", "html", "-t", "typst", "-o", str(out), str(html_path)]
+
+
+def interior_main(body_name: str) -> str:
+    """The Typst main file: the template applied to pandoc's body.
+
+    ``horizontalrule`` is imported by name because pandoc's body calls it
+    for an ``<hr>`` and an included file sees what the main file imported.
+    """
+    return (
+        '#import "book_interior.typ": interior, horizontalrule\n'
+        "#show: interior\n"
+        f'#include "{body_name}"\n'
+    )
+
+
+def _typst_args(inputs: dict[str, str]) -> list[str]:
+    """The font and input arguments every Typst call over the book takes.
+
+    ``--ignore-system-fonts`` makes a face missing from `FONTS_ROOT` fail
+    to resolve rather than come from whichever machine ran the build.
+    """
+    args = ["--font-path", str(FONTS_ROOT), "--ignore-system-fonts"]
+    for key, value in inputs.items():
+        args += ["--input", f"{key}={value}"]
+    return args
+
+
+def typst_compile_command(main: Path, out: Path, inputs: dict[str, str]) -> list[str]:
+    """The Typst argv that compiles ``main`` to the PDF ``out``."""
+    return ["typst", "compile", *_typst_args(inputs), str(main), str(out)]
+
+
+def typst_page_count_command(main: Path, inputs: dict[str, str]) -> list[str]:
+    """The Typst argv that prints the template's ``<page-count>`` marker.
+
+    The marker holds the physical number of the last page, front matter
+    included, which is the count KDP sizes the spine and the gutter from.
+    """
+    return [
+        "typst", "eval", *_typst_args(inputs),
+        "query(<page-count>).first().value",
+        "--in", str(main),
+    ]  # fmt: skip
+
+
+def build_pdf(
+    docs_dir: Path,
+    out: Path,
+    details_path: Path,
+    final: bool,
+    parts: list[tuple[str, str, str]] = PARTS,
+    figures_dir: Path | None = None,
+    work_dir: Path | None = None,
+) -> tuple[Path, int]:
+    """Write the paperback interior for ``docs_dir`` to ``out``.
+
+    The document is `book_document`'s for the ``print`` target, written as a
+    Typst body by pandoc and compiled under `book_interior.typ`, with the
+    publication details from ``details_path`` as inputs (`typst_inputs`).
+    ``work_dir``, when given, keeps the intermediate files there.
+
+    Returns:
+        ``out`` and the interior's page count.
+
+    Raises:
+        SystemExit: ``final`` and a detail is unset, checked before any tool
+            runs; a tool is missing or fails; or the page count needs a
+            wider gutter than `INTERIOR_MARGINS_IN` gives.
+    """
+    details = load_details(details_path)
+    if final:
+        require_resolved(details)
+    inputs = typst_inputs(details)
+    if figures_dir is None:
+        figures_dir = docs_dir / "figures"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory() as tmp:
+        work = work_dir or Path(tmp)
+        media = work / "media"
+        media.mkdir(parents=True, exist_ok=True)
+        html = book_document(docs_dir, parts, figures_dir, media, "print")
+        (work / "book.html").write_text(html, encoding="utf-8")
+        run_tool(
+            typst_body_command(work / "book.html", work / "body.typ"),
+            _PANDOC_TIMEOUT_S,
+            _PANDOC_HINT,
+        )
+        shutil.copyfile(INTERIOR_TEMPLATE, work / INTERIOR_TEMPLATE.name)
+        main = work / "main.typ"
+        main.write_text(interior_main("body.typ"), encoding="utf-8")
+        run_tool(
+            typst_compile_command(main, out, inputs), _TYPST_TIMEOUT_S, _TYPST_HINT
+        )
+        pages = int(
+            run_tool(
+                typst_page_count_command(main, inputs), _TYPST_TIMEOUT_S, _TYPST_HINT
+            ).strip()
+        )
+    if INTERIOR_MARGINS_IN["inside"] < gutter_minimum(pages):
+        raise SystemExit(
+            f"{pages} pages need an inside margin of at least "
+            f"{gutter_minimum(pages)} in; INTERIOR_MARGINS_IN gives "
+            f"{INTERIOR_MARGINS_IN['inside']} in"
+        )
+    return out, pages
+
+
 def _build_date() -> str:
     """``SOURCE_DATE_EPOCH`` when set, so a tagged build is reproducible.
 
@@ -851,7 +989,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument("--format", choices=["epub"])
+    parser.add_argument("--format", choices=["epub", "pdf"])
     parser.add_argument(
         "--docs-dir",
         type=Path,
@@ -862,7 +1000,20 @@ def main(argv: list[str] | None = None) -> int:
         "--out",
         type=Path,
         default=None,
-        help="Output path (default: build/handbook.epub, gitignored).",
+        help="Output path (default: build/handbook.epub or "
+        "build/handbook-interior.pdf, gitignored).",
+    )
+    parser.add_argument(
+        "--details",
+        type=Path,
+        default=DETAILS_PATH,
+        help="The paperback's publication details (default: "
+        "docs/book/publication.toml).",
+    )
+    parser.add_argument(
+        "--final",
+        action="store_true",
+        help="Refuse to build the paperback while any publication detail is unset.",
     )
     parser.add_argument(
         "--seed-figures",
@@ -889,6 +1040,13 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"wrote {path}")
         else:
             print("every diagram already has a figure")
+        return 0
+    if args.format == "pdf":
+        out = args.out or repo_root / "build" / "handbook-interior.pdf"
+        out, pages = build_pdf(
+            args.docs_dir, out, args.details, args.final, figures_dir=figures_dir
+        )
+        print(f"wrote {out} ({pages} pages)")
         return 0
     out = args.out or repo_root / "build" / "handbook.epub"
     build_epub(args.docs_dir, out, _build_date(), figures_dir=figures_dir)
