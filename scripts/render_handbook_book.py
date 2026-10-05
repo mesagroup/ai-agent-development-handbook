@@ -53,6 +53,7 @@ from html import escape as html_escape
 from pathlib import Path
 from typing import Literal
 
+import kdp_print
 from book_figures import (
     clean_seed_svg,
     embed_fonts,
@@ -61,7 +62,12 @@ from book_figures import (
     source_hash,
     stamp_hash,
 )
-from book_publication import load_details, require_resolved, typst_inputs
+from book_publication import (
+    PublicationDetails,
+    load_details,
+    require_resolved,
+    typst_inputs,
+)
 from kdp_print import Paper, gutter_minimum
 from render_handbook_artifact import (
     _DIAGRAM_PLACEHOLDER_RE,
@@ -965,6 +971,86 @@ def build_pdf(
     return out, pages
 
 
+COVER_TEMPLATE = Path(__file__).resolve().with_name("book_cover.typ")
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def cover_inputs(pages: int, details: PublicationDetails) -> dict[str, str]:
+    """Every value `book_cover.typ` reads, for a ``pages``-page interior.
+
+    Lengths are inches as decimal strings: the whole cover with its bleed
+    (`kdp_print.cover_dimensions`), the spine, the trim, and KDP's safe,
+    spine and barcode margins. ``spine-text`` follows
+    `kdp_print.spine_text_allowed`. ``cover-art`` is the art's file name,
+    since the build copies it beside the template, where Typst can read it;
+    empty when the front is typographic.
+    """
+    width, height = kdp_print.cover_dimensions(TRIM_IN, pages, PAPER)
+    lengths = {
+        "width": width,
+        "height": height,
+        "bleed": kdp_print.BLEED_IN,
+        "trim-width": TRIM_IN[0],
+        "trim-height": TRIM_IN[1],
+        "spine": kdp_print.spine_width(pages, PAPER),
+        "safe": kdp_print.COVER_SAFE_IN,
+        "spine-margin": kdp_print.SPINE_TEXT_MARGIN_IN,
+        "barcode-width": kdp_print.BARCODE_IN[0],
+        "barcode-height": kdp_print.BARCODE_IN[1],
+        "barcode-margin": kdp_print.BARCODE_MARGIN_IN,
+    }
+    inputs = typst_inputs(details)
+    inputs.update({key: f"{value:.6f}" for key, value in lengths.items()})
+    inputs["spine-text"] = "true" if kdp_print.spine_text_allowed(pages) else "false"
+    inputs["cover-art"] = Path(details.cover_art).name if details.cover_art else ""
+    return inputs
+
+
+def build_cover(
+    docs_dir: Path,
+    out: Path,
+    details_path: Path,
+    final: bool,
+    parts: list[tuple[str, str, str]] = PARTS,
+    figures_dir: Path | None = None,
+) -> tuple[Path, int]:
+    """Write the wraparound cover for ``docs_dir``'s interior to ``out``.
+
+    Builds the interior first, in a temporary directory, to read its page
+    count, so the spine is never sized from a stale interior on disk.
+
+    Returns:
+        ``out`` and the interior's page count it was sized for.
+
+    Raises:
+        SystemExit: The cover art the details name does not exist, checked
+            before any tool runs, or anything `build_pdf` raises.
+    """
+    details = load_details(details_path)
+    art = REPO_ROOT / details.cover_art if details.cover_art else None
+    if art is not None and not art.is_file():
+        raise SystemExit(
+            f"{details_path}: cover_art {details.cover_art!r} does not exist"
+        )
+    with tempfile.TemporaryDirectory() as tmp:
+        work = Path(tmp)
+        _, pages = build_pdf(
+            docs_dir, work / "interior.pdf", details_path, final, parts, figures_dir
+        )
+        shutil.copyfile(COVER_TEMPLATE, work / COVER_TEMPLATE.name)
+        if art is not None:
+            shutil.copyfile(art, work / art.name)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        run_tool(
+            typst_compile_command(
+                work / COVER_TEMPLATE.name, out, cover_inputs(pages, details)
+            ),
+            _TYPST_TIMEOUT_S,
+            _TYPST_HINT,
+        )
+    return out, pages
+
+
 def _build_date() -> str:
     """``SOURCE_DATE_EPOCH`` when set, so a tagged build is reproducible.
 
@@ -989,7 +1075,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument("--format", choices=["epub", "pdf"])
+    parser.add_argument("--format", choices=["epub", "pdf", "cover"])
     parser.add_argument(
         "--docs-dir",
         type=Path,
@@ -1000,8 +1086,8 @@ def main(argv: list[str] | None = None) -> int:
         "--out",
         type=Path,
         default=None,
-        help="Output path (default: build/handbook.epub or "
-        "build/handbook-interior.pdf, gitignored).",
+        help="Output path (default: build/handbook.epub, "
+        "build/handbook-interior.pdf or build/handbook-cover.pdf, gitignored).",
     )
     parser.add_argument(
         "--details",
@@ -1047,6 +1133,13 @@ def main(argv: list[str] | None = None) -> int:
             args.docs_dir, out, args.details, args.final, figures_dir=figures_dir
         )
         print(f"wrote {out} ({pages} pages)")
+        return 0
+    if args.format == "cover":
+        out = args.out or repo_root / "build" / "handbook-cover.pdf"
+        out, pages = build_cover(
+            args.docs_dir, out, args.details, args.final, figures_dir=figures_dir
+        )
+        print(f"wrote {out} (sized for {pages} pages)")
         return 0
     out = args.out or repo_root / "build" / "handbook.epub"
     build_epub(args.docs_dir, out, _build_date(), figures_dir=figures_dir)
