@@ -1031,3 +1031,14 @@ def epub_width_em(svg: str) -> float:
     """
     width, _ = viewbox(svg)
     return width * PT_PER_UNIT / BODY_PT
+
+
+def print_width_pt(svg: str) -> float:
+    """The figure's printed width in points, at the one scale.
+
+    The viewBox width times `PT_PER_UNIT`: the paperback places the figure at
+    exactly this width, which `epub_width_em` expresses relative to the body
+    font instead.
+    """
+    width, _ = viewbox(svg)
+    return width * PT_PER_UNIT

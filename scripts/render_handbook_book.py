@@ -50,11 +50,13 @@ import tempfile
 import uuid
 from html import escape as html_escape
 from pathlib import Path
+from typing import Literal
 
 from book_figures import (
     clean_seed_svg,
     embed_fonts,
     epub_width_em,
+    print_width_pt,
     source_hash,
     stamp_hash,
 )
@@ -84,6 +86,11 @@ RIGHTS = (
 # the heading keeps its id, so every citation still lands on it.
 BOOK_PART_TITLES = {"README": "Introduction"}
 _H1_RE = re.compile(r"(<h1\b[^>]*>).*?(</h1>)", re.S)
+
+# Which book a document is built for. The two differ only in how a figure is
+# sized (`figure_markup`) and whether a checklist carries an id
+# (`restore_task_boxes`); everything else is the same document.
+Target = Literal["epub", "print"]
 
 # The faces the book is set in, each a committed, unmodified file under
 # `FONTS_ROOT` that pandoc embeds (`epub_command`) and `font_face_css` declares:
@@ -262,8 +269,10 @@ def require_h1_first(
             )
 
 
-def figure_markup(stem: str, block: DiagramBlock, width_em: float) -> str:
-    """A diagram as a captioned ``<img>`` of its media SVG, ``width_em`` wide.
+def figure_markup(
+    stem: str, block: DiagramBlock, width: float, target: Target = "epub"
+) -> str:
+    """A diagram as a captioned ``<img>`` of its media SVG, ``width`` wide.
 
     The title is the image's ``alt`` and its caption, escaped both times: a
     title such as ``A & <b>`` would otherwise reach pandoc as markup. The
@@ -271,13 +280,21 @@ def figure_markup(stem: str, block: DiagramBlock, width_em: float) -> str:
     text when a reader changes the font size, and ``max-width: 100%`` stops
     it overflowing a screen narrower than that. `EPUB_CSS` caps its height
     the same way, below a page's, so the caption always fits under it.
+
+    For ``print`` the width is in points and goes in a ``width`` attribute,
+    which pandoc's Typst writer carries as the image's width; it reads no
+    ``style``.
     """
     alt = html_escape(block.title, quote=True)
     caption = html_escape(block.title, quote=False)
+    size = (
+        f'width="{width:.2f}pt"'
+        if target == "print"
+        else f'style="width: {width:.2f}em; max-width: 100%"'
+    )
     return (
         "<figure>"
-        f'<img src="media/{stem}-{block.index}.svg" alt="{alt}"'
-        f' style="width: {width_em:.2f}em; max-width: 100%">'
+        f'<img src="media/{stem}-{block.index}.svg" alt="{alt}" {size}>'
         f"<figcaption>{caption}</figcaption>"
         "</figure>"
     )
@@ -303,7 +320,7 @@ _INNER_UL_RE = re.compile(r"<ul>(?:(?!</?ul\b).)*?</ul>", re.S)
 _LI_RE = re.compile(r"<li\b[^>]*>")
 
 
-def restore_task_boxes(html: str) -> str:
+def restore_task_boxes(html: str, numbered: bool = False) -> str:
     """Turn the page's task-list markup into a literal box glyph.
 
     `render_handbook_artifact.mark_task_items` strips a checklist item's
@@ -328,12 +345,20 @@ def restore_task_boxes(html: str) -> str:
     draws it with the box in place of the bullet. No space follows the box,
     because justification would stretch it differently on every line; the
     stylesheet gives the box a fixed width instead.
+
+    With ``numbered``, each wrapper also carries ``id="checklist-<n>"``,
+    counting from 1: pandoc's Typst writer drops a div's class but keeps its
+    id as a label, which is how the print template finds a checklist.
     """
+    count = 0
 
     def wrap(match: re.Match[str]) -> str:
+        nonlocal count
         items = _LI_RE.findall(match.group(0))
         if items and all(_TASK_ITEM_RE.fullmatch(item) for item in items):
-            return f'<div class="checklist">{match.group(0)}</div>'
+            count += 1
+            label = f' id="checklist-{count}"' if numbered else ""
+            return f'<div class="checklist"{label}>{match.group(0)}</div>'
         return match.group(0)
 
     def repl(match: re.Match[str]) -> str:
@@ -386,7 +411,9 @@ def retitle_part(html: str, title: str) -> str:
 
 
 def book_html(
-    assembled: list[AssembledPart], figures: dict[str, dict[int, str]]
+    assembled: list[AssembledPart],
+    figures: dict[str, dict[int, str]],
+    target: Target = "epub",
 ) -> str:
     """Join the parts into one document, with each diagram as its figure.
 
@@ -395,6 +422,7 @@ def book_html(
     Args:
         assembled: The parts, as `assemble` returns them.
         figures: Each diagram's figure markup, by part stem and block index.
+        target: ``print`` numbers each checklist (`restore_task_boxes`).
 
     Raises:
         ValueError: A placeholder has no figure in `figures`.
@@ -412,11 +440,13 @@ def book_html(
         html = _DIAGRAM_PLACEHOLDER_RE.sub(repl, part.html)
         if part.stem in BOOK_PART_TITLES:
             html = retitle_part(html, BOOK_PART_TITLES[part.stem])
-        bodies.append(restore_task_boxes(omit_from_book(html)))
+        bodies.append(omit_from_book(html))
+    # Over the joined parts, so a print checklist's number is unique in the book.
+    body = restore_task_boxes("\n".join(bodies), numbered=target == "print")
     return (
         '<!DOCTYPE html>\n<html lang="en">\n<head>\n'
         f'<meta charset="utf-8">\n<title>{TITLE}</title>\n</head>\n<body>\n'
-        + "\n".join(bodies)
+        + body
         + "\n</body>\n</html>\n"
     )
 
@@ -690,13 +720,19 @@ def seed_figures(
 
 
 def write_figures(
-    assembled: list[AssembledPart], figures_dir: Path, media: Path
+    assembled: list[AssembledPart],
+    figures_dir: Path,
+    media: Path,
+    target: Target = "epub",
 ) -> tuple[dict[str, dict[int, str]], list[str]]:
-    """Write each diagram's EPUB copy into `media` and build its figure markup.
+    """Write each diagram's copy into `media` and build its figure markup.
 
-    Each figure comes from `load_figure`; its copy, transparent like the
-    committed file and carrying the faces its text uses (`embed_fonts`), is
-    written as ``media/<stem>-<index>.svg``. For every fence with no
+    Each figure comes from `load_figure`; its copy is written as
+    ``media/<stem>-<index>.svg``. The EPUB's copy, transparent like the
+    committed file, carries the faces its text uses (`embed_fonts`). The
+    print copy is the figure as it stands: Typst reads no font embedded in
+    an SVG, so embedding would only add bytes, and it is placed at
+    `print_width_pt` rather than `epub_width_em`. For every fence with no
     committed figure, one line goes to stderr, exactly
     ``NOTE: <stem>-<index> has no committed figure; the book uses its seed``,
     which the release workflow (#192) turns into a failure.
@@ -718,14 +754,38 @@ def write_figures(
                     "the book uses its seed",
                     file=sys.stderr,
                 )
-            (media / f"{figure_id}.svg").write_text(
-                embed_fonts(svg, FONT_DIR),
-                encoding="utf-8",
-            )
+            if target == "print":
+                copy, width = svg, print_width_pt(svg)
+            else:
+                copy, width = embed_fonts(svg, FONT_DIR), epub_width_em(svg)
+            (media / f"{figure_id}.svg").write_text(copy, encoding="utf-8")
             figures.setdefault(part.stem, {})[block.index] = figure_markup(
-                part.stem, block, epub_width_em(svg)
+                part.stem, block, width, target
             )
     return figures, seeded_ids
+
+
+def book_document(
+    docs_dir: Path,
+    parts: list[tuple[str, str, str]],
+    figures_dir: Path,
+    media: Path,
+    target: Target,
+) -> str:
+    """The one book document both formats hand pandoc, its figures in `media`.
+
+    Renders every part once with `render_parts` and shares that one render
+    across `require_h1_first`, `first_heading_ids` and `assemble`, rather
+    than each converting every part's Markdown on its own. Each diagram's
+    copy goes to `media` (`write_figures`), and the document then takes the
+    book's HTML passes: `curl_quotes`, then `glue_part_numbers`.
+    """
+    rendered = render_parts(docs_dir, parts)
+    require_h1_first(rendered, parts)
+    linkmap = book_linkmap(parts, first_heading_ids(rendered, parts))
+    assembled = assemble(docs_dir, parts, linkmap, rendered=rendered)
+    figures, _ = write_figures(assembled, figures_dir, media, target)
+    return glue_part_numbers(curl_quotes(book_html(assembled, figures, target)))
 
 
 def build_epub(
@@ -737,11 +797,8 @@ def build_epub(
 ) -> Path:
     """Write the EPUB for ``docs_dir`` to ``out`` and return ``out``.
 
-    Renders every part once with `render_parts` and shares that one render
-    across `require_h1_first`, `first_heading_ids` and `assemble`, rather
-    than each converting every part's Markdown on its own.
-
-    Each diagram's figure is read from `figures_dir` (default
+    The document is `book_document`'s for the ``epub`` target. Each
+    diagram's figure is read from `figures_dir` (default
     ``docs_dir / "figures"``) by `write_figures`, which falls back to its
     seed with a NOTE on stderr and writes its EPUB copy, transparent and
     carrying the faces its text uses, to the work directory's
@@ -749,17 +806,12 @@ def build_epub(
     """
     if figures_dir is None:
         figures_dir = docs_dir / "figures"
-    rendered = render_parts(docs_dir, parts)
-    require_h1_first(rendered, parts)
-    linkmap = book_linkmap(parts, first_heading_ids(rendered, parts))
-    assembled = assemble(docs_dir, parts, linkmap, rendered=rendered)
     out.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as tmp:
         work = Path(tmp)
         media = work / "media"
         media.mkdir()
-        figures, _ = write_figures(assembled, figures_dir, media)
-        html = glue_part_numbers(curl_quotes(book_html(assembled, figures)))
+        html = book_document(docs_dir, parts, figures_dir, media, "epub")
         (work / "book.html").write_text(html, encoding="utf-8")
         (work / "metadata.yaml").write_text(book_metadata(date), encoding="utf-8")
         (work / "epub.css").write_text(EPUB_CSS, encoding="utf-8")
