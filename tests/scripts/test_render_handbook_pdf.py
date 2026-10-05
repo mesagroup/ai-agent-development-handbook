@@ -269,3 +269,19 @@ def test_a_gutter_too_narrow_for_the_page_count_leaves_no_pdf(tmp_path, monkeypa
     with pytest.raises(SystemExit, match="inside margin"):
         rb.build_pdf(DOCS, out, details, final=False)
     assert not out.exists()
+
+
+@needs_print_tools
+def test_the_contents_give_each_part_the_page_number_it_prints(built_pdf):
+    pdf, pages, _ = built_pdf
+    title = (DOCS / "lifecycle.md").read_text().splitlines()[0].lstrip("# ")
+    for page in range(1, pages + 1):
+        lines = [x for x in _pdf_text(pdf, page).splitlines() if x.strip()]
+        if lines and lines[0] == title:
+            printed = lines[-1].strip()
+            break
+    else:
+        pytest.fail(f"no page opens with {title!r}")
+    contents = " ".join(_pdf_text(pdf, 1, 6).split())
+    listed = re.search(re.escape(title) + r"[ .]*\W*(\d+)", contents)
+    assert listed and listed.group(1) == printed

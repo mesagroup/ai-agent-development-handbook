@@ -14,7 +14,8 @@
 # isbn = ""
 
 # The front cover's art, a path from the repository root (#191). Without it
-# the front cover is typographic.
+# the front cover is typographic. The art fills the front panel to the bleed
+# and nothing is set over it, so it must carry the title and author itself.
 # cover_art = ""
 
 # The back cover's text (#191).
