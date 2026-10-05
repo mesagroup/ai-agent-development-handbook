@@ -1,41 +1,54 @@
-"""Build the handbook as a book: an EPUB now, the paperback later (#195).
+"""Build the handbook as a book: the EPUB, and the paperback's interior and cover.
 
 The page renderer's first pass, `assemble`, produces each part's HTML with
 the heading ids and in-page links the rendered page carries. This module
-joins those parts into one HTML document and hands it to pandoc, so the
-book's ids are the page's by construction and every citation a report
-emits lands on the same heading in both. Each diagram is a captioned figure
-(`figure_markup`): its committed SVG under ``docs/engineering/figures/``, or,
-where none is committed yet, its seed, with a NOTE on stderr naming the
-fence (`load_figure`, `write_figures`). The EPUB's copy of each stays
-transparent, carries the subset faces its text uses, and is placed at the
-one scale through an em width (`book_figures`). A checklist item carries a ☐/☒ glyph
-(`restore_task_boxes`) so it reads as a box rather than a plain bullet.
-A list item marked `BOOK_OMIT_MARKER` in the source is left out of the
-book (`omit_from_book`). Prose quotes are curled to typographic ones and inline code is left
-untouched (`curl_quotes`) before the document ever reaches pandoc, and
-"Part" is kept on the line of its number (`glue_part_numbers`).
-The text is set in the committed faces `EPUB_FACES` names, which pandoc
-embeds and `font_face_css` declares.
+joins those parts into one HTML document (`book_document`) and hands it to
+pandoc, so the book's ids are the page's by construction and every citation
+a report emits lands on the same heading in each format. Each diagram is a
+captioned figure (`figure_markup`): its committed SVG under
+``docs/engineering/figures/``, or, where none is committed yet, its seed,
+with a NOTE on stderr naming the fence (`load_figure`, `write_figures`).
+Every copy stays transparent and is placed at the one scale
+(`book_figures`): the EPUB's through an em width, carrying the subset faces
+its text uses, the paperback's through a width in points. A checklist item
+carries a ☐/☒ glyph (`restore_task_boxes`) so it reads as a box rather than
+a plain bullet. A list item marked `BOOK_OMIT_MARKER` in the source is left
+out of the book (`omit_from_book`). Prose quotes are curled to typographic
+ones and inline code is left untouched (`curl_quotes`) before the document
+ever reaches pandoc, and "Part" is kept on the line of its number
+(`glue_part_numbers`). The EPUB is set in the committed faces `EPUB_FACES`
+names, which pandoc embeds and `font_face_css` declares.
+
+The paperback (`build_pdf`, `build_cover`) takes the same document through
+pandoc's Typst writer into the committed template ``book_interior.typ``,
+set in the committed faces under `FONTS_ROOT` and nothing else, and sizes
+the cover (``book_cover.typ``) from the interior's page count with KDP's
+numbers (`kdp_print`). The details not decided yet come from
+``docs/book/publication.toml`` (`book_publication`) and print as
+placeholders until set; ``--final`` refuses to build while any is unset.
 
 Usage::
 
     uv run python scripts/render_handbook_book.py --format epub
     uv run python scripts/render_handbook_book.py --format epub --out /tmp/handbook.epub
+    uv run python scripts/render_handbook_book.py --format pdf
+    uv run python scripts/render_handbook_book.py --format cover
+    uv run python scripts/render_handbook_book.py --format pdf --final
     uv run python scripts/render_handbook_book.py --seed-figures
 
-Needs the pandoc CLI (``brew install pandoc``) for ``--format epub``, and
-the d2 CLI for ``--seed-figures`` and for ``--format epub`` whenever a d2
-diagram has no committed figure, since the build then draws its seed. Only
-`run_tool` and `seed_svg` (through `run_d2`) spawn a process themselves,
-which `load_figure`, `seed_figures` and `write_figures` reach through
-`seed_svg` where a d2 fence has no committed figure, and which `build_epub`
-also reaches directly, calling `run_tool` itself to run pandoc; only
-`seed_figures`, `write_figures` and `build_epub` write a file, and `main`
-calls `seed_figures` or `build_epub`, whichever the CLI selected, `build_epub`
-calling `write_figures`. Every other function spawns no process and writes
-no file. All of it is unit-tested in
-``tests/scripts/test_render_handbook_book.py``.
+Needs the pandoc CLI (``brew install pandoc``) for every ``--format``, the
+Typst CLI (``brew install typst``) for ``pdf`` and ``cover``, and the d2 CLI
+for ``--seed-figures`` and for any build whenever a d2 diagram has no
+committed figure, since the build then draws its seed. Only `run_tool` and
+`seed_svg` (through `run_d2`) spawn a process themselves; `build_epub`,
+`build_pdf` and `build_cover` call `run_tool` for pandoc and Typst, and
+`write_figures` reaches `seed_svg` where a d2 fence has no committed
+figure. Only `seed_figures`, `write_figures` and the three builders write a
+file, and `main` calls whichever the CLI selected. Every other function
+spawns no process and writes no file. The EPUB is tested in
+``tests/scripts/test_render_handbook_book.py``, the interior in
+``test_render_handbook_pdf.py`` and the cover in
+``test_render_handbook_cover.py``.
 """
 
 from __future__ import annotations
@@ -44,20 +57,31 @@ import argparse
 import datetime
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
 import uuid
 from html import escape as html_escape
 from pathlib import Path
+from typing import Literal
 
+import kdp_print
 from book_figures import (
     clean_seed_svg,
     embed_fonts,
     epub_width_em,
+    print_width_pt,
     source_hash,
     stamp_hash,
 )
+from book_publication import (
+    PublicationDetails,
+    load_details,
+    require_resolved,
+    typst_inputs,
+)
+from kdp_print import Paper, gutter_minimum
 from render_handbook_artifact import (
     _DIAGRAM_PLACEHOLDER_RE,
     PARTS,
@@ -84,6 +108,11 @@ RIGHTS = (
 # the heading keeps its id, so every citation still lands on it.
 BOOK_PART_TITLES = {"README": "Introduction"}
 _H1_RE = re.compile(r"(<h1\b[^>]*>).*?(</h1>)", re.S)
+
+# Which book a document is built for. The two differ only in how a figure is
+# sized (`figure_markup`) and whether a checklist carries an id
+# (`restore_task_boxes`); everything else is the same document.
+Target = Literal["epub", "print"]
 
 # The faces the book is set in, each a committed, unmodified file under
 # `FONTS_ROOT` that pandoc embeds (`epub_command`) and `font_face_css` declares:
@@ -262,8 +291,10 @@ def require_h1_first(
             )
 
 
-def figure_markup(stem: str, block: DiagramBlock, width_em: float) -> str:
-    """A diagram as a captioned ``<img>`` of its media SVG, ``width_em`` wide.
+def figure_markup(
+    stem: str, block: DiagramBlock, width: float, target: Target = "epub"
+) -> str:
+    """A diagram as a captioned ``<img>`` of its media SVG, ``width`` wide.
 
     The title is the image's ``alt`` and its caption, escaped both times: a
     title such as ``A & <b>`` would otherwise reach pandoc as markup. The
@@ -271,13 +302,21 @@ def figure_markup(stem: str, block: DiagramBlock, width_em: float) -> str:
     text when a reader changes the font size, and ``max-width: 100%`` stops
     it overflowing a screen narrower than that. `EPUB_CSS` caps its height
     the same way, below a page's, so the caption always fits under it.
+
+    For ``print`` the width is in points and goes in a ``width`` attribute,
+    which pandoc's Typst writer carries as the image's width; it reads no
+    ``style``.
     """
     alt = html_escape(block.title, quote=True)
     caption = html_escape(block.title, quote=False)
+    size = (
+        f'width="{width:.2f}pt"'
+        if target == "print"
+        else f'style="width: {width:.2f}em; max-width: 100%"'
+    )
     return (
         "<figure>"
-        f'<img src="media/{stem}-{block.index}.svg" alt="{alt}"'
-        f' style="width: {width_em:.2f}em; max-width: 100%">'
+        f'<img src="media/{stem}-{block.index}.svg" alt="{alt}" {size}>'
         f"<figcaption>{caption}</figcaption>"
         "</figure>"
     )
@@ -303,7 +342,7 @@ _INNER_UL_RE = re.compile(r"<ul>(?:(?!</?ul\b).)*?</ul>", re.S)
 _LI_RE = re.compile(r"<li\b[^>]*>")
 
 
-def restore_task_boxes(html: str) -> str:
+def restore_task_boxes(html: str, numbered: bool = False) -> str:
     """Turn the page's task-list markup into a literal box glyph.
 
     `render_handbook_artifact.mark_task_items` strips a checklist item's
@@ -328,12 +367,20 @@ def restore_task_boxes(html: str) -> str:
     draws it with the box in place of the bullet. No space follows the box,
     because justification would stretch it differently on every line; the
     stylesheet gives the box a fixed width instead.
+
+    With ``numbered``, each wrapper also carries ``id="checklist-<n>"``,
+    counting from 1: pandoc's Typst writer drops a div's class but keeps its
+    id as a label, which is how the print template finds a checklist.
     """
+    count = 0
 
     def wrap(match: re.Match[str]) -> str:
+        nonlocal count
         items = _LI_RE.findall(match.group(0))
         if items and all(_TASK_ITEM_RE.fullmatch(item) for item in items):
-            return f'<div class="checklist">{match.group(0)}</div>'
+            count += 1
+            label = f' id="checklist-{count}"' if numbered else ""
+            return f'<div class="checklist"{label}>{match.group(0)}</div>'
         return match.group(0)
 
     def repl(match: re.Match[str]) -> str:
@@ -386,7 +433,9 @@ def retitle_part(html: str, title: str) -> str:
 
 
 def book_html(
-    assembled: list[AssembledPart], figures: dict[str, dict[int, str]]
+    assembled: list[AssembledPart],
+    figures: dict[str, dict[int, str]],
+    target: Target = "epub",
 ) -> str:
     """Join the parts into one document, with each diagram as its figure.
 
@@ -395,6 +444,7 @@ def book_html(
     Args:
         assembled: The parts, as `assemble` returns them.
         figures: Each diagram's figure markup, by part stem and block index.
+        target: ``print`` numbers each checklist (`restore_task_boxes`).
 
     Raises:
         ValueError: A placeholder has no figure in `figures`.
@@ -412,11 +462,13 @@ def book_html(
         html = _DIAGRAM_PLACEHOLDER_RE.sub(repl, part.html)
         if part.stem in BOOK_PART_TITLES:
             html = retitle_part(html, BOOK_PART_TITLES[part.stem])
-        bodies.append(restore_task_boxes(omit_from_book(html)))
+        bodies.append(omit_from_book(html))
+    # Over the joined parts, so a print checklist's number is unique in the book.
+    body = restore_task_boxes("\n".join(bodies), numbered=target == "print")
     return (
         '<!DOCTYPE html>\n<html lang="en">\n<head>\n'
         f'<meta charset="utf-8">\n<title>{TITLE}</title>\n</head>\n<body>\n'
-        + "\n".join(bodies)
+        + body
         + "\n</body>\n</html>\n"
     )
 
@@ -596,8 +648,11 @@ _PANDOC_HINT = (
 )
 
 
-def run_tool(cmd: list[str], timeout: float, install_hint: str) -> None:
+def run_tool(cmd: list[str], timeout: float, install_hint: str) -> str:
     """Run one external tool, bounded, and turn every failure into a message.
+
+    Returns:
+        The tool's standard output.
 
     Raises:
         SystemExit: The tool is absent, did not finish within ``timeout``
@@ -619,6 +674,7 @@ def run_tool(cmd: list[str], timeout: float, install_hint: str) -> None:
         raise SystemExit(
             f"{cmd[0]} failed (exit {proc.returncode}):\n{proc.stderr.strip()}"
         )
+    return proc.stdout
 
 
 def figure_path(figures_dir: Path, stem: str, index: int) -> Path:
@@ -690,13 +746,19 @@ def seed_figures(
 
 
 def write_figures(
-    assembled: list[AssembledPart], figures_dir: Path, media: Path
+    assembled: list[AssembledPart],
+    figures_dir: Path,
+    media: Path,
+    target: Target = "epub",
 ) -> tuple[dict[str, dict[int, str]], list[str]]:
-    """Write each diagram's EPUB copy into `media` and build its figure markup.
+    """Write each diagram's copy into `media` and build its figure markup.
 
-    Each figure comes from `load_figure`; its copy, transparent like the
-    committed file and carrying the faces its text uses (`embed_fonts`), is
-    written as ``media/<stem>-<index>.svg``. For every fence with no
+    Each figure comes from `load_figure`; its copy is written as
+    ``media/<stem>-<index>.svg``. The EPUB's copy, transparent like the
+    committed file, carries the faces its text uses (`embed_fonts`). The
+    print copy is the figure as it stands: Typst reads no font embedded in
+    an SVG, so embedding would only add bytes, and it is placed at
+    `print_width_pt` rather than `epub_width_em`. For every fence with no
     committed figure, one line goes to stderr, exactly
     ``NOTE: <stem>-<index> has no committed figure; the book uses its seed``,
     which the release workflow (#192) turns into a failure.
@@ -718,14 +780,38 @@ def write_figures(
                     "the book uses its seed",
                     file=sys.stderr,
                 )
-            (media / f"{figure_id}.svg").write_text(
-                embed_fonts(svg, FONT_DIR),
-                encoding="utf-8",
-            )
+            if target == "print":
+                copy, width = svg, print_width_pt(svg)
+            else:
+                copy, width = embed_fonts(svg, FONT_DIR), epub_width_em(svg)
+            (media / f"{figure_id}.svg").write_text(copy, encoding="utf-8")
             figures.setdefault(part.stem, {})[block.index] = figure_markup(
-                part.stem, block, epub_width_em(svg)
+                part.stem, block, width, target
             )
     return figures, seeded_ids
+
+
+def book_document(
+    docs_dir: Path,
+    parts: list[tuple[str, str, str]],
+    figures_dir: Path,
+    media: Path,
+    target: Target,
+) -> str:
+    """The one book document both formats hand pandoc, its figures in `media`.
+
+    Renders every part once with `render_parts` and shares that one render
+    across `require_h1_first`, `first_heading_ids` and `assemble`, rather
+    than each converting every part's Markdown on its own. Each diagram's
+    copy goes to `media` (`write_figures`), and the document then takes the
+    book's HTML passes: `curl_quotes`, then `glue_part_numbers`.
+    """
+    rendered = render_parts(docs_dir, parts)
+    require_h1_first(rendered, parts)
+    linkmap = book_linkmap(parts, first_heading_ids(rendered, parts))
+    assembled = assemble(docs_dir, parts, linkmap, rendered=rendered)
+    figures, _ = write_figures(assembled, figures_dir, media, target)
+    return glue_part_numbers(curl_quotes(book_html(assembled, figures, target)))
 
 
 def build_epub(
@@ -737,11 +823,8 @@ def build_epub(
 ) -> Path:
     """Write the EPUB for ``docs_dir`` to ``out`` and return ``out``.
 
-    Renders every part once with `render_parts` and shares that one render
-    across `require_h1_first`, `first_heading_ids` and `assemble`, rather
-    than each converting every part's Markdown on its own.
-
-    Each diagram's figure is read from `figures_dir` (default
+    The document is `book_document`'s for the ``epub`` target. Each
+    diagram's figure is read from `figures_dir` (default
     ``docs_dir / "figures"``) by `write_figures`, which falls back to its
     seed with a NOTE on stderr and writes its EPUB copy, transparent and
     carrying the faces its text uses, to the work directory's
@@ -749,17 +832,12 @@ def build_epub(
     """
     if figures_dir is None:
         figures_dir = docs_dir / "figures"
-    rendered = render_parts(docs_dir, parts)
-    require_h1_first(rendered, parts)
-    linkmap = book_linkmap(parts, first_heading_ids(rendered, parts))
-    assembled = assemble(docs_dir, parts, linkmap, rendered=rendered)
     out.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as tmp:
         work = Path(tmp)
         media = work / "media"
         media.mkdir()
-        figures, _ = write_figures(assembled, figures_dir, media)
-        html = glue_part_numbers(curl_quotes(book_html(assembled, figures)))
+        html = book_document(docs_dir, parts, figures_dir, media, "epub")
         (work / "book.html").write_text(html, encoding="utf-8")
         (work / "metadata.yaml").write_text(book_metadata(date), encoding="utf-8")
         (work / "epub.css").write_text(EPUB_CSS, encoding="utf-8")
@@ -773,6 +851,237 @@ def build_epub(
         )
         run_tool(cmd, _PANDOC_TIMEOUT_S, _PANDOC_HINT)
     return out
+
+
+# The paperback (#195): 5 x 8 in on cream paper. The margins leave exactly the
+# text block the figures are scaled to (`book_figures.TEXT_BLOCK_PT`), and
+# `book_interior.typ` states the same numbers; a test holds the two together.
+TRIM_IN = (5.0, 8.0)
+PAPER: Paper = "cream"
+INTERIOR_MARGINS_IN = {"inside": 0.75, "outside": 0.65, "top": 0.875, "bottom": 1.125}
+INTERIOR_TEMPLATE = Path(__file__).resolve().with_name("book_interior.typ")
+DETAILS_PATH = (
+    Path(__file__).resolve().parents[1] / "docs" / "book" / "publication.toml"
+)
+_TYPST_TIMEOUT_S = 300
+_TYPST_HINT = (
+    "Install it with `brew install typst`, or see https://typst.app/open-source/."
+)
+
+
+def typst_body_command(html_path: Path, out: Path) -> list[str]:
+    """The pandoc argv that writes the book document as a Typst body.
+
+    No ``--standalone``: pandoc writes only the body and none of its own
+    template, so `book_interior.typ` is the only page setup there is. Plain
+    ``html`` for the reason `epub_command` gives.
+    """
+    return ["pandoc", "-f", "html", "-t", "typst", "-o", str(out), str(html_path)]
+
+
+def interior_main(body_name: str) -> str:
+    """The Typst main file: the template applied to pandoc's body.
+
+    ``horizontalrule`` is imported by name because pandoc's body calls it
+    for an ``<hr>`` and an included file sees what the main file imported.
+    """
+    return (
+        '#import "book_interior.typ": interior, horizontalrule\n'
+        "#show: interior\n"
+        f'#include "{body_name}"\n'
+    )
+
+
+def _typst_args(inputs: dict[str, str]) -> list[str]:
+    """The font and input arguments every Typst call over the book takes.
+
+    ``--ignore-system-fonts`` makes a face missing from `FONTS_ROOT` fail
+    to resolve rather than come from whichever machine ran the build.
+    """
+    args = ["--font-path", str(FONTS_ROOT), "--ignore-system-fonts"]
+    for key, value in inputs.items():
+        args += ["--input", f"{key}={value}"]
+    return args
+
+
+def typst_compile_command(main: Path, out: Path, inputs: dict[str, str]) -> list[str]:
+    """The Typst argv that compiles ``main`` to the PDF ``out``."""
+    return ["typst", "compile", *_typst_args(inputs), str(main), str(out)]
+
+
+def typst_page_count_command(main: Path, inputs: dict[str, str]) -> list[str]:
+    """The Typst argv that prints the template's ``<page-count>`` marker.
+
+    The marker holds the physical number of the last page, front matter
+    included, which is the count KDP sizes the spine and the gutter from.
+    """
+    return [
+        "typst", "eval", *_typst_args(inputs),
+        "query(<page-count>).first().value",
+        "--in", str(main),
+    ]  # fmt: skip
+
+
+def build_pdf(
+    docs_dir: Path,
+    out: Path,
+    details_path: Path,
+    final: bool,
+    parts: list[tuple[str, str, str]] = PARTS,
+    figures_dir: Path | None = None,
+    work_dir: Path | None = None,
+) -> tuple[Path, int]:
+    """Write the paperback interior for ``docs_dir`` to ``out``.
+
+    The document is `book_document`'s for the ``print`` target, written as a
+    Typst body by pandoc and compiled under `book_interior.typ`, with the
+    publication details from ``details_path`` as inputs (`typst_inputs`).
+    ``work_dir``, when given, keeps the intermediate files there.
+
+    Returns:
+        ``out`` and the interior's page count.
+
+    Raises:
+        SystemExit: ``final`` and a detail is unset, checked before any tool
+            runs; a tool is missing or fails; or the page count needs a
+            wider gutter than `INTERIOR_MARGINS_IN` gives.
+    """
+    details = load_details(details_path)
+    if final:
+        require_resolved(details)
+    inputs = typst_inputs(details)
+    if figures_dir is None:
+        figures_dir = docs_dir / "figures"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory() as tmp:
+        work = work_dir or Path(tmp)
+        media = work / "media"
+        media.mkdir(parents=True, exist_ok=True)
+        html = book_document(docs_dir, parts, figures_dir, media, "print")
+        (work / "book.html").write_text(html, encoding="utf-8")
+        run_tool(
+            typst_body_command(work / "book.html", work / "body.typ"),
+            _PANDOC_TIMEOUT_S,
+            _PANDOC_HINT,
+        )
+        shutil.copyfile(INTERIOR_TEMPLATE, work / INTERIOR_TEMPLATE.name)
+        main = work / "main.typ"
+        main.write_text(interior_main("body.typ"), encoding="utf-8")
+        built = work / "interior.pdf"
+        run_tool(
+            typst_compile_command(main, built, inputs), _TYPST_TIMEOUT_S, _TYPST_HINT
+        )
+        pages = int(
+            run_tool(
+                typst_page_count_command(main, inputs), _TYPST_TIMEOUT_S, _TYPST_HINT
+            ).strip()
+        )
+        # Checked before the interior reaches ``out``, so a failing build
+        # leaves no PDF behind to be uploaded by mistake.
+        try:
+            gutter = gutter_minimum(pages)
+        except ValueError as exc:
+            raise SystemExit(str(exc)) from exc
+        if INTERIOR_MARGINS_IN["inside"] < gutter:
+            raise SystemExit(
+                f"{pages} pages need an inside margin of at least {gutter} in; "
+                f"INTERIOR_MARGINS_IN gives {INTERIOR_MARGINS_IN['inside']} in"
+            )
+        shutil.copyfile(built, out)
+    return out, pages
+
+
+COVER_TEMPLATE = Path(__file__).resolve().with_name("book_cover.typ")
+# The spine line: set at `SPINE_TEXT_PT` where the spine allows, smaller where
+# it does not, and left off below `SPINE_TEXT_MIN_PT`. Its height across the
+# spine is its size times `SPINE_LINE_RATIO` (Source Sans 3 bold, ascender to
+# descender, measured on the built cover).
+SPINE_TEXT_PT = 9.0
+SPINE_TEXT_MIN_PT = 6.0
+SPINE_LINE_RATIO = 1.35
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def cover_inputs(pages: int, details: PublicationDetails) -> dict[str, str]:
+    """Every value `book_cover.typ` reads, for a ``pages``-page interior.
+
+    Lengths are inches as decimal strings: the whole cover with its bleed
+    (`kdp_print.cover_dimensions`), the spine, the trim, and KDP's safe,
+    spine and barcode margins. ``spine-text`` follows
+    `kdp_print.spine_text_allowed` and on the line fitting between the fold
+    margins at `SPINE_TEXT_MIN_PT` or more; ``spine-text-size`` is the size
+    that fits, at most `SPINE_TEXT_PT`. ``cover-art`` is the art's file name,
+    since the build copies it beside the template, where Typst can read it;
+    empty when the front is typographic.
+    """
+    width, height = kdp_print.cover_dimensions(TRIM_IN, pages, PAPER)
+    lengths = {
+        "width": width,
+        "height": height,
+        "bleed": kdp_print.BLEED_IN,
+        "trim-width": TRIM_IN[0],
+        "trim-height": TRIM_IN[1],
+        "spine": kdp_print.spine_width(pages, PAPER),
+        "safe": kdp_print.COVER_SAFE_IN,
+        "spine-margin": kdp_print.SPINE_TEXT_MARGIN_IN,
+        "barcode-width": kdp_print.BARCODE_IN[0],
+        "barcode-height": kdp_print.BARCODE_IN[1],
+        "barcode-margin": kdp_print.BARCODE_MARGIN_IN,
+    }
+    inputs = typst_inputs(details)
+    inputs.update({key: f"{value:.6f}" for key, value in lengths.items()})
+    room_pt = (lengths["spine"] - 2 * kdp_print.SPINE_TEXT_MARGIN_IN) * 72
+    size = min(SPINE_TEXT_PT, room_pt / SPINE_LINE_RATIO)
+    fits = kdp_print.spine_text_allowed(pages) and size >= SPINE_TEXT_MIN_PT
+    inputs["spine-text"] = "true" if fits else "false"
+    inputs["spine-text-size"] = f"{size:.2f}"
+    inputs["cover-art"] = Path(details.cover_art).name if details.cover_art else ""
+    return inputs
+
+
+def build_cover(
+    docs_dir: Path,
+    out: Path,
+    details_path: Path,
+    final: bool,
+    parts: list[tuple[str, str, str]] = PARTS,
+    figures_dir: Path | None = None,
+) -> tuple[Path, int]:
+    """Write the wraparound cover for ``docs_dir``'s interior to ``out``.
+
+    Builds the interior first, in a temporary directory, to read its page
+    count, so the spine is never sized from a stale interior on disk.
+
+    Returns:
+        ``out`` and the interior's page count it was sized for.
+
+    Raises:
+        SystemExit: The cover art the details name does not exist, checked
+            before any tool runs, or anything `build_pdf` raises.
+    """
+    details = load_details(details_path)
+    art = REPO_ROOT / details.cover_art if details.cover_art else None
+    if art is not None and not art.is_file():
+        raise SystemExit(
+            f"{details_path}: cover_art {details.cover_art!r} does not exist"
+        )
+    with tempfile.TemporaryDirectory() as tmp:
+        work = Path(tmp)
+        _, pages = build_pdf(
+            docs_dir, work / "interior.pdf", details_path, final, parts, figures_dir
+        )
+        shutil.copyfile(COVER_TEMPLATE, work / COVER_TEMPLATE.name)
+        if art is not None:
+            shutil.copyfile(art, work / art.name)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        run_tool(
+            typst_compile_command(
+                work / COVER_TEMPLATE.name, out, cover_inputs(pages, details)
+            ),
+            _TYPST_TIMEOUT_S,
+            _TYPST_HINT,
+        )
+    return out, pages
 
 
 def _build_date() -> str:
@@ -799,7 +1108,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument("--format", choices=["epub"])
+    parser.add_argument("--format", choices=["epub", "pdf", "cover"])
     parser.add_argument(
         "--docs-dir",
         type=Path,
@@ -810,7 +1119,20 @@ def main(argv: list[str] | None = None) -> int:
         "--out",
         type=Path,
         default=None,
-        help="Output path (default: build/handbook.epub, gitignored).",
+        help="Output path (default: build/handbook.epub, "
+        "build/handbook-interior.pdf or build/handbook-cover.pdf, gitignored).",
+    )
+    parser.add_argument(
+        "--details",
+        type=Path,
+        default=DETAILS_PATH,
+        help="The paperback's publication details (default: "
+        "docs/book/publication.toml).",
+    )
+    parser.add_argument(
+        "--final",
+        action="store_true",
+        help="Refuse to build the paperback while any publication detail is unset.",
     )
     parser.add_argument(
         "--seed-figures",
@@ -837,6 +1159,20 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"wrote {path}")
         else:
             print("every diagram already has a figure")
+        return 0
+    if args.format == "pdf":
+        out = args.out or repo_root / "build" / "handbook-interior.pdf"
+        out, pages = build_pdf(
+            args.docs_dir, out, args.details, args.final, figures_dir=figures_dir
+        )
+        print(f"wrote {out} ({pages} pages)")
+        return 0
+    if args.format == "cover":
+        out = args.out or repo_root / "build" / "handbook-cover.pdf"
+        out, pages = build_cover(
+            args.docs_dir, out, args.details, args.final, figures_dir=figures_dir
+        )
+        print(f"wrote {out} (sized for {pages} pages)")
         return 0
     out = args.out or repo_root / "build" / "handbook.epub"
     build_epub(args.docs_dir, out, _build_date(), figures_dir=figures_dir)

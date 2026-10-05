@@ -363,6 +363,11 @@ def test_the_epub_width_keeps_the_one_scale():
     assert bf.epub_width_em(full) == pytest.approx(bf.TEXT_BLOCK_PT[0] / bf.BODY_PT)
 
 
+def test_the_print_width_places_the_widest_figure_at_the_text_width():
+    full = f'<svg viewBox="0 0 {bf.FULL_WIDTH_UNITS} 100"></svg>'
+    assert bf.print_width_pt(full) == pytest.approx(bf.TEXT_BLOCK_PT[0])
+
+
 def _text_svg(body: str) -> str:
     return f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1">{body}</svg>'
 

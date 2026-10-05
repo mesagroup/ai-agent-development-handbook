@@ -136,6 +136,30 @@ def test_figure_markup_escapes_the_title():
     assert "width: 12.50em" in html
 
 
+def test_a_print_figure_is_sized_in_points_for_pandocs_typst_writer():
+    block = DiagramBlock(index=0, kind="d2", title="T", source="")
+    html = rb.figure_markup("p", block, 200, target="print")
+    assert '<img src="media/p-0.svg" alt="T" width="200.00pt">' in html
+
+
+def test_a_print_checklist_carries_a_numbered_id():
+    html = '<ul><li class="task">a</li></ul><ul><li class="task done">b</li></ul>'
+    out = rb.restore_task_boxes(html, numbered=True)
+    assert '<div class="checklist" id="checklist-1">' in out
+    assert '<div class="checklist" id="checklist-2">' in out
+    assert 'id="checklist' not in rb.restore_task_boxes(html)
+
+
+def test_print_checklist_ids_are_unique_across_parts():
+    checklist = '<ul>\n<li class="task">a</li>\n</ul>'
+    parts = [
+        rh.AssembledPart(anchor=f"p{i}", stem=f"s{i}", html=checklist, blocks=[])
+        for i in (1, 2)
+    ]
+    html = rb.book_html(parts, {}, target="print")
+    assert 'id="checklist-1"' in html and 'id="checklist-2"' in html
+
+
 def test_a_committed_figure_is_used(tmp_path):
     block = DiagramBlock(index=0, kind="funnel", title="F", source="A 10\nB 1\n")
     (tmp_path / "e-0.svg").write_text("<svg/>")
@@ -678,6 +702,24 @@ def built_epub(tmp_path_factory) -> Path:
 def test_the_epub_carries_exactly_the_heading_ids_the_page_carries(built_epub: Path):
     part_anchors = {anchor for anchor, _, _ in rh.PARTS}
     assert _chapter_ids(built_epub) == rh.heading_ids(DOCS) - part_anchors
+
+
+def test_the_shared_book_document_takes_the_epub_builds_passes(tmp_path):
+    pytest.importorskip("markdown")
+    _skip_unless_the_build_can_draw_its_seeds()
+    media_a, media_b = tmp_path / "a", tmp_path / "b"
+    media_a.mkdir()
+    media_b.mkdir()
+    rendered = rh.render_parts(DOCS, rh.PARTS)
+    linkmap = rb.book_linkmap(rh.PARTS, rb.first_heading_ids(rendered, rh.PARTS))
+    assembled = rh.assemble(DOCS, rh.PARTS, linkmap, rendered=rendered)
+    figures, _ = rb.write_figures(assembled, DOCS / "figures", media_a)
+    before = rb.glue_part_numbers(rb.curl_quotes(rb.book_html(assembled, figures)))
+    document = rb.book_document(DOCS, rh.PARTS, DOCS / "figures", media_b, "epub")
+    assert document == before
+    assert sorted(p.name for p in media_b.iterdir()) == sorted(
+        p.name for p in media_a.iterdir()
+    )
 
 
 @needs_pandoc
