@@ -1,41 +1,54 @@
-"""Build the handbook as a book: an EPUB now, the paperback later (#195).
+"""Build the handbook as a book: the EPUB, and the paperback's interior and cover.
 
 The page renderer's first pass, `assemble`, produces each part's HTML with
 the heading ids and in-page links the rendered page carries. This module
-joins those parts into one HTML document and hands it to pandoc, so the
-book's ids are the page's by construction and every citation a report
-emits lands on the same heading in both. Each diagram is a captioned figure
-(`figure_markup`): its committed SVG under ``docs/engineering/figures/``, or,
-where none is committed yet, its seed, with a NOTE on stderr naming the
-fence (`load_figure`, `write_figures`). The EPUB's copy of each stays
-transparent, carries the subset faces its text uses, and is placed at the
-one scale through an em width (`book_figures`). A checklist item carries a ☐/☒ glyph
-(`restore_task_boxes`) so it reads as a box rather than a plain bullet.
-A list item marked `BOOK_OMIT_MARKER` in the source is left out of the
-book (`omit_from_book`). Prose quotes are curled to typographic ones and inline code is left
-untouched (`curl_quotes`) before the document ever reaches pandoc, and
-"Part" is kept on the line of its number (`glue_part_numbers`).
-The text is set in the committed faces `EPUB_FACES` names, which pandoc
-embeds and `font_face_css` declares.
+joins those parts into one HTML document (`book_document`) and hands it to
+pandoc, so the book's ids are the page's by construction and every citation
+a report emits lands on the same heading in each format. Each diagram is a
+captioned figure (`figure_markup`): its committed SVG under
+``docs/engineering/figures/``, or, where none is committed yet, its seed,
+with a NOTE on stderr naming the fence (`load_figure`, `write_figures`).
+Every copy stays transparent and is placed at the one scale
+(`book_figures`): the EPUB's through an em width, carrying the subset faces
+its text uses, the paperback's through a width in points. A checklist item
+carries a ☐/☒ glyph (`restore_task_boxes`) so it reads as a box rather than
+a plain bullet. A list item marked `BOOK_OMIT_MARKER` in the source is left
+out of the book (`omit_from_book`). Prose quotes are curled to typographic
+ones and inline code is left untouched (`curl_quotes`) before the document
+ever reaches pandoc, and "Part" is kept on the line of its number
+(`glue_part_numbers`). The EPUB is set in the committed faces `EPUB_FACES`
+names, which pandoc embeds and `font_face_css` declares.
+
+The paperback (`build_pdf`, `build_cover`) takes the same document through
+pandoc's Typst writer into the committed template ``book_interior.typ``,
+set in the committed faces under `FONTS_ROOT` and nothing else, and sizes
+the cover (``book_cover.typ``) from the interior's page count with KDP's
+numbers (`kdp_print`). The details not decided yet come from
+``docs/book/publication.toml`` (`book_publication`) and print as
+placeholders until set; ``--final`` refuses to build while any is unset.
 
 Usage::
 
     uv run python scripts/render_handbook_book.py --format epub
     uv run python scripts/render_handbook_book.py --format epub --out /tmp/handbook.epub
+    uv run python scripts/render_handbook_book.py --format pdf
+    uv run python scripts/render_handbook_book.py --format cover
+    uv run python scripts/render_handbook_book.py --format pdf --final
     uv run python scripts/render_handbook_book.py --seed-figures
 
-Needs the pandoc CLI (``brew install pandoc``) for ``--format epub``, and
-the d2 CLI for ``--seed-figures`` and for ``--format epub`` whenever a d2
-diagram has no committed figure, since the build then draws its seed. Only
-`run_tool` and `seed_svg` (through `run_d2`) spawn a process themselves,
-which `load_figure`, `seed_figures` and `write_figures` reach through
-`seed_svg` where a d2 fence has no committed figure, and which `build_epub`
-also reaches directly, calling `run_tool` itself to run pandoc; only
-`seed_figures`, `write_figures` and `build_epub` write a file, and `main`
-calls `seed_figures` or `build_epub`, whichever the CLI selected, `build_epub`
-calling `write_figures`. Every other function spawns no process and writes
-no file. All of it is unit-tested in
-``tests/scripts/test_render_handbook_book.py``.
+Needs the pandoc CLI (``brew install pandoc``) for every ``--format``, the
+Typst CLI (``brew install typst``) for ``pdf`` and ``cover``, and the d2 CLI
+for ``--seed-figures`` and for any build whenever a d2 diagram has no
+committed figure, since the build then draws its seed. Only `run_tool` and
+`seed_svg` (through `run_d2`) spawn a process themselves; `build_epub`,
+`build_pdf` and `build_cover` call `run_tool` for pandoc and Typst, and
+`write_figures` reaches `seed_svg` where a d2 fence has no committed
+figure. Only `seed_figures`, `write_figures` and the three builders write a
+file, and `main` calls whichever the CLI selected. Every other function
+spawns no process and writes no file. The EPUB is tested in
+``tests/scripts/test_render_handbook_book.py``, the interior in
+``test_render_handbook_pdf.py`` and the cover in
+``test_render_handbook_cover.py``.
 """
 
 from __future__ import annotations
