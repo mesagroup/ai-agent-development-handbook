@@ -1,0 +1,21 @@
+# The paperback's details that are not decided yet. Uncomment a line and fill
+# it in when it is; the print build prints a bracketed placeholder in place of
+# every field left out, and `render_handbook_book.py --final` refuses to build
+# while any is. Which issue settles each one is noted beside it.
+
+# Who holds the copyright: the owning organisation or the author (#188).
+# copyright_holder = ""
+
+# The year on the copyright line, normally the year of first publication.
+# copyright_year = ""
+
+# KDP's free ISBN, issued when the paperback title is created on KDP (#194).
+# Hyphens are allowed; the check digit is verified.
+# isbn = ""
+
+# The front cover's art, a path from the repository root (#191). Without it
+# the front cover is typographic.
+# cover_art = ""
+
+# The back cover's text (#191).
+# back_cover_text = ""
