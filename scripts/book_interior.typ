@@ -13,11 +13,15 @@
 #let author = "Janos Tolgyesi"
 
 // Half-title, its blank verso, the title page and the copyright page, then the
-// contents on a recto. None of them carries a page number. #191 owns the
+// contents on a recto; the text then opens on the next recto as page 1. None of them carries a page number. #191 owns the
 // wording of the title and copyright pages; these lines carry what #188
 // decided and a placeholder for what it has not.
 #let front-matter() = {
   set page(numbering: none, footer: none)
+  // Display lines are set whole: neither broken by hyphenation nor spread
+  // by the body's justification.
+  set text(hyphenate: false)
+  set par(justify: false)
   align(center + horizon, text(font: "Source Sans 3", weight: "bold", 14pt, title))
   pagebreak()
   pagebreak()
@@ -44,6 +48,9 @@
   }
   pagebreak(to: "odd")
   outline(title: "Contents", depth: 1)
+  // To the next recto: the verso this skips is filler and stays unnumbered,
+  // and the numbered page set rule below takes effect on that recto.
+  pagebreak(to: "odd")
 }
 
 #let interior(body) = {

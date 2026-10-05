@@ -37,18 +37,20 @@
       set par(justify: false)
       text(font: "Source Sans 3", weight: "bold", 24pt, title)
       v(1fr)
-      text(13pt, author)
+      // Measured to the descenders, so they stay inside the safe area too.
+      text(13pt, bottom-edge: "descender", author)
     }))
 }
 
 // Spine: the title and author, reading top to bottom, only where KDP allows
-// spine text, and clear of each fold by its margin.
+// spine text and the line fits between the fold margins, at the size
+// `cover_inputs` chose for it.
 #if input("spine-text") == "true" {
   let margin = inches("spine-margin")
   place(top + left, dx: spine-x + margin, dy: bleed + safe,
     block(width: spine - 2 * margin, height: height - 2 * (bleed + safe),
       align(center + horizon, rotate(90deg, reflow: true,
-        text(font: "Source Sans 3", weight: "bold", 9pt)[#title #h(1.5em) #text(weight: "regular", author)]))))
+        text(font: "Source Sans 3", weight: "bold", float(input("spine-text-size")) * 1pt)[#title #h(1.5em) #text(weight: "regular", author)]))))
 }
 
 // Back: the back-cover text inside the safe area.

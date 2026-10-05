@@ -967,24 +967,38 @@ def build_pdf(
         shutil.copyfile(INTERIOR_TEMPLATE, work / INTERIOR_TEMPLATE.name)
         main = work / "main.typ"
         main.write_text(interior_main("body.typ"), encoding="utf-8")
+        built = work / "interior.pdf"
         run_tool(
-            typst_compile_command(main, out, inputs), _TYPST_TIMEOUT_S, _TYPST_HINT
+            typst_compile_command(main, built, inputs), _TYPST_TIMEOUT_S, _TYPST_HINT
         )
         pages = int(
             run_tool(
                 typst_page_count_command(main, inputs), _TYPST_TIMEOUT_S, _TYPST_HINT
             ).strip()
         )
-    if INTERIOR_MARGINS_IN["inside"] < gutter_minimum(pages):
-        raise SystemExit(
-            f"{pages} pages need an inside margin of at least "
-            f"{gutter_minimum(pages)} in; INTERIOR_MARGINS_IN gives "
-            f"{INTERIOR_MARGINS_IN['inside']} in"
-        )
+        # Checked before the interior reaches ``out``, so a failing build
+        # leaves no PDF behind to be uploaded by mistake.
+        try:
+            gutter = gutter_minimum(pages)
+        except ValueError as exc:
+            raise SystemExit(str(exc)) from exc
+        if INTERIOR_MARGINS_IN["inside"] < gutter:
+            raise SystemExit(
+                f"{pages} pages need an inside margin of at least {gutter} in; "
+                f"INTERIOR_MARGINS_IN gives {INTERIOR_MARGINS_IN['inside']} in"
+            )
+        shutil.copyfile(built, out)
     return out, pages
 
 
 COVER_TEMPLATE = Path(__file__).resolve().with_name("book_cover.typ")
+# The spine line: set at `SPINE_TEXT_PT` where the spine allows, smaller where
+# it does not, and left off below `SPINE_TEXT_MIN_PT`. Its height across the
+# spine is its size times `SPINE_LINE_RATIO` (Source Sans 3 bold, ascender to
+# descender, measured on the built cover).
+SPINE_TEXT_PT = 9.0
+SPINE_TEXT_MIN_PT = 6.0
+SPINE_LINE_RATIO = 1.35
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -994,7 +1008,9 @@ def cover_inputs(pages: int, details: PublicationDetails) -> dict[str, str]:
     Lengths are inches as decimal strings: the whole cover with its bleed
     (`kdp_print.cover_dimensions`), the spine, the trim, and KDP's safe,
     spine and barcode margins. ``spine-text`` follows
-    `kdp_print.spine_text_allowed`. ``cover-art`` is the art's file name,
+    `kdp_print.spine_text_allowed` and on the line fitting between the fold
+    margins at `SPINE_TEXT_MIN_PT` or more; ``spine-text-size`` is the size
+    that fits, at most `SPINE_TEXT_PT`. ``cover-art`` is the art's file name,
     since the build copies it beside the template, where Typst can read it;
     empty when the front is typographic.
     """
@@ -1014,7 +1030,11 @@ def cover_inputs(pages: int, details: PublicationDetails) -> dict[str, str]:
     }
     inputs = typst_inputs(details)
     inputs.update({key: f"{value:.6f}" for key, value in lengths.items()})
-    inputs["spine-text"] = "true" if kdp_print.spine_text_allowed(pages) else "false"
+    room_pt = (lengths["spine"] - 2 * kdp_print.SPINE_TEXT_MARGIN_IN) * 72
+    size = min(SPINE_TEXT_PT, room_pt / SPINE_LINE_RATIO)
+    fits = kdp_print.spine_text_allowed(pages) and size >= SPINE_TEXT_MIN_PT
+    inputs["spine-text"] = "true" if fits else "false"
+    inputs["spine-text-size"] = f"{size:.2f}"
     inputs["cover-art"] = Path(details.cover_art).name if details.cover_art else ""
     return inputs
 

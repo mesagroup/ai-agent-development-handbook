@@ -133,8 +133,19 @@ def test_the_typst_body_carries_every_heading_id_as_a_label(built_pdf):
 @needs_print_tools
 def test_the_typst_body_carries_one_image_per_diagram_fence(built_pdf):
     _, _, work = built_pdf
-    fences = len(rb.part_blocks(DOCS))
-    assert (work / "body.typ").read_text().count("image(") == fences
+    blocks = rb.part_blocks(DOCS)
+    widths = dict(
+        re.findall(
+            r'image\("media/([^"]+)\.svg", width: ([\d.]+)pt',
+            (work / "body.typ").read_text(),
+        )
+    )
+    assert len(widths) == len(blocks)
+    for stem, block in blocks:
+        svg, _ = rb.load_figure(DOCS / "figures", stem, block)
+        assert float(widths[f"{stem}-{block.index}"]) == pytest.approx(
+            bf.print_width_pt(svg), abs=0.01
+        )
 
 
 @needs_print_tools
@@ -173,6 +184,7 @@ def test_every_font_is_embedded_and_committed(built_pdf):
         timeout=60,
     ).stdout.splitlines()[2:]
     committed = {p.stem for p in rb.FONTS_ROOT.glob("*/*.ttf")}
+    assert listing, "pdffonts listed no font, so this proves nothing"
     for row in listing:
         name, *_, emb, _sub, _uni, _obj, _gen = row.split()
         assert emb == "yes", row
@@ -215,3 +227,45 @@ def test_a_missing_typst_is_named_with_its_install_command(tmp_path, monkeypatch
     details.write_text("", encoding="utf-8")
     with pytest.raises(SystemExit, match=r"typst.*brew install typst"):
         rb.build_pdf(DOCS, tmp_path / "o.pdf", details, final=False)
+
+
+@needs_print_tools
+def test_the_introduction_is_page_one_on_a_recto(built_pdf):
+    pdf, pages, _ = built_pdf
+    for page in range(1, pages + 1):
+        lines = _pdf_text(pdf, page).strip().splitlines()
+        if lines and lines[0] == rb.BOOK_PART_TITLES["README"]:
+            assert page % 2 == 1
+            assert lines[-1].strip() == "1"
+            return
+    pytest.fail("no page opens with the Introduction")
+
+
+@needs_print_tools
+def test_the_title_page_never_hyphenates_the_title(built_pdf):
+    # Plain pdftotext output rejoins a hyphenated word; its word boxes do not.
+    if shutil.which("pdftotext") is None:
+        pytest.skip("pdftotext (poppler) not installed")
+    boxes = subprocess.run(
+        ["pdftotext", "-bbox", "-f", "1", "-l", "4", str(built_pdf[0]), "-"],
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=60,
+    ).stdout
+    words = re.findall(r"<word [^>]*>([^<]*)</word>", boxes)
+    assert "Handbook" in words
+    # Typst marks a break it made with a soft hyphen (U+00AD).
+    assert not [w for w in words if w.endswith(("-", "\u00ad", "\u2010"))]
+
+
+@needs_print_tools
+def test_a_gutter_too_narrow_for_the_page_count_leaves_no_pdf(tmp_path, monkeypatch):
+    pytest.importorskip("markdown")
+    monkeypatch.setitem(rb.INTERIOR_MARGINS_IN, "inside", 0.1)
+    details = tmp_path / "publication.toml"
+    details.write_text("", encoding="utf-8")
+    out = tmp_path / "interior.pdf"
+    with pytest.raises(SystemExit, match="inside margin"):
+        rb.build_pdf(DOCS, out, details, final=False)
+    assert not out.exists()

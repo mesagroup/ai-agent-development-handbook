@@ -14,6 +14,7 @@ import render_handbook_book as rb
 
 REPO = Path(__file__).resolve().parents[2]
 DOCS = REPO / "docs" / "engineering"
+BACK_TEXT = "Read #me [now] *gently* $x$ \\back"
 
 
 def test_cover_inputs_size_the_page_from_the_page_count():
@@ -31,6 +32,16 @@ def test_cover_inputs_size_the_page_from_the_page_count():
 
 def test_a_thin_book_has_no_spine_text():
     assert rb.cover_inputs(60, bp.PublicationDetails())["spine-text"] == "false"
+
+
+def test_spine_text_is_set_only_where_its_line_fits_between_the_fold_margins():
+    # 90 cream pages pass KDP's page minimum, but 0.225 in of spine less two
+    # 0.0625 in margins leaves 7.2 pt, too narrow for a legible line.
+    assert rb.cover_inputs(90, bp.PublicationDetails())["spine-text"] == "false"
+    roomy = rb.cover_inputs(125, bp.PublicationDetails())
+    assert roomy["spine-text"] == "true"
+    room_pt = (float(roomy["spine"]) - 2 * kp.SPINE_TEXT_MARGIN_IN) * 72
+    assert float(roomy["spine-text-size"]) * rb.SPINE_LINE_RATIO <= room_pt
 
 
 def test_cover_art_is_named_by_the_file_the_build_copies_beside_the_template():
@@ -58,7 +69,8 @@ def built_cover(tmp_path_factory) -> tuple[Path, int]:
         pytest.skip("pandoc and typst CLIs needed; CI gains them with #192")
     root = tmp_path_factory.mktemp("cover")
     details = root / "publication.toml"
-    details.write_text("", encoding="utf-8")
+    # A TOML literal string: the back cover's text carries Typst syntax.
+    details.write_text(f"back_cover_text = '{BACK_TEXT}'\n", encoding="utf-8")
     return rb.build_cover(DOCS, root / "nested" / "cover.pdf", details, final=False)
 
 
@@ -89,8 +101,27 @@ def test_the_cover_is_one_page_at_kdps_size_for_the_page_count(built_cover):
 def test_the_cover_prints_the_title_and_the_back_cover_placeholder(built_cover):
     text = " ".join(_poppler("pdftotext", built_cover[0]).split())
     assert "AI Agent Development Handbook" in text
-    assert bp.PLACEHOLDERS["back_cover_text"] in text
+    assert BACK_TEXT in text
     assert "[Barcode area]" in text
+
+
+@needs_print_tools
+def test_no_front_cover_text_reaches_into_the_safe_zone(built_cover):
+    pdf, pages = built_cover
+    width, height = kp.cover_dimensions(rb.TRIM_IN, pages, rb.PAPER)
+    fold = (kp.BLEED_IN + rb.TRIM_IN[0] + kp.spine_width(pages, rb.PAPER)) * 72
+    edge = (kp.BLEED_IN + kp.COVER_SAFE_IN) * 72
+    words = re.findall(
+        r'<word xMin="([\d.]+)" yMin="([\d.]+)" xMax="([\d.]+)" yMax="([\d.]+)">',
+        _poppler("pdftotext", pdf, "-bbox"),
+    )
+    front = [tuple(map(float, w)) for w in words if float(w[0]) >= fold]
+    assert front, "no word on the front cover, so this proves nothing"
+    for x_min, y_min, x_max, y_max in front:
+        assert x_min >= fold + kp.COVER_SAFE_IN * 72 - 0.5
+        assert x_max <= width * 72 - edge + 0.5
+        assert y_min >= edge - 0.5
+        assert y_max <= height * 72 - edge + 0.5
 
 
 @needs_print_tools
