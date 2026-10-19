@@ -67,7 +67,7 @@ routes:
       set is a subset of what it already prints.
   - lang: typescript
     kind: procedure
-    tool: "@cyclonedx/cdxgen"
+    tool: "@cdxgen/cdxgen"
     note: >-
       Read for the whole resolved graph rather than for the direct set. **Run
       it with `FETCH_LICENSE=true`**: licence resolution is off by default and

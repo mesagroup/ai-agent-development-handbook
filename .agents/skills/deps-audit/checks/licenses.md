@@ -75,7 +75,7 @@ routes:
       resolved graph off a read-only clone with no tree and no network. Run
       against a real npm target it populated the licence field for
       **944 of 945 components**, every copyleft entry among them, in about a
-      second. Prefer it there, and treat the `@cyclonedx/cdxgen` route
+      second. Prefer it there, and treat the `@cdxgen/cdxgen` route
       below as the fallback for the partitions it cannot serve.
   - lang: typescript
     kind: command
@@ -101,7 +101,7 @@ routes:
       `node_modules` present and answers nothing on a read-only clone.
   - lang: typescript
     kind: procedure
-    tool: "@cyclonedx/cdxgen"
+    tool: "@cdxgen/cdxgen"
     note: >-
       The fallback for the partitions the `npm sbom` route cannot serve: a
       registry package a one-shot runner can fetch, which reads

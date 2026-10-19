@@ -10,7 +10,12 @@ evidence: >-
   field on an SBOM those produce as a permissive or unlicensed finding. That
   is a claim about those three forms rather than about this record: the
   `npm sbom` route below does populate licences, and whether `cyclonedx-py environment`
-  does is measured nowhere in this repository. Licence *findings* are
+  does is measured nowhere in this repository. The `cdxgen` route below
+  populates them only from what it reads: on the seeded npm fixture all 78
+  of its components carried one, from `package-lock.json`; on a read-only
+  copy of the seeded pnpm fixture none of its 78 did, because
+  `pnpm-lock.yaml` records no licence; and with that workspace installed,
+  53 of the 78 did, read from `node_modules`. Licence *findings* are
   `deps/licenses`' and `deps/transitive-licenses`' to make, whatever produced
   the document.
 handbook: []
@@ -79,14 +84,43 @@ routes:
       `package-lock.json`, so it is not an option on a pnpm or yarn partition
       and this command already covers the case where it would apply.
   - lang: typescript
-    kind: procedure
-    tool: "@cyclonedx/cdxgen"
+    kind: command
+    tool: "@cdxgen/cdxgen"
+    argv: [cdxgen, "-t", js, "--no-install-deps", "-o", "-", .]
     note: >-
-      There is no equivalent subcommand for the other package managers, so
-      use `@cyclonedx/cdxgen`, which a one-shot runner can fetch and which
-      reads `package-lock.json`, `pnpm-lock.yaml` and `yarn.lock`. The record
-      names the tool and prescribes no command line, so there is no argv to
-      declare and a `kind: command` route would have to invent one.
+      The route for every partition `npm sbom` cannot serve: npm has the
+      lockfile-only subcommand above, which comes first on an npm partition
+      because it needs nothing fetched, and the other package managers have
+      none this record can prescribe. `pnpm sbom` exists only from pnpm 11,
+      and on a partition pinned below that it is not a command at all: on the
+      seeded pnpm fixture, pinned to 9.15.9, pnpm switches itself to the pin
+      and answers `Command "sbom" not found`. `@cdxgen/cdxgen` reads
+      `package-lock.json`, `pnpm-lock.yaml` and `yarn.lock`, whatever version
+      of the manager wrote them. The package is the one cdxgen's own README
+      names from v13 on. `@cyclonedx/cdxgen` is not a placeholder but the v12
+      line, which its maintainers still patch on a release branch and which
+      receives no v13 features, so a runner fetching it gets an older cdxgen
+      rather than nothing. The command's bin is `cdxgen`, which is not the
+      package name, so a runner names the package. In
+      `cdxgen -t js --no-install-deps -o - .` each flag is load-bearing.
+      `-t js` scans only JavaScript manifests, from the partition root.
+      `--no-install-deps` because cdxgen installs dependencies by default,
+      which writes `node_modules` into the target. `-o -` because the default
+      output is a `bom.json` written into the working directory; `-` sends
+      the document to stdout, and the progress lines go to stderr. Recursion
+      is cdxgen's default, and it is what reaches a workspace's members: on
+      the seeded pnpm workspace the document carried all seven seeded pins,
+      the ones declared only in `apps/api` and `packages/core` included,
+      is-number 6.0.0 through is-odd, and both member packages under the root
+      component, 78 components in all. Measured with cdxgen's `--dry-run`
+      report over the same tree, the only commands it executes are
+      `ldd --version` and `pnpm root -g` and its only write is the stdout
+      document, and the partition's `git status --porcelain --ignored` was
+      empty after the run. Do not add `--dry-run` itself: it blocks the
+      stdout write, so the run produces no document. Nothing has measured
+      this command at workspace scale: the one run against a large pnpm
+      workspace was the v12 package with `FETCH_LICENSE=true`, which this
+      command does not set.
   - lang: typescript
     kind: command
     tool: cyclonedx-npm
