@@ -114,16 +114,13 @@ def test_the_harness_runs_exactly_the_checks_the_typescript_expectations_declare
 
 
 def test_every_typescript_expectation_has_an_invocation_on_each_partition_it_names():
-    """And a command that actually runs there, with one stated exception.
+    """And a command that actually runs there, on every partition it names.
 
-    `deps/inventory` on pnpm is the exception: the record's only command route
-    is `npm sbom`, which is npm's subcommand, so `TS_MANAGER_TOOLS` runs it on no
-    pnpm tree, and its route for pnpm is the `cdxgen` procedure. Its expectation
-    agrees that no SBOM comes from a command route there, and disagrees on one
-    point: it says the error text `npm sbom` prints is recorded at the run,
-    which assumes the command runs. The exception is named rather than skipped,
-    so a second check losing its last runnable command on a partition fails
-    here.
+    No exception is carried. The cell nearest to being one is `deps/inventory`
+    on pnpm: `npm sbom` is npm's subcommand and runs on no pnpm tree, so the
+    record's `@cdxgen/cdxgen` command route is the only command there. A check
+    losing its last runnable command on a partition fails here rather than
+    reading as a row the round simply had nothing for.
     """
     without_a_command = set()
     for expectation in TS_EXPECTATIONS:
@@ -136,7 +133,55 @@ def test_every_typescript_expectation_has_an_invocation_on_each_partition_it_nam
                 inv.check == expectation.check for inv, _ in _runnable_on(partition)
             ):
                 without_a_command.add((expectation.check, partition))
-    assert without_a_command == {("deps/inventory", "pnpm")}
+    assert without_a_command == set()
+
+
+CDXGEN = "@cdxgen/cdxgen"
+CDXGEN_ARGV = ("cdxgen", "-t", "js", "--no-install-deps", "-o", "-", ".")
+
+
+@pytest.mark.parametrize("granted", [False, True])
+def test_the_pnpm_inventory_command_is_cdxgen_fetched_by_its_package(granted):
+    """The exact command the pnpm partition runs for `deps/inventory`.
+
+    Pinned whole because each word is a claim the fixture run measured. The
+    launcher names the package, `@cdxgen/cdxgen`, and not the bin: the bin is
+    `cdxgen`, and the record's note says `@cyclonedx/cdxgen` is the superseded
+    v12 line. `--no-install-deps` keeps cdxgen from installing into the tree it
+    reads, and `-o -` sends the document to stdout instead of a `bom.json` in
+    the working directory - the copy the lens runs in, which every later row
+    then reads. The route is untiered, so the grant changes nothing here.
+    """
+    commands = [
+        command
+        for inv, command in _commands_run("pnpm", granted)
+        if inv.check == "deps/inventory"
+    ]
+    assert commands == [
+        ("pnpm", f"--package={CDXGEN}", "dlx", *CDXGEN_ARGV),
+    ], commands
+
+
+def test_the_inventory_route_writes_its_document_to_stdout_and_installs_nothing():
+    """The two flags that keep the route from writing into the target.
+
+    Held on the record rather than on the lens, because the record is what an
+    audit outside this repository runs. Without `-o -` cdxgen writes
+    `bom.json` into the directory it scans; without `--no-install-deps` it
+    installs the dependencies it is meant to be reading off the lockfile.
+    """
+    route = next(
+        r
+        for r in _records()["deps/inventory"].routes
+        if r.lang == LANG and r.tool == CDXGEN
+    )
+    assert route.kind == "command" and route.disposition == "runs"
+    assert tuple(route.argv) == CDXGEN_ARGV
+    argv = list(route.argv)
+    assert argv[argv.index("-o") + 1] == "-"
+    assert "--no-install-deps" in argv
+    assert "--dry-run" not in argv
+    assert not route.needs
 
 
 def test_every_typescript_tooling_entry_has_a_routed_row():
