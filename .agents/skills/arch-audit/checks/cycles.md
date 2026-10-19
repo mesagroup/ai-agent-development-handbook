@@ -112,20 +112,23 @@ routes:
     needs: resolved-tree
     note: >-
       Every dependency the built graph marks `circular`, its `cycle` naming
-      the participating modules in order. Each spelling names the
-      packages rather than leaning on the command name, and the three differ
-      structurally: the flags precede `dlx` on pnpm, since `pnpm dlx --package=`
-      reads the flag as a package spec and fails with
+      the participating modules in order. Each spelling names the packages
+      rather than leaning on the command name, and the three differ
+      structurally: the flags precede `dlx` on pnpm, since `pnpm dlx
+      --package=` reads the flag as a package spec and fails with
       `ERR_PNPM_SPEC_NOT_SUPPORTED_BY_ANY_RESOLVER`. The `typescript` pin is
       load-bearing: unpinned it resolves to 7.x, outside the `>=2.0.0 <7.0.0`
       this tool declares, and a directory argument then cruises
-      `totalCruised: 0` at exit 0. The tier is the target's own dependencies
-      rather than the tool's: where the partition's `tsconfig` extends a base
-      config living in `node_modules`, an uninstalled tree loses that `extends`
-      chain and `paths` falls back to nothing, so a first-party aliased import
-      stops resolving and a cycle running through it goes undetected. On pnpm
-      the co-package is less dependable still, and installing into an
-      audit-owned directory is what the record prefers there.
+      `totalCruised: 0` at exit 0, under the shipped config below as well.
+      The tier is the target's own dependencies rather than the tool's: where
+      the partition's `tsconfig` extends a base config living in
+      `node_modules`, an uninstalled tree loses that `extends` chain and
+      `paths` falls back to nothing, so a first-party aliased import stops
+      resolving and a cycle running through it goes undetected. On pnpm 11
+      the smoke run found the co-package never arrives under `dlx`, so
+      installing into an audit-owned directory is what the record prefers
+      there; on pnpm 9.15.9 the record's `pnpm` spelling built the graph on
+      the seeded fixture.
 
       Each spelling is complete once its two operands are filled:
       `<tsconfig>` is the partition's own tsconfig, the file carrying the
@@ -144,16 +147,19 @@ routes:
       one, and `--ts-config` is dependency-cruiser's documented command-line
       equivalent of `options.tsConfig`, so the per-partition part stays on
       the command line and the file is the same on every target.
-      `--no-config` is not the alternative it looks like: it discards
-      `--ts-config` along with the rules, and the tree that resolved its
-      first-party graph under an audit-owned config came back with 281
-      unresolvable first-party specifiers and an empty cycle set under it, at
-      exit 0. `--output-type json` is not optional either: with no rules
-      loaded the default `err` output prints `no dependency violations found`
-      whatever the graph holds, so the answer is read from the JSON - each
-      dependency's `circular` flag and `cycle`, and each module's
-      `dependencies` and `dependents`. The config-less exit 1 and the
-      `--no-config` loss are recorded in [the smoke
+      `${CLAUDE_PLUGIN_ROOT}` is the plugin's install directory, the one the
+      `audit` skill's emitter path names, and the repository root when the
+      skills run from a clone of this repository. `--no-config` is not the
+      alternative it looks like: it discards `--ts-config` along with the
+      rules, and the tree that resolved its first-party graph under an
+      audit-owned config came back with 281 unresolvable first-party
+      specifiers and an empty cycle set under it, at exit 0. `--output-type
+      json` is not optional either: with no rules loaded the default `err`
+      output prints `no dependency violations found` whatever the graph
+      holds, so the answer is read from the JSON - each dependency's
+      `circular` flag and `cycle`, and each module's `dependencies` and
+      `dependents`. The config-less exit 1 and the `--no-config` loss are
+      recorded in [the smoke
       run](https://github.com/mesagroup/ai-agent-development-handbook/blob/main/docs/audit/typescript-lens-smoke-run.md),
       and the completed invocation's graph on both seeded partitions in [the
       fixture
