@@ -16,6 +16,15 @@ handbook_note: >-
   `troubleshooting/output-quality`, an `informative` row that cites no
   check at all. Neither clause grounds a check on contradictions or dead
   references within a shipped prompt or SOP.
+routes:
+  - lang: any
+    kind: procedure
+    note: >-
+      **Consistency read:** cross-check instructions within the file (and, at
+      consolidation, across sibling prompts) for contradictions, dead
+      references, and ambiguity. Where the prompt references tools/steps,
+      check they still exist (a light drift check; deep tool-drift is
+      `eval/prompt-quality`).
 ---
 
 # Internal consistency
@@ -27,10 +36,6 @@ No two instructions contradict; no dead instruction (references a tool, step, or
 **Critical** - an internal contradiction between two instructions; an instruction that references a tool/step/artifact that no longer exists (dead directive the model may still act on).
 
 **Important** - copy-paste drift of a rule across sections (will diverge).
-
-## Tooling fallback
-
-**Consistency read:** cross-check instructions within the file (and, at consolidation, across sibling prompts) for contradictions, dead references, and ambiguity. Where the prompt references tools/steps, check they still exist (a light drift check; deep tool-drift is `eval/prompt-quality`).
 
 ## Fix
 

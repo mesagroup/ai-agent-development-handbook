@@ -8,6 +8,13 @@ handbook_note: >-
   delimiting instructions from data in a prompt - `grep -n
   "delimiter\|few-shot" docs/engineering/*.md` returns nothing. Nothing
   grounds a check whose entire subject is example/delimiter hygiene.
+routes:
+  - lang: any
+    kind: procedure
+    note: >-
+      **Well-specified-prompt read:** work the Tier A principles against the
+      text - are examples/delimiters used and consistent with the
+      instructions.
 ---
 
 # Examples & delimiters
@@ -19,10 +26,6 @@ Where the task is format-sensitive or easy to misread, few-shot examples and cle
 **Important** - missing examples/delimiters on a format-sensitive or untrusted-input prompt.
 
 **Minor** - an example that would aid clarity.
-
-## Tooling fallback
-
-**Well-specified-prompt read:** work the Tier A principles against the text - are examples/delimiters used and consistent with the instructions.
 
 ## Fix
 

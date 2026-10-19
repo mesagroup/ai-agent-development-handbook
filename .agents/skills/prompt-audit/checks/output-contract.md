@@ -14,6 +14,16 @@ handbook_note: >-
   near miss the matrix's own rule forbids: a prompt that never specifies
   its output contract but happens to sit in front of a harness-level schema
   validator would pass, which is exactly the gap this check flags.
+routes:
+  - lang: any
+    kind: procedure
+    note: >-
+      **Well-specified-prompt read:** work the Tier A principles against the
+      text - is the output contract specified where it matters.
+
+      A prohibition with no reason, and a missing output contract a consumer
+      depends on, are the signature defects this audit exists to catch -
+      record each with its `file:line`.
 ---
 
 # Output contract
@@ -23,12 +33,6 @@ Where the output shape matters it is specified (format, structure, schema, lengt
 ## Severity
 
 **Critical** - a missing output contract that a downstream consumer parses.
-
-## Tooling fallback
-
-**Well-specified-prompt read:** work the Tier A principles against the text - is the output contract specified where it matters.
-
-A prohibition with no reason, and a missing output contract a consumer depends on, are the signature defects this audit exists to catch - record each with its `file:line`.
 
 ## Fix
 

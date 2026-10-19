@@ -4,6 +4,17 @@ domain: prompt
 locality: local
 handbook:
   - implementation-disciplines/prompt-and-sop-engineering-a
+routes:
+  - lang: any
+    kind: procedure
+    note: >-
+      **Well-specified-prompt read:** work the Tier A principles against the
+      text - is the framing positive with every prohibition carrying its
+      reason.
+
+      A prohibition with no reason, and a missing output contract a consumer
+      depends on, are the signature defects this audit exists to catch -
+      record each with its `file:line`.
 ---
 
 # Positive framing, prohibitions with reasons
@@ -15,12 +26,6 @@ The prompt says what *to do*, not only a wall of don'ts; and every prohibition t
 **Critical** - a prohibition with no reason on a safety- or correctness-critical rule.
 
 **Important** - a wall of prohibitions with no positive statement of what to do.
-
-## Tooling fallback
-
-**Well-specified-prompt read:** work the Tier A principles against the text - is the framing positive with every prohibition carrying its reason.
-
-A prohibition with no reason, and a missing output contract a consumer depends on, are the signature defects this audit exists to catch - record each with its `file:line`.
 
 ## Fix
 

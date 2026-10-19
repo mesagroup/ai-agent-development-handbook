@@ -13,6 +13,18 @@ handbook_note: >-
   near miss the matrix's own rule forbids: an SOP with an unordered or
   non-kebab-case file would pass on the strength of a clause that never
   asked for either.
+routes:
+  - lang: any
+    kind: procedure
+    applies_when: >-
+      The file is an SOP, a `.sop.md` file. Skip this read entirely for a
+      general (non-SOP) prompt - do not raise "missing
+      Overview/Parameters/Steps" against something that was never meant to be
+      an SOP.
+    note: >-
+      **SOP-spec conformance check:** read the file against the SOP
+      specification - parameters well-formed and ordered, filename/extension
+      correct. Each miss is a finding with the exact `file:line`.
 ---
 
 # SOP naming & parameter form
@@ -24,10 +36,6 @@ Applies to `.sop.md` files only. Correct `.sop.md` extension and kebab-case file
 **Important** - SOP parameters mis-ordered or not `snake_case`.
 
 **Minor** - a filename not in kebab-case.
-
-## Tooling fallback
-
-**SOP-spec conformance check:** read the file against the SOP specification - parameters well-formed and ordered, filename/extension correct. Each miss is a finding with the exact `file:line`. Skip this read entirely for a general (non-SOP) prompt - do not raise "missing Overview/Parameters/Steps" against something that was never meant to be an SOP.
 
 ## Fix
 
