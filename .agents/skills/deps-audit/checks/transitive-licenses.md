@@ -22,7 +22,7 @@ routes:
     tool: pip-licenses
     argv: [pip-licenses]
     in_env: true
-    needs: resolved-tree
+    needs: target-execution
     note: >-
       `pip-licenses` reports every installed distribution in the environment,
       which is the resolved graph rather than the declared direct set.
