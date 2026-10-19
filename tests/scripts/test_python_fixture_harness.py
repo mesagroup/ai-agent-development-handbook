@@ -1632,7 +1632,8 @@ def test_the_grant_tier_is_read_from_the_record_rather_than_transcribed():
     """
     checks, errors = load_checks(SKILLS_DIR)
     assert not errors, errors
-    assert grant_tier("deps/hygiene", "deptry") == "resolved-tree"
+    assert grant_tier("arch/cycles", "pydeps") == "resolved-tree"
+    assert grant_tier("deps/hygiene", "deptry") == "target-execution"
     assert grant_tier("test/coverage-reach", "pytest-cov") == "target-execution"
     assert grant_tier("security/crypto", "bandit") == ""
     # The row whose prescribed command answers from a clone while another of
