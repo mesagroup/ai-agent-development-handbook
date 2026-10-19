@@ -145,3 +145,40 @@ This answers the weaker half of the question [the TypeScript smoke run](typescri
 
 - **cdxgen writes the scanned path into the SBOM.** What: the document's `metadata` summary and each component's evidence name the lockfile by the absolute path of the directory cdxgen scanned, here the lens's scratch copy. Where: any SBOM the `@cdxgen/cdxgen` route produces, which an audit report might quote or attach. Why not fixed here: it is the tool's output rather than the record's, and whether a report strips it is a question for the report's format, which this round does not settle.
 - **The cdxgen version probe records a banner rather than a version.** What: `cdxgen --version` prints `CycloneDX Generator 13.4.0` in bold, then a `Runtime:` line, and the version map stores both lines with their escape codes. Where: the `@cdxgen/cdxgen` entry in `TS_VERSION_PROBE` in `scripts/run_python_fixture_lens.py`. Why not fixed here: the version is readable, and stripping a tool's own output is a harness-wide decision about what a version entry holds, not one tool's.
+
+## 2026-10-19: the `dependency-cruiser` routes under a shipped config
+
+The `dependency-cruiser` routes in `arch/cycles`, `arch/coupling` and `arch/over-decomposition` wrote a prefix, so in the round above the lens appended the cruised directory and the command exited 1 under the grant with `Can't open a config file`, in all six cells. Each route now carries the whole invocation: `depcruise --config ${CLAUDE_PLUGIN_ROOT}/.agents/skills/arch-audit/dependency-cruiser.json --output-type json --ts-config <tsconfig> <dir>`, behind the same `npx` and `pnpm dlx` co-package words as before. This section records the run that put it there. The rest of the round above was not re-graded here.
+
+### What was checked before the records changed
+
+- **`--ts-config` combines with `--config`.** dependency-cruiser's options reference documents `--ts-config` as the command-line equivalent of `options.tsConfig`. A scratch project outside every tree, with a `tsconfig.app.json` carrying a `paths` alias `@/*` and a solution-style `tsconfig.json` holding only `references`, and two modules importing each other through the alias, was cruised with the shipped config. Without `--ts-config`, and with `--ts-config tsconfig.json`, both aliased imports came back `couldNotResolve` and nothing was `circular`, at exit 0. With `--ts-config tsconfig.app.json` both resolved, both edges were `circular`, and `summary.optionsUsed.tsConfig.fileName` named the file passed.
+- **The default output is a false clean once no rule is loaded.** The shipped config carries `enhancedResolveOptions.extensions` and no rules, so the default `err` output printed `no dependency violations found (3 modules, 2 dependencies cruised)` over the npm fixture's planted cycle. The JSON output over the same tree marked both edges of the pair `circular`, with the `cycle` naming both modules, and gave each module its `dependents`. The routes carry `--output-type json` for that reason.
+- **The extension list is not what the fixture measures.** The list is the set `depcruise --info` reported enabled under the pinned `typescript@5.9.3`, plus `.json`. An empty config `{}` built the same graph on the npm fixture, so the fixture does not show the list is needed. dependency-cruiser's options reference says that with the option unset it works the extensions out from what the environment has available, and `--info` showed that set to be the one the list names, so the list holds the set fixed where the environment would derive a smaller one.
+
+### What the first run found
+
+Run from the tree root, as every other TypeScript row is, the pnpm rows exited 1 with `error TS18003: No inputs were found in config file 'packages/core/tsconfig.json'. Specified 'include' paths were '["src","test"]'`. dependency-cruiser resolves the tsconfig's `include` against its working directory rather than against the tsconfig's own directory. Run from `packages/core` with `--ts-config tsconfig.json src`, the same command built the graph. The records now say the command runs from the directory holding `<tsconfig>`, with both operands relative to it, and the lens runs these three rows from the seeded package: the tree root on npm and `packages/core` on pnpm.
+
+### The run
+
+The fixtures were built with `uv run python scripts/build_python_fixtures.py --all`, which wrote 10 tracked files to the `npm` tree and 13 to the `pnpm` tree. Each partition was run under both grant states with `--timeout 300 --work-dir <scratch-dir>`, and graded with `uv run python scripts/grade_python_fixture_run.py`, which wrote 44 rows from the 4 runs. `<scratch-dir>` is a directory outside the repository.
+
+| Run | Commands run |
+|---|---|
+| `npm`, `none` | 6 |
+| `npm`, `target-execution` | 13 |
+| `pnpm`, `none` | 3 |
+| `pnpm`, `target-execution` | 12 |
+
+The counts are the round above's: the three rows ran under the grant there too, and failed. `git status --porcelain --ignored` was empty in both fixture trees after all four runs. The probe recorded **dependency-cruiser 18.6.0** in all four runs, under node v24.20.0 and the pinned pnpm 9.15.9. The routes pin no version of it, so a later run can resolve a later one.
+
+### Result
+
+| Check | `none` | `target-execution`, `npm` and `pnpm` alike |
+|---|---|---|
+| `arch/cycles` | `dependency-cruiser` no-evidence (not-permitted); madge ok, as before | **ok**: exit 0, 3 modules and 2 dependencies cruised, `tsConfig.fileName` `tsconfig.json`; `src/domain/model.ts` and `src/infra/store.ts` each depend on the other with `circular: true`, and the `cycle` names both. `src/clamp.ts` has no dependencies |
+| `arch/coupling` | no-evidence (not-permitted) | **ok**: the same graph; each of the two modules is the other's one dependent, and `src/clamp.ts` has none |
+| `arch/over-decomposition` | no-evidence (not-permitted) | **ok**: the same graph, and the row carries the record's `alone_insufficient`, so it is a candidate rather than the check's answer |
+
+On pnpm the paths are relative to `packages/core`, which is where the row ran. The six cells this section opened with now get a graph from dependency-cruiser.
