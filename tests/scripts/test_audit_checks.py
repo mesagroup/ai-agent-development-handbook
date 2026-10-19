@@ -3401,13 +3401,14 @@ def test_the_tool_less_route_population_is_held():
     reading routes, one per tell; it rose to 70 when the `data-protection`
     records migrated to routes, each carrying one reading route; it rose to
     71 when `ci/trigger-safety` gained a reading for where `zizmor` cannot be
-    obtained; and it rose to 86 when the `eval` records migrated, eleven with
-    one tool-less route and two with two.
+    obtained; it rose to 86 when the `eval` records migrated, eleven with
+    one tool-less route and two with two; and it rose to 98 when the `prompt`
+    records migrated, each carrying one reading route.
     """
     checks, errors = ac.load_checks(ac.SKILLS_DIR)
     assert errors == []
     tool_less = [(c.id, r) for c in checks.values() for r in c.routes if r.tool is None]
-    assert len(tool_less) >= 86, f"only {len(tool_less)} tool-less route(s)"
+    assert len(tool_less) >= 98, f"only {len(tool_less)} tool-less route(s)"
     assert all(r.kind == "procedure" for _, r in tool_less)
     assert all(r.note.strip() for _, r in tool_less)
 
