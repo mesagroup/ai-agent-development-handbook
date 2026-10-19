@@ -920,7 +920,7 @@ EXPECTATIONS = (
         "exact",
         "`cyclonedx-py pipenv` reads Pipfile.lock and emits CycloneDX 1.6 listing the "
         f"{len(declared())} declared dependencies plus markupsafe and pyparsing. No "
-        "licences field, as on every other route here",
+        "licences field, as on the other file-parsing routes here",
         (),
     ),
     Expectation(
