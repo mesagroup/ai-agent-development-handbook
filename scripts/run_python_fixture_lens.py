@@ -1069,7 +1069,7 @@ TS_IN_ENV: dict[str, tuple[str, ...]] = {
 # manager subcommand reports its manager's version, and runs bare for the reason
 # `TS_MANAGER_TOOLS` gives. A fetched tool's probe spells the bin, which is not
 # always the package: `depcruise`, `ncu` and `cdxgen` are the bins of
-# `dependency-cruiser`, `npm-check-updates` and `@cyclonedx/cdxgen`, and the
+# `dependency-cruiser`, `npm-check-updates` and `@cdxgen/cdxgen`, and the
 # launcher names the package. `None` is legal only beside a reason in
 # `TS_NO_VERSION_ROUTE`, as on the Python side.
 TS_VERSION_PROBE: dict[str, tuple[str, ...] | None] = {
@@ -1085,7 +1085,7 @@ TS_VERSION_PROBE: dict[str, tuple[str, ...] | None] = {
     "jest": ("jest", "--version"),
     "c8": ("c8", "--version"),
     "npm-check-updates": ("ncu", "--version"),
-    "@cyclonedx/cdxgen": ("cdxgen", "--version"),
+    "@cdxgen/cdxgen": ("cdxgen", "--version"),
     "osv-scanner": None,
 }
 
@@ -1106,9 +1106,11 @@ TS_NO_VERSION_ROUTE: dict[str, str] = {
 # advisories); madge's CLI sets exit code 1 when `--circular` finds a cycle;
 # dependency-cruiser exits with the count of error-severity violations; and
 # vitest and jest exit 1 on a failing test, which is the planted finding for
-# `test/determinism`. `npm sbom` and `pnpm licenses list` are reporting commands
-# with no gating flag in the prescribed invocation, so nothing establishes that
-# their non-zero exit is ever a finding, and they are `ambiguous`.
+# `test/determinism`. `npm sbom`, `pnpm licenses list` and `@cdxgen/cdxgen` are
+# reporting commands with no gating flag in the prescribed invocation - cdxgen's
+# gates are `--fail-on-error` and `--introspect-fail-below`, and the record's argv
+# passes neither - so nothing establishes that their non-zero exit is ever a
+# finding, and they are `ambiguous`.
 TS_NONZERO_EXIT_MEANING: dict[str, str] = {
     "npm audit": "findings",
     "pnpm audit": "findings",
@@ -1120,6 +1122,7 @@ TS_NONZERO_EXIT_MEANING: dict[str, str] = {
     "jest": "findings",
     "npm sbom": "ambiguous",
     "pnpm licenses list": "ambiguous",
+    "@cdxgen/cdxgen": "ambiguous",
 }
 
 # The shuffle seed `test/determinism` fills its `<n>` with. Measured, never

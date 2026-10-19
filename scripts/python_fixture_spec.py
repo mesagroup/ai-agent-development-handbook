@@ -1714,8 +1714,8 @@ TS_EXPECTATIONS = (
         ("copyleft",),
         "no command route answers. `pnpm licenses list` needs the tree, and `npm sbom`, "
         "the record's untiered command, reads package-lock.json, which this partition "
-        "does not carry; what remains is the `@cyclonedx/cdxgen` procedure, which this "
-        "round does not execute. So the harness records no-evidence (not-permitted), "
+        "does not carry; what remains is the `@cdxgen/cdxgen` licence procedure, which "
+        "this round does not execute. So the harness records no-evidence (not-permitted), "
         "and a clean licence list from this partition without the grant is a false "
         "clean",
     ),
@@ -1737,7 +1737,7 @@ TS_EXPECTATIONS = (
         ("transitive-root",),
         "the same as deps/licenses on this partition: `pnpm licenses list` needs the "
         "tree and `npm sbom` has no package-lock.json to read, so the harness records "
-        "no-evidence (not-permitted) and only the cdxgen procedure would answer",
+        "no-evidence (not-permitted) and only the cdxgen licence procedure would answer",
     ),
     Expectation(
         "deps/inventory",
@@ -1747,21 +1747,31 @@ TS_EXPECTATIONS = (
         f"document whose components include {_names(TS_DEPENDENCIES)} at their pins, "
         "plus is-number 6.0.0 through is-odd. A floor rather than an exact count, "
         "because the devDependency tree vitest resolves is in the lockfile too and its "
-        "size moves with the resolution",
+        "size moves with the resolution. The record's `@cdxgen/cdxgen` route runs here "
+        "too and is held to the same floor; `npm sbom` comes first on this partition "
+        "because it needs nothing fetched",
         (),
     ),
     Expectation(
         "deps/inventory",
         ("pnpm",),
-        "exact",
-        "none of this record's TypeScript command routes reads pnpm-lock.yaml: "
-        "`npm sbom`, the only one, is built on package-lock.json, which this partition "
-        "does not carry by construction. So no SBOM comes from a command route here, "
-        "and the record's remaining route for the partition is the `@cyclonedx/cdxgen` "
-        "procedure, which this round does not execute. The harness runs `npm sbom` on "
-        "the npm partition only, since it is npm's own subcommand and corepack refuses "
-        "npm inside a pnpm-pinned tree, so this partition records no command for the "
-        "check. That is the family finding: no command route answers inventory on pnpm",
+        "floor",
+        "`cdxgen -t js --no-install-deps -o - .`, from the `@cdxgen/cdxgen` package, "
+        "reads pnpm-lock.yaml and prints a CycloneDX document whose components include "
+        f"{_names(TS_DEPENDENCIES)} at their pins, plus is-number 6.0.0 through is-odd, "
+        "and whose root component carries the two workspace members, "
+        f"{TS_CORE_PACKAGE} and {TS_LEAF_PACKAGE}, as components of its own. The pins "
+        "declared only in a member are the ones a root-only read misses: "
+        f"{_names(tuple(d for d in TS_DEPENDENCIES if d.member == TS_LEAF))} in "
+        f"{TS_LEAF} and "
+        f"{_names(tuple(d for d in TS_DEPENDENCIES if d.member == TS_CORE))} in "
+        f"{TS_CORE}, so an SBOM missing them is less than the truth. `npm sbom`, the "
+        "record's other command route, is npm's own subcommand and is not run here. "
+        "cdxgen needs no grant, so the claim holds in both states, and it writes "
+        "nothing into the tree. pnpm-lock.yaml carries no licence, so on a read-only "
+        "copy the components come back without licence fields, which is not a licence "
+        "finding: those are deps/licenses' to make. A floor for the reason the npm "
+        "entry gives",
         (),
     ),
     Expectation(
