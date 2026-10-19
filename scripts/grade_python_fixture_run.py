@@ -411,6 +411,9 @@ def grade_row(expectation: Expectation, run: Run) -> Row:
     rather than something worked around: `seed_signals` reads only an entry's
     own top-level `stdout`/`stderr`, and the second command's output sits
     nested under `entry["then"]` instead, invisible to a mechanical count here.
+    A route writing its evidence to a report file (`test/isolation`'s vitest
+    route) is the same kind of blind spot: the file's content sits under
+    `entry["report"]`, which this count does not read either.
     """
     observations = observations_for(run, expectation.check)
     seed_markers = _SEED_MARKERS_BY_LANG[_lang_of_run(run)]

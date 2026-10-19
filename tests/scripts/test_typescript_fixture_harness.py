@@ -751,6 +751,31 @@ def test_the_report_lands_in_the_work_root_and_reaches_the_row(
     assert REPORT_PATH_TOKEN not in " ".join(row["command"])
 
 
+def test_a_report_route_that_wrote_no_report_is_not_ok(tmp_path, monkeypatch):
+    """The streams cannot vouch for a report: vitest prints where it wrote it.
+
+    A run that exits 0 and says `JSON report written to` but leaves no file is
+    a tool that returned nothing parseable, so the row is `tool-failed` rather
+    than the `ok` its stdout would earn on its own.
+    """
+    source = tmp_path / "fixtures" / "npm"
+    source.mkdir(parents=True)
+    monkeypatch.setattr(
+        "run_python_fixture_lens._run",
+        lambda command, cwd, timeout, env=None: _outcome(
+            stdout="JSON report written to somewhere"
+        ),
+    )
+    observed = run_partition("npm", source, tmp_path / "work", "target-execution", 5)
+    (row,) = [
+        r
+        for r in observed["results"]
+        if (r["check"], r["tool"]) == ("test/isolation", "vitest")
+    ]
+    assert row["report"] is None
+    assert (row["status"], row["reason"]) == ("no-evidence", "tool-failed")
+
+
 def test_a_row_the_partition_cannot_run_is_recorded_with_its_reason(
     tmp_path, monkeypatch
 ):
