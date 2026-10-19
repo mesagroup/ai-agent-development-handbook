@@ -483,10 +483,13 @@ class Invocation:
         fills: Placeholders the record writes in its argv, as
             `(placeholder, value)` pairs substituted into the command a row runs
             and never into `prescribed`. Appending cannot complete one inside a
-            token, `--sequence.seed=<n>`, or one standing before other tokens,
-            dependency-cruiser's `--ts-config <tsconfig> <dir>`, so a fill is
-            the other shape a completion takes, and it travels under the same
-            `note`.
+            token, `--sequence.seed=<n>`, or one standing before or between
+            other tokens, dependency-cruiser's `--ts-config <tsconfig> <dir>`,
+            so a fill is the other shape a completion takes, and it travels
+            under the same `note`. A value only `run_partition` knows, such as
+            `<report-path>`'s file in the run's work root, is filled with a
+            token resolved there, `REPORT_PATH_TOKEN`, so a row's recorded
+            `fills` shows the token rather than the path.
         then: A second command the record prescribes in sequence, where it does -
             `coverage run -m pytest` followed by `coverage report --show-missing`
             is one route, not two, and dropping the half that prints the report
@@ -1175,8 +1178,8 @@ class TsCompletion:
     `Completion`'s counterpart, with two differences the TypeScript fixtures
     force. A path operand differs by partition, because the seeded package is the
     tree root on npm and `packages/core` on pnpm, so `by_partition` carries the
-    tokens per partition. And a placeholder the record writes in its argv, inside
-    a token or before other tokens, is one appending cannot complete, so `fills`
+    tokens per partition. And a placeholder can sit inside a token, or stand
+    as a token among others, which appending cannot complete, so `fills`
     substitutes it. A row `TS_RUN_IN_PACKAGE` names runs from the seeded package
     instead, so its fills are package-relative and the same on both partitions.
     All of them stay out of the record's own argv, as a completion does.
@@ -2679,7 +2682,8 @@ def run_partition(
     """Run one partition's invocations under one grant state.
 
     Returns the whole observation rather than a verdict: the raw exit code,
-    stdout and stderr are kept so that a later pass can re-classify without
+    stdout and stderr are kept, and where a route writes a report file its
+    content under `report`, so that a later pass can re-classify without
     re-running, and so that a completion this round had to make is visible
     beside what it produced.
 
@@ -2849,6 +2853,16 @@ def run_partition(
             invocation.findings_stream,
             nonzero_exit_meaning(invocation.tool, lang),
         )
+        if report is not None and row["report"] is None and row["status"] == "ok":
+            # The streams cannot vouch for a report-writing route: vitest prints
+            # `JSON report written to` whether or not the file ends up holding
+            # anything, so a run that left no file is a tool that returned
+            # nothing parseable, whatever its exit code and stdout said.
+            row |= {
+                "status": "no-evidence",
+                "reason": "tool-failed",
+                "why": f"the route writes its report to {report} and none was there",
+            }
         rows.append(row)
 
     versions = probe_versions(
@@ -2906,7 +2920,10 @@ def main(argv: list[str] | None = None) -> int:
         "--work-dir",
         type=Path,
         default=None,
-        help="scratch root for the copy; a temporary directory by default",
+        help=(
+            "scratch root for the copy and for any report a row writes; a "
+            "temporary directory by default"
+        ),
     )
     parser.add_argument(
         "--timeout", type=int, default=900, help="seconds per command (default: 900)"

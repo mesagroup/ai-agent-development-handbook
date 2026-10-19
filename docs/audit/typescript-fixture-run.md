@@ -166,7 +166,7 @@ The fixtures were built with `uv run python scripts/build_python_fixtures.py --a
 
 ## 2026-10-19: `test/isolation` reads vitest's JSON report
 
-`test/isolation`'s vitest route ran `vitest run`, whose default reporter prints only file and test totals and the suite's duration, so in the round above it reported neither the seeded slow test's duration nor a slow mark on either partition. The route is now `vitest run --reporter=json --outputFile <report-path>`, and a row is a test whose `duration` exceeds the partition's own `slowTestThreshold`. The threshold comes from `vitest.config.*`, else the `test` block of `vite.config.*`, else the 300ms Vitest documents as the default. This section records the run that put it there. The rest of the round above was not re-graded here.
+`test/isolation`'s vitest route ran `vitest run`, whose default reporter prints only file and test totals and the suite's duration, so in the 2026-09-26 round it reported neither the seeded slow test's duration nor a slow mark on either partition. The route is now `vitest run --reporter=json --outputFile <report-path>`, and a row is a test whose `duration` exceeds the partition's own `slowTestThreshold`. The threshold comes from `vitest.config.*`, else the `test` block of `vite.config.*`, else the 300ms Vitest documents as the default. This section records the run that put it there. The rest of the 2026-09-26 round was not re-graded here.
 
 ### What was checked before the record changed
 
@@ -198,7 +198,7 @@ The counts are the round above's: the three rows ran under the grant there too, 
 
 On pnpm the paths are relative to `packages/core`, which is where the row ran. The six cells this section opened with now get a graph from dependency-cruiser.
 
-The counts are the round above's: the row ran under the grant there too. `git status --porcelain --ignored` was empty in both fixture trees after all four runs. The tree's vitest is 5.0.2 on both partitions; the version probe under `none`, which fetches its own copy, recorded 5.0.5.
+The counts are those of the `deps/inventory` section above: the row ran under the grant there too. `git status --porcelain --ignored` was empty in both fixture trees after all four runs. The tree's vitest is 5.0.2 on both partitions; the version probe under `none`, which fetches its own copy, recorded 5.0.5.
 
 ### Result
 
