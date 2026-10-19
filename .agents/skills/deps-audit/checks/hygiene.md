@@ -19,7 +19,7 @@ routes:
     tool: deptry
     argv: [deptry]
     in_env: true
-    needs: resolved-tree
+    needs: target-execution
     findings_stream: stderr
     note: >-
       `deptry` answers unused / missing / transitive / misplaced. It reads

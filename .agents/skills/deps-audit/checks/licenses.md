@@ -17,7 +17,7 @@ routes:
     tool: pip-licenses
     argv: [pip-licenses]
     in_env: true
-    needs: resolved-tree
+    needs: target-execution
     note: >-
       Reads resolved package metadata, so it needs the dependencies
       materialized - an installed environment - and answers nothing on a
@@ -32,7 +32,7 @@ routes:
     argv: [pip-licenses, "--format", json]
     disposition: alternative
     in_env: true
-    needs: resolved-tree
+    needs: target-execution
     note: >-
       `pip-licenses`'s `--format` chooses only how the list it prints is
       presented - `pip-licenses --format json` for the same list

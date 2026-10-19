@@ -20,7 +20,7 @@ routes:
     tool: uv
     argv: [uv, pip, list, "--outdated", "--python"]
     in_env: true
-    needs: resolved-tree
+    needs: target-execution
     note: >-
       Reads the installed environment rather than the lockfile, so it needs
       the tree resolved.
@@ -41,7 +41,7 @@ routes:
     argv: [uv, pip, list, "--outdated"]
     disposition: superseded
     in_env: true
-    needs: resolved-tree
+    needs: target-execution
     note: >-
       The unqualified form, superseded by the one above rather than offered
       beside it: without `--python <path>`, `uv pip list --outdated` can
@@ -54,7 +54,7 @@ routes:
     tool: pip
     argv: [pip, list, "--outdated"]
     in_env: true
-    needs: resolved-tree
+    needs: target-execution
     note: >-
       `pip list --outdated` reads the installed environment rather than the
       lockfile, so it needs the tree resolved. It needs no interpreter flag;
