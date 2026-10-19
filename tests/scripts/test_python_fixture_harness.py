@@ -978,9 +978,8 @@ def test_a_tool_answering_several_checks_is_invoked_once_per_check():
 # the quote - went with it, the last restated below against the routes. The
 # prose extractor itself stays. `_spans` is reached by
 # `test_a_glued_placeholder_needs_a_value_delimiter_before_its_mark`, which
-# sweeps every record's spans through it, the records still on `tooling:`
-# included, and the backtick convention `CLAUDE.md` states cites that sweep
-# as its reason. `_command_forms`, `_lead_words` and `_flag_spans` are
+# sweeps every record's spans through it, and the backtick convention
+# `CLAUDE.md` states cites that sweep as its reason. `_command_forms`, `_lead_words` and `_flag_spans` are
 # reached by their example tests alone, and are kept on the reading the
 # migration recorded for a helper an example test exercises, because they are
 # the form extractor the convention names and #58's prose-command gate, which
