@@ -29,10 +29,10 @@ Frontmatter fields:
 | `locality` | yes | `local` (decidable from one partition) or `global` |
 | `handbook` | yes | Handbook row ids grounding the check; may be empty |
 | `handbook_note` | iff `handbook` is empty | Why the check exceeds the handbook |
-| `tooling` | no | Language to preferred tools; `any` for language-agnostic |
-| `needs` | no | Tier to tool names, for tools needing more than a read-only clone |
-| `ungranted_note` | iff every tool in a language needs a grant | What the check still answers when that grant is withheld |
-| `routes` | no, and non-empty where present | A list of `Route`s: what this check can run, replacing `tooling`/`needs`/`ungranted_note` for a migrated record |
+| `tooling` | refused | The legacy schema's language-to-tools list; projected from `routes` instead |
+| `needs` | refused | The legacy schema's tier-to-tools mapping; projected from `routes` instead |
+| `ungranted_note` | never, without `tooling` | The legacy schema's claim about what answers once a grant is withheld |
+| `routes` | no, and non-empty where present | A list of `Route`s: what this check can run, replacing `tooling`/`needs`/`ungranted_note` |
 | `answers_ungranted` | iff every answering-kind route in a language needs a grant | The routes-schema counterpart of `ungranted_note`: the sentinel `none`, written where no route in that language answers without a grant |
 | `evidence` | no, and non-empty where present | What this check measures and what a row records as its evidence, where that belongs to the check rather than to any one route |
 | `optin` | no | Default `false`; an opt-in sub-audit that produces findings |
@@ -45,12 +45,17 @@ some row cites may not claim to be ungrounded.
 A `tooling` value is a list of names, not of invocations, and a name may be
 a registry package, a subcommand of the target's own package manager, or a
 standalone binary in no registry. Nothing here validates which - a name is
-only a string to this loader - so a record still carrying `tooling` states
-the kind and the precedence between its names in `## Tooling fallback`
-prose. A record carrying `routes` instead (below) states both as data:
+only a string to this loader - so the legacy schema stated the kind and the
+precedence between its names in `## Tooling fallback` prose. A record
+carrying `routes` (below) states both as data:
 `kind` is a field on every route, and precedence is the route's
 `disposition` and its position in the list, so neither depends on prose
 there.
+
+The legacy readers below are kept until their own retirement, though the
+loader refuses a record-level `tooling` or `needs` on a real tree;
+`load_checks(..., legacy_schema=True)` skips that refusal for the tests that
+still hold them.
 
 `needs` answers a different question about the same names: not where the
 tool comes from, but what must be present in the target before it can
@@ -89,7 +94,7 @@ whose absence is the positive claim that no tool here needs a grant. What
 it must not be is present and empty, because YAML reads a bare key as
 nothing and the dataclass cannot tell that from an omitted one.
 
-A record may declare `routes` instead of `tooling`/`needs`/`ungranted_note`:
+Every record declares `routes` in place of `tooling`/`needs`/`ungranted_note`:
 one list of `Route`s, each one way of answering the check in one language,
 in place of a free-form tool list plus the two side mappings that classify
 it. The list must hold at least one route, because an empty one is the
@@ -97,7 +102,7 @@ schema declared and then not stated - indistinguishable downstream from a
 record that never declared it. The two schemas are mutually exclusive - a record naming both is
 rejected, because a route's tier is the only place a tool's requirement is
 declared, and repeating it under `needs` too would reopen the drift
-`needs`'s own repetition-check exists to close. A migrated record's
+`needs`'s own repetition-check exists to close. A record's
 `tooling` and `needs` are then derived from its routes by projection (see
 `_project_tooling` and `_project_needs`), so the call sites in
 `run_python_fixture_lens.py`, `test_python_fixture_harness.py` and
@@ -119,16 +124,14 @@ tiered - `deps/inventory`'s `cyclonedx-py` is that shape, and reading the
 pair for it withheld a whole row over one tiered `alternative` route. A record
 declaring `routes` may not also carry a `## Tooling fallback` section: on
 this schema the routes are the fallback, and a section beside them would be
-a second copy nothing holds against the first, unread by the properties
-that read it on a record still declaring `tooling`.
+a second copy nothing holds against the first, and read by no property.
 
 The body is validated too, which the split above understates: it must carry
 an `# ` title, being the check's display name, and it may not carry a fenced
 code block in either spelling. Every command a record prescribes appears in
 an inline backtick span, because that is the only place the form extractor
-reads: it sweeps every record's spans for the glued-placeholder rule, over the
-records on `routes:` and the ones still on `tooling:` alike, so a command in a
-fence is invisible to it. A four-space indented block is
+reads: it sweeps every record's spans for the glued-placeholder rule, so a
+command in a fence is invisible to it. A four-space indented block is
 legal - its content is literal text, so a record may show a tool's output
 there even where that output prints a fence.
 

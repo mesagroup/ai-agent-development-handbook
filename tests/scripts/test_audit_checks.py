@@ -484,10 +484,10 @@ def test_the_notes_are_not_all_sentinels():
     record still on the legacy schema has a fully tiered language, so the
     loader's requirement fires on nothing and there is no shape a legacy
     record could be in today that would put it in this half. That is not a
-    reason to stop counting it: a record still declaring `tooling` that gains
-    a `needs` tier on its every tool in some language would demand a note and
-    refill this half without any migration happening at all, and a record
-    still declares `tooling` today. What it does mean is that a floor resting on
+    reason to stop counting it while the legacy readers stand, though the
+    loader now refuses a record-level `tooling` or `needs`, so no record on a
+    real tree can refill this half until those readers are retired. What it
+    does mean is that a floor resting on
     the sum is, at this moment, a floor on the routed half, and that anything
     below arguing from the two halves moving against each other is describing
     what the guard is built to survive rather than what it is currently
