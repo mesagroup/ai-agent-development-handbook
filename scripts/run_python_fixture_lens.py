@@ -2664,10 +2664,13 @@ def report_path_for(
 
     In the run's work root rather than in the copy, so the tool writes nothing
     into the tree it reads, and named by partition, grant and row, so two rows
-    or two runs sharing a work root never read each other's report.
+    or two runs sharing a work root never read each other's report. Absolute
+    whatever `work_root` is, because the tool runs with the copy as its working
+    directory: a relative `--work-dir` would otherwise resolve inside the copy,
+    putting the write in the tree and the read where nothing was written.
     """
     slug = f"{invocation.check}-{invocation.tool}".replace("/", "-")
-    return work_root / f"{partition}-{grant}-{slug}-report.json"
+    return (work_root / f"{partition}-{grant}-{slug}-report.json").resolve()
 
 
 def run_partition(
@@ -2703,6 +2706,10 @@ def run_partition(
     """
     if grant not in GRANTS:
         raise ValueError(f"unknown grant {grant!r}; expected one of {GRANTS}")
+    # Absolute from here on: the commands below run with the copy as their
+    # working directory, so a path built from a relative `--work-dir` - the
+    # corepack shim directory, a row's report file - would resolve inside it.
+    work_root = work_root.resolve()
     lang = lang_of(partition)
     granted = grant != "none"
     copy = reconstruct(partition, source, work_root)

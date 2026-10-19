@@ -751,6 +751,37 @@ def test_the_report_lands_in_the_work_root_and_reaches_the_row(
     assert REPORT_PATH_TOKEN not in " ".join(row["command"])
 
 
+@pytest.mark.parametrize("partition", TS_PARTITIONS)
+def test_a_relative_work_root_still_puts_the_report_outside_the_copy(
+    tmp_path, monkeypatch, partition
+):
+    """The tools run from the copy, so a relative path handed them lands inside it.
+
+    The report file and, on a corepack-managed partition, the shim directory
+    are both built from the work root, so both are held to be absolute.
+    """
+    monkeypatch.chdir(tmp_path)
+    source = tmp_path / "fixtures" / partition
+    source.mkdir(parents=True)
+    commands = []
+
+    def run(command, cwd, timeout, env=None):
+        commands.append((tuple(command), Path(cwd)))
+        return _outcome()
+
+    monkeypatch.setattr("run_python_fixture_lens._run", run)
+    run_partition(partition, source, Path("work"), "target-execution", 5)
+    (target,) = [
+        Path(c[c.index("--outputFile") + 1]) for c, _ in commands if "--outputFile" in c
+    ]
+    assert target.is_absolute(), target
+    assert target.parent == (tmp_path / "work").resolve()
+    for command, _ in commands:
+        if "--install-directory" in command:
+            shim = Path(command[command.index("--install-directory") + 1])
+            assert shim.is_absolute(), shim
+
+
 def test_a_report_route_that_wrote_no_report_is_not_ok(tmp_path, monkeypatch):
     """The streams cannot vouch for a report: vitest prints where it wrote it.
 
