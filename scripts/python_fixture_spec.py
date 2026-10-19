@@ -894,8 +894,9 @@ EXPECTATIONS = (
         "it: the command names its own runner, so fronting it with the fetch that "
         "entry's tool name resolves to would obtain a package it never calls. No "
         "component carries a "
-        "licences field, which is a family finding rather than a fixture gap: no route "
-        "this record offers populates licences on any partition, so an SBOM is not "
+        "licences field, which is a family finding rather than a fixture gap: none of "
+        "the file-parsing routes this record prescribes by default populates licences "
+        "on any partition, so an SBOM is not "
         "where this family's licence evidence comes from and deps/licenses owns it "
         "alone",
         (),

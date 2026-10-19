@@ -1341,7 +1341,8 @@ def grant_tier(check: str, tool: str, lang: str = "python") -> str:
     record's routes onto their tools: `deps/inventory` prescribes
     `cyclonedx-py` subcommands that read a dependency file and, as an
     `alternative`, `cyclonedx-py environment`, which reads the installed
-    environment and carries `resolved-tree` for it. Reading the projected pair
+    environment by starting its interpreter and carries `target-execution`
+    for it. Reading the projected pair
     makes one tiered `alternative` route withhold the whole row, so at
     `--grant none` a check that answers from a lockfile reports
     `no-evidence (not-permitted)` having run nothing - a silence that reads as
