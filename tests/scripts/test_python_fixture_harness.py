@@ -789,7 +789,7 @@ def test_a_form_led_by_a_runner_is_found_through_the_argvs_own_first_word():
     Both sides are built here rather than read out of a live record: a routed
     row carries no copy of its record's prose, so the paragraph half cannot be
     read off a record once that record migrates, and re-pointing this at
-    whichever record is still on the legacy schema buys one stage of green.
+    a record on the legacy schema, which the loader now refuses, would buy one stage of green.
     The sentence is the one `test/determinism` carried while its fallback
     lived in prose, and the entry carries that record's `pytest-randomly` argv
     and tool - which is all `_lead_words` reads, so the row's other fields are
@@ -1070,9 +1070,9 @@ def test_the_hand_written_table_is_empty_because_every_invoked_record_declares_r
     hand-written row would be a second copy of a command the record already
     states as data - which `test_no_migrated_check_has_a_hand_written_entry`
     refuses. Asserting emptiness rather than deleting the test keeps the
-    table's meaning stated: a record authored on the legacy schema and
-    invoked by the harness would have to add a row here, and this would fail
-    until whoever adds it says why the record is not on routes.
+    table's meaning stated until the legacy readers are retired: the loader now
+    refuses a record authored on the legacy schema, so nothing can add a row
+    here while it does.
     """
     assert INVOCATIONS == ()
 

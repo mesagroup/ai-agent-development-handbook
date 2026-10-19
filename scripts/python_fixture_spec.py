@@ -709,10 +709,10 @@ class Expectation:
     record's `ungranted_note` already says what. Where the note is the `none`
     sentinel the ungranted answer is `no-evidence (not-permitted)` and needs no
     restating here; where some Python tool needs no grant at all, `claim`
-    already holds in both states. Which schema a record declares decides how
-    both halves of that are read, and neither half is schema-neutral. On a
-    legacy record the tier is per tool, so the question is whether every Python
-    tool the record offers carries one. On a routes record the tier is per
+    already holds in both states. Every record declares `routes:`, so both
+    halves are read per route; the legacy schema, which the loader now
+    refuses, read them differently. On a legacy record the tier was per tool, so the question is whether every Python
+    tool the record offered carried one. On a routes record the tier is per
     route, and the question is whether every answering-kind, non-`forbidden`
     route *naming a tool* carries one - a tool with one tiered route and one
     untiered route does not put its language in that half, even though the
