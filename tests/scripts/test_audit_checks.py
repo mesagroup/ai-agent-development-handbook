@@ -3365,7 +3365,8 @@ def test_a_tool_with_one_tiered_route_and_one_untiered_still_answers(tmp_path):
 
     `deps/inventory` is this shape: one `cyclonedx-py` route carrying the
     file-parsing subcommands untiered, and `cyclonedx-py environment` under
-    `resolved-tree` because it reads the installed environment. Projected onto
+    `target-execution` because it starts the installed environment's
+    interpreter. Projected onto
     the tool, the record's Python side reads as fully tiered and the grant
     looks decisive; read per route, an untiered route still runs a tool and
     the grant changes nothing about what the check answers.

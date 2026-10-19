@@ -1621,7 +1621,8 @@ def test_the_grant_tier_is_read_from_the_record_rather_than_transcribed():
     `run_partition` then withholds the whole row. `deps/inventory` is the
     instance - `cyclonedx-py` prescribes file-parsing subcommands that read a
     lockfile and, as an `alternative`, `environment`, which reads the
-    installed environment and is correctly tiered for it. Under the old
+    installed environment by starting its interpreter and is correctly tiered
+    for it. Under the old
     reading that check reported `no-evidence (not-permitted)` at
     `--grant none` having run nothing it could have run.
 
@@ -1635,9 +1636,9 @@ def test_the_grant_tier_is_read_from_the_record_rather_than_transcribed():
     assert grant_tier("test/coverage-reach", "pytest-cov") == "target-execution"
     assert grant_tier("security/crypto", "bandit") == ""
     # The row whose prescribed command answers from a clone while another of
-    # the same tool's routes needs the tree.
+    # the same tool's routes starts the target's interpreter.
     assert grant_tier("deps/inventory", "cyclonedx-py") == ""
-    assert checks["deps/inventory"].needs == {"resolved-tree": ("cyclonedx-py",)}
+    assert checks["deps/inventory"].needs == {"target-execution": ("cyclonedx-py",)}
     disagreed = []
     for inv in every_invocation():
         tiers = {
@@ -4754,3 +4755,27 @@ def test_disagreeing_caveats_on_a_row_with_no_command_are_composed(monkeypatch):
     with _records_replaced_by(monkeypatch, records):
         (row,) = routed_invocations()
     assert row.alone_insufficient == "one\n\ntwo"
+
+
+def test_the_inventory_environment_route_reads_the_venv_through_its_interpreter():
+    """`cyclonedx-py environment` names the venv's interpreter and runs isolated.
+
+    Inside the environment, with the tool layered on by `uv run --with`, the
+    SBOM lists the overlay's packages beside the target's - 37 components
+    against the seeded uv partition's 7, with `packaging` at two versions - so
+    the route is not `in_env`; given the interpreter, the isolated tool lists
+    the 7. Starting that interpreter runs its `.pth` files, which is execution,
+    so the tier is `target-execution`.
+    """
+    checks, errors = load_checks(SKILLS_DIR)
+    assert not errors, errors
+    (route,) = [
+        r
+        for r in checks["deps/inventory"].routes
+        if r.tool == "cyclonedx-py" and r.argv and "environment" in r.argv
+    ]
+    assert route.argv == ("cyclonedx-py", "environment", "<path-to-venv-python>")
+    assert route.package == "cyclonedx-bom"
+    assert not route.in_env
+    assert route.needs == "target-execution"
+    assert route.disposition == "alternative"
