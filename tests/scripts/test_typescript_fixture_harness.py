@@ -20,6 +20,8 @@ from python_fixture_spec import TS_CORE, TS_EXPECTATIONS, TS_PARTITIONS
 from run_python_fixture_lens import (
     NONZERO_EXIT_KINDS,
     PARTITION_KEYS,
+    PLUGIN_ROOT_VARIABLE,
+    REPO_ROOT,
     TS_APPLIES_WHEN,
     TS_COMPLETIONS,
     TS_COREPACK_MANAGED,
@@ -29,6 +31,7 @@ from run_python_fixture_lens import (
     TS_NO_VERSION_ROUTE,
     TS_NONZERO_EXIT_MEANING,
     TS_ONE_SHOT,
+    TS_RUN_IN_PACKAGE,
     TS_SHIM_DIRNAME,
     TS_SHUFFLE_SEED,
     TS_VERSION_PROBE,
@@ -37,6 +40,7 @@ from run_python_fixture_lens import (
     _partition_keys,
     _ts_fixture_env,
     argv_for,
+    expand_plugin_root,
     grant_tier,
     invocations_for,
     launcher,
@@ -44,6 +48,7 @@ from run_python_fixture_lens import (
     routed_invocations,
     run_partition,
     tools_named_in_records,
+    workdir_for,
 )
 
 LANG = "typescript"
@@ -269,6 +274,80 @@ def test_every_runs_form_is_prescribed_on_a_partition_except_the_yarn_ones():
 def test_no_placeholder_a_record_writes_reaches_a_command_that_runs(partition):
     for inv, argv in _runnable_on(partition):
         assert not any("<" in token for token in argv), (inv.check, argv)
+
+
+def test_the_rows_run_from_the_package_are_exactly_the_tsconfig_relative_ones():
+    """Derived from the records: a route whose argv takes `<tsconfig>` runs beside it.
+
+    dependency-cruiser resolves the tsconfig's `include` against its working
+    directory, so the operand only means what the record says from there. madge
+    takes `--ts-config` too but as a trailing completion rather than the
+    `<tsconfig>` placeholder, and resolves it against the file's own directory.
+    """
+    tsconfig_relative = {
+        (check_id, route.tool)
+        for check_id, route in _runs_command_routes()
+        if any(
+            "<tsconfig>" in argv
+            for argv in (route.argv, *route.argv_by_partition.values())
+        )
+    }
+    assert tsconfig_relative
+    assert set(TS_RUN_IN_PACKAGE) == tsconfig_relative
+    for inv in routed_invocations(LANG):
+        key = (inv.check, inv.tool)
+        assert workdir_for(inv, "npm") == ""
+        assert workdir_for(inv, "pnpm") == (TS_CORE if key in tsconfig_relative else "")
+
+
+def test_every_plugin_root_path_a_route_spells_is_a_file_this_checkout_ships():
+    """A `${CLAUDE_PLUGIN_ROOT}/` token names a tracked file, in every language.
+
+    The variable is the plugin install's directory, and an install carries this
+    repository, so a path under it that resolves to nothing here resolves to
+    nothing in the cache either.
+    """
+    spelled = set()
+    for record in _records().values():
+        for route in record.routes:
+            for argv in (route.argv, *route.argv_by_partition.values(), route.then):
+                for token in argv or ():
+                    if PLUGIN_ROOT_VARIABLE in token:
+                        assert token.startswith(f"{PLUGIN_ROOT_VARIABLE}/"), token
+                        spelled.add(token)
+    assert spelled
+    for token in spelled:
+        path = REPO_ROOT / token.removeprefix(f"{PLUGIN_ROOT_VARIABLE}/")
+        assert path.is_file(), token
+        assert "checks" not in path.relative_to(REPO_ROOT).parts, token
+
+
+@pytest.mark.parametrize("partition", TS_PARTITIONS)
+def test_no_plugin_root_variable_reaches_a_command_that_runs(partition):
+    for inv, argv in _runnable_on(partition):
+        composed = expand_plugin_root(argv)
+        assert not any("${" in token for token in composed), (inv.check, composed)
+
+
+def test_the_dependency_cruiser_routes_read_the_json_output():
+    """With no rules in the shipped config, the default `err` output is a false clean.
+
+    `arch/layering` is not among them: its route applies only where the project
+    carries its own config, whose rules are the boundary that check tests.
+    """
+    shipped = ("arch/cycles", "arch/coupling", "arch/over-decomposition")
+    rows = [
+        i
+        for i in routed_invocations(LANG)
+        if i.tool == "dependency-cruiser" and i.check in shipped
+    ]
+    assert sorted(i.check for i in rows) == sorted(shipped)
+    for inv in rows:
+        for partition in TS_PARTITIONS:
+            argv = inv.prescribed(partition)
+            assert argv[argv.index("--output-type") + 1] == "json", inv.check
+            config = argv[argv.index("--config") + 1]
+            assert config.startswith(f"{PLUGIN_ROOT_VARIABLE}/"), (inv.check, config)
 
 
 def test_the_shuffle_seed_fills_the_records_placeholder_and_not_the_record():
@@ -584,7 +663,16 @@ def test_a_granted_run_materializes_only_inside_the_copy(
     observed = run_partition(partition, source, work, "target-execution", 5)
 
     copy = work / partition
-    assert all(call["cwd"] == copy for call in calls), {c["cwd"] for c in calls}
+    # A row `TS_RUN_IN_PACKAGE` names runs from the seeded package, which is the
+    # copy's root on npm and a member inside it on pnpm; nothing runs outside it.
+    in_package = copy / TS_CORE if partition != "npm" else copy
+    allowed = {copy, in_package}
+    assert all(call["cwd"] in allowed for call in calls), {c["cwd"] for c in calls}
+    rows = {(r["check"], r["tool"]): r for r in observed["results"]}
+    for key in TS_RUN_IN_PACKAGE:
+        assert rows[key].get("workdir", "") == ("" if partition == "npm" else TS_CORE)
+        ran = [c for c in calls if c["command"] == tuple(rows[key]["command"])]
+        assert ran and all(c["cwd"] == in_package for c in ran), key
     assert all(call["env"] is not None for call in calls)
     commands = [call["command"] for call in calls]
     shim = work / TS_SHIM_DIRNAME
