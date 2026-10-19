@@ -17,16 +17,20 @@ routes:
       **Quantitative scan:** `analyze_prompt.py <file>` (or with `--format
       json`) gives the token budget, per-section directive counts and
       density, the constraint-line count, the cross-reference graph +
-      data-flow depth, and the redundancy groups. The numbers are the input
-      to the qualitative judgment, not the verdict themselves.
+      data-flow depth, and the redundancy groups.
+    alone_insufficient: >-
+      The numbers are the input to the qualitative judgment, not the verdict
+      themselves.
   - lang: any
     kind: procedure
     note: >-
       Where `analyze_prompt.py` is not available, compute the same metrics
       inline: count RFC 2119 keywords per section, estimate tokens
       (~chars/4), and scan for repeated constraint lines - the framework is
-      small and the numbers are the input to the qualitative judgment, not
-      the verdict themselves.
+      small.
+    alone_insufficient: >-
+      The numbers are the input to the qualitative judgment, not the verdict
+      themselves.
 ---
 
 # Cognitive load & focus
