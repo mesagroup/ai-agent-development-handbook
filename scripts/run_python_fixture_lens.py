@@ -480,11 +480,13 @@ class Invocation:
             TypeScript half needs it where an operand is a path into the seeded
             package, which is the tree root on npm and a workspace member on
             pnpm; the Python partitions share one layout and leave it empty.
-        fills: Placeholders the record writes *inside* a token, as
+        fills: Placeholders the record writes in its argv, as
             `(placeholder, value)` pairs substituted into the command a row runs
-            and never into `prescribed`. Appending cannot complete
-            `--sequence.seed=<n>`, so a fill is the other shape a completion
-            takes, and it travels under the same `note`.
+            and never into `prescribed`. Appending cannot complete one inside a
+            token, `--sequence.seed=<n>`, or one standing before other tokens,
+            dependency-cruiser's `--ts-config <tsconfig> <dir>`, so a fill is
+            the other shape a completion takes, and it travels under the same
+            `note`.
         then: A second command the record prescribes in sequence, where it does -
             `coverage run -m pytest` followed by `coverage report --show-missing`
             is one route, not two, and dropping the half that prints the report
@@ -1133,7 +1135,10 @@ TS_NO_VERSION_ROUTE: dict[str, str] = {
 # 1 when they find a vulnerable or outdated dependency (pnpm's source returns
 # `exitCode: outdatedPackages.length === 0 ? 0 : 1`, and the same for audit's
 # advisories); madge's CLI sets exit code 1 when `--circular` finds a cycle;
-# dependency-cruiser exits with the count of error-severity violations; and
+# dependency-cruiser exits with the count of error-severity violations, which
+# under the rule-less config the plugin ships is never more than zero, so on
+# those routes a non-zero exit carries no findings on stdout and classifies as
+# the failure it is; and
 # vitest and jest exit 1 on a failing test, which is the planted finding for
 # `test/determinism`. `npm sbom`, `pnpm licenses list` and `@cdxgen/cdxgen` are
 # reporting commands with no gating flag in the prescribed invocation - cdxgen's
@@ -1170,9 +1175,11 @@ class TsCompletion:
     `Completion`'s counterpart, with two differences the TypeScript fixtures
     force. A path operand differs by partition, because the seeded package is the
     tree root on npm and `packages/core` on pnpm, so `by_partition` carries the
-    tokens per partition. And a placeholder can sit inside a token, which
-    appending cannot complete, so `fills` substitutes it. Both stay out of the
-    record's own argv, as a completion does.
+    tokens per partition. And a placeholder the record writes in its argv, inside
+    a token or before other tokens, is one appending cannot complete, so `fills`
+    substitutes it. A row `TS_RUN_IN_PACKAGE` names runs from the seeded package
+    instead, so its fills are package-relative and the same on both partitions.
+    All of them stay out of the record's own argv, as a completion does.
     """
 
     note: str
@@ -2357,7 +2364,8 @@ def _run(
 
     Args:
         command: The argv to run.
-        cwd: The materialized copy to run it in.
+        cwd: Where in the materialized copy to run it: the copy's root, or
+            the seeded package for a row `TS_RUN_IN_PACKAGE` names.
         timeout: Seconds before the command is abandoned as hung.
         env: The environment to run it under; `_fixture_env()` where `None`.
     """

@@ -162,7 +162,7 @@ Run from the tree root, as every other TypeScript row is, the pnpm rows exited 1
 
 ### The run
 
-The fixtures were built with `uv run python scripts/build_python_fixtures.py --all`, which wrote 10 tracked files to the `npm` tree and 13 to the `pnpm` tree. Each partition was run under both grant states with `--timeout 300 --work-dir <scratch-dir>`, and graded with `uv run python scripts/grade_python_fixture_run.py`, which wrote 44 rows from the 4 runs. `<scratch-dir>` is a directory outside the repository.
+The fixtures were built with `uv run python scripts/build_python_fixtures.py --all`, which wrote 10 tracked files to the `npm` tree and 13 to the `pnpm` tree. Each partition was run under both grant states with `uv run python scripts/run_python_fixture_lens.py <partition> --grant <grant> --timeout 300 --work-dir <scratch-dir>`, and graded with `uv run python scripts/grade_python_fixture_run.py fixtures/typescript/results`, which wrote 44 rows from the 4 runs. `<scratch-dir>` is a directory outside the repository.
 
 | Run | Commands run |
 |---|---|
