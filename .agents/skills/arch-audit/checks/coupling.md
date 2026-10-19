@@ -33,10 +33,10 @@ routes:
   - lang: typescript
     kind: command
     tool: dependency-cruiser
-    argv: [npx, "--package", "typescript@^5", "--package", dependency-cruiser, "--", depcruise]
+    argv: [npx, "--package", "typescript@^5", "--package", dependency-cruiser, "--", depcruise, "--config", "${CLAUDE_PLUGIN_ROOT}/.agents/skills/arch-audit/dependency-cruiser.json", "--output-type", json, "--ts-config", "<tsconfig>", "<dir>"]
     argv_by_partition:
-      pnpm: [pnpm, "--package=typescript@^5", "--package=dependency-cruiser", dlx, depcruise]
-      yarn: [yarn, dlx, "-p", "typescript@^5", "-p", dependency-cruiser, depcruise]
+      pnpm: [pnpm, "--package=typescript@^5", "--package=dependency-cruiser", dlx, depcruise, "--config", "${CLAUDE_PLUGIN_ROOT}/.agents/skills/arch-audit/dependency-cruiser.json", "--output-type", json, "--ts-config", "<tsconfig>", "<dir>"]
+      yarn: [yarn, dlx, "-p", "typescript@^5", "-p", dependency-cruiser, depcruise, "--config", "${CLAUDE_PLUGIN_ROOT}/.agents/skills/arch-audit/dependency-cruiser.json", "--output-type", json, "--ts-config", "<tsconfig>", "<dir>"]
     own_runner: true
     needs: resolved-tree
     note: >-
@@ -57,19 +57,37 @@ routes:
       installing into an audit-owned directory is what the record prefers
       there.
 
-      Each spelling above is the prefix the record writes, not a complete
-      invocation. A target with no `.dependency-cruiser` config - the
-      ordinary case - exits 1 with `Can't open a config file`, so this tool
-      answers only once given `--config` with an audit-owned config or
-      `--no-config`, and that choice is not free: `--no-config` discards
+      Each spelling is complete once its two operands are filled:
+      `<tsconfig>` is the partition's own tsconfig, the file carrying the
+      compiler options and `paths`, which on a solution-style layout is not a
+      `tsconfig.json` holding only `references` - pointed at one, the tool
+      resolves no alias, marks every aliased import `couldNotResolve`, and
+      exits 0 - and `<dir>` is the directory to cruise, both relative to the
+      directory holding `<tsconfig>`, which is where the command runs:
+      dependency-cruiser resolves the tsconfig's `include` against its
+      working directory rather than the tsconfig's own, so run from a
+      workspace root with a member's tsconfig it exits 1 with `TS18003`, no
+      inputs found. `--config` names the config this plugin ships for the
+      purpose, which carries `enhancedResolveOptions.extensions` and no
+      rules, because a target with no `.dependency-cruiser` config of its own
+      - the ordinary case - exits 1 with `Can't open a config file` without
+      one, and `--ts-config` is dependency-cruiser's documented command-line
+      equivalent of `options.tsConfig`, so the per-partition part stays on
+      the command line and the file is the same on every target.
+      `--no-config` is not the alternative it looks like: it discards
       `--ts-config` along with the rules, and the tree that resolved its
       first-party graph under an audit-owned config came back with 281
-      unresolvable first-party specifiers and an empty cycle set under it,
-      at exit 0. Prefer an audit-owned config setting `options.tsConfig` and
-      `enhancedResolveOptions.extensions`. The output observed behind the
-      config-less exit 1 and the `--no-config` loss is recorded in [the
-      smoke
-      run](https://github.com/mesagroup/ai-agent-development-handbook/blob/main/docs/audit/typescript-lens-smoke-run.md).
+      unresolvable first-party specifiers and an empty cycle set under it, at
+      exit 0. `--output-type json` is not optional either: with no rules
+      loaded the default `err` output prints `no dependency violations found`
+      whatever the graph holds, so the answer is read from the JSON - each
+      dependency's `circular` flag and `cycle`, and each module's
+      `dependencies` and `dependents`. The config-less exit 1 and the
+      `--no-config` loss are recorded in [the smoke
+      run](https://github.com/mesagroup/ai-agent-development-handbook/blob/main/docs/audit/typescript-lens-smoke-run.md),
+      and the completed invocation's graph on both seeded partitions in [the
+      fixture
+      run](https://github.com/mesagroup/ai-agent-development-handbook/blob/main/docs/audit/typescript-fixture-run.md).
   - lang: typescript
     kind: command
     tool: depcruise
