@@ -1535,9 +1535,14 @@ def _load_one(
     # it, so a record-level `tooling:` or `needs:` is refused outright rather
     # than read as the legacy schema. A route's own `needs` field is a key of
     # the route, not of the record, and is untouched. The readers below still
-    # parse the two keys, because retiring them is its own change; on a tree
-    # that loads they now read nothing.
-    elif raw_routes is None and not legacy_schema:
+    # parse the two keys, because retiring them is its own change, but only
+    # where the record is being read as the legacy schema - no `routes:`, and
+    # `legacy_schema=True`. Anywhere else a legacy key has just been refused,
+    # by the error above or by this one, and every message the readers give
+    # advises the author on that refused schema - add a tooling map, add an
+    # ungranted_note - which would contradict the refusal in the same list.
+    legacy_read = raw_routes is None and legacy_schema
+    if raw_routes is None and not legacy_schema:
         for key in ("tooling", "needs"):
             if key in meta:
                 errors.append(
@@ -1548,7 +1553,7 @@ def _load_one(
                 )
 
     tooling: dict[str, tuple[str, ...]] = {}
-    raw_tooling = meta.get("tooling")
+    raw_tooling = meta.get("tooling") if legacy_read else None
     if raw_tooling is not None:
         if not isinstance(raw_tooling, dict):
             errors.append(
@@ -1565,18 +1570,15 @@ def _load_one(
                 tooling[lang] = names
 
     needs: dict[str, tuple[str, ...]] = {}
-    raw_needs = meta.get("needs")
+    raw_needs = meta.get("needs") if legacy_read else None
     if raw_needs is not None:
         if not isinstance(raw_needs, dict):
             errors.append(f"{where}: needs must be a mapping of tier to tool list")
         elif raw_tooling is None:
-            # Off the legacy flag the refusal above already names `needs`, and
-            # this message's advice would lead into the `tooling` refusal.
-            if legacy_schema:
-                errors.append(
-                    f"{where}: needs classifies tooling this record does not "
-                    "declare - add a tooling map, or drop needs"
-                )
+            errors.append(
+                f"{where}: needs classifies tooling this record does not declare - "
+                "add a tooling map, or drop needs"
+            )
         else:
             offered = {name for names in tooling.values() for name in names}
             tier_of: dict[str, str] = {}

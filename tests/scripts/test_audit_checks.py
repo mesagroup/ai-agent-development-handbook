@@ -133,7 +133,7 @@ def test_needs_must_name_a_known_tier(tmp_path):
         "deps-audit/checks/hygiene.md",
         NEEDS.replace("resolved-tree: [deptry, knip]", "needs-network: [deptry]"),
     )
-    _, errors = ac.load_checks(tmp_path)
+    _, errors = ac.load_checks(tmp_path, legacy_schema=True)
     assert any("needs-network" in e and "must map one of" in e for e in errors)
 
 
@@ -143,7 +143,7 @@ def test_needs_must_name_a_tool_the_record_offers(tmp_path):
         "deps-audit/checks/hygiene.md",
         NEEDS.replace("[deptry, knip]", "[deptry, kn1p]"),
     )
-    _, errors = ac.load_checks(tmp_path)
+    _, errors = ac.load_checks(tmp_path, legacy_schema=True)
     assert any("'kn1p'" in e and "not in this record's tooling" in e for e in errors)
 
 
@@ -156,7 +156,7 @@ def test_a_tool_may_not_sit_in_two_tiers(tmp_path):
             "  resolved-tree: [deptry, knip]\n  target-execution: [knip]",
         ),
     )
-    _, errors = ac.load_checks(tmp_path)
+    _, errors = ac.load_checks(tmp_path, legacy_schema=True)
     assert any(
         "'knip'" in e and "resolved-tree" in e and "target-execution" in e
         for e in errors
@@ -186,7 +186,7 @@ def test_needs_must_be_a_mapping(tmp_path):
         "deps-audit/checks/hygiene.md",
         NEEDS.replace("needs:\n  resolved-tree: [deptry, knip]", "needs: [deptry]"),
     )
-    _, errors = ac.load_checks(tmp_path)
+    _, errors = ac.load_checks(tmp_path, legacy_schema=True)
     assert any("needs must be a mapping" in e for e in errors)
 
 
@@ -694,6 +694,44 @@ def test_a_record_level_needs_is_refused(tmp_path):
     assert checks == {}
     assert any("record-level needs" in e for e in errors), errors
     assert any("record-level tooling" in e for e in errors), errors
+
+
+def test_a_refused_record_gets_no_legacy_advice(tmp_path):
+    """Once a record-level key is refused, the legacy readers stay silent.
+
+    A fully tiered `tooling`/`needs` pair is what the legacy schema demanded an
+    `ungranted_note` for, and asking for one beside the refusal tells the
+    author to add a field the same error list has just ruled out. So the only
+    errors are the refusals themselves, whatever shape the legacy keys are in.
+    """
+    _write(
+        tmp_path,
+        "demo-audit/checks/thing.md",
+        _record(tooling={"python": ["t"]}, needs={"bogus-tier": ["t", "u"]}),
+    )
+    _, errors = ac.load_checks(tmp_path)
+    assert errors, errors
+    assert all("declares a record-level" in e for e in errors), errors
+    _write(
+        tmp_path,
+        "demo-audit/checks/thing.md",
+        _record(tooling={"python": ["t"]}, needs={"resolved-tree": ["t"]}),
+    )
+    _, errors = ac.load_checks(tmp_path)
+    assert all("declares a record-level" in e for e in errors), errors
+    assert not any("ungranted_note" in e for e in errors), errors
+    # The same holds where the legacy keys sit beside `routes:`: the error is
+    # that it carries both, and nothing asks for a legacy field on top.
+    _write(
+        tmp_path,
+        "demo-audit/checks/thing.md",
+        _routes_frontmatter(
+            "lang: any\n    kind: procedure\n    note: Read it.",
+            extra="tooling:\n  python: [t]\nneeds:\n  resolved-tree: [t]\n",
+        ),
+    )
+    _, errors = ac.load_checks(tmp_path)
+    assert errors and all("carries both" in e for e in errors), errors
 
 
 def test_a_route_s_own_needs_is_untouched_by_the_refusal(tmp_path):
@@ -2706,7 +2744,7 @@ def test_tooling_must_map_language_to_a_list(tmp_path):
         "arch-audit/checks/layering.md",
         GOOD.replace("python: [import-linter, tach]", "python: import-linter"),
     )
-    _, errors = ac.load_checks(tmp_path)
+    _, errors = ac.load_checks(tmp_path, legacy_schema=True)
     assert any("tooling" in e for e in errors)
 
 
