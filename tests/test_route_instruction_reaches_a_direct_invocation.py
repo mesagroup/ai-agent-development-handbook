@@ -198,7 +198,7 @@ def test_the_engine_s_worked_examples_still_exist() -> None:
 
     The section teaches the runner rule from two records: `test/coverage-reach`,
     whose `pytest` invocation needs the target's own environment and so takes
-    `uv run --with`, and `test/new-code-coverage`, whose `diff-cover` is a PyPI
+    in-environment `uv run`, and `test/new-code-coverage`, whose `diff-cover` is a PyPI
     package fetched onto a partition of any language. Both are cited by check
     id in normative prose, so a record edited later leaves the engine teaching
     from a route that no longer exists - and CLAUDE.md's rule is that a
@@ -206,7 +206,7 @@ def test_the_engine_s_worked_examples_still_exist() -> None:
 
     Asserted on the shape the lesson depends on, not on the whole route: that
     the coverage route's command is `pytest` while its tool is not, which is
-    what makes it the `uv run --with` case rather than the `uvx` one.
+    what makes it the in-environment `uv run` case rather than the `uvx` one.
     """
     sys.path.insert(0, str(REPO_ROOT / "scripts"))
     from audit_checks import load_checks
@@ -230,17 +230,17 @@ def test_the_engine_s_worked_examples_still_exist() -> None:
         if route.kind == "command" and route.argv and route.argv[0] == "pytest"
     ]
     assert len(coverage) == 1, (
-        f"{SECTION!r} teaches the `uv run --with` case from test/coverage-reach's "
+        f"{SECTION!r} teaches the in-environment `uv run` case from test/coverage-reach's "
         f"`pytest` command route; found {len(coverage)} such route(s)"
     )
     assert coverage[0].in_env, (
-        f"{SECTION!r} teaches the `uv run --with` case from that route because it "
+        f"{SECTION!r} teaches the in-environment `uv run` case from that route because it "
         "carries `in_env`, which is what says the command must run inside the "
         "materialized environment. Without the field the route is an argument for "
         "the isolated runner instead, and the section's rule cites the wrong record"
     )
     assert coverage[0].tool != "pytest", (
-        f"{SECTION!r} argues that route needs `uv run --with` because the command "
+        f"{SECTION!r} argues that route needs in-environment `uv run` because the command "
         f"is `pytest` while the package to fetch is {coverage[0].tool!r}. With the "
         "tool named `pytest` the example stops making that point"
     )

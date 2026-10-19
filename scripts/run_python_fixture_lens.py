@@ -1049,8 +1049,9 @@ TS_MANAGER_TOOLS: dict[str, str] = {
 # placeholder the records forbid. On pnpm the flag precedes `dlx`, as the
 # records spell it, because `pnpm dlx --package=` reads the flag as a package
 # spec. An `in_env` tool under a grant runs the tree's own copy instead:
-# `npx --no` refuses to fetch and fails where the tree does not carry the tool,
-# and `pnpm exec` runs the workspace's own bin. `--no` rather than the older
+# `npx --no` declines to fetch, though it still resolves a copy from npx's own
+# cache, so a tool that runs is no proof the tree carries it, and `pnpm exec`
+# runs whatever its PATH holds, the workspace's own bin first. `--no` rather than the older
 # `--no-install`, which npm 11's own documentation calls deprecated and
 # converts to `--no`, so the spelling is what actually runs. The `--` ends
 # npx's own options, as it does in the one-shot form: without it npx reads a

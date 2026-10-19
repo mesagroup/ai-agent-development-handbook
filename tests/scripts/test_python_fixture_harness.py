@@ -2902,8 +2902,9 @@ def test_an_inner_uv_command_is_told_which_interpreter_to_read(tmp_path, monkeyp
     already produces for an `in_env` tool - prints nothing at exit 0 on an
     environment with three outdated packages; the same command with a
     trailing `--python .venv/bin/python` on the *inner* `uv` lists them. The
-    same gap was confirmed on the `uv` partition's own native route (`uv run
-    --with uv uv pip list --outdated`, no `--no-project` involved), which is
+    same gap was confirmed on the `uv` partition's own native route, then
+    `uv run --with uv uv pip list --outdated` and now with `--no-sync` before
+    `--with`, no `--no-project` involved in either, which is
     why both partitions are checked here rather than only the overlay one.
     The record names the interpreter for that reason, so what this asserts is
     that the record's command and its completion still reach the run in that
