@@ -30,6 +30,7 @@ routes:
   - lang: python
     kind: command
     tool: cyclonedx-py
+    package: cyclonedx-bom
     argv_by_partition:
       uv: [uv, export, "--format=cyclonedx1.5", "--frozen"]
       pip: [cyclonedx-py, requirements]
@@ -68,8 +69,9 @@ routes:
     needs: target-execution
     note: >-
       `cyclonedx-py environment` reads the installed environment instead, and
-      is the more accurate of the two where a tree is available, but it
-      answers nothing on a read-only clone, so the file-parsing subcommands
+      is the more accurate of the two where the run holds `target-execution`
+      and step 1 materialized the tree, but it answers nothing on a read-only
+      clone, so the file-parsing subcommands
       above are what this record prescribes by default.
 
       `<path-to-venv-python>` is the interpreter of the environment step 1
