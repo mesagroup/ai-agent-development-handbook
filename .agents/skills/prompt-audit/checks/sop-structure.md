@@ -4,6 +4,18 @@ domain: prompt
 locality: local
 handbook:
   - implementation-disciplines/prompt-and-sop-engineering-a
+routes:
+  - lang: any
+    kind: procedure
+    applies_when: >-
+      The file is an SOP, a `.sop.md` file. Skip this read entirely for a
+      general (non-SOP) prompt - do not raise "missing
+      Overview/Parameters/Steps" against something that was never meant to be
+      an SOP.
+    note: >-
+      **SOP-spec conformance check:** read the file against the SOP
+      specification - sections present and ordered, every step has a
+      Constraints block. Each miss is a finding with the exact `file:line`.
 ---
 
 # SOP section structure
@@ -15,10 +27,6 @@ Applies to `.sop.md` files only. Required sections present and in order (**Overv
 **Critical** - a formal SOP missing a required section it needs to function.
 
 **Minor** - a missing-but-recommended Examples/Troubleshooting section.
-
-## Tooling fallback
-
-**SOP-spec conformance check:** read the file against the SOP specification - sections present and ordered, every step has a Constraints block. Each miss is a finding with the exact `file:line`. Skip this read entirely for a general (non-SOP) prompt - do not raise "missing Overview/Parameters/Steps" against something that was never meant to be an SOP.
 
 ## Fix
 

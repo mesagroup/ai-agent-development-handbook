@@ -4,6 +4,12 @@ domain: prompt
 locality: local
 handbook:
   - implementation-disciplines/prompt-and-sop-engineering-a
+routes:
+  - lang: any
+    kind: procedure
+    note: >-
+      **Well-specified-prompt read:** work the Tier A principles against the
+      text - are instructions precise rather than vague filler.
 ---
 
 # Instruction precision
@@ -13,10 +19,6 @@ Directives are specific and unambiguous, not vague filler ("be helpful", "use go
 ## Severity
 
 **Important** - a vague directive ("use good judgment") where a concrete rule is needed; wrong requirement strength (a soft "should" guarding something that must hold).
-
-## Tooling fallback
-
-**Well-specified-prompt read:** work the Tier A principles against the text - are instructions precise rather than vague filler.
 
 ## Fix
 

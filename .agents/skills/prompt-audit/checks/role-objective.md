@@ -4,6 +4,12 @@ domain: prompt
 locality: local
 handbook:
   - implementation-disciplines/prompt-and-sop-engineering-a
+routes:
+  - lang: any
+    kind: procedure
+    note: >-
+      **Well-specified-prompt read:** work the Tier A principles against the
+      text - is there a role/objective and a scope.
 ---
 
 # Role, objective & task framing
@@ -13,10 +19,6 @@ The prompt establishes who the model is, what it is trying to accomplish, and th
 ## Severity
 
 **Important** - no role/objective, so the task must be inferred.
-
-## Tooling fallback
-
-**Well-specified-prompt read:** work the Tier A principles against the text - is there a role/objective and a scope.
 
 ## Fix
 
