@@ -1401,13 +1401,15 @@ def _silenced_languages(routes: tuple[Route, ...]) -> tuple[str, ...]:
 
 
 def _load_one(
-    path: Path, skills_dir: Path
+    path: Path, skills_dir: Path, *, legacy_schema: bool = False
 ) -> tuple[Check | None, list[str], str | None]:
     """Parse and validate a single record in isolation.
 
     Args:
         path: The record file, at `<domain>-audit/checks/<slug>.md`.
         skills_dir: The skills root the record's expected id is relative to.
+        legacy_schema: Accept a record-level `tooling:`/`needs:` instead of
+            refusing it, as `load_checks` documents.
 
     Returns:
         The record (or `None` if it failed), one message per problem, and the
@@ -1525,6 +1527,21 @@ def _load_one(
                 f"{where}: carries both routes and {key} - a record declares "
                 "what it runs once, not in two schemas; drop one"
             )
+    # `routes:` is the schema, not one of two: every record was migrated onto
+    # it, so a record-level `tooling:` or `needs:` is refused outright rather
+    # than read as the legacy schema. A route's own `needs` field is a key of
+    # the route, not of the record, and is untouched. The readers below still
+    # parse the two keys, because retiring them is its own change; on a tree
+    # that loads they now read nothing.
+    elif raw_routes is None and not legacy_schema:
+        for key in ("tooling", "needs"):
+            if key in meta:
+                errors.append(
+                    f"{where}: declares a record-level {key}, the legacy schema "
+                    "every record has migrated off - declare `routes:` instead, "
+                    "one route per way of answering the check, with each "
+                    "route's own `needs` field carrying its tier"
+                )
 
     tooling: dict[str, tuple[str, ...]] = {}
     raw_tooling = meta.get("tooling")
@@ -1771,7 +1788,9 @@ def _load_one(
     )
 
 
-def load_checks(skills_dir: Path) -> tuple[dict[str, Check], list[str]]:
+def load_checks(
+    skills_dir: Path, *, legacy_schema: bool = False
+) -> tuple[dict[str, Check], list[str]]:
     """Load every check record owned by every domain skill.
 
     Collects problems rather than raising, so one run reports every
@@ -1783,6 +1802,13 @@ def load_checks(skills_dir: Path) -> tuple[dict[str, Check], list[str]]:
         skills_dir: The skills root. Each `<domain>-audit/checks/` beneath
             it holds that domain's records; a skill with no such directory
             has not migrated yet and is skipped in silence.
+        legacy_schema: Accept a record declaring the legacy record-level
+            `tooling:`/`needs:` pair instead of refusing it. Every record
+            declares `routes:`, so a tree is always loaded without it; it
+            exists so the legacy readers, which are retired in their own
+            change rather than in the one that started refusing the schema,
+            can still be exercised by their tests until then, and it goes
+            with them.
 
     Returns:
         Records keyed by id, and one message per problem.
@@ -1809,7 +1835,9 @@ def load_checks(skills_dir: Path) -> tuple[dict[str, Check], list[str]]:
                     f"nested deeper and would never be loaded"
                 )
                 continue
-            check, problems, declared = _load_one(path, skills_dir)
+            check, problems, declared = _load_one(
+                path, skills_dir, legacy_schema=legacy_schema
+            )
             errors.extend(problems)
             if declared is not None:
                 if declared in declared_ids:
