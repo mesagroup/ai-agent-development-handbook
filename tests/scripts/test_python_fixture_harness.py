@@ -2079,6 +2079,7 @@ def test_a_route_that_runs_the_suite_brings_a_runner_the_fixture_does_not_declar
     assert launcher(coverage, "uv", granted=True) == (
         "uv",
         "run",
+        "--no-sync",
         "--with",
         "coverage",
         "--with",
@@ -2149,7 +2150,13 @@ def test_an_in_env_tool_is_launched_through_the_partitions_own_environment():
     the example holds the same thing on either side of that row's migration.
     """
     inv = _entry("deps/hygiene", "deptry")
-    assert launcher(inv, "uv", granted=True) == ("uv", "run", "--with", "deptry")
+    assert launcher(inv, "uv", granted=True) == (
+        "uv",
+        "run",
+        "--no-sync",
+        "--with",
+        "deptry",
+    )
     for partition in ("pip", "poetry", "pipenv", "pylock"):
         assert launcher(inv, partition, granted=True) == (
             "uv",
@@ -3713,6 +3720,7 @@ def test_every_pytest_plugin_carries_in_env_so_its_probe_resolves_into_an_enviro
     assert launcher(rerun, "uv", granted=True) == (
         "uv",
         "run",
+        "--no-sync",
         "--with",
         "pytest-rerunfailures",
     )
@@ -3731,9 +3739,13 @@ def test_a_granted_uv_partition_resolves_the_rerunfailures_probe_into_an_environ
     recorded = []
     monkeypatch.setattr("run_python_fixture_lens._run", _fake_run(recorded))
     probe_versions("uv", "target-execution", tmp_path, timeout=5)
-    expected = ("uv", "run", "--with", "pytest-rerunfailures") + VERSION_PROBE[
-        "pytest-rerunfailures"
-    ]
+    expected = (
+        "uv",
+        "run",
+        "--no-sync",
+        "--with",
+        "pytest-rerunfailures",
+    ) + VERSION_PROBE["pytest-rerunfailures"]
     assert expected in {tuple(c) for c in recorded}
 
 

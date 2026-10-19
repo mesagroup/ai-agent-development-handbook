@@ -332,7 +332,12 @@ def _inv(tool="madge", in_env=False, **kw):
         ("pnpm", False, False, ("pnpm", "--package=madge", "dlx")),
         ("pnpm", True, False, ("pnpm", "--package=madge", "dlx")),
         ("pnpm", False, True, ("pnpm", "--package=madge", "dlx")),
-        ("pnpm", True, True, ("pnpm", "exec")),
+        (
+            "pnpm",
+            True,
+            True,
+            ("pnpm", "--config.verify-deps-before-run=false", "exec"),
+        ),
     ],
 )
 def test_the_launcher_prefix_per_manager(partition, granted, in_env, expected):

@@ -1055,14 +1055,20 @@ TS_MANAGER_TOOLS: dict[str, str] = {
 # converts to `--no`, so the spelling is what actually runs. The `--` ends
 # npx's own options, as it does in the one-shot form: without it npx reads a
 # trailing flag as its own, so the version probe `npx --no vitest --version`
-# printed npm's version rather than vitest's.
+# printed npm's version rather than vitest's. The pnpm config flag turns off
+# `verifyDepsBeforeRun`, which pnpm 11 defaults to `install`: `pnpm exec` then
+# installs into the tree before running whenever it judges `node_modules` out
+# of date, outside the frozen, scripts-off build `TS_MATERIALIZE` made.
+# Measured on a scratch project with a dependency added after install: pnpm
+# 11.28.5's bare `pnpm exec` installed it, and the flagged form did not; pnpm
+# 9.15.9, the fixtures' pin, accepts the flag and runs the command unchanged.
 TS_ONE_SHOT: dict[str, tuple[str, ...]] = {
     "npm": ("npx", "--yes", "--package={package}", "--"),
     "pnpm": ("pnpm", "--package={package}", "dlx"),
 }
 TS_IN_ENV: dict[str, tuple[str, ...]] = {
     "npm": ("npx", "--no", "--"),
-    "pnpm": ("pnpm", "exec"),
+    "pnpm": ("pnpm", "--config.verify-deps-before-run=false", "exec"),
 }
 
 # What reports each TypeScript tool's version, after the launcher's prefix. A
@@ -1882,8 +1888,10 @@ def launcher(
     the answer the expectation claims. Grading a correct run against the other
     one would send a later pass off to "fix" a record that was right.
 
-    Without the grant there is no environment to run inside, so the same tool
-    falls back to the one-shot runner and the run records which it used.
+    Without the grant there is no environment to run inside. A tiered route is
+    then not run at all; what still reaches this branch - the version probe,
+    which runs whatever the grant - falls back to the one-shot runner, and the
+    run records which it used.
 
     Every partition but `uv` reaches the environment the same way: `uv run`,
     pointed at that partition's own `.venv/bin/python` with `--python`, and the
@@ -1905,6 +1913,19 @@ def launcher(
     Measured: without the flag, `deptry` still passed on the pylock copy, but
     a `uv.lock` was on disk afterward where none had been before.
 
+    The `uv` partition does run inside its own project, so it takes
+    `--no-sync`: a bare `uv run` locks and syncs the project before running the
+    command, so against a `uv.lock` gone stale beside its `pyproject.toml` it
+    rewrites the lock and re-syncs the venv the checks read. `--frozen` is not
+    enough on its own: it leaves the lock alone and still syncs the venv to it,
+    reinstalling anything the materialization left out. Measured with uv 0.12
+    on a scratch project with a stale lock and a package removed from its venv:
+    bare `uv run --with` rewrote the lock and installed the new dependency,
+    `--frozen` kept the lock and reinstalled the removed package, and
+    `--no-sync` changed neither. The seeded lock is fresh and its venv
+    complete, so no fixture run shows the difference; a real target's need not
+    be either.
+
     Reaching that venv depends on it existing at `.venv` regardless of which
     manager built it, which is what `_fixture_env`'s
     `POETRY_VIRTUALENVS_IN_PROJECT` / `PIPENV_VENV_IN_PROJECT` are for.
@@ -1923,7 +1944,7 @@ def launcher(
             return ("uvx",)
         return ("uvx", "--from", packages[0], *extra)
     if partition == "uv":
-        return ("uv", "run", "--with", packages[0], *extra)
+        return ("uv", "run", "--no-sync", "--with", packages[0], *extra)
     return (
         "uv",
         "run",
@@ -2700,7 +2721,7 @@ def run_partition(
             rows.append(_run_supplied(invocation, supplied, copy, timeout, row))
             continue
         # A tool the fixture does not declare is fetched by `launcher` from
-        # outside the copy - `uv run --with` (or, off `uv`, the same route
+        # outside the copy - `uv run --no-sync --with` (or, off `uv`, the same route
         # pointed `--python` at the copy's own venv) - and never installed into
         # the copy this run owns, never mind the fixture or the shared tree:
         # `audit-core` bars all three, and a package the audit added is never
