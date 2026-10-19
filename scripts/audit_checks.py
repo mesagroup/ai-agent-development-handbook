@@ -56,7 +56,8 @@ there.
 tool comes from, but what must be present in the target before it can
 answer. A tool absent from `needs` runs against a read-only clone;
 `resolved-tree` needs the dependency graph materialized; `target-execution`
-needs that and runs the target's own code. The names are deliberately
+needs that and runs code from the target's graph, the target's own or an
+installed package's, a `.pth` startup hook included. The names are deliberately
 repeated from `tooling` rather than folded into it, and the repetition is
 what is checked: every name under `needs` must be one the record actually
 offers, so a rename that misses one of the two places fails here instead of
