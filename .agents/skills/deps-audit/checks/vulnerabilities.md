@@ -115,8 +115,7 @@ routes:
       failure as something to observe, not to predict: where it does fail,
       the tool ran and errored, so that is `no-evidence (tool-failed)` and
       never a finding about the target. Not `tool-unavailable`, which says
-      the audit environment could not obtain a candidate and so can answer
-      it next time: `pnpm audit` is pnpm's own subcommand and was obtained,
+      the audit environment is what would answer it next time: `pnpm audit` is pnpm's own subcommand and was obtained,
       and no change to the audit environment brings a retired endpoint back. Reach for this route only where the inventory records pnpm as
       the partition's own package manager, and run it directly: `pnpm audit`
       is pnpm's subcommand rather than a package, so no one-shot runner can
