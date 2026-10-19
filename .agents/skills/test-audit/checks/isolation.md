@@ -33,19 +33,29 @@ routes:
     kind: command
     answers: timing
     tool: vitest
-    argv: [vitest, run]
+    argv: [vitest, run, "--reporter=json", "--outputFile", "<report-path>"]
     in_env: true
     needs: target-execution
     applies_when: >-
       The partition's own runner is Vitest.
     note: >-
-      Run the partition's own runner in run mode and read the duration it
-      reports per test: `vitest run`, with `run` rather than bare `vitest`,
-      which enters watch mode on an interactive terminal and never returns a
-      completed timing pass. Vitest additionally marks anything past
-      `slowTestThreshold`, which defaults to 300ms, and an `isolate: false` or
-      non-default `pool` in its config tells you the suite has been opted out
-      of per-file isolation deliberately rather than by accident.
+      Run the partition's own runner in run mode and read each test's
+      `duration` from its JSON report: `run` rather than bare `vitest`, which
+      enters watch mode on an interactive terminal and never returns a
+      completed timing pass, and `--reporter=json` because the duration is a
+      field of every test's result there, under `testResults[].assertionResults[]`,
+      where the default reporter prints only file and test totals and the
+      suite's duration, and the only slow mark any reporter prints is a
+      colour that captured output does not carry. `<report-path>` is a file
+      outside the target's tree, and `--outputFile` is not optional: without
+      it the JSON reporter writes `.vitest/json/output.json` under the
+      project, which the no-writes invariant bars. A row is a test whose
+      `duration` exceeds the partition's own `slowTestThreshold`, read from
+      `vitest.config.*` or, where there is none, from the `test` block of
+      `vite.config.*`, and 300ms, Vitest's documented default, where neither
+      sets one. An `isolate: false` or non-default `pool` in that config tells
+      you the suite has been opted out of per-file isolation deliberately
+      rather than by accident.
   - lang: typescript
     kind: procedure
     answers: timing
