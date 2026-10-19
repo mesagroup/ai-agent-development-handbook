@@ -1,7 +1,7 @@
 ---
 id: ci/permissions-secrets
 domain: ci
-locality: local
+locality: global
 handbook:
   - security-supply-chain/treat-the-pipeline-as-a-privileged-environment
 routes:
