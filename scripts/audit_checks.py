@@ -1312,7 +1312,8 @@ def _languages_whose_tools_all_need_a_grant(
     tier one invocation mode without its whole language reading as tiered.
     `deps/inventory` is that shape - `cyclonedx-py` carries the
     per-partition file-parsing subcommands untiered and `environment`
-    under `resolved-tree` - and reading it off the projection says the
+    under `target-execution`, because it starts the installed environment's
+    interpreter - and reading it off the projection says the
     grant changes what the check answers when the route it prescribes by
     default is untiered and answers the same either way.
 

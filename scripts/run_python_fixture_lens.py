@@ -192,9 +192,11 @@ DETAILS = ("timed-out", "environment-unmaterialized")
 # inside these two.
 GRANTS = ("none", "target-execution")
 
-# What has to be installed for a tool whose own name is not enough. Harness
-# plumbing rather than a claim from any record, and a tool absent from here is
-# fetched under its own name.
+# What has to be installed for a tool whose own name is not enough, and a tool
+# absent from here is fetched under its own name. Two of the entries are also a
+# record's `package` field - `coverage.py` in `test/coverage-reach` and
+# `cyclonedx-py` in `deps/inventory` - which this table does not read; the
+# third, the pytest companions, is harness plumbing no record states.
 #
 # Three things put an entry here. `coverage.py` is the project's own name for a
 # distribution published as `coverage`, and `cyclonedx-py` is the command name
@@ -380,8 +382,9 @@ NO_VERSION_ROUTE: dict[str, str] = {}
 #   the way the `--no-deps --disable-pip` pair narrows `pip-audit -r
 #   <requirements>`, and the narrower form is the one it goes on to prescribe.
 # * `alternative` - a second route the record keeps valid without making it the
-#   default here: `cyclonedx-py environment`, more accurate where a tree is
-#   available and useless on a read-only clone; `pip-licenses --format json`, the
+#   default here: `cyclonedx-py environment`, more accurate where the run may
+#   execute the target against its materialized tree and useless on a
+#   read-only clone; `pip-licenses --format json`, the
 #   same list presented machine-readably; `mutmut results`, the other of two ways
 #   the record offers to read the tally; `pytest --randomly-seed=<n>`, the seeded
 #   re-run the record keeps for reproducing a failing order, where the command it
