@@ -22,6 +22,7 @@ from run_python_fixture_lens import (
     PARTITION_KEYS,
     PLUGIN_ROOT_VARIABLE,
     REPO_ROOT,
+    REPORT_PATH_TOKEN,
     TS_APPLIES_WHEN,
     TS_COMPLETIONS,
     TS_COREPACK_MANAGED,
@@ -350,6 +351,26 @@ def test_the_dependency_cruiser_routes_read_the_json_output():
             assert config.startswith(f"{PLUGIN_ROOT_VARIABLE}/"), (inv.check, config)
 
 
+def test_the_isolation_route_writes_its_json_report_outside_the_tree():
+    """`--outputFile` is not optional: without it vitest writes into the project.
+
+    Measured on the seeded npm fixture with vitest 5.0.2: the JSON reporter with
+    no `--outputFile` wrote `.vitest/json/output.json` under the project. So the
+    record's argv carries the flag with a placeholder of its own, and the round
+    fills it with a token `run_partition` resolves to its work root.
+    """
+    (row,) = [
+        i
+        for i in invocations_for("npm")
+        if (i.check, i.tool) == ("test/isolation", "vitest")
+    ]
+    prescribed = row.prescribed("npm")
+    assert "--reporter=json" in prescribed
+    assert prescribed[prescribed.index("--outputFile") + 1] == "<report-path>"
+    argv = argv_for(row, "npm")
+    assert argv[argv.index("--outputFile") + 1] == REPORT_PATH_TOKEN
+
+
 def test_the_shuffle_seed_fills_the_records_placeholder_and_not_the_record():
     (row,) = [
         i
@@ -581,6 +602,7 @@ def test_the_completions_are_exactly_the_incomplete_commands():
         ("arch/coupling", "dependency-cruiser"),
         ("arch/over-decomposition", "dependency-cruiser"),
         ("test/determinism", "vitest"),
+        ("test/isolation", "vitest"),
     }
     commanded = {(inv.check, inv.tool) for p in TS_PARTITIONS for inv, _ in _rows_on(p)}
     assert set(TS_COMPLETIONS) <= commanded
@@ -692,6 +714,41 @@ def test_a_granted_run_materializes_only_inside_the_copy(
     assert (
         tuple(commands[: len(TS_MATERIALIZE[partition])]) == TS_MATERIALIZE[partition]
     )
+
+
+@pytest.mark.parametrize("partition", TS_PARTITIONS)
+def test_the_report_lands_in_the_work_root_and_reaches_the_row(
+    tmp_path, monkeypatch, partition
+):
+    source = tmp_path / "fixtures" / partition
+    source.mkdir(parents=True)
+    work = tmp_path / "work"
+    work.mkdir()
+    written = []
+
+    def run(command, cwd, timeout, env=None):
+        command = tuple(command)
+        if "--outputFile" in command:
+            target = Path(command[command.index("--outputFile") + 1])
+            target.write_text('{"testResults": []}')
+            written.append((target, Path(cwd)))
+        return _outcome()
+
+    monkeypatch.setattr("run_python_fixture_lens._run", run)
+    observed = run_partition(partition, source, work, "target-execution", 5)
+    (target, _cwd), *rest = written
+    assert not rest
+    copy = work / partition
+    assert target.parent == work
+    assert copy not in target.parents
+    (row,) = [
+        r
+        for r in observed["results"]
+        if (r["check"], r["tool"]) == ("test/isolation", "vitest")
+    ]
+    assert row["report"] == '{"testResults": []}'
+    assert str(target) in row["command"]
+    assert REPORT_PATH_TOKEN not in " ".join(row["command"])
 
 
 def test_a_row_the_partition_cannot_run_is_recorded_with_its_reason(

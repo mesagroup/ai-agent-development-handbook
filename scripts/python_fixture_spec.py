@@ -1860,11 +1860,14 @@ TS_EXPECTATIONS = (
         "test/isolation",
         _TS_ALL,
         "exact",
-        f"the test in test/slow.test.ts sleeps {TS_SLOW_TEST_MS}ms: over vitest's "
-        f"default slowTestThreshold of {VITEST_SLOW_TEST_THRESHOLD_MS}ms, so "
-        "`vitest run` reports its duration and marks it slow, and under the default "
-        f"testTimeout of {VITEST_TEST_TIMEOUT_MS}ms, so it passes. All three numbers are "
-        "interpolated from the module constants the seeded file is written from",
+        'exactly one row: the test "slow but passing" in test/slow.test.ts, which '
+        f"sleeps {TS_SLOW_TEST_MS}ms. `vitest run --reporter=json --outputFile "
+        "<report-path>` writes its `duration` into the JSON report, and the duration "
+        "exceeds the partition's slowTestThreshold, which the fixture does not set "
+        f"and so is vitest's default of {VITEST_SLOW_TEST_THRESHOLD_MS}ms. It stays "
+        f"under the default testTimeout of {VITEST_TEST_TIMEOUT_MS}ms, so it passes. "
+        "The suite's other tests finish well under the threshold. All three numbers "
+        "are interpolated from the module constants the seeded file is written from",
         ("slow-test",),
         "the I/O axis answers without the tree and finds nothing: the seeded suite "
         "makes no network, filesystem or database call and configures no timeout. The "
