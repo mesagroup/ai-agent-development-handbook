@@ -1255,6 +1255,15 @@ def workdir_for(invocation: Invocation, partition: str) -> str:
     return _ts_source_prefix(partition).rstrip("/")
 
 
+# What a route's report-file placeholder is filled with: a token, because the
+# file it stands for is named per run - outside the copy, in the run's own work
+# root - and `run_partition` is the only place that knows the root. The record
+# writes `<report-path>` where its tool must be handed a file to write: vitest's
+# JSON reporter writes `.vitest/json/output.json` under the project otherwise,
+# measured on the seeded npm fixture with vitest 5.0.2, which the no-writes
+# invariant bars.
+REPORT_PATH_TOKEN = "{report_path}"
+
 TS_COMPLETIONS: dict[tuple[str, str], TsCompletion] = {
     ("arch/cycles", "madge"): TsCompletion(
         by_partition=_per_ts_partition("tsconfig.json", "src"),
@@ -1268,6 +1277,14 @@ TS_COMPLETIONS: dict[tuple[str, str], TsCompletion] = {
     ("arch/cycles", "dependency-cruiser"): _TS_DEPCRUISE_COMPLETION,
     ("arch/coupling", "dependency-cruiser"): _TS_DEPCRUISE_COMPLETION,
     ("arch/over-decomposition", "dependency-cruiser"): _TS_DEPCRUISE_COMPLETION,
+    ("test/isolation", "vitest"): TsCompletion(
+        fills=(("<report-path>", REPORT_PATH_TOKEN),),
+        note=(
+            "`<report-path>` is the file the record leaves to the caller for the "
+            "JSON report; the round names one in its work root, outside the copy, "
+            "and reads it back into the row as `report`"
+        ),
+    ),
     ("test/determinism", "vitest"): TsCompletion(
         fills=(("<n>", str(TS_SHUFFLE_SEED)),),
         note=(
@@ -2637,6 +2654,19 @@ def probe_versions(
     return versions
 
 
+def report_path_for(
+    invocation: Invocation, partition: str, grant: str, work_root: Path
+) -> Path:
+    """Where this row's tool writes the report the record names `<report-path>`.
+
+    In the run's work root rather than in the copy, so the tool writes nothing
+    into the tree it reads, and named by partition, grant and row, so two rows
+    or two runs sharing a work root never read each other's report.
+    """
+    slug = f"{invocation.check}-{invocation.tool}".replace("/", "-")
+    return work_root / f"{partition}-{grant}-{slug}-report.json"
+
+
 def run_partition(
     partition: str,
     source: Path,
@@ -2791,8 +2821,19 @@ def run_partition(
         # evidence about the target wherever it landed.
         prefix = launcher(invocation, partition, granted=granted)
         command = expand_plugin_root((*prefix, *argv))
+        report = None
+        if any(REPORT_PATH_TOKEN in token for token in command):
+            report = report_path_for(invocation, partition, grant, work_root)
+            report.unlink(missing_ok=True)
+            command = tuple(
+                token.replace(REPORT_PATH_TOKEN, str(report)) for token in command
+            )
         outcome = run(command, copy / workdir, timeout)
         row |= {"ran": True, "command": list(command), **outcome}
+        if report is not None:
+            # The evidence is the file, not the streams: the reporter prints
+            # only where it wrote it. `None` where the tool wrote nothing.
+            row["report"] = report.read_text() if report.is_file() else None
         # A route the record writes as two commands is one route, so both halves
         # reach the verdict. Classifying on the first alone would grade a route
         # whose measuring half ran and whose reporting half died as `ok` with no
