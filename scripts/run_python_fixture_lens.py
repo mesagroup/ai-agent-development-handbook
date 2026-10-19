@@ -1008,8 +1008,8 @@ SUPPLIED: dict[tuple[str, str], Supplied] = {
 # migration: every record the Python fixture harness invokes now declares
 # `routes:`, so every row comes from `routed_invocations` and nothing here is
 # read from a `## Tooling fallback` section. The shape is kept, rather than the
-# name retired, because a record can still be authored on the legacy schema and
-# this is where its rows would go while it stayed there.
+# name retired, until the legacy readers are retired: the loader now refuses a
+# record-level `tooling:`, so no record on a real tree can put a row here.
 INVOCATIONS: tuple[Invocation, ...] = ()
 
 
@@ -1430,8 +1430,9 @@ def grant_tier(check: str, tool: str, lang: str = "python") -> str:
     `audit_checks._languages_whose_tools_all_need_a_grant`, which asks the
     neighbouring question about the record rather than about one row.
 
-    A record still declaring `tooling:` has no routes to read, and its tier is
-    per tool by construction, so it keeps the projected reading.
+    A record on the legacy schema has no routes to read, and its tier is per
+    tool by construction, so it keeps the projected reading; the loader refuses
+    one outside `legacy_schema=True`, so the branch goes with the legacy readers.
 
     Returns:
         `resolved-tree`, `target-execution`, or the empty string where the

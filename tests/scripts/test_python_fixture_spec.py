@@ -624,10 +624,11 @@ def test_the_ungranted_answer_is_stated_exactly_where_the_grant_changes_it():
     stops a new expectation quietly omitting the axis.
 
     **Both halves read the schema the record declares, and neither is
-    schema-neutral.** A record declaring `tooling:` states what still answers
-    in `ungranted_note` and has only one place to carry a tier, which is per
-    tool. A record declaring `routes:` states it by keeping an untiered
-    answering route, and carries a tier per route.
+    schema-neutral.** A record declaring `routes:` states what still answers by
+    keeping an untiered answering route, and carries a tier per route; every
+    record does. The legacy branch below - a record declaring `tooling:`,
+    stating it in `ungranted_note` with a tier per tool - is reachable only
+    under `legacy_schema=True` and goes with the legacy readers.
 
     The tiered half is what reads per route, and the reason is that
     `_project_needs` collapses routes onto tools. A tool with one tiered route

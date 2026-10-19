@@ -31,7 +31,7 @@ Frontmatter fields:
 | `handbook_note` | iff `handbook` is empty | Why the check exceeds the handbook |
 | `tooling` | refused | The legacy schema's language-to-tools list; projected from `routes` instead |
 | `needs` | refused | The legacy schema's tier-to-tools mapping; projected from `routes` instead |
-| `ungranted_note` | never, without `tooling` | The legacy schema's claim about what answers once a grant is withheld |
+| `ungranted_note` | refused, as vacuous without `tooling` | The legacy schema's claim about what answers once a grant is withheld |
 | `routes` | no, and non-empty where present | A list of `Route`s: what this check can run, replacing `tooling`/`needs`/`ungranted_note` |
 | `answers_ungranted` | iff every answering-kind route in a language needs a grant | The routes-schema counterpart of `ungranted_note`: the sentinel `none`, written where no route in that language answers without a grant |
 | `evidence` | no, and non-empty where present | What this check measures and what a row records as its evidence, where that belongs to the check rather than to any one route |
@@ -63,8 +63,9 @@ answer. A tool absent from `needs` runs against a read-only clone;
 `resolved-tree` needs the dependency graph materialized; `target-execution`
 needs that and runs code from the target's graph, the target's own or an
 installed package's, a `.pth` startup hook included. The names are deliberately
-repeated from `tooling` rather than folded into it, and the repetition is
-what is checked: every name under `needs` must be one the record actually
+repeated from `tooling` rather than folded into it on the legacy schema, and
+the repetition was what is checked there: every name under `needs` must be one
+the record actually
 offers, so a rename that misses one of the two places fails here instead of
 quietly describing a tool that is no longer listed.
 
@@ -79,16 +80,17 @@ records arguing with their own frontmatter in prose. The value is either
 what still answers, or the sentinel `none` where nothing does, and it is
 rejected on a record that keeps a tool answering from a read-only clone,
 because there the withheld-grant situation it describes cannot arise.
-It is required on exactly the records this rule would silence, so an absent
-key is never a silent claim - which is the hazard `needs` still carries and
-this field does not.
+It was required on exactly the records this rule would silence, so an absent
+key was never a silent claim; with no record-level `tooling` there is nothing
+it can be required on, so outside `legacy_schema=True` it is refused as
+vacuous wherever it appears.
 
 `evidence` is the one field that is about neither the tools nor the grant:
 what does this check measure, and what does a row record as the evidence
 behind it? A record whose every route measures the same thing says it once
 here rather than once per route, which is the case that has no other home -
 a route's own `note` is the right place for a measurement only that route
-takes. It is optional on either schema and carries no derived meaning, so
+takes. It is optional and carries no derived meaning, so
 an absent key claims nothing at all; that is the difference from `needs`,
 whose absence is the positive claim that no tool here needs a grant. What
 it must not be is present and empty, because YAML reads a bare key as
@@ -99,8 +101,7 @@ one list of `Route`s, each one way of answering the check in one language,
 in place of a free-form tool list plus the two side mappings that classify
 it. The list must hold at least one route, because an empty one is the
 schema declared and then not stated - indistinguishable downstream from a
-record that never declared it. The two schemas are mutually exclusive - a record naming both is
-rejected, because a route's tier is the only place a tool's requirement is
+record that never declared it. A record carrying `routes` and a legacy key is rejected for carrying both, because a route's tier is the only place a tool's requirement is
 declared, and repeating it under `needs` too would reopen the drift
 `needs`'s own repetition-check exists to close. A record's
 `tooling` and `needs` are then derived from its routes by projection (see
@@ -176,7 +177,7 @@ actually in scope for this: the answering-kind, non-forbidden routes
 carrying no tier, each language's own plus the universal ones. A
 language absent from its result has offered no such route at all, so it
 has made no claim this rule can silence, exactly as a language absent
-from `tooling` makes none under the legacy schema.
+from `tooling` made none under the legacy schema.
 
 Usage:
     from audit_checks import SKILLS_DIR, load_checks
@@ -1569,10 +1570,13 @@ def _load_one(
         if not isinstance(raw_needs, dict):
             errors.append(f"{where}: needs must be a mapping of tier to tool list")
         elif raw_tooling is None:
-            errors.append(
-                f"{where}: needs classifies tooling this record does not declare - "
-                "add a tooling map, or drop needs"
-            )
+            # Off the legacy flag the refusal above already names `needs`, and
+            # this message's advice would lead into the `tooling` refusal.
+            if legacy_schema:
+                errors.append(
+                    f"{where}: needs classifies tooling this record does not "
+                    "declare - add a tooling map, or drop needs"
+                )
         else:
             offered = {name for names in tooling.values() for name in names}
             tier_of: dict[str, str] = {}
@@ -1648,14 +1652,14 @@ def _load_one(
             "record with nothing to run, which cannot happen here - no language "
             "it offers is fully tiered, because every one of them either lists "
             "no tools or keeps a tool that answers from a read-only clone. "
-            "Remove ungranted_note, "
-            "or add a tooling entry that needs a grant if this record is meant "
-            "to be silenced"
+            "Remove ungranted_note; on `routes:`, a language whose every "
+            "answering route needs a grant carries `answers_ungranted: none` "
+            "instead"
         )
 
     # `answers_ungranted` is the routes-schema counterpart of `ungranted_note`
-    # above; the two blocks stay separate because a record on the legacy
-    # schema keeps using `ungranted_note` unchanged until it migrates.
+    # above; the legacy block is reachable only under `legacy_schema=True` and
+    # goes with the legacy readers.
     raw_answers = meta.get("answers_ungranted")
     has_answers_key = "answers_ungranted" in meta
     if has_answers_key and raw_routes is None:
@@ -1804,7 +1808,7 @@ def load_checks(
     Args:
         skills_dir: The skills root. Each `<domain>-audit/checks/` beneath
             it holds that domain's records; a skill with no such directory
-            has not migrated yet and is skipped in silence.
+            carries no records and is skipped in silence.
         legacy_schema: Accept a record declaring the legacy record-level
             `tooling:`/`needs:` pair instead of refusing it. Every record
             declares `routes:`, so a tree is always loaded without it; it
@@ -1859,13 +1863,16 @@ def load_checks(
 def fallback_lives_in_prose(check: Check) -> bool:
     """Whether this record's `## Tooling fallback` prose is its source of truth.
 
-    A record declaring `tooling:` states what to run instead in that section and
-    nowhere else. A record declaring `routes:` states the same thing per route -
-    the `note`, the `alone_insufficient` and the `needs` - and carries no such
-    section at all. The record suite scopes two properties by this: a legacy
-    record naming no tool must say in its body what to read instead, and a
-    legacy record classifying a tool under `needs` must state a fallback; on a
-    routed record both questions are answered by the routes and the loader.
+    True for a record with no routes, which on a tree that loads is a record
+    declaring neither schema - the loader refuses a record-level `tooling:` -
+    and which states what to read instead in that section and nowhere else;
+    under `legacy_schema=True` a legacy record is one too. A record declaring
+    `routes:` states the same thing per route - the `note`, the
+    `alone_insufficient` and the `needs` - and carries no such section at all.
+    The record suite scopes two properties by this: such a record naming no
+    tool must say in its body what to read instead, and one classifying a tool
+    under `needs` must state a fallback; on a routed record both questions are
+    answered by the routes and the loader.
 
     Keyed on the declared schema rather than on whether the section is present.
     Presence is what those properties check, and a scope keyed on it would

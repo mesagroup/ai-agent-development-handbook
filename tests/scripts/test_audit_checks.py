@@ -171,8 +171,13 @@ def test_needs_without_tooling_is_an_error(tmp_path):
             "tooling:\n  python: [deptry]\n  typescript: [depcheck, knip]\n", ""
         ),
     )
-    _, errors = ac.load_checks(tmp_path)
+    _, errors = ac.load_checks(tmp_path, legacy_schema=True)
     assert any("does not declare" in e for e in errors)
+    # Off the flag the refusal names `needs` and the legacy advice to add a
+    # tooling map, which would only lead into the next refusal, is not given.
+    _, errors = ac.load_checks(tmp_path)
+    assert any("record-level needs" in e for e in errors), errors
+    assert not any("does not declare" in e for e in errors), errors
 
 
 def test_needs_must_be_a_mapping(tmp_path):
@@ -481,19 +486,19 @@ def test_the_notes_are_not_all_sentinels():
     chance, so read the paragraphs below about a two-population sum as
     describing a mechanism with one live half. No record carries an
     `ungranted_note` in any form - not prose and not the sentinel - and no
-    record still on the legacy schema has a fully tiered language, so the
+    record is on the legacy schema, let alone one with a fully tiered language, so the
     loader's requirement fires on nothing and there is no shape a legacy
     record could be in today that would put it in this half. That is not a
-    reason to stop counting it while the legacy readers stand, though the
+    reason to stop counting it while the legacy readers stand, but the
     loader now refuses a record-level `tooling` or `needs`, so no record on a
-    real tree can refill this half until those readers are retired. What it
-    does mean is that a floor resting on
+    real tree can refill this half; it goes when those readers are retired.
+    What it does mean is that a floor resting on
     the sum is, at this moment, a floor on the routed half, and that anything
     below arguing from the two halves moving against each other is describing
     what the guard is built to survive rather than what it is currently
     watching.
 
-    The sum moves as migration proceeds and is never itself the thing to
+    The sum moved as migration proceeded and is never itself the thing to
     check against a remembered number - the paragraphs below make the case
     for why. One move worth keeping straight because it looks like a loss
     and is not: `arch/complexity-gate` was in the population the floor was
@@ -508,7 +513,7 @@ def test_the_notes_are_not_all_sentinels():
     loader demanded a note, and the record spent that note explaining why
     its own frontmatter was misleading. The note was an artifact of a
     missing field, not a claim, and `kind: subject` retires it. The records
-    still carrying prose notes were read for the same shape and none has
+    then carrying prose notes were read for the same shape and none has
     it - every one is a within-language rescue, a tiered scanner beside a
     reading pass in the same language that still answers - so this was an
     exception of exactly one record rather than the leading edge of a
@@ -1711,7 +1716,7 @@ def test_an_empty_routes_list_is_rejected(tmp_path):
     downstream can tell it from a record that never declared it: it projects
     to no tooling and no needs, it silences no language, and so it is never
     asked for `answers_ungranted`. Left accepted, a migration that emptied a
-    record's routes would read as a record still on the legacy schema rather
+    record's routes would read as a record declaring no routes rather
     than as the mistake it is. The record must be named in the message,
     because the loader collects rather than raises and a bare complaint about
     an empty list points at no file.
@@ -2968,9 +2973,9 @@ def test_every_tool_less_check_states_a_reading_procedure():
         for check_id, check in checks.items()
         if any(route.tool is None for route in check.routes)
     ]
-    # The prose half is empty now that no record declares `tooling:`, and is
-    # kept so that the property still holds the shape if the loader ever
-    # accepts the legacy schema again; the routed half is the live one.
+    # The prose half is a record declaring neither schema, which the loader
+    # still accepts and which must then say what to read in that section; none
+    # exists today, and the half is what guards the next one.
     assert routed_scope, sorted(routed_scope)
     missing = sorted(
         check_id
@@ -3058,7 +3063,7 @@ def test_the_classification_is_not_vacuous():
     """`test_a_tool_has_one_tier_across_the_family` passes trivially on a
     tree where nothing is classified, which is the state this change exists
     to leave behind. Assert the sweep actually happened, so deleting every
-    `needs:` key fails loudly instead of turning the guard above into a
+    route's `needs:` field fails loudly instead of turning the guard above into a
     no-op. The floor is the number of records the sweep classified, with no
     slack: a floor below that count would let a classification be deleted
     silently, and a deleted tier is not visibly missing - it reads as the
@@ -3205,9 +3210,10 @@ def test_the_prose_fallback_predicate_follows_the_declared_schema():
     assert errors == []
     prose = {c for c, k in checks.items() if ac.fallback_lives_in_prose(k)}
     routed = {c for c, k in checks.items() if not ac.fallback_lives_in_prose(k)}
-    # No record's fallback lives in prose since the last migration, and the
-    # loader refuses the schema that put it there.
-    assert routed and not prose, (len(prose), len(routed))
+    # The prose population is exactly the records declaring no routes, which
+    # the loader still accepts and `RECORDS_DECLARING_NO_ROUTES` names.
+    assert routed, len(routed)
+    assert prose == set(RECORDS_DECLARING_NO_ROUTES), sorted(prose)
     assert prose | routed == set(checks)
     assert not prose & routed
     assert routed == {c for c, k in checks.items() if k.routes}
@@ -3254,11 +3260,12 @@ def test_a_record_may_not_write_a_prescription_in_a_fenced_block(tmp_path, fence
     _write(
         tmp_path,
         "demo-audit/checks/thing.md",
-        _record(tooling={"python": ["t"]})
-        + f"\n## Tooling fallback\n\n{fence}\npydeps --show-cycles\n{fence}\n",
+        _routes_frontmatter("lang: any\n    kind: procedure\n    note: Read it.")
+        + f"\n## Fix\n\n{fence}\npydeps --show-cycles\n{fence}\n",
     )
     checks, errors = ac.load_checks(tmp_path)
-    assert any("fenced code block" in e for e in errors), errors
+    # The fence is the only defect, so an empty mapping is this rule's doing.
+    assert errors and all("fenced code block" in e for e in errors), errors
     # The record is absent from the mapping, which is the severity this rule
     # carries on purpose: a prescription no property can read is the
     # absent-check-reads-as-clean failure, and an integrity gate makes it a red
@@ -3323,7 +3330,7 @@ def test_no_record_in_the_tree_carries_a_fence():
 
 
 def test_a_tooling_record_may_carry_a_fallback_section(tmp_path):
-    """A record still on the old schema keeps its section, and must."""
+    """Under `legacy_schema=True`, a record on the old schema may carry its section."""
     _write(
         tmp_path,
         "demo-audit/checks/thing.md",
