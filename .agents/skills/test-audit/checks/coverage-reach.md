@@ -40,6 +40,7 @@ routes:
     kind: command
     answers: measurement
     tool: coverage.py
+    package: coverage
     argv: [coverage, run, "-m", pytest]
     then: [coverage, report, "--show-missing"]
     in_env: true
