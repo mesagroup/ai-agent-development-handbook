@@ -721,6 +721,25 @@ class Invocation:
         return dict(self.supplied_by_partition).get(partition, ())
 
 
+# The plugin runtime's variable for the directory its install lives in. A route
+# spells a file the plugin ships under it - dependency-cruiser's `--config` -
+# because a path relative to the skill directory resolves nowhere a run's working
+# directory is. A fixture run is a run from this checkout, so the variable stands
+# for the checkout root. It is expanded where the command is composed rather than
+# as a fill: the record left nothing to the caller here, the token is complete
+# as written, and `record_argv` keeps it literal so a reader sees what the
+# record says. A literal `${CLAUDE_PLUGIN_ROOT}` reaching the tool is the lens's
+# defect, not the record's.
+PLUGIN_ROOT_VARIABLE = "${CLAUDE_PLUGIN_ROOT}"
+
+
+def expand_plugin_root(command: Sequence[str]) -> tuple[str, ...]:
+    """`command` with the plugin root variable expanded to this checkout's root."""
+    return tuple(
+        token.replace(PLUGIN_ROOT_VARIABLE, str(REPO_ROOT)) for token in command
+    )
+
+
 def argv_for(invocation: Invocation, partition: str) -> tuple[str, ...]:
     """The command this entry runs on one partition, completion included.
 
@@ -1189,17 +1208,45 @@ def _per_ts_partition(*paths: str) -> tuple[tuple[str, tuple[str, ...]], ...]:
 
 
 _TS_DEPCRUISE_COMPLETION = TsCompletion(
-    by_partition=_per_ts_partition("src"),
+    fills=(("<tsconfig>", "tsconfig.json"), ("<dir>", "src")),
     note=(
-        "depcruise takes the directory to cruise and the record's prefix names "
-        "none; the seeded source is src/ in the seeded package. Neither `--config` "
-        "nor `--no-config` is supplied: the record's note says the prefix "
-        "answers only with one of them and that neither is free - an audit-owned "
-        "config is an artefact this round would be writing, and `--no-config` "
-        "drops the rules the check reads - so the command runs as the record "
-        "leaves it, and the expectation grades the config-less exit"
+        "`<tsconfig>` and `<dir>` are the two operands the record leaves to the "
+        "caller: the seeded package's own tsconfig.json, which carries the "
+        "compiler options rather than only `references`, and its src/. Both are "
+        "relative to the seeded package, which the row runs from, as "
+        "`TS_RUN_IN_PACKAGE` says"
     ),
 )
+
+# The TypeScript rows that run from the seeded package's own directory - the tree
+# root on npm, packages/core on pnpm - rather than from the tree root, keyed
+# `(check, tool)` with the record's reason. dependency-cruiser resolves the
+# `include` of the tsconfig `--ts-config` names against its working directory
+# rather than against the tsconfig's own: measured on the pnpm fixture, run from
+# the root with `--ts-config packages/core/tsconfig.json packages/core/src` it
+# exits 1 with TS18003, no inputs found for `include` `["src","test"]`, and run
+# from packages/core with `--ts-config tsconfig.json src` it builds the graph.
+# The record's note says the command runs from the directory holding the
+# tsconfig, and this table is that sentence for the rows the lens runs.
+_FROM_THE_TSCONFIG = (
+    "dependency-cruiser resolves the tsconfig's `include` against its working "
+    "directory, so the route runs from the directory holding `<tsconfig>`"
+)
+TS_RUN_IN_PACKAGE: dict[tuple[str, str], str] = {
+    ("arch/cycles", "dependency-cruiser"): _FROM_THE_TSCONFIG,
+    ("arch/coupling", "dependency-cruiser"): _FROM_THE_TSCONFIG,
+    ("arch/over-decomposition", "dependency-cruiser"): _FROM_THE_TSCONFIG,
+}
+
+
+def workdir_for(invocation: Invocation, partition: str) -> str:
+    """Where in the copy this row runs, relative to its root; `""` is the root."""
+    if lang_of(partition) != "typescript":
+        return ""
+    if (invocation.check, invocation.tool) not in TS_RUN_IN_PACKAGE:
+        return ""
+    return _ts_source_prefix(partition).rstrip("/")
+
 
 TS_COMPLETIONS: dict[tuple[str, str], TsCompletion] = {
     ("arch/cycles", "madge"): TsCompletion(
@@ -2671,6 +2718,9 @@ def run_partition(
             # Beside `completion` for the reason it is: what the round put into
             # the record's command stays distinguishable from what it said.
             row["fills"] = dict(invocation.fills)
+        workdir = workdir_for(invocation, partition)
+        if workdir:
+            row["workdir"] = workdir
         if supplied:
             # Never as `record_argv`: this round contributed the route, and a
             # later pass reading it out of the prescribed field would read a
@@ -2732,8 +2782,8 @@ def run_partition(
         # `audit-core` bars all three, and a package the audit added is never
         # evidence about the target wherever it landed.
         prefix = launcher(invocation, partition, granted=granted)
-        command = (*prefix, *argv)
-        outcome = run(command, copy, timeout)
+        command = expand_plugin_root((*prefix, *argv))
+        outcome = run(command, copy / workdir, timeout)
         row |= {"ran": True, "command": list(command), **outcome}
         # A route the record writes as two commands is one route, so both halves
         # reach the verdict. Classifying on the first alone would grade a route
@@ -2741,8 +2791,8 @@ def run_partition(
         # coverage table behind it - the shape `then` exists to prevent.
         ran: list[tuple[Sequence[str], dict[str, object]]] = [(command, outcome)]
         if invocation.then:
-            follow_up = (*prefix, *invocation.then)
-            then_outcome = run(follow_up, copy, timeout)
+            follow_up = expand_plugin_root((*prefix, *invocation.then))
+            then_outcome = run(follow_up, copy / workdir, timeout)
             row["then"] = {"command": list(follow_up), **then_outcome}
             ran.append((follow_up, then_outcome))
         row |= _verdict(
