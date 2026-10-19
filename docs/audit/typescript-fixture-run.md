@@ -164,6 +164,21 @@ Run from the tree root, as every other TypeScript row is, the pnpm rows exited 1
 
 The fixtures were built with `uv run python scripts/build_python_fixtures.py --all`, which wrote 10 tracked files to the `npm` tree and 13 to the `pnpm` tree. Each partition was run under both grant states with `uv run python scripts/run_python_fixture_lens.py <partition> --grant <grant> --timeout 300 --work-dir <scratch-dir>`, and graded with `uv run python scripts/grade_python_fixture_run.py fixtures/typescript/results`, which wrote 44 rows from the 4 runs. `<scratch-dir>` is a directory outside the repository.
 
+## 2026-10-19: `test/isolation` reads vitest's JSON report
+
+`test/isolation`'s vitest route ran `vitest run`, whose default reporter prints only file and test totals and the suite's duration, so in the round above it reported neither the seeded slow test's duration nor a slow mark on either partition. The route is now `vitest run --reporter=json --outputFile <report-path>`, and a row is a test whose `duration` exceeds the partition's own `slowTestThreshold`. The threshold comes from `vitest.config.*`, else the `test` block of `vite.config.*`, else the 300ms Vitest documents as the default. This section records the run that put it there. The rest of the round above was not re-graded here.
+
+### What was checked before the record changed
+
+- **The report carries every test's duration.** On a scratch copy of the npm fixture outside every tree, installed with `npm ci --ignore-scripts`, `npx --no -- vitest run --reporter=json --outputFile <scratch-file>` exited 0. It printed `JSON report written to <scratch-file>` and nothing else on stdout. The file listed each test under `testResults[].assertionResults[]` with a `status` and a `duration`.
+- **`--outputFile` is not optional.** The same command without it wrote `.vitest/json/output.json` into the copy, which `git status --porcelain --ignored` showed as `?? .vitest/`. With it the copy stayed clean.
+- **The space-separated form works.** `--outputFile <path>` as two tokens wrote the same report, which lets the record write the path as its own placeholder token under the glued-placeholder rule.
+- **The default threshold is 300ms.** Vitest's own documentation for v5.0.3 gives `slowTestThreshold` a default of `300`. Neither fixture sets one.
+
+### The run
+
+The fixtures were built with `uv run python scripts/build_python_fixtures.py --all`, which wrote 10 tracked files to the `npm` tree and 13 to the `pnpm` tree. Each partition was run under both grant states with `uv run python scripts/run_python_fixture_lens.py <partition> --grant <grant> --timeout 300 --work-dir <scratch-dir>`, and graded with `uv run python scripts/grade_python_fixture_run.py fixtures/typescript/results`, which wrote 44 rows from the 4 runs. `<scratch-dir>` is a directory outside the repository. The lens fills `<report-path>` with a file in that directory, outside the copy it runs in, and reads the report back into the row as `report`.
+
 | Run | Commands run |
 |---|---|
 | `npm`, `none` | 6 |
@@ -182,3 +197,14 @@ The counts are the round above's: the three rows ran under the grant there too, 
 | `arch/over-decomposition` | no-evidence (not-permitted) | **ok**: the same graph, and the row carries the record's `alone_insufficient`, so it is a candidate rather than the check's answer |
 
 On pnpm the paths are relative to `packages/core`, which is where the row ran. The six cells this section opened with now get a graph from dependency-cruiser.
+
+The counts are the round above's: the row ran under the grant there too. `git status --porcelain --ignored` was empty in both fixture trees after all four runs. The tree's vitest is 5.0.2 on both partitions; the version probe under `none`, which fetches its own copy, recorded 5.0.5.
+
+### Result
+
+| Partition | `none` | `target-execution` |
+|---|---|---|
+| `npm` | no-evidence (not-permitted), as the tier says | **ok**: exit 0; the report lists 4 tests, all passed, with `slow but passing` in `test/slow.test.ts` at 2003.9ms, over the 300ms threshold, and the other three under 3ms |
+| `pnpm` | no-evidence (not-permitted) | **ok**: exit 0; the same 4 tests, all passed, with `slow but passing` at 2004.5ms and the other three under 3ms |
+
+So the check names the slow test on both partitions, from a field rather than from text or colour, and the expectation says so.
