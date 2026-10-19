@@ -62,7 +62,7 @@ def _write(root: Path, rel: str, text: str) -> Path:
 
 def test_loads_a_well_formed_record(tmp_path):
     _write(tmp_path, "arch-audit/checks/layering.md", GOOD)
-    checks, errors = ac.load_checks(tmp_path)
+    checks, errors = ac.load_checks(tmp_path, legacy_schema=True)
     assert errors == []
     check = checks["arch/layering"]
     assert check.domain == "arch"
@@ -115,14 +115,14 @@ Declared-but-unused dependencies.
 
 def test_needs_records_the_tier_of_each_tool(tmp_path):
     _write(tmp_path, "deps-audit/checks/hygiene.md", NEEDS)
-    checks, errors = ac.load_checks(tmp_path)
+    checks, errors = ac.load_checks(tmp_path, legacy_schema=True)
     assert errors == []
     assert checks["deps/hygiene"].needs == {"resolved-tree": ("deptry", "knip")}
 
 
 def test_a_record_without_needs_claims_every_tool_runs_on_a_clone(tmp_path):
     _write(tmp_path, "arch-audit/checks/layering.md", GOOD)
-    checks, errors = ac.load_checks(tmp_path)
+    checks, errors = ac.load_checks(tmp_path, legacy_schema=True)
     assert errors == []
     assert checks["arch/layering"].needs == {}
 
@@ -211,9 +211,15 @@ def _record(tooling=None, needs=None, extra=""):
 
 
 def _load_one(tmp_path, check):
-    """Write `check` as the sole record in a fresh tree and load it."""
+    """Write `check` as the sole record in a fresh tree and load it.
+
+    Loaded with `legacy_schema=True`, because most of this file's callers hold
+    the legacy `tooling:`/`needs:`/`ungranted_note` readers, which the loader
+    keeps until their own retirement although it refuses that schema on a
+    real tree; on a `routes:` record the flag changes nothing.
+    """
     _write(tmp_path, "demo-audit/checks/thing.md", check)
-    return ac.load_checks(tmp_path)
+    return ac.load_checks(tmp_path, legacy_schema=True)
 
 
 def test_the_sentinel_is_accepted(tmp_path):
@@ -649,6 +655,70 @@ def _errors_for_route(tmp_path, route_body):
     _write(tmp_path, "demo-audit/checks/thing.md", _routes_frontmatter(route_body))
     _, errors = ac.load_checks(tmp_path)
     return errors
+
+
+def test_a_record_level_tooling_is_refused(tmp_path):
+    """`routes:` is the schema, not one of two (#69): `tooling:` alone is refused.
+
+    Every record migrated, so a record declaring the legacy list is a record
+    written against a schema the tree no longer holds, and reading it would
+    bring the projection and prose-fallback readers back into use unseen.
+    """
+    _write(
+        tmp_path,
+        "demo-audit/checks/thing.md",
+        _record(tooling={"python": ["t"]}),
+    )
+    checks, errors = ac.load_checks(tmp_path)
+    assert checks == {}
+    assert any("record-level tooling" in e for e in errors), errors
+    assert not any("record-level needs" in e for e in errors), errors
+
+
+def test_a_record_level_needs_is_refused(tmp_path):
+    """The record-level tier mapping goes with the list it classified."""
+    _write(
+        tmp_path,
+        "demo-audit/checks/thing.md",
+        _record(
+            tooling={"python": ["t", "u"]},
+            needs={"resolved-tree": ["t"]},
+        ),
+    )
+    checks, errors = ac.load_checks(tmp_path)
+    assert checks == {}
+    assert any("record-level needs" in e for e in errors), errors
+    assert any("record-level tooling" in e for e in errors), errors
+
+
+def test_a_route_s_own_needs_is_untouched_by_the_refusal(tmp_path):
+    """The refusal reads the record's keys, never a route's `needs` field."""
+    _write(
+        tmp_path,
+        "demo-audit/checks/thing.md",
+        _routes_frontmatter(
+            "lang: python\n    kind: command\n    tool: t\n    argv: [t]\n"
+            "    needs: resolved-tree",
+            extra="answers_ungranted: none\n",
+        ),
+    )
+    checks, errors = ac.load_checks(tmp_path)
+    assert errors == [], errors
+    check = checks["demo/thing"]
+    assert check.routes[0].needs == "resolved-tree"
+    assert check.needs == {"resolved-tree": ("t",)}
+
+
+def test_the_legacy_readers_still_read_when_asked(tmp_path):
+    """`legacy_schema=True` is what keeps them testable until they retire."""
+    _write(
+        tmp_path,
+        "demo-audit/checks/thing.md",
+        _record(tooling={"python": ["t", "u"]}, needs={"resolved-tree": ["t"]}),
+    )
+    checks, errors = ac.load_checks(tmp_path, legacy_schema=True)
+    assert errors == []
+    assert checks["demo/thing"].needs == {"resolved-tree": ("t",)}
 
 
 def _errors_for_both_schemas(tmp_path):
@@ -1621,7 +1691,7 @@ def test_a_genuinely_universal_route_still_needs_its_registry(tmp_path):
 
 def test_a_record_with_no_routes_key_carries_none(tmp_path):
     _write(tmp_path, "arch-audit/checks/layering.md", GOOD)
-    checks, errors = ac.load_checks(tmp_path)
+    checks, errors = ac.load_checks(tmp_path, legacy_schema=True)
     assert errors == []
     assert checks["arch/layering"].routes == ()
 
@@ -2829,22 +2899,10 @@ def test_the_real_checks_tree_loads_clean():
     ]
 
 
-RECORDS_DECLARING_NO_ROUTES = frozenset(
-    {
-        "prompt/cognitive-load",
-        "prompt/cross-prompt-consistency",
-        "prompt/examples-delimiters",
-        "prompt/grounding",
-        "prompt/instruction-precision",
-        "prompt/internal-consistency",
-        "prompt/output-contract",
-        "prompt/positive-framing",
-        "prompt/role-objective",
-        "prompt/sop-naming",
-        "prompt/sop-rfc2119",
-        "prompt/sop-structure",
-    }
-)
+# Empty since the `prompt` slice of #69 migrated the last records. Kept as a
+# named set rather than deleted, so a record written without `routes:` fails
+# here by name instead of reading as nothing having changed.
+RECORDS_DECLARING_NO_ROUTES: frozenset[str] = frozenset()
 
 
 def test_the_records_declaring_no_routes_are_the_ones_named():
@@ -2853,28 +2911,18 @@ def test_the_records_declaring_no_routes_are_the_ones_named():
     The set is every record the loader accepts without a `routes:` block, and
     that can be two populations wearing one name: records the migration has
     not reached, and records written after the routes schema existed that
-    declare neither schema, and so were never migrated from anything. Today it
-    holds only the first kind. Both have to be named somewhere, or the loader accepting them reads exactly like
-    the loader having nothing left to accept.
-
-    The distinction is the whole point of the wording, because the obvious
-    inference from an empty set does not hold: emptiness says nothing currently
-    needs the dual-schema branch, not that the migration is over. A domain can
-    migrate every record it has and then have the next new one written this way
-    again.
+    declare neither schema, and so were never migrated from anything. The
+    first kind is gone: every record has migrated, and the loader now refuses
+    a record-level `tooling:` or `needs:`, so a record can no longer be written
+    on the legacy schema at all. The second kind is still accepted - a record
+    declaring neither, whose body says what to read instead - so the set is
+    empty by what the tree holds rather than by what the loader refuses, and a
+    new record of that kind fails here by name.
     """
     checks, errors = ac.load_checks(ac.SKILLS_DIR)
     assert not errors, errors
     legacy = {cid for cid, check in checks.items() if not check.routes}
     assert legacy == RECORDS_DECLARING_NO_ROUTES
-    assert legacy, (
-        "no record declares anything but `routes:` today, so this set is empty "
-        "- read that as nothing needing the dual-schema branch right now, not "
-        "as the migration being finished: a new record can still be authored "
-        "without routes, which is how this set last gained a member. Retire "
-        "the branch by making the loader refuse such a record, not by "
-        "observing that none exists"
-    )
 
 
 def test_every_tool_less_check_states_a_reading_procedure():
@@ -2920,7 +2968,10 @@ def test_every_tool_less_check_states_a_reading_procedure():
         for check_id, check in checks.items()
         if any(route.tool is None for route in check.routes)
     ]
-    assert prose_scope and routed_scope, (sorted(prose_scope), sorted(routed_scope))
+    # The prose half is empty now that no record declares `tooling:`, and is
+    # kept so that the property still holds the shape if the loader ever
+    # accepts the legacy schema again; the routed half is the live one.
+    assert routed_scope, sorted(routed_scope)
     missing = sorted(
         check_id
         for check_id in prose_scope
@@ -3154,7 +3205,9 @@ def test_the_prose_fallback_predicate_follows_the_declared_schema():
     assert errors == []
     prose = {c for c, k in checks.items() if ac.fallback_lives_in_prose(k)}
     routed = {c for c, k in checks.items() if not ac.fallback_lives_in_prose(k)}
-    assert prose and routed, (len(prose), len(routed))
+    # No record's fallback lives in prose since the last migration, and the
+    # loader refuses the schema that put it there.
+    assert routed and not prose, (len(prose), len(routed))
     assert prose | routed == set(checks)
     assert not prose & routed
     assert routed == {c for c, k in checks.items() if k.routes}
@@ -3241,7 +3294,7 @@ def test_a_four_space_indented_block_is_not_a_fence(tmp_path, block):
         _record(tooling={"python": ["t"]})
         + f"\n## Tooling fallback\n\nRun `t`, which reports:\n\n{block}\n",
     )
-    checks, errors = ac.load_checks(tmp_path)
+    checks, errors = ac.load_checks(tmp_path, legacy_schema=True)
     assert errors == [], errors
     assert set(checks) == {"demo/thing"}
 
@@ -3277,7 +3330,7 @@ def test_a_tooling_record_may_carry_a_fallback_section(tmp_path):
         _record(tooling={"python": ["t"]})
         + "\n## Tooling fallback\n\nRun `t` over the package.\n",
     )
-    _, errors = ac.load_checks(tmp_path)
+    _, errors = ac.load_checks(tmp_path, legacy_schema=True)
     assert errors == [], errors
 
 
