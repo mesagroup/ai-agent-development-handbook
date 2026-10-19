@@ -46,7 +46,9 @@ routes:
       `Classifier: License ::`). The record names the files to read rather
       than a command, so there is no argv to declare. It reads the same
       resolved metadata `pip-licenses` does and needs the environment for the
-      same reason.
+      same reason, but reads the files without starting the interpreter,
+      which is why it stays `resolved-tree` where `pip-licenses` needs
+      `target-execution`.
   - lang: python
     kind: procedure
     note: >-
