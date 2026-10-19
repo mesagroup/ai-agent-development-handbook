@@ -83,9 +83,11 @@ _TEMPLATE_REASON = re.compile(r"`([a-z][a-z-]+)`(?=,| or | -)")
 # agree.
 _ANY_HYPHENATED = re.compile(r"`([a-z][a-z]*-[a-z][a-z-]*)`")
 
-# Hyphenated names in those paragraphs that are not reasons. Both are statuses:
+# Hyphenated names in those paragraphs that are not reasons. Two are statuses:
 # the sweep's rendering sentence opens by naming the status it is rendering.
-NOT_A_REASON = frozenset({"no-evidence", "not-applicable"})
+# `target-execution` is a grant: the `tool-unavailable` gloss names it where an
+# unbuilt tree turns out to need the install hooks a run without it withholds.
+NOT_A_REASON = frozenset({"no-evidence", "not-applicable", "target-execution"})
 
 
 def _paragraph(text: str, start: str, end: str) -> str:
