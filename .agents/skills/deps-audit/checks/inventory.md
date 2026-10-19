@@ -9,9 +9,11 @@ evidence: >-
   any partition where it runs, so do not read an empty or absent licence
   field on an SBOM those produce as a permissive or unlicensed finding. That
   is a claim about those three forms rather than about this record: the
-  `npm sbom` route below does populate licences, and whether `cyclonedx-py environment`
-  does is measured nowhere in this repository. The `cdxgen` route below
-  populates them only from what it reads: on the seeded npm fixture all 78
+  `npm sbom` route below does populate licences, and so does
+  `cyclonedx-py environment <path-to-venv-python>`, from the installed
+  packages' metadata: on the seeded uv partition 6 of its 7 components
+  carried one, the fixture's own editable package being the one without.
+  The `cdxgen` route below populates them only from what it reads: on the seeded npm fixture all 78
   of its components carried one, from `package-lock.json`; on a read-only
   copy of the seeded pnpm fixture none of its 78 did, because
   `pnpm-lock.yaml` records no licence; and with that workspace installed,
@@ -60,14 +62,39 @@ routes:
   - lang: python
     kind: command
     tool: cyclonedx-py
-    argv: [cyclonedx-py, environment]
+    package: cyclonedx-bom
+    argv: [cyclonedx-py, environment, "<path-to-venv-python>"]
     disposition: alternative
-    needs: resolved-tree
+    needs: target-execution
     note: >-
       `cyclonedx-py environment` reads the installed environment instead, and
       is the more accurate of the two where a tree is available, but it
       answers nothing on a read-only clone, so the file-parsing subcommands
       above are what this record prescribes by default.
+
+      `<path-to-venv-python>` is the interpreter of the environment step 1
+      materialized, and naming it is what points the tool at the target
+      rather than at whatever environment the tool itself runs in. The
+      package is `cyclonedx-bom`, whose command is `cyclonedx-py`, so the
+      one-shot runner fetches it by that name and the tool runs isolated,
+      reading the venv through the interpreter it is given. Bare, the
+      command reports the runner's own sandbox: measured on the seeded uv
+      partition, `uvx --from cyclonedx-bom cyclonedx-py environment` listed
+      32 components, all of them the tool's own dependencies and none of the
+      fixture's. Run inside the environment instead, with the tool layered
+      on top by `uv run --with cyclonedx-bom`, it listed 37: the fixture's
+      seven installed packages and the overlay's thirty beside them, with
+      `packaging` twice, the fixture's 20.9 and the tool's 26.3, so the SBOM
+      describes neither environment. Given the venv's interpreter it listed
+      the seven, at the fixture's versions. The route needs
+      `target-execution`, not `resolved-tree`: the tool starts that
+      interpreter to read its path, which runs the `.pth` files in its
+      `site-packages`, and a marker-writing `.pth` planted in the scratch
+      venv was written on every run, in both forms. `-S`, the tool's flag
+      for not importing `site` during that step, is no way round it: it
+      keeps the venv's `site-packages` off the path altogether, and on the
+      seeded uv and pip partitions it wrote no marker and emitted a document
+      with no components at exit 0.
   - lang: typescript
     kind: command
     tool: npm sbom
