@@ -104,3 +104,44 @@ No other observation contradicts its expectation. Every ungranted cell recorded 
 
 - **`npx --no` reports a tool the tree does not carry.** The granted `npm` run records jest `30.5.2`, though the fixture declares no jest and its `node_modules/.bin` holds none: the earlier `none` probe fetched jest through `npx --yes` into npx's own cache, and `npx --no` resolves from that cache as well as from the tree. No row is affected, because every jest row is not run by its `applies_when`, but a version in the map is not proof that the tree carries the tool.
 - **The seed marker signals cannot grade a TypeScript row.** Every marker names a construct in the seeded source, and no route's output quotes the source, so the signals column is zero on all 44 rows and every verdict above is a reading of the stored output.
+
+## 2026-10-19: `deps/inventory` on pnpm
+
+`deps/inventory`'s TypeScript `cdxgen` route was a procedure naming no command, so the pnpm cell above recorded no command in either state. It is now a command route, `cdxgen -t js --no-install-deps -o - .`, fetched as the package `@cdxgen/cdxgen`, and this section records the run that put it there. The rest of the round above was not re-graded here.
+
+### Choosing the tool
+
+- **pnpm's own form does not exist on the fixture's pnpm.** pnpm's documentation gives `pnpm sbom --sbom-format cyclonedx --lockfile-only` as added in v11.0.0. The pnpm partition pins `pnpm@9.15.9`, pnpm switches itself to the pin, and the command answers `Command "sbom" not found` there, so a pnpm-native route would answer only on a partition pinned to 11 or later.
+- **The package name is `@cdxgen/cdxgen`.** cdxgen's README and its v13 migration guide say the npm package was renamed at v13: v13 and later are `@cdxgen/cdxgen`, and `@cyclonedx/cdxgen`, the name the records carried, is the v12 line, still patched on a release branch and receiving no v13 features. Both packages point at the same source repository, and neither is a placeholder. The command, `cdxgen`, is unchanged, and is the bin rather than the package name, so the runner names the package. The two sibling procedure routes in `deps/licenses` and `deps/transitive-licenses` were renamed with it, so the family names one package for one tool.
+- **The flags come from `cdxgen --help`.** `-o` defaults to `bom.json`, written into the working directory, and `-o -` writes the document to stdout. `--install-deps` defaults to true, so `--no-install-deps` is what keeps cdxgen from installing into the tree it reads. Recursion, which reaches a workspace's members, is the default. cdxgen's `--dry-run` report over a scratch copy of the pnpm tree listed `ldd --version` and `pnpm root -g` as the only commands it would execute and stdout as its only write. `--dry-run` blocks that write, so it is not in the argv.
+
+### The run
+
+The fixtures were rebuilt from this branch with `uv run python scripts/build_python_fixtures.py --output-dir <fixture-dir> npm pnpm`, which wrote 10 tracked files to the `npm` tree and 13 to the `pnpm` tree. Each partition was run under both grant states, as above, with `--fixture-root <fixture-dir> --timeout 300 --work-dir <scratch-dir>`, and graded with `uv run python scripts/grade_python_fixture_run.py <fixture-dir>/results`, which wrote 44 rows from the 4 runs and no orphan row. `<fixture-dir>` and `<scratch-dir>` are directories outside the repository.
+
+| Run | Commands run |
+|---|---|
+| `npm`, `none` | 6 |
+| `npm`, `target-execution` | 13 |
+| `pnpm`, `none` | 3 |
+| `pnpm`, `target-execution` | 12 |
+
+Each count is one more than the round above: the cdxgen row, which runs on both partitions because it reads either lockfile. `git status --porcelain --ignored` was empty in both fixture trees after all four runs.
+
+The probe recorded **cdxgen 13.4.0** in all four runs, fetched by `npx --yes --package=@cdxgen/cdxgen --` on `npm` and by `pnpm --package=@cdxgen/cdxgen dlx` on `pnpm`, under node v24.20.0 and the pinned pnpm 9.15.9. The route pins no version, so a later run can resolve a later one.
+
+### Result
+
+| Check | Partition | `none` | `target-execution` |
+|---|---|---|---|
+| `deps/inventory` | `npm` | **matched**: `npm sbom` as above, and cdxgen exits 0 with a CycloneDX 1.7 document of 78 components carrying all seven declared pins and is-number 6.0.0, every component with a licence read from `package-lock.json` | **matched**: cdxgen's components are the same 78, and its document differs from the ungranted one only in its serial number, its timestamps and the path of the copy it scanned |
+| `deps/inventory` | `pnpm` | **matched**: cdxgen exits 0 with a CycloneDX 1.7 document of 78 components carrying all seven declared pins - lodash 4.17.20 and commander 2.20.3, declared only in `apps/api`, and tinymce 7.9.3, declared only in `packages/core`, included - and is-number 6.0.0 through is-odd, with `@fixture/api` and `@fixture/core` under the root component. No component carries a licence, because `pnpm-lock.yaml` records none | **matched**: the same 78 components and both members. 53 of them now carry a licence, read from the installed `node_modules`, tinymce's GPL-2.0-or-later among them. Of the 25 without, 23 are platform-specific optional binaries the install skipped, and the other two are `@vitest/mocker` and `fdir` |
+
+`npm sbom` was recorded not run on `pnpm`, as before, as npm's own subcommand. The licence difference between the two pnpm cells is why the record's `evidence` keeps licence findings with `deps/licenses` and `deps/transitive-licenses`: the same command's licence fields depend on whether a tree is installed.
+
+This answers the weaker half of the question [the TypeScript smoke run](typescript-lens-smoke-run.md) left open, that cdxgen reads `pnpm-lock.yaml` at all: it does, the members included, and cdxgen reported generating the 78-component document in under half a second. Whether it finishes at workspace scale stays open. The run that did not finish there was the v12 package with `FETCH_LICENSE=true`, which this command does not set, so it neither confirms nor contradicts this one.
+
+### Found, not fixed
+
+- **cdxgen writes the scanned path into the SBOM.** What: the document's `metadata` summary and each component's evidence name the lockfile by the absolute path of the directory cdxgen scanned, here the lens's scratch copy. Where: any SBOM the `@cdxgen/cdxgen` route produces, which an audit report might quote or attach. Why not fixed here: it is the tool's output rather than the record's, and whether a report strips it is a question for the report's format, which this round does not settle.
+- **The cdxgen version probe records a banner rather than a version.** What: `cdxgen --version` prints `CycloneDX Generator 13.4.0` in bold, then a `Runtime:` line, and the version map stores both lines with their escape codes. Where: the `@cdxgen/cdxgen` entry in `TS_VERSION_PROBE` in `scripts/run_python_fixture_lens.py`. Why not fixed here: the version is readable, and stripping a tool's own output is a harness-wide decision about what a version entry holds, not one tool's.
