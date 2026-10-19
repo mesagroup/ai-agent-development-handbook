@@ -1621,9 +1621,9 @@ _TS_SRC_NOTE = (
 )
 
 _TS_DEPCRUISE_GRAPH = (
-    "Under target-execution the tiered `dependency-cruiser` route builds the graph "
-    "too: run from the seeded package with `--config` naming the config the plugin "
-    "ships, `--output-type json` and `--ts-config tsconfig.json src`, it cruises "
+    "Under target-execution the tiered `dependency-cruiser` route, run from the "
+    "seeded package with `--config` naming the config the plugin ships, "
+    "`--output-type json` and `--ts-config tsconfig.json src`, cruises "
     "three modules and two dependencies, marks both edges of the pair `circular`, "
     "and names each of the two modules as the other's one dependent. Without the "
     "grant it does not run and the row is no-evidence (not-permitted)"
