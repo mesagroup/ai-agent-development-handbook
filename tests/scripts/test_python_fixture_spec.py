@@ -393,9 +393,9 @@ def test_no_check_states_two_expectations_for_one_partition():
     Both would apply, `expectations_for` would return both, and the run would
     have two different right answers for one observation. Every set-valued
     assertion in this file is blind to it, because a duplicate collapses into
-    the set. This is the guard that lets the scoped pairs - `deps/hygiene` and
-    `deps/inventory`, each split in two - be read as a partition of PARTITIONS
-    rather than merely a cover of it.
+    the set. This is the guard that lets the scoped expectations - `deps/hygiene`
+    and `deps/inventory`, each split across several - be read as a partition of
+    PARTITIONS rather than merely a cover of it.
     """
     seen: set[tuple[str, str]] = set()
     for expectation in EXPECTATIONS:
