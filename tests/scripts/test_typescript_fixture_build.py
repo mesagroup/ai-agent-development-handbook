@@ -43,6 +43,7 @@ from python_fixture_spec import (
     PARTITIONS,
     TS_MANAGER_PINS,
     TS_PARTITIONS,
+    manager_of,
     ts_render_manifests,
     ts_source_tree,
 )
@@ -62,6 +63,17 @@ SEEDED = (
 COMMITTED = {
     "npm": tuple(
         sorted({"package.json", "package-lock.json", FIXTURE_README, *SEEDED})
+    ),
+    "npm-layered": tuple(
+        sorted(
+            {
+                "package.json",
+                "package-lock.json",
+                ".dependency-cruiser.json",
+                FIXTURE_README,
+                *SEEDED,
+            }
+        )
     ),
     "pnpm": tuple(
         sorted(
@@ -88,8 +100,14 @@ LOCK = {
     ),
     "pnpm": ("corepack", "pnpm", "install", "--lockfile-only", "--ignore-scripts"),
 }
-ARTIFACT = {"npm": ("package-lock.json",), "pnpm": ("pnpm-lock.yaml",)}
-PINNED = {"npm": "11.19.0", "pnpm": "9.15.9"}
+# The configured npm tree locks, pins and probes exactly as npm does.
+LOCK["npm-layered"] = LOCK["npm"]
+ARTIFACT = {
+    "npm": ("package-lock.json",),
+    "pnpm": ("pnpm-lock.yaml",),
+    "npm-layered": ("package-lock.json",),
+}
+PINNED = {"npm": "11.19.0", "pnpm": "9.15.9", "npm-layered": "11.19.0"}
 
 
 def _row(readme: str, label: str) -> str:
@@ -122,6 +140,11 @@ def _stub_lock(monkeypatch):
 
 def test_each_partition_plans_its_manifests_and_the_prefixed_source():
     assert set(plan_tree("npm")) == {"package.json", *SEEDED}
+    assert set(plan_tree("npm-layered")) == {
+        "package.json",
+        ".dependency-cruiser.json",
+        *SEEDED,
+    }
     assert set(plan_tree("pnpm")) == {
         "package.json",
         "pnpm-workspace.yaml",
@@ -213,7 +236,7 @@ def test_the_probe_runs_where_corepack_can_read_the_pin():
         )
     for (command, manifest, env), partition in zip(calls, TS_PARTITIONS, strict=True):
         assert command == manager_version_command(partition)
-        assert manifest["packageManager"] == TS_MANAGER_PINS[partition]
+        assert manifest["packageManager"] == TS_MANAGER_PINS[manager_of(partition)]
         assert env["COREPACK_ENABLE_DOWNLOAD_PROMPT"] == "0"
 
 

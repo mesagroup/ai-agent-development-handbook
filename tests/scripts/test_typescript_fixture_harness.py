@@ -16,7 +16,13 @@ from pathlib import Path
 import pytest
 from audit_checks import SKILLS_DIR, load_checks
 from build_python_fixtures import PUBLIC_NPM_REGISTRY
-from python_fixture_spec import TS_CORE, TS_EXPECTATIONS, TS_PARTITIONS
+from python_fixture_spec import (
+    TS_CONFIGURED_PARTITIONS,
+    TS_CORE,
+    TS_EXPECTATIONS,
+    TS_PARTITIONS,
+    manager_of,
+)
 from run_python_fixture_lens import (
     NONZERO_EXIT_KINDS,
     PARTITION_KEYS,
@@ -52,6 +58,10 @@ from run_python_fixture_lens import (
     tools_named_in_records,
     workdir_for,
 )
+
+# The partitions that carry no dependency-cruiser config of their own, which are
+# the ones every check but `arch/layering` runs on.
+_UNCONFIGURED = tuple(p for p in TS_PARTITIONS if p not in TS_CONFIGURED_PARTITIONS)
 
 LANG = "typescript"
 
@@ -430,6 +440,9 @@ def _inv(tool="madge", in_env=False, **kw):
         ("npm", True, False, ("npx", "--yes", "--package=madge", "--")),
         ("npm", False, True, ("npx", "--yes", "--package=madge", "--")),
         ("npm", True, True, ("npx", "--no", "--")),
+        # A partition whose name is not its manager's: the configured npm tree.
+        ("npm-layered", False, False, ("npx", "--yes", "--package=madge", "--")),
+        ("npm-layered", True, True, ("npx", "--no", "--")),
         ("pnpm", False, False, ("pnpm", "--package=madge", "dlx")),
         ("pnpm", True, False, ("pnpm", "--package=madge", "dlx")),
         ("pnpm", False, True, ("pnpm", "--package=madge", "dlx")),
@@ -445,8 +458,8 @@ def test_the_launcher_prefix_per_manager(partition, granted, in_env, expected):
     assert launcher(_inv(in_env=in_env), partition, granted=granted) == expected
 
 
-def test_the_launcher_tables_name_both_partitions():
-    assert set(TS_ONE_SHOT) == set(TS_IN_ENV) == set(TS_PARTITIONS)
+def test_the_launcher_tables_name_every_partition_s_manager():
+    assert set(TS_ONE_SHOT) == set(TS_IN_ENV) == {manager_of(p) for p in TS_PARTITIONS}
 
 
 def test_every_npx_prefix_ends_npx_options_before_the_tool():
@@ -524,7 +537,7 @@ def test_a_manager_subcommand_runs_only_on_its_own_managers_partition():
             if manager is None:
                 continue
             skipped = not_run_on(inv, partition)
-            if manager == partition:
+            if manager == manager_of(partition):
                 assert skipped is None or skipped[0] != "manager", inv.tool
             else:
                 assert skipped is not None and skipped[0] == "manager", inv.tool
@@ -568,7 +581,8 @@ def _probed_tools():
         inv.tool
         for partition in TS_PARTITIONS
         for inv in invocations_for(partition)
-        if TS_MANAGER_TOOLS.get(inv.tool, partition) == partition
+        if TS_MANAGER_TOOLS.get(inv.tool, manager_of(partition))
+        == manager_of(partition)
     }
 
 
@@ -590,7 +604,8 @@ def test_every_tool_that_can_run_a_command_carries_a_nonzero_exit_meaning():
         inv.tool
         for partition in TS_PARTITIONS
         for inv, _ in _rows_on(partition)
-        if TS_MANAGER_TOOLS.get(inv.tool, partition) == partition
+        if TS_MANAGER_TOOLS.get(inv.tool, manager_of(partition))
+        == manager_of(partition)
     }
     assert set(TS_NONZERO_EXIT_MEANING) == can_run
     assert set(TS_NONZERO_EXIT_MEANING.values()) <= set(NONZERO_EXIT_KINDS)
@@ -602,6 +617,7 @@ def test_the_completions_are_exactly_the_incomplete_commands():
         ("arch/cycles", "dependency-cruiser"),
         ("arch/coupling", "dependency-cruiser"),
         ("arch/over-decomposition", "dependency-cruiser"),
+        ("arch/layering", "dependency-cruiser"),
         ("test/determinism", "vitest"),
         ("test/isolation", "vitest"),
     }
@@ -613,9 +629,9 @@ def test_a_path_completion_lands_in_the_seeded_package_on_each_partition():
     """Derived from `TS_CORE`, never spelled: on pnpm the seeded source is a member."""
     for key, completion in TS_COMPLETIONS.items():
         for partition, tokens in completion.by_partition:
-            prefix = "" if partition == "npm" else f"{TS_CORE}/"
+            prefix = "" if manager_of(partition) == "npm" else f"{TS_CORE}/"
             assert all(token.startswith(prefix) for token in tokens), key
-            if partition == "npm":
+            if manager_of(partition) == "npm":
                 assert not any(token.startswith(TS_CORE) for token in tokens), key
 
 
@@ -688,12 +704,18 @@ def test_a_granted_run_materializes_only_inside_the_copy(
     copy = work / partition
     # A row `TS_RUN_IN_PACKAGE` names runs from the seeded package, which is the
     # copy's root on npm and a member inside it on pnpm; nothing runs outside it.
-    in_package = copy / TS_CORE if partition != "npm" else copy
+    in_package = copy / TS_CORE if manager_of(partition) != "npm" else copy
     allowed = {copy, in_package}
     assert all(call["cwd"] in allowed for call in calls), {c["cwd"] for c in calls}
     rows = {(r["check"], r["tool"]): r for r in observed["results"]}
-    for key in TS_RUN_IN_PACKAGE:
-        assert rows[key].get("workdir", "") == ("" if partition == "npm" else TS_CORE)
+    # The rows this partition runs: every check but `arch/layering` on the
+    # unconfigured trees, and that one alone on the configured tree.
+    run_here = [key for key in TS_RUN_IN_PACKAGE if key in rows]
+    assert run_here, partition
+    for key in run_here:
+        assert rows[key].get("workdir", "") == (
+            "" if manager_of(partition) == "npm" else TS_CORE
+        )
         ran = [c for c in calls if c["command"] == tuple(rows[key]["command"])]
         assert ran and all(c["cwd"] == in_package for c in ran), key
     assert all(call["env"] is not None for call in calls)
@@ -713,11 +735,12 @@ def test_a_granted_run_materializes_only_inside_the_copy(
     else:
         assert observed["setup"] == []
     assert (
-        tuple(commands[: len(TS_MATERIALIZE[partition])]) == TS_MATERIALIZE[partition]
+        tuple(commands[: len(TS_MATERIALIZE[manager_of(partition)])])
+        == TS_MATERIALIZE[manager_of(partition)]
     )
 
 
-@pytest.mark.parametrize("partition", TS_PARTITIONS)
+@pytest.mark.parametrize("partition", _UNCONFIGURED)
 def test_the_report_lands_in_the_work_root_and_reaches_the_row(
     tmp_path, monkeypatch, partition
 ):
@@ -752,7 +775,7 @@ def test_the_report_lands_in_the_work_root_and_reaches_the_row(
     assert REPORT_PATH_TOKEN not in " ".join(row["command"])
 
 
-@pytest.mark.parametrize("partition", TS_PARTITIONS)
+@pytest.mark.parametrize("partition", _UNCONFIGURED)
 def test_a_relative_work_root_still_puts_the_report_outside_the_copy(
     tmp_path, monkeypatch, partition
 ):

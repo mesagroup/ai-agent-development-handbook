@@ -208,3 +208,38 @@ The counts are those of the `deps/inventory` section above: the row ran under th
 | `pnpm` | no-evidence (not-permitted) | **ok**: exit 0; the same 4 tests, all passed, with `slow but passing` at 2004.5ms and the other three under 3ms |
 
 So the check names the slow test on both partitions, from a field rather than from text or colour, and the expectation says so.
+
+## 2026-10-23: `arch/layering` under the project's own dependency-cruiser config
+
+`arch/layering`'s TypeScript `dependency-cruiser` route applies only where the project carries its own config, and none of the earlier rounds ran it: neither tree carries one, on purpose, so each tests the case where a project declares no boundary. Its argv was also a prefix ending at `depcruise`. The route now carries `--config <config> --output-type json --ts-config <tsconfig> <dir>`, run from the directory holding `<tsconfig>` as the other three `dependency-cruiser` routes are, with `<config>` naming the project's own config rather than the plugin's. A third tree, `npm-layered`, is the `npm` tree plus a `.dependency-cruiser.json` with one forbidden rule, `domain-not-to-infra` (`error`, `^src/domain` to `^src/infra`). The seeded `src/domain/model.ts` importing `src/infra/store.ts` violates it, and the reverse import does not. The tree carries `arch/layering` alone. The `npm` and `pnpm` trees are unchanged and carry every other check.
+
+### What was checked before the record changed
+
+On a scratch copy of the `npm` fixture outside every tree, installed with `npm ci --ignore-scripts`, with the same config planted, dependency-cruiser 18.7.0 under `typescript@^5`:
+
+- **The completed command finds the violation.** `npx --package typescript@^5 --package dependency-cruiser -- depcruise --config .dependency-cruiser.json --output-type json --ts-config tsconfig.json src`, from the tree root, cruised 3 modules and reported one violation, `domain-not-to-infra` from `src/domain/model.ts` to `src/infra/store.ts`. No dependency was `couldNotResolve`, so a project config needs no `enhancedResolveOptions` for that.
+- **The JSON reporter's exit code is not the verdict.** That run exited 0 with an `error`-severity violation in `summary.violations`. The same command with `--output-type err` printed the violation and exited 1.
+- **The config is found only in the working directory.** Run from a member directory with the config one level above, without `--config`, the command exited 1 with `Can't open a config file (.dependency-cruiser.(c|m)js) at the default location`. With `--config ../.dependency-cruiser.json` it reported the violation. That is why the route names `<config>` rather than leaving it to discovery.
+
+### The run
+
+The fixtures were built with `uv run python scripts/build_python_fixtures.py --all`, which wrote 10 tracked files to the `npm` tree, 13 to the `pnpm` tree and 11 to the `npm-layered` tree. Each TypeScript partition was run under both grant states with `uv run python scripts/run_python_fixture_lens.py <partition> --grant <grant>`. All six runs were graded with `uv run python scripts/grade_python_fixture_run.py fixtures/typescript/results --out <scratch-file>`, which wrote 46 rows. `<scratch-file>` is a file outside every tree.
+
+| Run | Commands run |
+|---|---|
+| `npm`, `none` | 6 |
+| `npm`, `target-execution` | 13 |
+| `pnpm`, `none` | 3 |
+| `pnpm`, `target-execution` | 12 |
+| `npm-layered`, `none` | 0 |
+| `npm-layered`, `target-execution` | 1 |
+
+`git status --porcelain --ignored` was empty in all three fixture trees after the runs. The probe recorded **dependency-cruiser 18.7.0** and madge 8.0.0 on `npm-layered`, under node v24.20.0. The routes pin no version of dependency-cruiser, so a later run can resolve a later one.
+
+### Result
+
+| Check | `none` | `target-execution` |
+|---|---|---|
+| `arch/layering` on `npm-layered` | `dependency-cruiser` no-evidence (not-permitted); the record's untiered madge procedure and tsconfig reading are not run by this round | **ok**: after `npm ci --ignore-scripts` exited 0, the command ran from the tree root and exited 0, cruising 3 modules and reporting the one planted violation, `domain-not-to-infra` from `src/domain/model.ts` to `src/infra/store.ts`; the rule's name occurs 3 times in the report |
+
+On `npm` and `pnpm` the route's `applies_when` does not hold, so it is not run there, and their command counts are the ones the two rounds above recorded. Against the last worksheet left in the results directory, written on 2026-10-19 before the `dependency-cruiser` routes were completed, the `npm` and `pnpm` cells differ in six places only: the `dependency-cruiser` cells of `arch/cycles`, `arch/coupling` and `arch/over-decomposition`, `tool-failed` there and `ok` here, which is the result the `dependency-cruiser` section above records. Every other cell is the same.

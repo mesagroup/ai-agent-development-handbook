@@ -1,4 +1,4 @@
-"""Write the seeded fixture partitions: five Python (#45), two TypeScript (#181).
+"""Write the seeded fixture partitions: five Python (#45), three TypeScript (#181, #233).
 
 The definition lives in `python_fixture_spec.py` and touches nothing; this is
 the effectful half. It renders one partition's manifests and the shared seeded
@@ -47,6 +47,7 @@ from python_fixture_spec import (
     TS_MANAGER_PINS,
     TS_PARTITIONS,
     lang_of,
+    manager_of,
     render_manifests,
     source_tree,
     ts_render_manifests,
@@ -91,6 +92,7 @@ LOCK_ARTIFACTS = {
     "pylock": ("pylock.toml",),
     "npm": ("package-lock.json",),
     "pnpm": ("pnpm-lock.yaml",),
+    "npm-layered": ("package-lock.json",),
 }
 
 # The one registry every TypeScript lock is resolved against. A lockfile records
@@ -172,7 +174,7 @@ def lock_command(partition: str) -> tuple[str, ...]:
     dependency pinned by `==`, and that partition has no separate lock format to
     generate, so there is no resolution step and no transitive pin set.
     """
-    match _known(partition):
+    match manager_of(_known(partition)):
         case "npm":
             return (
                 "npm",
@@ -357,7 +359,7 @@ def pinned_manager_version(partition: str) -> str:
     """The version a TypeScript partition's `packageManager` pin names."""
     if lang_of(partition) != "typescript":
         raise ValueError(f"{partition!r} is not a TypeScript partition")
-    return TS_MANAGER_PINS[partition].split("@", 1)[1]
+    return TS_MANAGER_PINS[manager_of(partition)].split("@", 1)[1]
 
 
 def manager_version_command(partition: str) -> tuple[str, ...]:
@@ -368,7 +370,7 @@ def manager_version_command(partition: str) -> tuple[str, ...]:
     corepack can see it, so `measure_manager_version` runs this in a directory
     carrying the partition's root manifest.
     """
-    match lang_of(partition), partition:
+    match lang_of(partition), manager_of(partition):
         case "typescript", "npm":
             return ("npm", "--version")
         case "typescript", "pnpm":
@@ -389,7 +391,8 @@ def check_manager_version(partition: str, reported: str) -> str:
         raise RuntimeError(
             f"refusing to build {partition!r}: "
             f"`{' '.join(manager_version_command(partition))}` reports {version!r}, "
-            f"and the partition's packageManager pin is {TS_MANAGER_PINS[partition]!r}"
+            f"and the partition's packageManager pin is "
+            f"{TS_MANAGER_PINS[manager_of(partition)]!r}"
         )
     return version
 
@@ -422,8 +425,8 @@ def measure_manager_version(
 def _ts_fixture_readme(partition: str, manager_version: str) -> str:
     """The `FIXTURE.md` written into one TypeScript tree."""
     artifacts = LOCK_ARTIFACTS[partition]
-    pin = TS_MANAGER_PINS[partition]
-    if partition == "pnpm":
+    pin = TS_MANAGER_PINS[manager_of(partition)]
+    if manager_of(partition) == "pnpm":
         manager = (
             f"`pnpm {manager_version}`, provisioned by corepack from the "
             f"`packageManager` pin `{pin}`"
