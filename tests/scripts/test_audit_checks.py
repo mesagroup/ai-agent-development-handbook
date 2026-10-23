@@ -2346,7 +2346,7 @@ def test_every_tool_less_check_states_a_reading_procedure():
         if "\n## Tooling fallback" not in checks[check_id].path.read_text()
     )
     assert missing == [], (
-        f"these checks declare no tooling and state no fallback: {missing}"
+        f"these checks declare no routes and state no fallback: {missing}"
     )
     silent = sorted(
         f"{check_id}: routes[{i}]"

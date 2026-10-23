@@ -239,8 +239,8 @@ def _findings_stream_for(entry: dict[str, object], lang: str = "python") -> str:
     The entry's own `findings_stream` where a caller has already set one - the
     tests that pin `seed_signals` directly do this, and neither carries a
     `check`/`tool` pair a lookup could resolve. Otherwise, the stream the
-    harness's own enumeration says this (check, tool) pair uses - both of its
-    sources, the hand-written table and the routes read from the records.
+    harness's own enumeration says this (check, tool) pair uses - the routes
+    read from the records.
 
     Returns `UNRESOLVED_FINDINGS_STREAM` rather than raising on an unknown
     pair. A results entry naming a (check, tool) the harness never

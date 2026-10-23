@@ -33,8 +33,8 @@ second copy of a fact the records already state is a copy free to drift:
 * which checks a partition runs, read out of `expectations_for`, so the harness
   cannot run a set the published record does not grade;
 * which tools exist at all, read out of every record's routes for the
-  language, which is what the exact-set guard in the tests compares the rows
-  against.
+  language, which the exact-set guard in the tests holds the rows to, so the
+  row enumeration cannot drop a tool a route names.
 
 `classify` maps one observation into the engine's vocabulary and never leaves
 it. **A non-zero exit is not a tool failure by itself - for a tool proven
@@ -406,7 +406,8 @@ class Invocation:
 
     Args:
         check: The record's id, `<domain>/<slug>`.
-        tool: A name from that record's `tooling` for the row's language.
+        tool: The `tool` one of that record's routes names in the row's
+            language.
         argv: The command **as the record writes it**. Empty where the record
             names the tool without prescribing a command - a library, a reading
             pass, or a route conditional on a config file the fixture does not
@@ -898,7 +899,7 @@ class Supplied:
     Round-owned for the reason `Completion` is: the record naming no route for
     a partition is a hole in the record, and this is the candidate answer this
     round tests against it. Keyed `(check, tool)` beside `COMPLETIONS`, so a
-    migrated record's supplied route lives where its completion does rather
+    record's supplied route lives where its completion does rather
     than in the record that, by definition, does not prescribe it.
 
     Validates the shape of what it holds: a steps tuple that is empty, a
@@ -944,7 +945,7 @@ class Supplied:
                     )
 
 
-# The round's own contributions, for a partition a migrated record prescribes
+# The round's own contributions, for a partition a record prescribes
 # no route for. Both entries are that shape: `deps/inventory` names no
 # subcommand for a PEP 751 lock file, and `deps/vulnerabilities` names no mode
 # for a uv tree, so on those two partitions the records' own routes run
@@ -1381,8 +1382,9 @@ def _records() -> dict[str, object]:
 def tools_named_in_records(lang: str = "python") -> set[str]:
     """Every tool any record offers for `lang`.
 
-    Read from the records rather than listed here, so a tool added to a record
-    and missing from its routes fails the exact-set guard instead of going
+    Read from the records' routes, the forbidden ones aside, rather than listed
+    here. The exact-set guard holds `routed_invocations` to this set, so a
+    route whose tool the row enumeration drops fails there instead of going
     unexercised behind a full-looking run.
     """
     return {
@@ -1720,7 +1722,7 @@ def _caveat_for_no_command(routes: Sequence[Route]) -> str:
 
 @cache
 def routed_invocations(lang: str = "python") -> tuple[Invocation, ...]:
-    """Every row a migrated record prescribes, read from the record.
+    """Every row a record's routes prescribe, read from the record.
 
     One row per `(check, tool)` rather than per route: a record may narrow the
     same tool's command twice, once `runs` and once `superseded`, and those are

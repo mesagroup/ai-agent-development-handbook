@@ -929,9 +929,9 @@ def test_no_check_invokes_the_same_tool_twice():
 def test_a_tool_answering_several_checks_is_invoked_once_per_check():
     """The whole set, not a subset of it.
 
-    A superset assertion passes on a table that has quietly grown a ruff entry
-    for a check whose record never offered ruff, which is the mistranscription
-    the per-check split exists to make visible.
+    A superset assertion passes on an enumeration that has quietly grown a ruff
+    row for a check whose record never offered ruff, which is what the
+    per-check split exists to make visible.
     """
     ruff_checks = {i.check for i in routed_invocations() if i.tool == "ruff"}
     assert ruff_checks == {
@@ -955,8 +955,8 @@ def test_a_tool_answering_several_checks_is_invoked_once_per_check():
 # completion, which pinned a count of five completed rows and the one `D`
 # exception. Each held a hand-written
 # `INVOCATIONS` row against the `## Tooling fallback` prose it transcribed, and
-# each was scoped to `PROSE_FALLBACK_CHECKS`. That table is empty now: every
-# record the harness invokes declares `routes:`, so a row's command is read from
+# each was scoped to `PROSE_FALLBACK_CHECKS`. Both are gone now: every record the
+# harness invokes declares `routes:`, so a row's command is read from
 # the record's own data by `routed_invocations` and there is no transcription
 # left to drift from. The properties were dissolved rather than kept vacuous,
 # because a property scoped to an empty set passes over anything, and rather
@@ -1570,7 +1570,7 @@ def test_the_grant_tier_is_read_from_the_record_rather_than_transcribed():
     assert sorted(set(disagreed)) == [("deps/inventory", "cyclonedx-py")], disagreed
 
 
-def _projected_record(*routes):
+def _routes_only_record(*routes):
     """A fake record carrying only `routes`, which is all `grant_tier` reads."""
     return SimpleNamespace(routes=routes)
 
@@ -1585,7 +1585,7 @@ def test_the_tier_gating_a_row_is_the_prescribed_routes_not_the_tools(monkeypatc
     route whose command the row runs, and a tier on a sibling route of the
     same tool is not a claim about it.
     """
-    prescribed_from_a_clone = _projected_record(
+    prescribed_from_a_clone = _routes_only_record(
         _fake_route(argv=("t", "file")),
         _fake_route(
             argv=("t", "environment"),
@@ -1598,7 +1598,7 @@ def test_the_tier_gating_a_row_is_the_prescribed_routes_not_the_tools(monkeypatc
         assert grant_tier("x/y", "t") == ""
 
     # The converse: tier the route the row runs, and the row is gated.
-    prescribed_needs_the_tree = _projected_record(
+    prescribed_needs_the_tree = _routes_only_record(
         _fake_route(argv=("t", "file"), needs="target-execution"),
         _fake_route(argv=("t", "environment"), disposition="alternative"),
     )
@@ -4019,8 +4019,8 @@ def test_a_supplied_route_naming_a_partition_twice_is_rejected_at_the_literal():
         )
 
 
-def test_a_migrated_record_reads_its_supplied_route_from_the_overlay(monkeypatch):
-    """The round's contribution stays round-owned after a record migrates.
+def test_a_record_reads_its_supplied_route_from_the_overlay(monkeypatch):
+    """The round's contribution stays round-owned once a record declares routes.
 
     `Supplied` validates its own shape - a steps tuple that is empty, a
     missing note, a step with no tokens - so this fake record needs none of

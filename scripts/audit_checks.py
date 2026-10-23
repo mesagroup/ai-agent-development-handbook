@@ -1276,9 +1276,10 @@ def _silenced_languages(routes: tuple[Route, ...]) -> tuple[str, ...]:
     `_languages_whose_tools_all_need_a_grant` asks the neighbouring
     question - whether any *tool* still answers, rather than whether
     anything does - and its docstring gives the three states the two
-    describe between them. A language silenced here is in that result too,
-    because a language with nothing answering has no untiered tool
-    answering either; the converse does not hold, and that gap is exactly
+    describe between them. A language silenced here is in that result too
+    wherever any of its tiered routes names a tool, because a language with
+    nothing answering has no untiered tool answering either; the converse
+    does not hold, and that gap is exactly
     the record whose tools are gone and whose untiered reading is not.
 
     Args:
@@ -1504,7 +1505,7 @@ def _load_one(
             f"{where}: body carries a fenced code block. Every command a record "
             "prescribes appears in an inline backtick span, because that is the "
             "only place the form extractor reads, for the glued-placeholder "
-            "sweep over every record on either schema: a command in a fence is "
+            "sweep over every record: a command in a fence is "
             "invisible to it, and the suite stays green over it. Write the "
             "command in a span in its own paragraph. A four-space indented "
             "block is not this: its content is literal text, so a record may "
@@ -1514,7 +1515,7 @@ def _load_one(
     if raw_routes is not None and _FALLBACK_SECTION_RE.search(body):
         errors.append(
             f"{where}: declares routes: and carries a `## Tooling fallback` "
-            "section. On this schema the routes are the fallback - a route's "
+            "section. On a record declaring routes, the routes are the fallback - a route's "
             "note says what to run, its alone_insufficient says what running it "
             "is not enough for on its own, and its needs says what must be "
             "present first. A section beside them is a second copy of the "

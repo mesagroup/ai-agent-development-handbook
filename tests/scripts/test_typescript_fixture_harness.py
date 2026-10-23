@@ -191,7 +191,7 @@ def test_the_inventory_route_writes_its_document_to_stdout_and_installs_nothing(
     assert not route.needs
 
 
-def test_every_typescript_tooling_entry_has_a_routed_row():
+def test_every_typescript_route_tool_has_a_routed_row():
     declared = {
         (c.id, route.tool)
         for c in _records().values()
