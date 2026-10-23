@@ -27,6 +27,11 @@ routes:
       the SPDX ids `evidence` asks for stays the reader's own step. That is a
       fact about the tool rather than about either form, and it is stated on
       both because an agent taking the default route reads only this one.
+      The `in_env` form keeps the overlay's own packages out of the report,
+      because pip-licenses leaves itself and its dependencies out by default, so
+      naming the interpreter with `--python` instead buys nothing here: measured
+      with pip-licenses 5.5.5 on the seeded uv partition, both forms listed the
+      same seven packages, the target's, and both started its interpreter.
   - lang: python
     kind: command
     tool: pip-licenses

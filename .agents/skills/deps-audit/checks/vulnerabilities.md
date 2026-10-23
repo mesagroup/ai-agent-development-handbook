@@ -70,18 +70,26 @@ routes:
   - lang: python
     kind: procedure
     tool: safety
-    needs: resolved-tree
+    needs: target-execution
     note: >-
       The alternative to `pip-audit`, named without a command line, so there
       is no argv to declare and a `kind: command` route would have to invent
-      one. Its tier is `resolved-tree` because the completeness it claims is
-      only ever claimed about a scan of an installed environment: its own CI
-      guidance installs the dependencies before scanning, precisely so the
-      scan reaches the transitive packages that arrive during installation,
-      so pointed at a lone `requirements.txt` it under-reports silently
-      instead of failing. It also requires authentication and is unusable in
-      an unauthenticated audit whatever else is true, which is a separate
-      reason from its tier.
+      one. The completeness it claims is only ever claimed about a scan of an
+      installed environment: its own CI guidance installs the dependencies
+      before scanning, precisely so the scan reaches the transitive packages
+      that arrive during installation, so pointed at a lone `requirements.txt`
+      it under-reports silently instead of failing. And the environment it
+      scans is the one it runs under, so scanning the target's means running it
+      under the target's interpreter, which starts it and is `target-execution`:
+      measured with safety 3.8.1 on the seeded uv partition, `uvx safety check`
+      scanned its own sandbox's 42 packages and found nothing, and the same
+      command run in the venv with `uv run --no-sync --with safety` scanned 46,
+      the target's and the overlay's together, found the seeded jinja2
+      vulnerability, and started the interpreter, which a `.pth` marker
+      planted in the venv showed. Its current command, `safety scan`, requires
+      authentication, which makes it unusable in an unauthenticated audit for a
+      reason separate from its tier; the deprecated `safety check` measured
+      above ran without it.
   - lang: typescript
     kind: command
     tool: npm audit
