@@ -102,10 +102,12 @@ from python_fixture_spec import (
     ISOLATION_TIMEOUT_SECONDS,
     PACKAGE,
     PARTITIONS,
+    TS_CONFIGURED_PARTITIONS,
     TS_PARTITIONS,
     _ts_source_prefix,
     expectations_for,
     lang_of,
+    manager_of,
 )
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -1150,10 +1152,11 @@ TS_NO_VERSION_ROUTE: dict[str, str] = {
 # 1 when they find a vulnerable or outdated dependency (pnpm's source returns
 # `exitCode: outdatedPackages.length === 0 ? 0 : 1`, and the same for audit's
 # advisories); madge's CLI sets exit code 1 when `--circular` finds a cycle;
-# dependency-cruiser exits with the count of error-severity violations, which
-# under the rule-less config the plugin ships is never more than zero, so on
-# those routes a non-zero exit carries no findings on stdout and classifies as
-# the failure it is; and
+# dependency-cruiser's exit code under `--output-type json` is 0 whatever the
+# report holds - measured with 18.7.0 on the configured npm tree, an
+# error-severity violation reported at exit 0, where `--output-type err` exits 1
+# - so on every route here a non-zero exit is the tool failing, with no findings
+# on stdout to read, and the violations are read from the report; and
 # vitest and jest exit 1 on a failing test, which is the planted finding for
 # `test/determinism`. `npm sbom`, `pnpm licenses list` and `@cdxgen/cdxgen` are
 # reporting commands with no gating flag in the prescribed invocation - cdxgen's
@@ -1193,7 +1196,7 @@ class TsCompletion:
     tokens per partition. And a placeholder can sit inside a token, or stand
     as a token among others, which appending cannot complete, so `fills`
     substitutes it. A row `TS_RUN_IN_PACKAGE` names runs from the seeded package
-    instead, so its fills are package-relative and the same on both partitions.
+    instead, so its fills are package-relative and the same on every partition.
     All of them stay out of the record's own argv, as a completion does.
     """
 
@@ -1258,6 +1261,7 @@ TS_RUN_IN_PACKAGE: dict[tuple[str, str], str] = {
     ("arch/cycles", "dependency-cruiser"): _FROM_THE_TSCONFIG,
     ("arch/coupling", "dependency-cruiser"): _FROM_THE_TSCONFIG,
     ("arch/over-decomposition", "dependency-cruiser"): _FROM_THE_TSCONFIG,
+    ("arch/layering", "dependency-cruiser"): _FROM_THE_TSCONFIG,
 }
 
 
@@ -1292,6 +1296,19 @@ TS_COMPLETIONS: dict[tuple[str, str], TsCompletion] = {
     ("arch/cycles", "dependency-cruiser"): _TS_DEPCRUISE_COMPLETION,
     ("arch/coupling", "dependency-cruiser"): _TS_DEPCRUISE_COMPLETION,
     ("arch/over-decomposition", "dependency-cruiser"): _TS_DEPCRUISE_COMPLETION,
+    ("arch/layering", "dependency-cruiser"): TsCompletion(
+        fills=(
+            ("<config>", ".dependency-cruiser.json"),
+            ("<tsconfig>", "tsconfig.json"),
+            ("<dir>", "src"),
+        ),
+        note=(
+            "`<config>` is the project's own dependency-cruiser config, which the "
+            "configured partition plants at the seeded package's root; "
+            "`<tsconfig>` and `<dir>` are the seeded package's tsconfig and source "
+            "directory, relative to the directory the row runs from"
+        ),
+    ),
     ("test/isolation", "vitest"): TsCompletion(
         fills=(("<report-path>", REPORT_PATH_TOKEN),),
         note=(
@@ -1323,20 +1340,33 @@ class AppliesWhen:
 
     holds: bool
     why: str
+    # The partitions where the precondition holds although `holds` says it does
+    # not elsewhere: a tree built to carry what the others lack, such as the
+    # project's own dependency-cruiser config.
+    holds_on: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.why:
             raise ValueError("an applies_when answer needs the fixture fact behind it")
+        if self.holds and self.holds_on:
+            raise ValueError("an answer that holds everywhere names no partition")
+        for partition in self.holds_on:
+            if partition not in TS_PARTITIONS:
+                raise ValueError(f"{partition!r} is not a TypeScript partition")
+
+    def holds_for(self, partition: str) -> bool:
+        """Whether the precondition holds on this partition."""
+        return self.holds or partition in self.holds_on
 
 
 # Keyed `(check, tool)` to match a row. Every TypeScript row whose prescribed
 # route carries `applies_when` has an entry, whether or not its check is in the
 # expectations this round grades, so a record adding a precondition fails a test
 # instead of running on a fixture it does not describe. The answer is the same
-# on both partitions, because both carry the same seeded package.
+# on every partition, because each carries the same seeded package.
 _VITEST = AppliesWhen(
     True,
-    "both partitions declare vitest as their runner, and the seeded tests import it",
+    "every partition declares vitest as its runner, and the seeded tests import it",
 )
 _NOT_JEST = AppliesWhen(
     False, "neither partition declares jest; the fixtures' runner is vitest"
@@ -1352,8 +1382,10 @@ TS_APPLIES_WHEN: dict[tuple[str, str], AppliesWhen] = {
     ),
     ("arch/layering", "dependency-cruiser"): AppliesWhen(
         False,
-        "the fixtures carry no .dependency-cruiser config of their own; planting "
-        "one would have the fixture declare the boundary the check tests",
+        "npm and pnpm carry no .dependency-cruiser config of their own, because "
+        "they test the case where the project declares no boundary; npm-layered, "
+        "the npm tree with a config planted, is where the route runs",
+        holds_on=TS_CONFIGURED_PARTITIONS,
     ),
     ("test/coverage-reach", "vitest"): _VITEST,
     ("test/coverage-reach", "jest"): _NOT_JEST,
@@ -1376,15 +1408,15 @@ def not_run_on(invocation: Invocation, partition: str) -> tuple[str, str] | None
     if lang_of(partition) != "typescript":
         return None
     manager = TS_MANAGER_TOOLS.get(invocation.tool)
-    if manager is not None and manager != partition:
+    if manager is not None and manager != manager_of(partition):
         return (
             "manager",
             f"`{invocation.tool}` is {manager}'s own subcommand and this partition's "
-            f"package manager is {partition}, so it has no lockfile of {manager}'s "
-            "to read",
+            f"package manager is {manager_of(partition)}, so it has no lockfile of "
+            f"{manager}'s to read",
         )
     answer = TS_APPLIES_WHEN.get((invocation.check, invocation.tool))
-    if answer is not None and not answer.holds:
+    if answer is not None and not answer.holds_for(partition):
         return ("applies-when", f"the route's applies_when does not hold: {answer.why}")
     return None
 
@@ -1578,7 +1610,7 @@ def _argv_by_partition(
         return ()
     _partition_keys(check, tool, route, lang)
     return tuple(
-        (p, tuple(route.argv_by_partition.get(p, route.argv)))
+        (p, tuple(route.argv_by_partition.get(manager_of(p), route.argv)))
         for p in FIXTURE_PARTITIONS[lang]
     )
 
@@ -1617,8 +1649,8 @@ def _own_runner_partitions(
         if route.argv:
             return fixture
         keys = _partition_keys(check, tool, route, lang)
-        return tuple(k for k in keys if k in fixture)
-    return tuple(p for p in route.own_runner or () if p in fixture)
+        return tuple(p for p in fixture if manager_of(p) in keys)
+    return tuple(p for p in fixture if manager_of(p) in (route.own_runner or ()))
 
 
 def _reason_for_no_command(check: str, tool: str, routes: Sequence[Route]) -> str:
@@ -2106,10 +2138,10 @@ def _ts_launcher(
     if invocation.tool in TS_MANAGER_TOOLS:
         return ()
     if invocation.in_env and granted:
-        return TS_IN_ENV[partition]
+        return TS_IN_ENV[manager_of(partition)]
     return tuple(
         word.format(package=invocation.package or invocation.tool)
-        for word in TS_ONE_SHOT[partition]
+        for word in TS_ONE_SHOT[manager_of(partition)]
     )
 
 
@@ -2687,7 +2719,7 @@ def probe_versions(
     invoked = invocations_for(partition, only_check=only_check)
     for tool in {inv.tool for inv in invoked}:
         manager = TS_MANAGER_TOOLS.get(tool) if lang == "typescript" else None
-        if manager is not None and manager != partition:
+        if manager is not None and manager != manager_of(partition):
             continue
         probe = probes[tool]
         if probe is None:
@@ -2795,7 +2827,7 @@ def run_partition(
     # the harness inventing a finding rather than reporting one.
     blocked_by: list[str] | None = None
     if granted:
-        for command in materialize[partition]:
+        for command in materialize[manager_of(partition)]:
             outcome = run(command, copy, timeout)
             materialization.append({"command": list(command), **outcome})
             if outcome["returncode"] != 0:

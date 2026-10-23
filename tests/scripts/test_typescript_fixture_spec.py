@@ -20,6 +20,7 @@ from python_fixture_spec import (
     EXPECTATIONS,
     FORMS,
     PARTITIONS,
+    TS_CONFIGURED_FILES,
     TS_CORE,
     TS_DEFERRED_CHECKS,
     TS_DEPENDENCIES,
@@ -97,7 +98,7 @@ def _manifests(partition: str) -> dict[str, dict]:
 
 def test_every_planted_seed_is_expected_and_every_expected_seed_is_planted():
     """Both seed sources and both directions, as on the Python side."""
-    planted = {s for f in TS_SOURCE_FILES for s in f.seeds} | {
+    planted = {s for f in TS_SOURCE_FILES + TS_CONFIGURED_FILES for s in f.seeds} | {
         s for d in TS_DEPENDENCIES for s in d.seeds
     }
     expected = {s for e in TS_EXPECTATIONS for s in e.seeds}
@@ -110,25 +111,36 @@ def test_every_planted_source_seed_has_a_marker():
     """Every TypeScript source seed is a construct, so every one needs a marker.
 
     There is no TypeScript counterpart of `ABSENCE_SEEDS`, so the marker mapping
-    must name exactly the seeds the source files plant.
+    must name exactly the seeds the source files plant, the configured
+    partitions' extra files included.
     """
-    planted = {s for f in TS_SOURCE_FILES for s in f.seeds}
+    planted = {s for f in TS_SOURCE_FILES + TS_CONFIGURED_FILES for s in f.seeds}
     assert set(TS_SEED_MARKERS) == planted
 
 
 def test_every_marker_appears_in_a_file_carrying_its_seed():
-    """The construct, not the seed name, has to survive in the rendered source."""
+    """The construct, not the seed name, has to survive in the rendered source.
+
+    Checked on every partition that plants the seed: the configured partitions'
+    extra files carry seeds the others do not, and every seed is planted in at
+    least one partition.
+    """
+    carried_somewhere = set()
     for partition in TS_PARTITIONS:
         tree = ts_source_tree(partition)
+        prefix = spec._ts_source_prefix(partition)
         for seed, markers in TS_SEED_MARKERS.items():
             carriers = [
-                tree[f"{spec._ts_source_prefix(partition)}{f.path}"]
-                for f in TS_SOURCE_FILES
-                if seed in f.seeds
+                tree[f"{prefix}{f.path}"]
+                for f in TS_SOURCE_FILES + TS_CONFIGURED_FILES
+                if seed in f.seeds and f"{prefix}{f.path}" in tree
             ]
-            assert carriers, seed
+            if not carriers:
+                continue
+            carried_somewhere.add(seed)
             for marker in markers:
                 assert any(marker in body for body in carriers), (seed, marker)
+    assert carried_somewhere == set(TS_SEED_MARKERS)
 
 
 def test_the_order_dependent_pair_is_in_one_file():
@@ -241,11 +253,18 @@ def test_no_check_states_two_expectations_for_one_partition():
             seen.add((e.check, partition))
 
 
-def test_every_expected_check_is_answered_on_both_partitions():
-    """A check split by partition has to cover both, not one."""
+def test_every_expected_check_is_answered_on_every_partition_it_belongs_to():
+    """A check split by partition has to cover each tree of its kind, not one.
+
+    Every check covers the trees carrying no dependency-cruiser config of their
+    own, except one whose expectation is scoped to the configured trees, which
+    covers exactly those.
+    """
+    configured = set(spec.TS_CONFIGURED_PARTITIONS)
+    unconfigured = set(TS_PARTITIONS) - configured
     for check in {e.check for e in TS_EXPECTATIONS}:
         covered = {p for e in TS_EXPECTATIONS if e.check == check for p in e.partitions}
-        assert covered == set(TS_PARTITIONS), check
+        assert covered in (unconfigured, configured), check
 
 
 # --- the checks the round covers -------------------------------------------------
@@ -383,7 +402,9 @@ def test_every_json_manifest_parses_and_the_workspace_file_parses_as_yaml():
                 assert path.endswith(".yaml"), path
                 yaml.safe_load(body)
             parsed += 1
-    assert parsed == 5, parsed
+    # npm and npm-layered render one manifest each, pnpm its root, workspace
+    # file and two members.
+    assert parsed == 6, parsed
 
 
 def test_the_root_manifest_carries_the_partition_s_manager_pin():
@@ -392,7 +413,10 @@ def test_the_root_manifest_carries_the_partition_s_manager_pin():
     assert spec.PNPM_PIN == "pnpm@9.15.9"
     for partition in TS_PARTITIONS:
         manifests = _manifests(partition)
-        assert manifests["package.json"]["packageManager"] == TS_MANAGER_PINS[partition]
+        assert (
+            manifests["package.json"]["packageManager"]
+            == TS_MANAGER_PINS[spec.manager_of(partition)]
+        )
         for path, document in manifests.items():
             if path != "package.json":
                 assert "packageManager" not in document, (partition, path)
@@ -520,7 +544,7 @@ def test_every_partition_row_states_its_pin_and_count():
         matching = [r for r in rows if r[0] == f"`{partition}`"]
         assert len(matching) == 1, partition
         _, pin, count, checks = matching[0]
-        assert pin == f"`{TS_MANAGER_PINS[partition]}`"
+        assert pin == f"`{TS_MANAGER_PINS[spec.manager_of(partition)]}`"
         assert count == str(len(expectations_for(partition)))
         assert checks == renderer._ts_partition_checks_cell(partition)
 

@@ -1,7 +1,7 @@
 """Definition of the seeded Python fixtures (#45) and TypeScript fixtures (#181).
 
 For each language, one dependency set, one seeded source tree, the manifest
-renderings of its partitions (five Python, two TypeScript) and one expectations
+renderings of its partitions (five Python, three TypeScript) and one expectations
 table, all from this module. The fixture tree and the expectations
 are produced from the same definition on purpose: expectations kept in a second
 file are free to drift, and a seed present in the tree but missing from the
@@ -39,7 +39,29 @@ PARTITIONS = ("uv", "pip", "poetry", "pipenv", "pylock")
 # language. `PARTITIONS` stays the Python tuple on purpose: the Python harness,
 # renderer and tests all read it as "the Python partitions", and widening it
 # would hand every one of them two partitions it has no manifest for.
-TS_PARTITIONS = ("npm", "pnpm")
+TS_PARTITIONS = ("npm", "pnpm", "npm-layered")
+
+# The package manager each TypeScript partition runs on. A partition is one
+# seeded tree and a manager is what the records' `argv_by_partition` and
+# `own_runner` keys name, so the two differ wherever a manager carries more than
+# one tree: `npm-layered` is the npm tree plus a dependency-cruiser config of its
+# own, for `arch/layering`'s route, which applies only where the project carries
+# one, while the plain `npm` tree keeps testing the no-config case.
+_TS_MANAGER_OF = {"npm": "npm", "pnpm": "pnpm", "npm-layered": "npm"}
+
+# The partitions carrying the project's own dependency-cruiser config.
+TS_CONFIGURED_PARTITIONS = ("npm-layered",)
+
+
+def manager_of(partition: str) -> str:
+    """The package manager a partition runs on, which is what a route's keys name.
+
+    A Python partition is its own key, `pylock` included: the Python routes key
+    `argv_by_partition` by partition, and no two Python trees share a manager.
+    """
+    if lang_of(partition) == "python":
+        return partition
+    return _TS_MANAGER_OF[partition]
 
 
 def lang_of(partition: str) -> str:
@@ -1492,6 +1514,26 @@ TS_SOURCE_FILES = (
     SourceFile("test/slow.test.ts", _TS_TEST_SLOW, ("slow-test",)),
 )
 
+# The project's own dependency-cruiser config, planted only in the
+# `TS_CONFIGURED_PARTITIONS` trees: one forbidden rule, which the seeded
+# `model.ts` importing `store.ts` violates. The config is the seed rather than the
+# import, because the import is in every tree and is a violation only where a
+# rule declares the boundary.
+_TS_DEPCRUISE_CONFIG = """{
+  "forbidden": [
+    {
+      "name": "domain-not-to-infra",
+      "severity": "error",
+      "from": { "path": "^src/domain" },
+      "to": { "path": "^src/infra" }
+    }
+  ]
+}
+"""
+TS_CONFIGURED_FILES = (
+    SourceFile(".dependency-cruiser.json", _TS_DEPCRUISE_CONFIG, ("layering",)),
+)
+
 # The construct each planted seed is, so it cannot leave with its name intact.
 # Every TypeScript seed is a construct: none is an absence, which is why there
 # is no TypeScript counterpart of ABSENCE_SEEDS.
@@ -1502,19 +1544,24 @@ TS_SEED_MARKERS = {
     "uncovered-branch": ("if (value < low)", "if (value > high)"),
     "order-dependence": ("seen.push(",),
     "slow-test": (f"setTimeout(resolve, {TS_SLOW_TEST_MS})",),
+    # The rule's name, which the report names on the violation it finds.
+    "layering": ('"domain-not-to-infra"',),
 }
 
 
 def _ts_source_prefix(partition: str) -> str:
     if lang_of(partition) != "typescript":
         raise ValueError(f"{partition!r} is not a TypeScript partition")
-    return "" if partition == "npm" else f"{TS_CORE}/"
+    return "" if manager_of(partition) == "npm" else f"{TS_CORE}/"
 
 
 def ts_source_tree(partition: str) -> dict[str, str]:
     """Map every seeded path, as it lands in this partition's tree, to its body."""
     prefix = _ts_source_prefix(partition)
-    return {f"{prefix}{f.path}": f.body for f in TS_SOURCE_FILES}
+    files = TS_SOURCE_FILES
+    if partition in TS_CONFIGURED_PARTITIONS:
+        files += TS_CONFIGURED_FILES
+    return {f"{prefix}{f.path}": f.body for f in files}
 
 
 def _json(document: dict) -> str:
@@ -1555,14 +1602,14 @@ def ts_render_manifests(partition: str) -> dict[str, str]:
     """Return {relative path: content} for one TypeScript partition's manifests.
 
     Lockfiles are absent by design, as on the Python side: each manager
-    generates its own, which is the difference the two partitions exist to
-    exercise. The `packageManager` pin goes on the root manifest only, which is
+    generates its own, which is the difference the npm and pnpm partitions
+    exist to exercise; `npm-layered` renders npm's. The `packageManager` pin goes on the root manifest only, which is
     where corepack reads it.
     """
     if lang_of(partition) != "typescript":
         raise ValueError(f"{partition!r} is not a TypeScript partition")
-    pin = TS_MANAGER_PINS[partition]
-    if partition == "npm":
+    pin = TS_MANAGER_PINS[manager_of(partition)]
+    if manager_of(partition) == "npm":
         return {
             "package.json": _package_json(
                 TS_NPM_PACKAGE, TS_DEPENDENCIES, package_manager=pin
@@ -1590,7 +1637,11 @@ def ts_render_manifests(partition: str) -> dict[str, str]:
     )
 
 
-_TS_ALL = TS_PARTITIONS
+# The partitions every TypeScript expectation not scoped otherwise covers: the
+# two that carry no dependency-cruiser config of their own. `npm-layered` exists
+# for `arch/layering` alone and is scoped by that expectation, so no other cell
+# runs twice on one npm tree.
+_TS_ALL = tuple(p for p in TS_PARTITIONS if p not in TS_CONFIGURED_PARTITIONS)
 
 _LODASH_CVES = tuple(
     sorted(set(re.findall(r"CVE-\d{4}-\d+", _ts_by_name("lodash").evidence)))
@@ -1789,6 +1840,26 @@ TS_EXPECTATIONS = (
         ("cycle",),
     ),
     Expectation(
+        "arch/layering",
+        TS_CONFIGURED_PARTITIONS,
+        "exact",
+        "one violation of the project's own forbidden rule domain-not-to-infra: "
+        "src/domain/model.ts importing src/infra/store.ts. Under resolved-tree the "
+        "tiered `dependency-cruiser` route, run from the seeded package with "
+        "`--config .dependency-cruiser.json --output-type json --ts-config "
+        "tsconfig.json src`, cruises three modules and reports that one violation in "
+        "`summary.violations`, exiting 0, since the JSON reporter's exit code is not "
+        "the verdict. The reverse import, store.ts to model.ts, is allowed by the rule "
+        "and is not a violation. This is the only partition carrying a config of its "
+        "own: on npm and pnpm the route's applies_when fails and the check falls to "
+        "the tsconfig reading",
+        ("layering",),
+        "the tiered `dependency-cruiser` route does not run, so the harness records "
+        "no-evidence (not-permitted); the record's untiered madge procedure and its "
+        "tsconfig reading answer from a read-only clone, which this round does not "
+        "execute",
+    ),
+    Expectation(
         "arch/coupling",
         _TS_ALL,
         "floor",
@@ -1888,7 +1959,6 @@ TS_DEFERRED_CHECKS = {
     "arch/dead-code": "no TypeScript command route: knip and ts-prune are procedures",
     "arch/hidden-coupling": "no TypeScript command route: its ESLint, knip and tool-less routes are procedures",
     "arch/import-rule-declaration": "no TypeScript command route: its one route is a tool-less reading procedure",
-    "arch/layering": "its one TypeScript command route, `dependency-cruiser`, applies only where the project carries its own `.dependency-cruiser` config, and planting one would have the fixture declare the boundary the check tests; the fallback it names is a reading of tsconfig paths and references, which this fixture does not declare",
     "arch/over-abstraction": "no TypeScript command route: knip is a procedure and ts-morph a library",
     "deps/hygiene": "no TypeScript command route: depcheck and knip are procedures",
     "security/crypto": "no TypeScript command route: its ESLint and tool-less routes are procedures",

@@ -44,6 +44,7 @@ from python_fixture_spec import (
     PARTITIONS,
     SOURCE_FILES,
     THIN_EXTRA_CHECK,
+    TS_CONFIGURED_FILES,
     TS_CORE,
     TS_DEFERRED_CHECKS,
     TS_DEPENDENCIES,
@@ -57,6 +58,7 @@ from python_fixture_spec import (
     VERIFIED_ON,
     Expectation,
     expectations_for,
+    manager_of,
 )
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -275,7 +277,7 @@ def render_typescript() -> str:
         "",
         "## The shared dependency set",
         "",
-        f"Both partitions declare the same set at exact pins. The npm partition is one package and declares all of it in one `package.json`; the pnpm partition is a workspace, and the `Member` column says which of its manifests declares each entry - the root, `{TS_CORE}` (the seeded source) or `{TS_LEAF}` (the leaf, which also depends on the core package through `workspace:*`). The member is what decides whether a root-only read reaches a pin.",
+        f"Every partition declares the same set at exact pins. The npm partitions are one package each and declare all of it in one `package.json`; the pnpm partition is a workspace, and the `Member` column says which of its manifests declares each entry - the root, `{TS_CORE}` (the seeded source) or `{TS_LEAF}` (the leaf, which also depends on the core package through `workspace:*`). The member is what decides whether a root-only read reaches a pin.",
         "",
         "| Package | Pin | Latest | Dev | Member | Seeds | Evidence |",
         "|---|---|---|---|---|---|---|",
@@ -291,14 +293,14 @@ def render_typescript() -> str:
         "",
         "## What each partition runs",
         "",
-        "Both partitions carry every check in the expectation table, because each TypeScript command route there is either the partition's own package manager's subcommand or a tool that runs the same way on both, so each partition asks it a different question. The `packageManager` pin is on the root manifest, which is where corepack reads it.",
+        "The `npm` and `pnpm` partitions carry every check in the expectation table but one, because each TypeScript command route there is either the partition's own package manager's subcommand or a tool that runs the same way on both, so each partition asks it a different question. `npm-layered` is the npm tree plus a dependency-cruiser config of its own, and carries `arch/layering` alone: that check's command route applies only where the project declares its own boundary, and the other two trees test the case where it does not. The `packageManager` pin is on the root manifest, which is where corepack reads it.",
         "",
         "| Partition | Manager pin | Expectations | Checks |",
         "|---|---|---|---|",
     ]
     for partition in TS_PARTITIONS:
         out.append(
-            f"| `{partition}` | `{TS_MANAGER_PINS[partition]}` "
+            f"| `{partition}` | `{TS_MANAGER_PINS[manager_of(partition)]}` "
             f"| {len(expectations_for(partition))} "
             f"| {_ts_partition_checks_cell(partition)} |"
         )
@@ -354,7 +356,7 @@ def render_typescript() -> str:
     for check in sorted(TS_DEFERRED_CHECKS):
         out.append(f"| `{check}` | {_cell(TS_DEFERRED_CHECKS[check])} |")
 
-    planted = {s for f in TS_SOURCE_FILES for s in f.seeds} | {
+    planted = {s for f in TS_SOURCE_FILES + TS_CONFIGURED_FILES for s in f.seeds} | {
         s for d in TS_DEPENDENCIES for s in d.seeds
     }
     expected = {s for e in TS_EXPECTATIONS for s in e.seeds}

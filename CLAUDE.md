@@ -16,7 +16,7 @@ uv run python scripts/check_handbook_citations.py               # every citation
 uv run python scripts/render_python_fixture_expectations.py --check   # integrity gate
 uv run python scripts/render_python_fixture_expectations.py           # regenerate the fixture expectations
 uv run deptry .                                                       # dependency hygiene gate
-uv run python scripts/build_python_fixtures.py --all                  # generate the seven gitignored fixture trees, five Python and two TypeScript (the TypeScript lock steps need network, npm at its pin and corepack)
+uv run python scripts/build_python_fixtures.py --all                  # generate the eight gitignored fixture trees, five Python and three TypeScript (the TypeScript lock steps need network, npm at its pin and corepack)
 uv run python scripts/emit_audit_issues.py <findings.json> --target <owner/repo>   # dry-run the issue set a sweep would file
 ```
 
