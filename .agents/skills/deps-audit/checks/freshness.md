@@ -23,7 +23,8 @@ routes:
     needs: target-execution
     note: >-
       Reads the installed environment rather than the lockfile, so it needs
-      the tree resolved.
+      the tree resolved, and it starts the partition's interpreter, which is
+      why it needs `target-execution`.
 
       The argv ends at a bare `--python` and is not a complete invocation.
       Name the interpreter explicitly on this route, as `uv pip list
@@ -57,7 +58,9 @@ routes:
     needs: target-execution
     note: >-
       `pip list --outdated` reads the installed environment rather than the
-      lockfile, so it needs the tree resolved. It needs no interpreter flag;
+      lockfile, so it needs the tree resolved, and it starts the partition's
+      interpreter, which is why it needs `target-execution`. It needs no
+      interpreter flag;
       it introspects whichever interpreter it is running under rather than
       depending on venv-discovery logic.
     alone_insufficient: >-
