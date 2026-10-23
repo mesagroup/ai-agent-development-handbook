@@ -1632,7 +1632,7 @@ def test_the_grant_tier_is_read_from_the_record_rather_than_transcribed():
     """
     checks, errors = load_checks(SKILLS_DIR)
     assert not errors, errors
-    assert grant_tier("arch/cycles", "pydeps") == "resolved-tree"
+    assert grant_tier("arch/cycles", "pydeps") == ""
     assert grant_tier("deps/hygiene", "deptry") == "target-execution"
     assert grant_tier("test/coverage-reach", "pytest-cov") == "target-execution"
     assert grant_tier("security/crypto", "bandit") == ""
@@ -3181,11 +3181,12 @@ def test_a_row_that_needs_nothing_still_runs_after_a_failed_materialization(
     assert rows[("security/crypto", "bandit")]["ran"] is True
     assert rows[("security/crypto", "bandit")]["status"] == "ok"
     assert rows[("deps/hygiene", "deptry")]["ran"] is False
-    # `pydeps` carries a tier and launches through `uvx` rather than in the
-    # environment, so gating on `in_env` alone would have let it run.
+    # `pydeps` launches through `uvx` rather than in the environment and needs
+    # no grant, because the isolated run never reads the tree, so a failed
+    # materialization costs it nothing either.
     assert rows[("arch/cycles", "pydeps")]["in_env"] is False
-    assert rows[("arch/cycles", "pydeps")]["needs"] == "resolved-tree"
-    assert rows[("arch/cycles", "pydeps")]["detail"] == "environment-unmaterialized"
+    assert rows[("arch/cycles", "pydeps")]["needs"] == ""
+    assert rows[("arch/cycles", "pydeps")]["ran"] is True
 
 
 # --- the parts of a route that the verdict has to reach ------------------------
@@ -3962,9 +3963,14 @@ def test_the_per_partition_deps_rows_survive_their_records_migration():
     # instead of a one-shot runner, and a route naming stderr would move which
     # stream `classify` grades - each with every argv above still matching and
     # the whole suite green.
-    for row in (inv, vuln, rows[("deps/vulnerabilities", "safety")]):
+    for row in (inv, vuln):
         assert row.in_env is False, (row.check, row.tool)
         assert row.findings_stream == "stdout", (row.check, row.tool)
+    # Safety scans the environment it runs under, so its route runs in the
+    # partition's own; isolated it would scan the runner's sandbox.
+    safety = rows[("deps/vulnerabilities", "safety")]
+    assert safety.in_env is True
+    assert safety.findings_stream == "stdout"
 
 
 def test_the_coverage_and_mutation_rows_survive_their_records_migration():

@@ -30,6 +30,13 @@ routes:
       Name the interpreter explicitly on this route, as `uv pip list
       --outdated --python <path-to-venv-python>`; the path is the caller's
       to resolve, which is why the argv stops where the placeholder starts.
+      Measured on the seeded uv partition with a `.pth` marker planted in its
+      venv: this route and the same `uv pip list --outdated --python
+      <path-to-venv-python>` run directly by the audit host's own uv, with no
+      overlay, printed the same
+      three outdated packages, and both started the interpreter once uv's
+      interpreter cache was cold; with a warm cache neither did, so a run that
+      starts nothing is no evidence the route needs no grant.
     alone_insufficient: >-
       An outdated list answers the outdated half of this check alone:
       whether a direct dependency is unpinned, and whether a pinned release

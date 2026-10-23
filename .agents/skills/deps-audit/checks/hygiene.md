@@ -93,7 +93,7 @@ routes:
   - lang: typescript
     kind: procedure
     tool: depcheck
-    needs: resolved-tree
+    needs: target-execution
     note: >-
       A registry package a one-shot runner can fetch, and this check does not
       branch on which package manager the partition uses, so the record names
@@ -110,7 +110,12 @@ routes:
       `depcheck` reported `eslint` and `typescript` as unused devDependencies,
       and after an install it reported neither. Its `eslint` special likewise
       `require`s the resolved shareable config and silently returns nothing on
-      failure.
+      failure, and that `require` runs the config's own code from the
+      installed tree, which is `target-execution` rather than `resolved-tree`:
+      measured with depcheck 1.4.7 on the seeded npm fixture, installed with a
+      shareable config planted whose module writes a marker when loaded and a
+      `.eslintrc.json` extending it, `npx --yes depcheck --json` wrote the
+      marker.
   - lang: typescript
     kind: procedure
     tool: knip
@@ -122,7 +127,8 @@ routes:
       loads and executes the target's own tool configuration (its peer deps
       `typescript` and `@types/node`, plus whatever the config files declare)
       to see what is actually exported, which is why it sits at
-      `target-execution` where `depcheck` sits at `resolved-tree`. `knip`
+      `target-execution`, as `depcheck` does for loading the shareable ESLint
+      config. `knip`
       answers nothing trustworthy without the tree.
 ---
 

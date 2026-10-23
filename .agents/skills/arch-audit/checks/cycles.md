@@ -23,15 +23,23 @@ routes:
     kind: command
     tool: pydeps
     argv: [pydeps, "--show-cycles", "--show-dot"]
-    needs: resolved-tree
     note: >-
       `--show-dot` prints the underlying dot source as text, so a genuine cycle
       shows up as both directed edges of the pair (`a -> b` and `b -> a`) on
       stdout. The tool reads import opcodes from compiled bytecode rather than
       executing the target, so it sees only the modules the import machinery can
-      find: an uninstalled dependency drops out of the graph and a cycle running
-      through it goes unreported rather than erroring. The package to graph is an
-      operand the record names none for. The dot lines this prints over a
+      find, and run as this route runs - isolated, through a one-shot runner,
+      since it is not `in_env` - that is the target's own modules: an external
+      package appears in the graph only where the runner's own sandbox happens
+      to carry it, whether or not the tree is materialized, which is why the
+      route needs no grant. A cycle runs through
+      the target's own modules, so that is the graph this check reads. Measured
+      with pydeps 3.0.9 on the seeded uv partition: the isolated run printed the
+      same graph with the tree materialized and without it, and never started the
+      partition's interpreter, which a `.pth` marker planted in its venv showed;
+      run on the venv's path instead, it added the edges from the external
+      packages and started that interpreter, which is `target-execution`. The
+      package to graph is an operand the record names none for. The dot lines this prints over a
       seeded two-module cycle, and the zero bytes the bare form returns on both
       streams over the same tree, are recorded in [the python lens smoke
       run](https://github.com/mesagroup/ai-agent-development-handbook/blob/main/docs/audit/python-lens-smoke-run.md).
@@ -40,7 +48,6 @@ routes:
     tool: pydeps
     argv: [pydeps, "--show-cycles"]
     disposition: superseded
-    needs: resolved-tree
     note: >-
       Superseded by the route above, which narrows the same command:
       `--show-cycles` alone has no textual output channel at all. It exits 0

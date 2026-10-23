@@ -21,15 +21,20 @@ routes:
   - lang: python
     kind: procedure
     tool: pydeps
-    needs: resolved-tree
     note: >-
       The record offers `pydeps` for a visual and says the counts are the
       evidence, so it prescribes no `pydeps` command line for this check and a
-      `kind: command` route would have to invent one. The tier is the target's
-      own dependencies: `pydeps` reads import opcodes from compiled bytecode
-      rather than executing the target, so a dependency the import machinery
-      cannot find just drops out of the graph, and an uninstalled package
-      thins a hub's count instead of flagging its own absence.
+      `kind: command` route would have to invent one. `pydeps` reads import
+      opcodes from compiled bytecode rather than executing the target, so it
+      sees only the modules the import machinery can find, and fetched by a
+      one-shot runner, as a tool on a route that is not `in_env` is, that is the
+      target's own modules alone, materialized tree or not, so the route needs
+      no grant and the counts it supports are between the target's own modules.
+      Run on the venv's path instead, it also shows the target's imports of its
+      external packages, and starting that interpreter is
+      `target-execution`: measured with pydeps 3.0.9 on the seeded uv partition,
+      the isolated graph was the same with and without the tree and started no
+      interpreter, and the in-venv one added five external edges and started it.
   - lang: typescript
     kind: command
     tool: dependency-cruiser
