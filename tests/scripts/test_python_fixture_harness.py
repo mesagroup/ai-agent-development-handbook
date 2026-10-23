@@ -1638,9 +1638,11 @@ def test_a_row_with_no_command_takes_its_first_offered_routes_tier(monkeypatch):
     only_forbidden = _routes_only_record(
         _fake_route(kind="procedure", argv=(), disposition="forbidden"),
     )
-    with _records_replaced_by(monkeypatch, {"x/y": only_forbidden}):
-        with pytest.raises(ValueError, match="does not offer"):
-            grant_tier("x/y", "t")
+    with (
+        _records_replaced_by(monkeypatch, {"x/y": only_forbidden}),
+        pytest.raises(ValueError, match="does not offer"),
+    ):
+        grant_tier("x/y", "t")
 
 
 def test_an_unknown_check_or_tool_is_rejected_by_name():
