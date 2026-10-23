@@ -57,9 +57,14 @@ routes:
       projects toward and which raises no deprecation warning, so this is the
       ordinary modern poetry manifest rather than an edge case, and this
       record has no route through `cyclonedx-py poetry` for it. The PEP 751
-      partition is named nowhere above, which is this record prescribing
-      nothing for a PEP 751 lock file rather than pointing a subcommand at
-      one it cannot read.
+      partition is named nowhere above: none of these file-parsing commands
+      reads a PEP 751 lock file, and this record points none at one it cannot
+      read. The environment route below answers such a partition once step 1
+      has materialized it under `target-execution`, and answers a PEP 621
+      poetry partition the same way, because it reads what is installed rather
+      than the manifest: measured on the seeded pylock partition it listed the
+      7 installed components, and on the seeded poetry partition 8, pip
+      included.
   - lang: python
     kind: command
     tool: cyclonedx-py
