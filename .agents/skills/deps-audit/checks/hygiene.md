@@ -4,8 +4,8 @@ domain: deps
 locality: global
 evidence: >-
   A scanner run without the tree gives a partial signal, and a row records it
-  with that limit rather than at face value: on a partition whose
-  dependencies are not installed the scanner's row is `no-evidence
+  with that limit rather than at face value: on a partition run
+  without the `target-execution` grant the scanner's row is `no-evidence
   (not-permitted)` rather than a clean result, and the check is carried by
   the manifest and lockfile reading the untiered route below prescribes, at
   lower recall than the scanner and reported as such. One answer at reduced
