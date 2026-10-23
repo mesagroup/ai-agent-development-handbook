@@ -59,10 +59,10 @@ routes:
       record has the reader fall back to reading the `tsconfig` path
       aliases and project references as the declared boundaries instead of
       reaching for this tool.
-    argv: [npx, "--package", "typescript@^5", "--package", dependency-cruiser, "--", depcruise]
+    argv: [npx, "--package", "typescript@^5", "--package", dependency-cruiser, "--", depcruise, "--config", "<config>", "--output-type", json, "--ts-config", "<tsconfig>", "<dir>"]
     argv_by_partition:
-      pnpm: [pnpm, "--package=typescript@^5", "--package=dependency-cruiser", dlx, depcruise]
-      yarn: [yarn, dlx, "-p", "typescript@^5", "-p", dependency-cruiser, depcruise]
+      pnpm: [pnpm, "--package=typescript@^5", "--package=dependency-cruiser", dlx, depcruise, "--config", "<config>", "--output-type", json, "--ts-config", "<tsconfig>", "<dir>"]
+      yarn: [yarn, dlx, "-p", "typescript@^5", "-p", dependency-cruiser, depcruise, "--config", "<config>", "--output-type", json, "--ts-config", "<tsconfig>", "<dir>"]
     own_runner: true
     needs: resolved-tree
     note: >-
@@ -88,17 +88,32 @@ routes:
       dependable still, and installing into an audit-owned directory is
       what the record prefers there.
 
-      Each spelling above is the prefix the record writes, not a complete
-      invocation. A target with no `.dependency-cruiser` config - the record
-      calls this the ordinary case, not the exotic one - exits 1 with `Can't
-      open a config file`. The audit-owned `--config` that answers that for
-      other checks does not answer it for this one: the project's own config
-      IS the declared boundary this check tests, so supplying one of the
-      audit's own would judge layering against rules the audit invented.
-      Where the project has no config this route does not apply at all, and
-      the `applies_when` above sends the reader to the `tsconfig` path
-      aliases and project references instead. The output observed behind
-      that config-less exit 1 is recorded in [the smoke
+      Each spelling is complete once its three operands are filled, under
+      the same rules `arch/cycles` states for its own: `<tsconfig>` is the
+      partition's own tsconfig, the file carrying the compiler options and
+      `paths`, and `<dir>` the directory to cruise, both relative to the
+      directory holding `<tsconfig>`, which is where the command runs, since
+      dependency-cruiser resolves the tsconfig's `include` against its
+      working directory. `<config>` is the project's own dependency-cruiser
+      config file, relative to that same directory, named rather than left
+      to discovery: the tool discovers a config only in its working
+      directory, so on a layout where the config sits above a member's
+      tsconfig it finds none and exits 1 with `Can't open a config file`.
+      The project's own config IS the declared boundary this check tests,
+      which is why the audit-owned `--config` the sibling records pass does
+      not stand in for it - supplying the audit's own would judge layering
+      against rules the audit invented - and why, where the project has no
+      config, this route does not apply at all and the `applies_when` above
+      sends the reader to the `tsconfig` path aliases and project references
+      instead. The violations are the report's `summary.violations`, each
+      naming its rule and the `from` and `to` modules: under
+      `--output-type json` the tool exits 0 with an error-severity violation
+      present, so the exit code is not the verdict. Measured with
+      dependency-cruiser 18.7.0 on the seeded npm fixture carrying a config
+      with one forbidden rule: the run cruised 3 modules and reported the
+      one planted violation, with nothing unresolved, at exit 0, where
+      `--output-type err` exits 1 on the same tree. The output observed for
+      a target with no config is recorded in [the smoke
       run](https://github.com/mesagroup/ai-agent-development-handbook/blob/main/docs/audit/typescript-lens-smoke-run.md).
   - lang: typescript
     kind: command
