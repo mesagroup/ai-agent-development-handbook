@@ -1,17 +1,9 @@
 """Tests for scripts/run_python_fixture_lens.py (#45).
 
-The harness reads a row from one of two places, and that split is what most of
-these tests are about. A record declaring its commands as `routes:` data is read
-directly, so there is no transcription to guard: the record is what runs. A
-record whose fallback still lived in prose was transcribed into the harness's own
-table; that table is empty since the docs and security migration, the guards on
-the transcription were dissolved with it (see the note where they stood), and
-what remains here is the routed-row properties, the engine-owned tables, and the
-prose extractor's example tests over synthetic text.
-
-So a property here reads every row the harness runs, over both enumeration
-paths, and the two guards about the table itself read `INVOCATIONS` by name:
-that it is empty, and that no migrated record has a row in it.
+The harness reads every row from a record's `routes:` data, so there is no
+transcription to guard: the record is what runs. What is here is the routed-row
+properties, the engine-owned tables, and the prose extractor's example tests over
+synthetic text.
 
 **What the extractor reads, and the one thing it accepts not seeing.** A
 prescription is found in a record's inline backtick spans, so two other shapes
@@ -42,8 +34,6 @@ import pytest
 from audit_checks import (
     SKILLS_DIR,
     Route,
-    _project_needs,
-    _project_tooling,
     load_checks,
 )
 from build_python_fixtures import PINNED_MANAGERS
@@ -63,7 +53,6 @@ from run_python_fixture_lens import (
     FROZEN_FORM,
     GRANTS,
     HARNESS_COMPANIONS,
-    INVOCATIONS,
     MATERIALIZE,
     NO_VERSION_ROUTE,
     NONZERO_EXIT_KINDS,
@@ -382,20 +371,30 @@ def _concrete(tokens: list[str]) -> list[str]:
     return out
 
 
-def every_invocation() -> tuple[Invocation, ...]:
-    """Every row the harness runs, over both enumeration paths.
+def _python_tools(check) -> set[str]:
+    """The tools a record's Python routes name, the forbidden ones aside.
 
-    `INVOCATIONS + routed_invocations()`, named for what it returns rather
-    than for how it is built. A property about what a run does - which tool
-    a row names, whether a placeholder reaches a command, how a tool is
-    launched, whether the engine can grade its exit code - has to read this
-    to still cover the checks that migrated; reading `INVOCATIONS` alone
-    would silently stop watching them while staying green. The tests that name
-    `INVOCATIONS` directly are the two about the table itself, that it is
-    empty and that no migrated record has a row in it, and the set unions that
-    spell both paths by hand.
+    A forbidden route names a tool the record warns against running, so it
+    offers nothing for the harness to run.
     """
-    return tuple(INVOCATIONS) + routed_invocations()
+    return {
+        route.tool
+        for route in check.routes
+        if route.lang == "python"
+        and route.tool is not None
+        and route.disposition != "forbidden"
+    }
+
+
+def every_invocation() -> tuple[Invocation, ...]:
+    """Every Python row the harness runs, read from the records' routes.
+
+    Named for what it returns rather than for how it is built, so a property
+    about what a run does - which tool a row names, whether a placeholder
+    reaches a command, how a tool is launched, whether the engine can grade
+    its exit code - reads one name.
+    """
+    return routed_invocations()
 
 
 def _prescribed_commands(inv: Invocation) -> list[tuple[str, tuple[str, ...]]]:
@@ -790,7 +789,8 @@ def test_a_form_led_by_a_runner_is_found_through_the_argvs_own_first_word():
     Both sides are built here rather than read out of a live record: a routed
     row carries no copy of its record's prose, so the paragraph half cannot be
     read off a record once that record migrates, and re-pointing this at
-    a record on the legacy schema, which the loader now refuses, would buy one stage of green.
+    a record whose fallback lives in prose would need a record with no routes,
+    which the tree holds none of.
     The sentence is the one `test/determinism` carried while its fallback
     lived in prose, and the entry carries that record's `pytest-randomly` argv
     and tool - which is all `_lead_words` reads, so the row's other fields are
@@ -911,17 +911,16 @@ def test_a_form_the_record_writes_with_a_placeholder_compares_as_written():
 
 
 def test_every_python_tool_in_the_family_is_invoked():
-    invoked = {i.tool for i in INVOCATIONS} | {i.tool for i in routed_invocations()}
+    invoked = {i.tool for i in routed_invocations()}
     assert invoked == tools_named_in_records()
 
 
 def test_no_check_invokes_the_same_tool_twice():
-    """Held over both enumeration paths: a duplicate row runs the same command twice.
+    """A duplicate row runs the same command twice.
 
-    `routed_invocations()` cannot produce one on its own - it groups by tool
-    per check - so the only way this fails is a (check, tool) pair straddling
-    both tables, which is exactly what a hand-written entry surviving its
-    record's migration would look like.
+    `routed_invocations()` groups by tool per check, so this holds that
+    grouping: a change to it that emitted one row per route rather than per
+    tool fails here.
     """
     pairs = [(i.check, i.tool) for i in every_invocation()]
     assert len(pairs) == len(set(pairs))
@@ -930,15 +929,11 @@ def test_no_check_invokes_the_same_tool_twice():
 def test_a_tool_answering_several_checks_is_invoked_once_per_check():
     """The whole set, not a subset of it.
 
-    A superset assertion passes on a table that has quietly grown a ruff entry
-    for a check whose record never offered ruff, which is the mistranscription
-    the per-check split exists to make visible. Read over both enumeration
-    paths: `arch/complexity` and `arch/complexity-gate` name ruff through their
-    routes now, not through a hand-written entry.
+    A superset assertion passes on an enumeration that has quietly grown a ruff
+    row for a check whose record never offered ruff, which is what the
+    per-check split exists to make visible.
     """
-    ruff_checks = {i.check for i in INVOCATIONS if i.tool == "ruff"} | {
-        i.check for i in routed_invocations() if i.tool == "ruff"
-    }
+    ruff_checks = {i.check for i in routed_invocations() if i.tool == "ruff"}
     assert ruff_checks == {
         "arch/complexity",
         "arch/complexity-gate",
@@ -960,14 +955,14 @@ def test_a_tool_answering_several_checks_is_invoked_once_per_check():
 # completion, which pinned a count of five completed rows and the one `D`
 # exception. Each held a hand-written
 # `INVOCATIONS` row against the `## Tooling fallback` prose it transcribed, and
-# each was scoped to `PROSE_FALLBACK_CHECKS`. That table is empty now: every
-# record the harness invokes declares `routes:`, so a row's command is read from
+# each was scoped to `PROSE_FALLBACK_CHECKS`. Both are gone now: every record the
+# harness invokes declares `routes:`, so a row's command is read from
 # the record's own data by `routed_invocations` and there is no transcription
 # left to drift from. The properties were dissolved rather than kept vacuous,
 # because a property scoped to an empty set passes over anything, and rather
 # than restated against the routes, because the routes side already carries
-# its own equalities (`test_the_harness_runs_exactly_the_checks_the_expectations_declare`,
-# `test_no_migrated_check_has_a_hand_written_entry`). The field the quote
+# its own equality (`test_the_harness_runs_exactly_the_checks_the_expectations_declare`).
+# The field the quote
 # lived in, `record_quote`, then left `Invocation`, and with it went every
 # reader of a transcription: the anchor and order helpers that traced a
 # command through the quote, the completion-demotion helper, and the
@@ -1028,79 +1023,28 @@ def test_a_silent_clean_tool_is_ok_rather_than_a_tool_failure():
 
 
 def test_the_deps_checks_are_all_represented():
-    """Every one of `DEPS_CHECKS` has migrated, and the claim is about the harness.
-
-    Read over the union rather than `INVOCATIONS` alone, which is what makes
-    that survivable: a `deps/` check that migrates keeps its row in
-    `routed_invocations()` instead, and a property still reading only the
-    hand-written table would report all six as dropped. The claim is that the
-    harness runs them, not which path it finds them on.
-    """
+    """The harness runs every one of `DEPS_CHECKS`."""
     assert set(DEPS_CHECKS) <= {i.check for i in every_invocation()}
 
 
 # --- the exact-set guard -------------------------------------------------------
 
 
-def test_no_migrated_check_has_a_hand_written_entry():
-    """Two enumeration paths, and a row belongs to exactly one.
-
-    A stale entry is the silent failure this change opens: it keeps a check
-    running after its record stops being the source, so editing the record
-    has no effect on the run and nothing goes red. Held on the schema the
-    record declares rather than on a list of check ids, so a record migrating
-    in stage 4 fails here until its entry goes.
-    """
-    checks, errors = load_checks(SKILLS_DIR)
-    assert not errors, errors
-    migrated = {cid for cid, c in checks.items() if c.routes}
-    stale = sorted({i.check for i in INVOCATIONS} & migrated)
-    assert not stale, (
-        f"{stale} declare routes and still have a hand-written entry, so the "
-        "record is no longer what the run reads"
-    )
-
-
-def test_the_hand_written_table_is_empty_because_every_invoked_record_declares_routes():
-    """`INVOCATIONS` is empty, and the emptiness is the claim.
-
-    Until the docs and security migration this test named the five records
-    whose commands still lived in prose and pinned their row count as a
-    ratchet. Those five declare `routes:` now, and every record the harness
-    invokes reads its own routes through `routed_invocations`, so a
-    hand-written row would be a second copy of a command the record already
-    states as data - which `test_no_migrated_check_has_a_hand_written_entry`
-    refuses. Asserting emptiness rather than deleting the test keeps the
-    table's meaning stated until the legacy readers are retired: the loader now
-    refuses a record authored on the legacy schema, so nothing can add a row
-    here while it does.
-    """
-    assert INVOCATIONS == ()
-
-
 def test_the_harness_runs_exactly_the_checks_the_expectations_declare():
-    """Three views of one set, held equal, over both enumeration paths.
+    """Three views of one set, held equal.
 
     The records carrying a `python:` entry are what the round exists to
     exercise; the expectations are what each one is graded against; the
     harness is what runs them. A check present in any one of the three and
     missing from another is either a check nobody grades or a claim nobody
-    tests, and both look like a complete run.
-
-    The harness's view is a union whose hand-written half is empty: entries for the checks
-    whose fallback lives in prose, routed rows for the records that declare
-    their routes. A check dropped by the enumeration, invented by it, or
-    claimed by both paths fails here.
+    tests, and both look like a complete run. A check dropped by the
+    enumeration or invented by it fails here.
     """
     checks, errors = load_checks(SKILLS_DIR)
     assert not errors, errors
-    with_python = {c.id for c in checks.values() if c.tooling.get("python")}
-    from_table = {i.check for i in INVOCATIONS}
+    with_python = {c.id for c in checks.values() if _python_tools(c)}
     from_records = {r.check for r in routed_invocations()}
-    assert from_table | from_records == with_python, sorted(
-        (from_table | from_records) ^ with_python
-    )
-    assert not from_table & from_records
+    assert from_records == with_python, sorted(from_records ^ with_python)
     assert {e.check for e in EXPECTATIONS} == with_python
 
 
@@ -1114,12 +1058,8 @@ def test_every_python_tooling_entry_has_an_invocation():
     """
     checks, errors = load_checks(SKILLS_DIR)
     assert not errors, errors
-    declared = {
-        (c.id, tool) for c in checks.values() for tool in c.tooling.get("python", ())
-    }
-    enumerated = {(i.check, i.tool) for i in INVOCATIONS} | {
-        (i.check, i.tool) for i in routed_invocations()
-    }
+    declared = {(c.id, tool) for c in checks.values() for tool in _python_tools(c)}
+    enumerated = {(i.check, i.tool) for i in routed_invocations()}
     assert enumerated == declared
 
 
@@ -1127,9 +1067,7 @@ def test_every_python_tooling_entry_has_an_invocation():
 
 
 def test_every_invoked_tool_has_a_version_route_or_a_stated_absence():
-    invoked = {inv.tool for inv in INVOCATIONS} | {
-        inv.tool for inv in routed_invocations()
-    }
+    invoked = {inv.tool for inv in routed_invocations()}
     assert set(VERSION_PROBE) == invoked
 
 
@@ -1157,10 +1095,10 @@ def _tools_owing_a_stated_reason(probes: dict, stated: dict) -> tuple[set, set]:
 def test_a_tool_with_no_version_route_says_so_by_name():
     """`None` is a positive claim, so it travels with a reason - never silently.
 
-    The reverse direction is checked too, mirroring `ungranted_note`'s vacuity
-    rule: a name in `NO_VERSION_ROUTE` for a tool that *does* carry a probe would
-    be a stale reason nothing reads, which is the same kind of drift a leftover
-    `ungranted_note` would be.
+    The reverse direction is checked too, mirroring `answers_ungranted`'s
+    vacuity rule: a name in `NO_VERSION_ROUTE` for a tool that *does* carry a
+    probe would be a stale reason nothing reads, which is the same kind of drift
+    a leftover `answers_ungranted` would be.
 
     Both tables are empty of the shape this reads - measured, not assumed:
     `NO_VERSION_ROUTE` is `{}` and every `VERSION_PROBE` value is a real argv.
@@ -1208,10 +1146,8 @@ def test_a_completed_argv_says_why_it_had_to_be_completed():
     dataclass refuses a completion with no note and this holds the refusal.
 
     `Invocation.__post_init__` raises on a completion with no note for any
-    instance, routed or hand-written, so no loop over either population can
-    observe a violation; the `pytest.raises` call is the whole exercise, and
-    the loop that used to precede it over the hand-written table went with
-    `record_quote` rather than staying to hold nothing over an empty table.
+    instance, so no loop over the rows can observe a violation; the
+    `pytest.raises` call is the whole exercise.
     """
     with pytest.raises(ValueError, match="completion"):
         Invocation(
@@ -1259,11 +1195,7 @@ def test_an_invocation_names_a_check_that_exists_and_a_partition_that_does():
     `_check_supplied` compares those names against `PARTITIONS` - each is
     checking a shape rather than a vocabulary.
 
-    Reads both paths. It once read `INVOCATIONS` alone, on the premise that
-    `routed_invocations` set neither field - true when `argv_by_partition` and
-    `own_runner` had no route counterpart, false now that `argv_by_partition`
-    and `own_runner` are route fields the enumeration threads. A routed row's
-    names do come out subset-of-`PARTITIONS` today, but by construction
+    A row's names come out subset-of-`PARTITIONS` today by construction,
     through two guards elsewhere: the enumeration raises on an
     `argv_by_partition` key that is not a partition, and the loader rejects an
     `own_runner` naming a partition the route does not carry. Holding it
@@ -1292,10 +1224,9 @@ def test_the_placeholder_a_record_writes_never_reaches_a_command():
     `--cov=<pkg>` handed to pytest names a package called `<pkg>` and fails the
     same way, and a whole-word test never sees it.
 
-    Held over both enumeration paths: a routed row fills the same kind of gap
-    through `COMPLETIONS`, keyed on `(check, tool)` rather than on which table
-    the row belongs to, so a migrated check can carry a bare placeholder in a
-    completion exactly as a hand-written one could.
+    A row fills the same kind of gap through `COMPLETIONS`, keyed on
+    `(check, tool)`, so a check can carry a bare placeholder in a completion
+    as easily as in its route.
 
     What it cannot reach is a route no row is built from. This module reads
     `routed_invocations` at its default, `lang: python` routes naming a tool,
@@ -1402,27 +1333,27 @@ def test_every_form_the_harness_runs_appears_in_an_argv():
     prefix `_marked` honours, where its head ends at a value delimiter, while
     dropping a standalone one - which is why `bandit -r <pkg>` does
     not take it and `pytest --randomly-seed=<n>` would, were its disposition not
-    `alternative`. The assertion beneath refuses the branch on a routed row, so
-    what it is kept for is a hand-written row, and the table that would hold
-    one is empty.
+    `alternative`. The assertion beneath refuses the branch, because every row
+    is routed and a routed form carrying such a token is the relaxation
+    reaching a route, so the presence-only match after it holds over nothing
+    and is kept as the shape the rule permits rather than as a live guard.
 
     A form reachable only through `then` is held
     here, and this is the only property that holds one: a routed row's `argv`
     and `then` are two fields of one route, read in that order, so their order
     is true of it by construction and nothing else reads it.
 
-    Reads both paths, and the reason it once read `INVOCATIONS` alone is worth
-    keeping as a record of how the premise failed. It rested on a routed row
-    having one `runs` form built from the same `Route` the row's `argv` came
-    from, so the form's tokens were a leading subsequence of every carried
-    command by construction. Two route fields broke both halves. A `then` on
+    A routed row is not ordered by construction, which is why this reads the
+    rows rather than trusting the `Route` they came from. It would be if a row
+    had one `runs` form built from the same `Route` its `argv` came from, so
+    the form's tokens were a leading subsequence of every carried command. Two
+    route fields break both halves. A `then` on
     the `runs` route gives that row a second `runs` form, and an
     `argv_by_partition` makes the row's `argv` empty while its forms still
     come from the route's shared `argv` - so a partition override that no
     longer matches the shared form is a form declared `runs` that no
     partition's command carries, which is exactly what this property is for.
     """
-    routed = {(i.check, i.tool) for i in routed_invocations()}
     for inv in every_invocation():
         commands = [c for c in (argv_for(inv, p) for p in PARTITIONS) if c]
         if inv.then:
@@ -1437,7 +1368,7 @@ def test_every_form_the_harness_runs_appears_in_an_argv():
             assert wanted, (inv.check, inv.tool, form)
             ordered = [w for w in wanted if not _marked(w)]
             supplied = [w for w in wanted if _marked(w)]
-            assert not supplied or (inv.check, inv.tool) not in routed, (
+            assert not supplied, (
                 f"{inv.check}/{inv.tool}: the routed form {form!r} carries a "
                 "token whose tail the caller supplies, so the relaxation this "
                 "property grants a transcription has reached a route. Leave "
@@ -1477,12 +1408,10 @@ def test_no_prescribed_command_is_exactly_a_form_the_record_warns_against():
     against is not mechanically extractable, so a disposition simply wrong about
     its record stays a reading pass.
 
-    Held over both enumeration paths, not held vacuously there: a routed row
-    can carry a `superseded` route beside a `runs` one for the same tool -
-    `arch/cycles`'s `pydeps --show-cycles` narrowed by `--show-dot` is the
-    live instance - and its argv comes from `COMPLETIONS` the same way a
-    hand-written entry's does, so the same drift this property exists to
-    catch is reachable there too.
+    Not held vacuously: a row can carry a `superseded` route beside a `runs`
+    one for the same tool - `arch/cycles`'s `pydeps --show-cycles` narrowed by
+    `--show-dot` is the live instance - and its argv comes from `COMPLETIONS`,
+    so the drift this property exists to catch is reachable.
     """
     for inv in every_invocation():
         prescribed = _prescribed_commands(inv)
@@ -1529,10 +1458,8 @@ def test_an_entry_declaring_forms_declares_one_it_runs():
     back, and re-adding it then means naming the entry and asserting that it is
     exercised, because an exception nothing exercises reads as coverage.
 
-    Held over both enumeration paths: `forms` on a routed row is the same
-    field, built the same way, from routes that can equally decline to mark
-    any of them `runs` - the guard has to hold there too, not only on the
-    table this file writes by hand.
+    `forms` on a row is built from routes that can decline to mark any of them
+    `runs`, so the guard holds over every row.
     """
     declaring = [inv for inv in every_invocation() if inv.forms]
     assert declaring, (
@@ -1573,13 +1500,7 @@ def test_every_disposition_in_the_vocabulary_is_used():
     findings: an unused value is ceremony, and a used value missing from the
     tuple is already rejected by `Invocation`.
 
-    Read over both enumeration paths, and the union is load-bearing now rather
-    than as insurance. Measured: the hand-written table carries no forms at all, so every
-    value survives only on the routed side. The reason is the one this property was written for, arrived
-    at: a value's users migrate, every record that declares its routes moves its
-    forms out of this table, and the day the last hand-written user of a value
-    goes the version reading one population starts failing on a vocabulary still
-    in use. That day has passed for all three values.
+    Read over every row, so a value is counted wherever its users are.
     """
     assert {d for inv in every_invocation() for _, d in inv.forms} == set(DISPOSITIONS)
 
@@ -1611,19 +1532,15 @@ def test_the_scope_of_a_partition_is_the_expectations_own_scope():
 
 
 def test_the_grant_tier_is_read_from_the_record_rather_than_transcribed():
-    """Held over both enumeration paths, and read per route on a migrated one.
+    """Read per route: the prescribed route's tier, not the tool's.
 
-    This property used to assert `grant_tier` equalled the projected
-    `checks[check].needs` reading for every row, on the argument that a bug in
-    the projection specific to a migrated record would otherwise go unasked.
-    The projection turned out to be the bug: it collapses a record's routes
-    onto their tools, so one tiered `alternative` route tiers the tool and
-    `run_partition` then withholds the whole row. `deps/inventory` is the
-    instance - `cyclonedx-py` prescribes file-parsing subcommands that read a
-    lockfile and, as an `alternative`, `environment`, which reads the
-    installed environment by starting its interpreter and is correctly tiered
-    for it. Under the old
-    reading that check reported `no-evidence (not-permitted)` at
+    A reading keyed by tool collapses a record's routes onto their tools, so
+    one tiered `alternative` route tiers the tool and `run_partition` would
+    then withhold the whole row. `deps/inventory` is the instance -
+    `cyclonedx-py` prescribes file-parsing subcommands that read a lockfile
+    and, as an `alternative`, `environment`, which reads the installed
+    environment by starting its interpreter and is correctly tiered for it.
+    Read per tool, that check reports `no-evidence (not-permitted)` at
     `--grant none` having run nothing it could have run.
 
     So the two readings are asserted to agree everywhere except where a tool's
@@ -1639,33 +1556,23 @@ def test_the_grant_tier_is_read_from_the_record_rather_than_transcribed():
     # The row whose prescribed command answers from a clone while another of
     # the same tool's routes starts the target's interpreter.
     assert grant_tier("deps/inventory", "cyclonedx-py") == ""
-    assert checks["deps/inventory"].needs == {"target-execution": ("cyclonedx-py",)}
     disagreed = []
     for inv in every_invocation():
-        tiers = {
-            tier for tier, tools in checks[inv.check].needs.items() if inv.tool in tools
+        per_tool = {
+            route.needs
+            for route in checks[inv.check].routes
+            if route.tool == inv.tool
+            and route.needs
+            and route.disposition != "forbidden"
         }
-        projected = tiers.pop() if tiers else ""
-        if grant_tier(inv.check, inv.tool) != projected:
+        if grant_tier(inv.check, inv.tool) != (per_tool.pop() if per_tool else ""):
             disagreed.append((inv.check, inv.tool))
     assert sorted(set(disagreed)) == [("deps/inventory", "cyclonedx-py")], disagreed
 
 
-def _projected_record(*routes):
-    """A fake record carrying the pair the loader would project from its routes.
-
-    `_fake_record` gives a namespace only `routes`, which is all
-    `routed_invocations` reads. `grant_tier` also reads the projected
-    `tooling`/`needs`, and the whole point of the rule under test is that the
-    two can disagree - so projecting them here with the loader's own functions
-    rather than writing them by hand is what keeps the disagreement real
-    instead of arranged.
-    """
-    return SimpleNamespace(
-        routes=routes,
-        tooling=_project_tooling(routes),
-        needs=_project_needs(routes),
-    )
+def _routes_only_record(*routes):
+    """A fake record carrying only `routes`, which is all `grant_tier` reads."""
+    return SimpleNamespace(routes=routes)
 
 
 def test_the_tier_gating_a_row_is_the_prescribed_routes_not_the_tools(monkeypatch):
@@ -1678,7 +1585,7 @@ def test_the_tier_gating_a_row_is_the_prescribed_routes_not_the_tools(monkeypatc
     route whose command the row runs, and a tier on a sibling route of the
     same tool is not a claim about it.
     """
-    prescribed_from_a_clone = _projected_record(
+    prescribed_from_a_clone = _routes_only_record(
         _fake_route(argv=("t", "file")),
         _fake_route(
             argv=("t", "environment"),
@@ -1686,18 +1593,56 @@ def test_the_tier_gating_a_row_is_the_prescribed_routes_not_the_tools(monkeypatc
             needs="resolved-tree",
         ),
     )
-    # The projection says the tool needs the tree, because one route does.
-    assert prescribed_from_a_clone.needs == {"resolved-tree": ("t",)}
+    # A sibling route of the same tool needs the tree; the prescribed one does not.
     with _records_replaced_by(monkeypatch, {"x/y": prescribed_from_a_clone}):
         assert grant_tier("x/y", "t") == ""
 
     # The converse: tier the route the row runs, and the row is gated.
-    prescribed_needs_the_tree = _projected_record(
+    prescribed_needs_the_tree = _routes_only_record(
         _fake_route(argv=("t", "file"), needs="target-execution"),
         _fake_route(argv=("t", "environment"), disposition="alternative"),
     )
     with _records_replaced_by(monkeypatch, {"x/y": prescribed_needs_the_tree}):
         assert grant_tier("x/y", "t") == "target-execution"
+
+
+def test_a_row_with_no_command_takes_its_first_offered_routes_tier(monkeypatch):
+    """With no `runs` command route, the first offered route decides, and a
+    forbidden one is not offered.
+
+    A record's route order is its precedence, so a tier on a later route of the
+    same tool is not a claim about the first - the same rule as for a row with
+    a command, applied where there is no command to gate. A forbidden route is
+    one the record warns against, so its tier says nothing about the row.
+    """
+    later_tier = _routes_only_record(
+        _fake_route(kind="procedure", argv=(), note="audit-supplied config"),
+        _fake_route(
+            kind="procedure", argv=(), note="own config", needs="target-execution"
+        ),
+    )
+    with _records_replaced_by(monkeypatch, {"x/y": later_tier}):
+        assert grant_tier("x/y", "t") == ""
+
+    forbidden_first = _routes_only_record(
+        _fake_route(
+            kind="procedure", argv=(), disposition="forbidden", needs="resolved-tree"
+        ),
+        _fake_route(
+            kind="procedure", argv=(), note="read it", needs="target-execution"
+        ),
+    )
+    with _records_replaced_by(monkeypatch, {"x/y": forbidden_first}):
+        assert grant_tier("x/y", "t") == "target-execution"
+
+    only_forbidden = _routes_only_record(
+        _fake_route(kind="procedure", argv=(), disposition="forbidden"),
+    )
+    with (
+        _records_replaced_by(monkeypatch, {"x/y": only_forbidden}),
+        pytest.raises(ValueError, match="does not offer"),
+    ):
+        grant_tier("x/y", "t")
 
 
 def test_an_unknown_check_or_tool_is_rejected_by_name():
@@ -1883,18 +1828,15 @@ def _tools_that_can_run_a_command() -> set[str]:
 
 
 def test_nonzero_exit_meaning_covers_exactly_the_tools_that_can_run_a_command():
-    """The exact-set guard: a tool added to `INVOCATIONS` with a real command
-    and no entry here would silently default `classify` to `findings`, which is
+    """The exact-set guard: a tool a route names with a real command and no
+    entry here would silently default `classify` to `findings`, which is
     precisely the silent claim this table exists to forbid.
-
-    `_tools_that_can_run_a_command` already reads both enumeration paths, so
-    this holds over a tool a migrated record's route names too.
     """
     assert set(NONZERO_EXIT_MEANING) == _tools_that_can_run_a_command()
 
 
 def test_every_tool_the_harness_runs_carries_an_engine_grading_rule():
-    """Engine-owned tables cover both enumeration paths, not just the table.
+    """Engine-owned tables cover every row the harness runs.
 
     The record says what to run; this module says how to read a nonzero exit
     from it. A routed row whose tool no rule grades would be classified by a
@@ -1961,13 +1903,8 @@ def test_no_prescribed_command_is_never_classified_as_a_tool_failure(
     the row would read as a tool that failed rather than as a record with
     nothing runnable in it.
 
-    Held over both enumeration paths because `run_partition` runs the same union
-    `invocations_for` scopes to, and read that way rather than over the routed
-    side alone even though every row it finds is routed today: measured, all 18
-    rows prescribing no command come from records that declare their routes, and
-    no hand-written entry is one - the table is empty. A hand-written entry of
-    this shape is a thing the table can still express, so narrowing the property
-    to where its subjects happen to live would make the narrowing the claim.
+    Read over every row `run_partition` runs, the set `invocations_for` scopes
+    to.
     """
     reading = [i for i in every_invocation() if not i.argv and not i.argv_by_partition]
     assert reading, "some records prescribe a reading pass rather than a command"
@@ -2106,11 +2043,8 @@ def test_a_route_that_runs_the_suite_brings_a_runner_the_fixture_does_not_declar
     `No module named pytest`, which the classifier would read as a tool that
     failed - a failure this harness invented, on an entry the record had right.
 
-    Fetches the `coverage.py` row through `_entry`, which reads both
-    populations: `launcher` treats every `Invocation` alike regardless of which
-    table built it, and the row naming this tool is a routed one, so a lookup
-    pinned to `INVOCATIONS` would raise before asserting anything rather than
-    narrowing the property to a population this launcher does not distinguish.
+    Fetches the `coverage.py` row through `_entry`, the row its record's
+    route builds.
     """
     coverage = _entry("test/coverage-reach", "coverage.py")
     assert packages_for(coverage) == ("coverage", "pytest")
@@ -2169,9 +2103,7 @@ def test_a_deps_tool_runs_from_inside_the_materialized_environment():
     same command reports a missing dependency where the truth is a transitive
     one - and a harness that gets this wrong makes a correct expectation fail.
 
-    Held over both enumeration paths: `in_env` is a route field a migrated
-    record can set too, and `launcher` reads it the same way regardless of
-    which table built the row.
+    `in_env` is a route field, and `launcher` reads it off the row.
     """
     in_env = {(i.check, i.tool) for i in every_invocation() if i.in_env}
     assert ("deps/hygiene", "deptry") in in_env
@@ -2241,10 +2173,9 @@ def test_no_audit_owned_tool_is_ever_installed_into_a_materialized_copy():
     provisioning step is a property of every `in_env` invocation on every
     partition rather than something asserted partition by partition.
 
-    Held over both enumeration paths, for the same reason: `launcher` does
-    not read which table built the row it was handed, only its `in_env`
-    field, so a migrated route marking itself `in_env` would take the same
-    path this guards.
+    Read over every row, for the same reason: `launcher` reads only the row's
+    `in_env` field, so any route marking itself `in_env` takes the path this
+    guards.
     """
     for inv in every_invocation():
         if not inv.in_env:
@@ -2383,7 +2314,7 @@ def test_the_partitions_needing_no_frozen_form_carry_their_resolution_in_a_file(
 
 
 def _entry(check: str, tool: str) -> Invocation:
-    """One row by name, over both enumeration paths.
+    """One row by name.
 
     Each caller fetches the single row it names, so the helper's population is
     not a scoping claim about any field - `own_runner`, `argv_by_partition`
@@ -2392,9 +2323,7 @@ def _entry(check: str, tool: str) -> Invocation:
     claim that used to stand here (that no route ever populates them) is
     gone rather than narrowed. How many entries the overlay holds is a fact
     about its contents rather than about the path, so it is not what this
-    helper's callers rest on. Reading both populations is what keeps a caller
-    naming a row alive across that row's own migration: the pair is unique
-    across the two, which
+    helper's callers rest on. The pair is unique among the rows, which
     `test_no_check_invokes_the_same_tool_twice` holds.
     """
     return next(i for i in every_invocation() if (i.check, i.tool) == (check, tool))
@@ -2465,12 +2394,8 @@ def test_a_supplied_route_is_exactly_the_two_named_holes():
     them is visible as supplied rather than prescribed. One appearing here
     unnoticed is a correction made by the harness.
 
-    Reads both populations, because both can carry one: a hand-written entry
-    holds its supplied route in its own literal and a routed row takes it from
-    `SUPPLIED`, and a set pinned over one path would go on passing while the
-    other grew a route nobody named. Both of these arrive through `SUPPLIED`
-    today, which is a fact about where the two records that leave holes have
-    got to rather than about the paths.
+    Read off the rows rather than off `SUPPLIED`, so a supplied route reaching
+    a row by any door is in the set.
     """
     supplied = {
         (i.check, i.tool, p): steps
@@ -2503,10 +2428,7 @@ def test_a_supplied_partition_is_never_one_the_record_prescribes_a_route_for():
     results readable: an empty prescribed command beside a populated supplied
     one says the record had no route and this round proposed one.
 
-    Reads both populations, for the same reason as the pinned set above: a
-    supplied route reaches a row from a literal here or from `SUPPLIED`, and
-    the relationship it has to hold against the rest of the row is the same
-    either way.
+    Read off the rows, for the same reason as the pinned set above.
     """
     for inv in every_invocation():
         for partition, steps in inv.supplied_by_partition:
@@ -3740,9 +3662,8 @@ def test_every_pytest_plugin_carries_in_env_so_its_probe_resolves_into_an_enviro
     never installed, reporting `PackageNotFoundError` forever rather than a
     version.
 
-    Held over both enumeration paths: `probe_versions` calls `launcher` for
-    every tool `invocations_for` names, hand-written or routed, so the same
-    silent default would misgrade a migrated check offering one of these
+    `probe_versions` calls `launcher` for every tool `invocations_for` names,
+    so the same silent default would misgrade any check offering one of these
     plugins exactly as it did `pytest-rerunfailures`.
     """
     plugins = {
@@ -4118,9 +4039,9 @@ def test_a_supplied_route_naming_a_partition_twice_is_rejected_at_the_literal():
     Every supplied route in the tree now arrives through `SUPPLIED`, so every
     one reaches `Invocation` with `Supplied` having already validated it - the
     copy on `_check_supplied` is a second guard rather than a first. Keeping it
-    is a claim about the constructor rather than about the population: a
-    hand-written entry can still pass `supplied_by_partition` directly, and none
-    does only because both records that had one have migrated.
+    is a claim about the constructor rather than about the rows: an
+    `Invocation` constructed directly can still pass `supplied_by_partition`,
+    and no row does.
 
     What this test holds is the earlier of the two. An entry written in the
     overlay fails here, at the literal carrying the mistake rather than at the
@@ -4137,8 +4058,8 @@ def test_a_supplied_route_naming_a_partition_twice_is_rejected_at_the_literal():
         )
 
 
-def test_a_migrated_record_reads_its_supplied_route_from_the_overlay(monkeypatch):
-    """The round's contribution stays round-owned after a record migrates.
+def test_a_record_reads_its_supplied_route_from_the_overlay(monkeypatch):
+    """The round's contribution stays round-owned once a record declares routes.
 
     `Supplied` validates its own shape - a steps tuple that is empty, a
     missing note, a step with no tokens - so this fake record needs none of

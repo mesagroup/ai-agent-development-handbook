@@ -21,19 +21,15 @@ uses the field internally to classify a row and never writes it into the row
 dict (confirmed against `fixtures/python/results/pip-none.json`, a real written
 run). So `observations_for` looks the stream up from the harness's own enumeration
 rather than defaulting to stdout - the default that scores deptry, which writes
-its whole report to stderr, as having found nothing. The enumeration is both of
-the harness's sources, `INVOCATIONS`, the legacy slot, empty today, and the
-routes read from the records that declare them, because a lookup
-built from one of the two resolves nothing for every row of the other. Reading
-only the table would leave every migrated check's row unresolved on every run,
-which is not the rare staleness the sentinel below exists for.
+its whole report to stderr, as having found nothing. The enumeration is the
+routes read from the records, by `routed_invocations`, per language.
 
 That lookup can fail on a (check, tool) pair the enumeration does not carry, and
 this is the second thing a naive grader would get wrong: defaulting to stdout
 there would silently misread the row, but raising loses every other row in
 the same run over one stale entry. `fe2b0e42` (#45) is a real instance rather
 than a hypothetical - it dropped `ruff` from `arch/over-abstraction`'s tooling
-and from `INVOCATIONS` in the same commit, but `fixtures/python/results/` is
+and from the harness's rows in the same commit, but `fixtures/python/results/` is
 gitignored and nothing regenerates it, so a results file written before that
 commit still carries the `arch/over-abstraction` + `ruff` row and persists
 across it. `_findings_stream_for` marks that row's stream
@@ -106,7 +102,7 @@ from python_fixture_spec import (
     expectations_for,
     lang_of,
 )
-from run_python_fixture_lens import INVOCATIONS, routed_invocations
+from run_python_fixture_lens import routed_invocations
 
 # One results JSON, exactly as the harness wrote it. A plain dict rather than a
 # dataclass or a TypedDict instance: `grade_rows` is exercised directly against
@@ -142,22 +138,15 @@ def _lang_of_run(run: Run) -> str:
 # What each (check, tool) pair reports its findings on, read from the harness's
 # own enumeration rather than copied here. A results entry never carries this
 # itself, so the enumeration is the only source, and a second copy of it here
-# would be free to drift from the one the harness actually runs against. Both
-# of its sources are read: a lookup built from `INVOCATIONS` alone leaves every
-# row of every migrated record unresolved, which the grader test module holds
-# against it.
+# would be free to drift from the one the harness actually runs against.
 def _enumeration(lang: str) -> tuple:
-    """The harness's rows for one language: both sources for Python, whose
-    legacy `INVOCATIONS` slot is a Python table, and the records' routes for
-    TypeScript.
+    """The harness's rows for one language, read from the records' routes.
 
     Per language rather than one lookup over both, because a `(check, tool)`
     pair is only unique within a language: nothing stops a record from naming
     one tool on a Python route and a TypeScript route with different streams,
     and a merged lookup would answer one of them with the other's.
     """
-    if lang == "python":
-        return INVOCATIONS + routed_invocations()
     return routed_invocations(lang)
 
 
@@ -250,8 +239,8 @@ def _findings_stream_for(entry: dict[str, object], lang: str = "python") -> str:
     The entry's own `findings_stream` where a caller has already set one - the
     tests that pin `seed_signals` directly do this, and neither carries a
     `check`/`tool` pair a lookup could resolve. Otherwise, the stream the
-    harness's own enumeration says this (check, tool) pair uses - both of its
-    sources, the hand-written table and the routes read from the records.
+    harness's own enumeration says this (check, tool) pair uses - the routes
+    read from the records.
 
     Returns `UNRESOLVED_FINDINGS_STREAM` rather than raising on an unknown
     pair. A results entry naming a (check, tool) the harness never
@@ -485,7 +474,7 @@ def _orphan_row(check: str, run: Run) -> Row:
     expectation here to draw seeds from, so no signal is ever computed and no
     `findings_stream` lookup is needed - which matters, because the orphan
     entry's own (check, tool) pair is, by construction, not one `grade_rows`
-    already confirmed a `Row` for, and may not be one `INVOCATIONS` names
+    already confirmed a `Row` for, and may not be one the harness's rows name
     either.
     """
     return _ungraded_row(

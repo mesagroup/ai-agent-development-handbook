@@ -1,51 +1,40 @@
-"""Run every `python:` and `typescript:` tooling entry against the seeded fixtures.
+"""Run every `python` and `typescript` route against the seeded fixtures.
 
 The Python half is #45's, the TypeScript half #181's. Both read the records
 the same way and differ only in their tables, which carry a `TS_` prefix on the
 TypeScript side; the prose below describes the Python half unless it says
-otherwise, and the tables after `INVOCATIONS` are what the TypeScript half does
-differently.
+otherwise, and the `TS_` tables are what the TypeScript half does differently.
 
 A row is one check record's prescribed way of running one tool, keyed by the
-(check, tool) pair, and the rows come from two places. A record that declares
-its commands as `routes:` data is read directly, by `routed_invocations`. A
-record whose fallback still lived in prose was **transcribed verbatim** into the
-table below; the table is
-empty since the docs and security migration, and is the slot a legacy record
-would fill if the harness invoked one again. `invocations_for` returns both
-populations, the second being empty today.
+(check, tool) pair, read from the record's `routes:` data by
+`routed_invocations`; `invocations_for` scopes those to a partition.
 
-Either way the point is the same, and it is the mechanism rather than the
-decoration: somebody running these by hand repairs a broken command as they go
+The point is the mechanism rather than the decoration: somebody running these by hand repairs a broken command as they go
 and the repair never reaches the record, whereas here the deviation needed to
 make a tool work is a diff against what the record prescribes. So `argv` is
 what the record says, `completion` is what had to be added for the command to
 run at all, and `note` says why - and the set of rows carrying a completion is
-a finding list before any tool has spoken. What changes between the two
-populations is only where `argv` is read from.
+a finding list before any tool has spoken.
 
-A route the record does not prescribe at all is a third thing, and it is held
-apart from both: `supplied_by_partition` carries a command **this round
+A route the record does not prescribe at all is held apart from those: `supplied_by_partition` carries a command **this round
 contributed** rather than transcribed, and it never renders as `record_argv` in
 the results. They are SBOM and vulnerability routes for dependency files the
 record names no subcommand or mode for, so each is a candidate answer to a named
 hole rather than a correction to the record - and keeping it out of `record_argv`
 is what stops a later pass reading "the harness ran this" as "the record said
-this". Both records that leave such a hole have migrated, so both supplied
-routes now live in `SUPPLIED`, keyed `(check, tool)` beside `COMPLETIONS` - a
-routed row carries one without the record ever prescribing it, which is the
-whole reason the overlay exists. The hand-written table can still hold one, and
-holds none.
+this". Supplied routes live in `SUPPLIED`, keyed `(check, tool)` beside
+`COMPLETIONS` - a routed row carries one without the record ever prescribing
+it, which is the whole reason the overlay exists.
 
 Three fields are derived from the records rather than transcribed, because a
 second copy of a fact the records already state is a copy free to drift:
 
-* the grant tier, read per (check, tool) out of the record's own `needs`;
+* the grant tier, read per (check, tool) out of the prescribed route's `needs`;
 * which checks a partition runs, read out of `expectations_for`, so the harness
   cannot run a set the published record does not grade;
-* which tools exist at all, read out of every record's `tooling` for the
-  language, which is what the exact-set guard in the tests compares both
-  populations against.
+* which tools exist at all, read out of every record's routes for the
+  language, which the exact-set guard in the tests holds the rows to, so the
+  row enumeration cannot drop a tool a route names.
 
 `classify` maps one observation into the engine's vocabulary and never leaves
 it. **A non-zero exit is not a tool failure by itself - for a tool proven
@@ -198,8 +187,7 @@ GRANTS = ("none", "target-execution")
 # the command by `python_one_shot` as `audit-core`'s route-running paragraph
 # writes the rule, so nothing here restates a record. What is here is harness
 # plumbing no record states: **the fixture declares no pytest**, so a route whose
-# command runs the target's suite has to bring one, whichever population
-# supplies the row: `coverage run -m pytest` and `mutmut run` are both read from
+# command runs the target's suite has to bring one: `coverage run -m pytest` and `mutmut run` are both read from
 # their records rather than transcribed here, and both die on
 # `No module named pytest` otherwise, which reads as a tool that failed rather
 # than as a package nobody installed - a failure this harness would have
@@ -293,12 +281,12 @@ FROZEN_FORM = {
 # What reports each tool's own version, appended after `launcher`'s prefix the
 # same way `argv` is - so a `uvx`-fetched tool answers with the version `uvx`
 # actually resolved, not a version transcribed once and left to drift. Every
-# tool either population names has an entry, `None` where it does not, and it is
-# only legal beside a reason in `NO_VERSION_ROUTE`: the same shape as
-# `ungranted_note`'s `none` sentinel, and for the same reason - an omitted entry
-# must never read as a silent default.
+# tool a row names has an entry, `None` where it does not, and it is only legal
+# beside a reason in `NO_VERSION_ROUTE`: the same shape as `answers_ungranted`'s
+# `none` sentinel, and for the same reason - an omitted entry must never read as
+# a silent default.
 #
-# `grimp` and `hypothesis` carry no `argv` on any row, in either population: no
+# `grimp` and `hypothesis` carry no `argv` on any row: no
 # record prescribes a command line for either, naming the tool as something the
 # check computes over or inspects rather than invokes, so neither's own console
 # entry point (`hypothesis` needs `click`, which nothing here installs; `grimp`
@@ -418,7 +406,8 @@ class Invocation:
 
     Args:
         check: The record's id, `<domain>/<slug>`.
-        tool: A name from that record's `tooling` for the row's language.
+        tool: The `tool` one of that record's routes names in the row's
+            language.
         argv: The command **as the record writes it**. Empty where the record
             names the tool without prescribing a command - a library, a reading
             pass, or a route conditional on a config file the fixture does not
@@ -427,8 +416,7 @@ class Invocation:
             partition - `cyclonedx-py`'s subcommand "matching the partition's
             own dependency file", `pip-audit`'s mode - the command for each,
             as `(partition, argv)` pairs. Derived from the route's
-            `argv_by_partition` for every row that carries one today; a
-            hand-written entry would transcribe them, and none does. A partition paired
+            `argv_by_partition` for every row that carries one. A partition paired
             with `()` is one this entry has no prescribed command for; where the
             round contributed a route for it anyway, that route is in
             `supplied_by_partition` rather than here. Pairs rather than a mapping
@@ -616,18 +604,16 @@ class Invocation:
         A partition carrying two routes, a partition named twice, an entry
         with no note, and a supplied route beside `in_env`. Two of those four
         are properties of `supplied_by_partition` alone and `Supplied` rejects
-        them too, which is deliberate rather than a split nobody finished: the
-        two populations reach a row by different doors. A hand-written
-        `INVOCATIONS` entry constructs an `Invocation` directly and never
-        builds a `Supplied` at all, so a check that only lived there would
-        leave that door unguarded, and an overlay entry reaches this method
-        only once its fields have been copied onto a row, so a check that only
-        lived here would name the row rather than the literal the mistake is
-        in. Every supplied route in the tree comes through the overlay today -
-        both records that leave a hole have migrated - so this method is
-        currently the second guard on all of them rather than the only guard
-        on any. That is a fact about the records, not about the door: the
-        constructor is public to the table and the table can still carry one.
+        them too, which is deliberate rather than a split nobody finished: a
+        row can be reached by two doors. An `Invocation` constructed directly,
+        as a test double is, never builds a `Supplied` at all, so a check that
+        only lived there would leave that door unguarded, and an overlay entry
+        reaches this method only once its fields have been copied onto a row,
+        so a check that only lived here would name the row rather than the
+        literal the mistake is in. Every supplied route in the tree comes
+        through the overlay, so this method is the second guard on all of them
+        rather than the only guard on any. That is a fact about the tree, not
+        about the door: the constructor is public.
         What would be a defect is the two disagreeing about which shapes they
         reject.
         """
@@ -913,7 +899,7 @@ class Supplied:
     Round-owned for the reason `Completion` is: the record naming no route for
     a partition is a hole in the record, and this is the candidate answer this
     round tests against it. Keyed `(check, tool)` beside `COMPLETIONS`, so a
-    migrated record's supplied route lives where its completion does rather
+    record's supplied route lives where its completion does rather
     than in the record that, by definition, does not prescribe it.
 
     Validates the shape of what it holds: a steps tuple that is empty, a
@@ -922,8 +908,8 @@ class Supplied:
     rejects all four, and `Invocation._check_supplied` rejects two of them, a
     partition named twice and a missing note. An empty `by_partition` and a
     step with no tokens reach an `Invocation` unrejected, which is safe only
-    because every supplied route in the tree is written here first - a
-    hand-written entry passing `supplied_by_partition` directly would meet
+    because every supplied route in the tree is written here first - an
+    `Invocation` constructed with `supplied_by_partition` directly would meet
     neither check. `_check_supplied` holds two shapes this class cannot see at
     all, being about the rest of the row: a partition carrying both a
     prescribed route and a supplied one, and a supplied route beside `in_env`.
@@ -959,7 +945,7 @@ class Supplied:
                     )
 
 
-# The round's own contributions, for a partition a migrated record prescribes
+# The round's own contributions, for a partition a record prescribes
 # no route for. Both entries are that shape: `deps/inventory` names no
 # subcommand for a PEP 751 lock file, and `deps/vulnerabilities` names no mode
 # for a uv tree, so on those two partitions the records' own routes run
@@ -1013,16 +999,6 @@ SUPPLIED: dict[tuple[str, str], Supplied] = {
         ),
     ),
 }
-
-
-# The transcription, one entry per (check, tool) pair, for a record whose command
-# lives in prose rather than in a route. Empty since the docs and security
-# migration: every record the Python fixture harness invokes now declares
-# `routes:`, so every row comes from `routed_invocations` and nothing here is
-# read from a `## Tooling fallback` section. The shape is kept, rather than the
-# name retired, until the legacy readers are retired: the loader now refuses a
-# record-level `tooling:`, so no record on a real tree can put a row here.
-INVOCATIONS: tuple[Invocation, ...] = ()
 
 
 # ---------------------------------------------------------------------------
@@ -1406,12 +1382,18 @@ def _records() -> dict[str, object]:
 def tools_named_in_records(lang: str = "python") -> set[str]:
     """Every tool any record offers for `lang`.
 
-    Read from the records rather than listed here, so a tool added to a record
-    and missing from its routes fails the exact-set guard instead of going
+    Read from the records' routes, the forbidden ones aside, rather than listed
+    here. The exact-set guard holds `routed_invocations` to this set, so a
+    route whose tool the row enumeration drops fails there instead of going
     unexercised behind a full-looking run.
     """
     return {
-        tool for check in _records().values() for tool in check.tooling.get(lang, ())
+        route.tool
+        for check in _records().values()
+        for route in check.routes
+        if route.lang == lang
+        and route.tool is not None
+        and route.disposition != "forbidden"
     }
 
 
@@ -1423,15 +1405,15 @@ def grant_tier(check: str, tool: str, lang: str = "python") -> str:
     drift, and the drift would be invisible - a tool run under the wrong grant
     still produces output.
 
-    **On a migrated record the tier is the prescribed route's, not the tool's.**
-    `run_partition` gates one thing on this - whether the row's command may run
-    at all - and the command it would run is the `disposition: runs` route's.
-    `record.needs` cannot answer that, because `_project_needs` collapses a
-    record's routes onto their tools: `deps/inventory` prescribes
+    **The tier is the prescribed route's, not the tool's.** `run_partition`
+    gates one thing on this - whether the row's command may run at all - and
+    the command it would run is the `disposition: runs` route's. A reading
+    keyed by tool cannot answer that, because it collapses a record's routes
+    onto their tools: `deps/inventory` prescribes
     `cyclonedx-py` subcommands that read a dependency file and, as an
     `alternative`, `cyclonedx-py environment`, which reads the installed
     environment by starting its interpreter and carries `target-execution`
-    for it. Reading the projected pair
+    for it. Reading per tool
     makes one tiered `alternative` route withhold the whole row, so at
     `--grant none` a check that answers from a lockfile reports
     `no-evidence (not-permitted)` having run nothing - a silence that reads as
@@ -1442,9 +1424,11 @@ def grant_tier(check: str, tool: str, lang: str = "python") -> str:
     `audit_checks._languages_whose_tools_all_need_a_grant`, which asks the
     neighbouring question about the record rather than about one row.
 
-    A record on the legacy schema has no routes to read, and its tier is per
-    tool by construction, so it keeps the projected reading; the loader refuses
-    one outside `legacy_schema=True`, so the branch goes with the legacy readers.
+    Where the record prescribes no `runs` command route for the tool in `lang`,
+    the row runs no command, and its tier is the first offered route's for
+    that tool, because a record's route order is its precedence: a tier on a
+    later route of the same tool is not a claim about the first, which is the
+    rule above applied to a row with no command to gate.
 
     Returns:
         `resolved-tree`, `target-execution`, or the empty string where the
@@ -1453,24 +1437,23 @@ def grant_tier(check: str, tool: str, lang: str = "python") -> str:
     checks = _records()
     if check not in checks:
         raise ValueError(f"no check record {check!r}")
-    record = checks[check]
-    if tool not in record.tooling.get(lang, ()):
+    offered = [
+        route
+        for route in checks[check].routes
+        if route.lang == lang
+        and route.tool == tool
+        and route.disposition != "forbidden"
+    ]
+    if not offered:
         raise ValueError(f"{check} does not offer {tool!r} for {lang}")
-    if record.routes:
-        prescribed = [
-            route
-            for route in record.routes
-            if route.lang == lang
-            and route.tool == tool
-            and route.kind == "command"
-            and route.disposition == "runs"
-        ]
-        if prescribed:
-            return prescribed[0].needs or ""
-    for tier, tools in record.needs.items():
-        if tool in tools:
-            return tier
-    return ""
+    prescribed = [
+        route
+        for route in offered
+        if route.kind == "command" and route.disposition == "runs"
+    ]
+    if prescribed:
+        return prescribed[0].needs or ""
+    return offered[0].needs or ""
 
 
 def _partition_keys(
@@ -1740,7 +1723,7 @@ def _caveat_for_no_command(routes: Sequence[Route]) -> str:
 
 @cache
 def routed_invocations(lang: str = "python") -> tuple[Invocation, ...]:
-    """Every row a migrated record prescribes, read from the record.
+    """Every row a record's routes prescribe, read from the record.
 
     One row per `(check, tool)` rather than per route: a record may narrow the
     same tool's command twice, once `runs` and once `superseded`, and those are
@@ -1915,13 +1898,11 @@ def invocations_for(
     """Every invocation one partition runs.
 
     Scoped by the expectations rather than by a second list, so the harness
-    cannot run a set the published record does not grade. The rows come from
-    two places: the records for those that declare their routes, and this
-    file's `INVOCATIONS`, the legacy slot, empty today.
+    cannot run a set the published record does not grade. The rows are the
+    records' routes, read by `routed_invocations`.
 
     The language is the partition's, so a TypeScript partition reads the
-    `lang: typescript` rows and the TypeScript expectations. `INVOCATIONS`, the
-    legacy slot, is Python's alone.
+    `lang: typescript` rows and the TypeScript expectations.
 
     Args:
         partition: Which partition's scope to read.
@@ -1939,9 +1920,7 @@ def invocations_for(
         )
     lang = lang_of(partition)
     carried = {e.check for e in expectations_for(partition)}
-    legacy = INVOCATIONS if lang == "python" else ()
-    everything = legacy + routed_invocations(lang)
-    scoped = tuple(i for i in everything if i.check in carried)
+    scoped = tuple(i for i in routed_invocations(lang) if i.check in carried)
     if only_check is None:
         return scoped
     filtered = tuple(i for i in scoped if i.check == only_check)
@@ -2677,8 +2656,7 @@ def probe_versions(
     run = _runner(env)
     granted = grant != "none"
     representative: dict[str, Invocation] = {}
-    legacy = INVOCATIONS if lang == "python" else ()
-    for inv in legacy + routed_invocations(lang):
+    for inv in routed_invocations(lang):
         representative.setdefault(inv.tool, inv)
     probes = VERSION_PROBE if lang == "python" else TS_VERSION_PROBE
     absent = NO_VERSION_ROUTE if lang == "python" else TS_NO_VERSION_ROUTE

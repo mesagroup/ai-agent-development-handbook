@@ -704,29 +704,21 @@ class Expectation:
     the grant moves. `claim` is the answer with the grant; this is
     the answer without it, and it is set on exactly the checks where the two
     differ - which is derivable rather than a judgement call, so a test derives
-    it. On a record declaring `tooling:`, a check whose every Python tool
-    carries a `needs` tier answers something different ungranted, and that
-    record's `ungranted_note` already says what. Where the note is the `none`
-    sentinel the ungranted answer is `no-evidence (not-permitted)` and needs no
-    restating here; where some Python tool needs no grant at all, `claim`
-    already holds in both states. Every record declares `routes:`, so both
-    halves are read per route; the legacy schema, which the loader now
-    refuses, read them differently. On a legacy record the tier was per tool, so the question is whether every Python
-    tool the record offered carried one. On a routes record the tier is per
-    route, and the question is whether every answering-kind, non-`forbidden`
-    route *naming a tool* carries one - a tool with one tiered route and one
-    untiered route does not put its language in that half, even though the
-    projected `tooling`/`needs` pair says it does. The two schemas also say
-    "something still answers" in different places - `ungranted_note` on one, an
-    untiered answering route on the other, which is commonly a route carrying
-    no tool at all and so invisible in the projected pair - and the test that
-    derives this field reads whichever place the record's own schema uses.
-    So whether this field is set is decided by a record's tools and its
-    answering routes and never by which schema it declares, which is why the
-    paragraph names no record here: the set that carries the axis moves with
-    every migration, and a list of it would read as exhaustive one task later.
-    Reconciling this paragraph against the entries by stripping the axis from a
-    routes record is the move to avoid: it flips the derivation the other way
+    it. Both halves are read per route. Where every answering-kind,
+    non-`forbidden` Python route *naming a tool* carries a tier, the check
+    answers something different ungranted; where such a route carries none,
+    `claim` already holds in both states. A tool with one tiered route and one
+    untiered route does not put its language in the first half, even though a
+    reading keyed by tool says it does. What still answers once the grant is
+    withheld is an untiered answering route, which is commonly a route carrying
+    no tool at all, and where nothing does the record carries
+    `answers_ungranted: none` and the ungranted answer is
+    `no-evidence (not-permitted)`, needing no restating here.
+    So whether this field is set is decided by a record's answering routes,
+    which is why the paragraph names no record here: the set that carries the
+    axis moves whenever a route's tier does, and a list of it would read as
+    exhaustive one task later. Reconciling this paragraph against the entries
+    by stripping the axis from a record is the move to avoid: it flips the derivation the other way
     and regrades every ungranted run of that check. Without
     this field a correct ungranted run of `deps/hygiene` - which reports DEP001
     where the granted run reports DEP003 - would be graded against the granted

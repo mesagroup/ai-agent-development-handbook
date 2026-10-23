@@ -24,9 +24,6 @@ domain: arch
 locality: local
 handbook:
   - codebase-structure/point-every-dependency-toward-the-core-and-never-cycle-a
-tooling:
-  python: [import-linter, tach]
-  typescript: [dependency-cruiser]
 ---
 
 # Layering / dependency-rule conformance
@@ -62,7 +59,7 @@ def _write(root: Path, rel: str, text: str) -> Path:
 
 def test_loads_a_well_formed_record(tmp_path):
     _write(tmp_path, "arch-audit/checks/layering.md", GOOD)
-    checks, errors = ac.load_checks(tmp_path, legacy_schema=True)
+    checks, errors = ac.load_checks(tmp_path)
     assert errors == []
     check = checks["arch/layering"]
     assert check.domain == "arch"
@@ -72,10 +69,7 @@ def test_loads_a_well_formed_record(tmp_path):
         "codebase-structure/point-every-dependency-toward-the-core-and-never-cycle-a",
     )
     assert check.handbook_note is None
-    assert check.tooling == {
-        "python": ("import-linter", "tach"),
-        "typescript": ("dependency-cruiser",),
-    }
+    assert check.routes == ()
     assert check.optin is False
 
 
@@ -89,111 +83,13 @@ def test_optin_and_empty_handbook_with_note_are_valid(tmp_path):
     assert check.optin is True
 
 
-NEEDS = """---
-id: deps/hygiene
-domain: deps
-locality: global
-handbook:
-  - security-supply-chain/depend-only-on-what-you-can-account-for-a
-tooling:
-  python: [deptry]
-  typescript: [depcheck, knip]
-needs:
-  resolved-tree: [deptry, knip]
-ungranted_note: none
----
-
-# Hygiene
-
-Declared-but-unused dependencies.
-
-## Tooling fallback
-
-`depcheck` answers from source alone; `knip` and `deptry` need the tree.
-"""
-
-
-def test_needs_records_the_tier_of_each_tool(tmp_path):
-    _write(tmp_path, "deps-audit/checks/hygiene.md", NEEDS)
-    checks, errors = ac.load_checks(tmp_path, legacy_schema=True)
-    assert errors == []
-    assert checks["deps/hygiene"].needs == {"resolved-tree": ("deptry", "knip")}
-
-
-def test_a_record_without_needs_claims_every_tool_runs_on_a_clone(tmp_path):
-    _write(tmp_path, "arch-audit/checks/layering.md", GOOD)
-    checks, errors = ac.load_checks(tmp_path, legacy_schema=True)
-    assert errors == []
-    assert checks["arch/layering"].needs == {}
-
-
-def test_needs_must_name_a_known_tier(tmp_path):
-    _write(
-        tmp_path,
-        "deps-audit/checks/hygiene.md",
-        NEEDS.replace("resolved-tree: [deptry, knip]", "needs-network: [deptry]"),
-    )
-    _, errors = ac.load_checks(tmp_path, legacy_schema=True)
-    assert any("needs-network" in e and "must map one of" in e for e in errors)
-
-
-def test_needs_must_name_a_tool_the_record_offers(tmp_path):
-    _write(
-        tmp_path,
-        "deps-audit/checks/hygiene.md",
-        NEEDS.replace("[deptry, knip]", "[deptry, kn1p]"),
-    )
-    _, errors = ac.load_checks(tmp_path, legacy_schema=True)
-    assert any("'kn1p'" in e and "not in this record's tooling" in e for e in errors)
-
-
-def test_a_tool_may_not_sit_in_two_tiers(tmp_path):
-    _write(
-        tmp_path,
-        "deps-audit/checks/hygiene.md",
-        NEEDS.replace(
-            "  resolved-tree: [deptry, knip]",
-            "  resolved-tree: [deptry, knip]\n  target-execution: [knip]",
-        ),
-    )
-    _, errors = ac.load_checks(tmp_path, legacy_schema=True)
-    assert any(
-        "'knip'" in e and "resolved-tree" in e and "target-execution" in e
-        for e in errors
-    )
-
-
-def test_needs_without_tooling_is_an_error(tmp_path):
-    _write(
-        tmp_path,
-        "deps-audit/checks/hygiene.md",
-        NEEDS.replace(
-            "tooling:\n  python: [deptry]\n  typescript: [depcheck, knip]\n", ""
-        ),
-    )
-    _, errors = ac.load_checks(tmp_path, legacy_schema=True)
-    assert any("does not declare" in e for e in errors)
-    # Off the flag the refusal names `needs` and the legacy advice to add a
-    # tooling map, which would only lead into the next refusal, is not given.
-    _, errors = ac.load_checks(tmp_path)
-    assert any("record-level needs" in e for e in errors), errors
-    assert not any("does not declare" in e for e in errors), errors
-
-
-def test_needs_must_be_a_mapping(tmp_path):
-    _write(
-        tmp_path,
-        "deps-audit/checks/hygiene.md",
-        NEEDS.replace("needs:\n  resolved-tree: [deptry, knip]", "needs: [deptry]"),
-    )
-    _, errors = ac.load_checks(tmp_path, legacy_schema=True)
-    assert any("needs must be a mapping" in e for e in errors)
-
-
 def _record(tooling=None, needs=None, extra=""):
-    """Build a minimal well-formed `demo/thing` record for `ungranted_note`
-    tests, with `tooling`, `needs` and any extra frontmatter lines the
-    caller wants layered in before the closing `---`.
+    """Build a minimal `demo/thing` record, with any extra frontmatter lines
+    the caller wants layered in before the closing `---`.
+
+    `tooling` and `needs` write the record-level keys the loader refuses, for
+    the tests that hold the refusal; a record built without either declares no
+    routes.
     """
     lines = [
         "---",
@@ -201,7 +97,7 @@ def _record(tooling=None, needs=None, extra=""):
         "domain: demo",
         "locality: local",
         "handbook: []",
-        "handbook_note: Fixture record for ungranted_note tests.",
+        "handbook_note: Fixture record for loader tests.",
     ]
     if tooling:
         lines.append("tooling:")
@@ -216,153 +112,25 @@ def _record(tooling=None, needs=None, extra=""):
 
 
 def _load_one(tmp_path, check):
-    """Write `check` as the sole record in a fresh tree and load it.
-
-    Loaded with `legacy_schema=True`, because most of this file's callers hold
-    the legacy `tooling:`/`needs:`/`ungranted_note` readers, which the loader
-    keeps until their own retirement although it refuses that schema on a
-    real tree; on a `routes:` record the flag changes nothing.
-    """
+    """Write `check` as the sole record in a fresh tree and load it."""
     _write(tmp_path, "demo-audit/checks/thing.md", check)
-    return ac.load_checks(tmp_path, legacy_schema=True)
-
-
-def test_the_sentinel_is_accepted(tmp_path):
-    """A record with nothing to answer writes the lowercase sentinel."""
-    check = _record(
-        tooling={"python": ["pip-licenses"]},
-        needs={"resolved-tree": ["pip-licenses"]},
-        extra="ungranted_note: none\n",
-    )
-    checks, errors = _load_one(tmp_path, check)
-    assert errors == []
-    assert checks["demo/thing"].ungranted_note == "none"
-
-
-def test_prose_is_accepted_and_stripped(tmp_path):
-    check = _record(
-        tooling={"python": ["pip-licenses"]},
-        needs={"resolved-tree": ["pip-licenses"]},
-        extra="ungranted_note: |\n  Reading the lockfile answers the pinned set.\n",
-    )
-    checks, errors = _load_one(tmp_path, check)
-    assert errors == []
-    assert checks["demo/thing"].ungranted_note == (
-        "Reading the lockfile answers the pinned set."
-    )
-
-
-@pytest.mark.parametrize("spelling", ["None", "NONE", "nOnE"])
-def test_a_miscased_sentinel_is_rejected_by_name(tmp_path, spelling):
-    """YAML leaves `None` and `NONE` as ordinary strings, so a miscased
-    sentinel would be read as a claim that something answers. Reject it
-    with a message naming the spelling to use.
-    """
-    check = _record(
-        tooling={"python": ["pip-licenses"]},
-        needs={"resolved-tree": ["pip-licenses"]},
-        extra=f"ungranted_note: {spelling}\n",
-    )
-    _, errors = _load_one(tmp_path, check)
-    assert any("write the sentinel as 'none'" in e for e in errors)
-
-
-@pytest.mark.parametrize("value", ["null", "~", ""])
-def test_a_null_note_is_rejected_as_indistinguishable_from_omission(tmp_path, value):
-    """YAML turns `null`, `~` and a bare key into nothing, which the loader
-    cannot tell from an absent key. Say so rather than silently treating
-    the record as unclassified.
-    """
-    check = _record(
-        tooling={"python": ["pip-licenses"]},
-        needs={"resolved-tree": ["pip-licenses"]},
-        extra=f"ungranted_note: {value}\n",
-    )
-    _, errors = _load_one(tmp_path, check)
-    assert any("ungranted_note is empty" in e for e in errors)
-
-
-def test_a_blank_note_is_rejected(tmp_path):
-    check = _record(
-        tooling={"python": ["pip-licenses"]},
-        needs={"resolved-tree": ["pip-licenses"]},
-        extra='ungranted_note: "   "\n',
-    )
-    _, errors = _load_one(tmp_path, check)
-    assert any("ungranted_note is blank" in e for e in errors)
-
-
-def test_a_non_string_note_is_rejected(tmp_path):
-    check = _record(
-        tooling={"python": ["pip-licenses"]},
-        needs={"resolved-tree": ["pip-licenses"]},
-        extra="ungranted_note: [a, b]\n",
-    )
-    _, errors = _load_one(tmp_path, check)
-    assert any("must be prose or 'none'" in e for e in errors)
-
-
-def test_a_note_on_a_record_that_keeps_an_untiered_tool_is_vacuous(tmp_path):
-    """The field describes a withheld grant leaving the record with nothing
-    to run. A record keeping a tool that answers from a read-only clone
-    cannot reach that state, so a note there describes nothing and must
-    not be mistaken for one that is doing work.
-    """
-    check = _record(
-        tooling={"python": ["pip-licenses", "osv-scanner"]},
-        needs={"resolved-tree": ["pip-licenses"]},
-        extra="ungranted_note: none\n",
-    )
-    _, errors = _load_one(tmp_path, check)
-    assert any("cannot happen here" in e for e in errors)
-
-
-def test_a_silenced_record_must_say_what_still_answers(tmp_path):
-    """An absent note on a record the engine silences is not a claim, it is
-    an omission - and the engine cannot tell the two apart, which is the
-    whole reason the field is required here.
-    """
-    check = _record(
-        tooling={"python": ["pip-licenses"]},
-        needs={"resolved-tree": ["pip-licenses"]},
-    )
-    _, errors = _load_one(tmp_path, check)
-    assert any("silences the check" in e for e in errors)
-
-
-def test_the_requirement_names_every_silenced_language(tmp_path):
-    check = _record(
-        tooling={"python": ["deptry"], "typescript": ["knip"]},
-        needs={"resolved-tree": ["deptry"], "target-execution": ["knip"]},
-    )
-    _, errors = _load_one(tmp_path, check)
-    assert any("python, typescript" in e for e in errors)
-
-
-def test_an_unsilenced_record_needs_no_note(tmp_path):
-    check = _record(
-        tooling={"python": ["pip-licenses", "osv-scanner"]},
-        needs={"resolved-tree": ["pip-licenses"]},
-    )
-    _, errors = _load_one(tmp_path, check)
-    assert errors == [], errors
+    return ac.load_checks(tmp_path)
 
 
 def test_evidence_is_absent_rather_than_blank_when_the_routes_carry_it(tmp_path):
     """A record with nothing check-level to say about measurement omits it.
 
-    Unlike `needs`, whose absence is the positive claim that no tool here needs
-    a grant, an absent `evidence` claims nothing at all: what to measure is in
+    Unlike a route's `needs`, whose absence is the positive claim that the
+    route needs no grant, an absent `evidence` claims nothing at all: what to measure is in
     the routes, which is where a per-tool measurement belongs.
     """
-    checks, errors = _load_one(tmp_path, _record(tooling={"python": ["t"]}))
+    checks, errors = _load_one(tmp_path, _record())
     assert errors == []
     assert checks["demo/thing"].evidence is None
 
 
 def test_evidence_carries_the_check_level_measurement(tmp_path):
     check = _record(
-        tooling={"python": ["t"]},
         extra="evidence: Line counts per file; flag outliers.\n",
     )
     checks, errors = _load_one(tmp_path, check)
@@ -371,7 +139,7 @@ def test_evidence_carries_the_check_level_measurement(tmp_path):
 
 
 def test_evidence_is_stored_stripped(tmp_path):
-    """The same normalisation `ungranted_note` does, for the same reason.
+    """The same normalisation `answers_ungranted` does, for the same reason.
 
     Every record that will carry this field writes it as a YAML folded scalar,
     which leaves the value's surrounding whitespace up to how the block was
@@ -379,7 +147,6 @@ def test_evidence_is_stored_stripped(tmp_path):
     that accident into the value a reader compares.
     """
     check = _record(
-        tooling={"python": ["t"]},
         extra="evidence: >-\n  Line counts per file.\n",
     )
     checks, errors = _load_one(tmp_path, check)
@@ -407,19 +174,19 @@ def test_an_empty_evidence_key_is_rejected_rather_than_read_as_absent(
     appearing somewhere in the error list, because the unknown-key rule already
     produces an error naming `evidence` and these would pass against it.
     """
-    _, errors = _load_one(tmp_path, _record(tooling={"python": ["t"]}, extra=extra))
+    _, errors = _load_one(tmp_path, _record(extra=extra))
     assert any(fragment in e for e in errors), errors
 
 
 def test_evidence_must_be_prose_not_a_list(tmp_path):
-    check = _record(tooling={"python": ["t"]}, extra="evidence: [a, b]\n")
+    check = _record(extra="evidence: [a, b]\n")
     _, errors = _load_one(tmp_path, check)
     assert any("evidence must be a string" in e for e in errors), errors
 
 
 def _languages_rescued_by_an_untiered_route(check: ac.Check) -> list[str]:
-    """The languages a migrated record would be silenced in but for an
-    untiered answering route.
+    """The languages a record would be silenced in but for an untiered
+    answering route.
 
     A language qualifies when it offers at least one answering route that
     needs a grant *and* at least one that answers it needing none: delete
@@ -434,9 +201,7 @@ def _languages_rescued_by_an_untiered_route(check: ac.Check) -> list[str]:
 
     Args:
         check: A loaded record. One carrying no routes yields no languages,
-            which is right rather than incidental: a record on the legacy
-            schema makes this same claim in `ungranted_note` instead, and the
-            guard below counts it there.
+            because it offers nothing a grant could silence.
 
     Returns:
         The qualifying languages, sorted.
@@ -457,165 +222,51 @@ def _languages_rescued_by_an_untiered_route(check: ac.Check) -> list[str]:
 
 def test_the_notes_are_not_all_sentinels():
     """The requirement can be satisfied without thought by writing the
-    sentinel everywhere. Nothing can tell a correct `none` from a lazy one,
-    so hold the number of records that say something real at a floor,
-    ratcheted to the population measured at the time and raised again with
-    every migration that grows it, rather than left with slack under it.
-    That is the convention its neighbour
-    `test_the_classification_is_not_vacuous` already follows and it is
-    followed here for the same reason: a floor sitting below the count is a
-    floor a deletion passes under in silence, and a deleted claim is not
-    visibly missing - the record simply stops demonstrating anything.
+    sentinel everywhere. Nothing can tell a correct `answers_ungranted: none`
+    from a lazy one, so hold the number of records that say something real at
+    a floor, ratcheted to the population measured at the time rather than
+    left with slack under it. That is the convention its neighbour
+    `test_the_classification_is_not_vacuous` follows, for the same reason: a
+    floor sitting below the count is a floor a deletion passes under in
+    silence, and a deleted claim is not visibly missing - the record simply
+    stops demonstrating anything.
 
-    What "something real" is has two spellings, and the floor counts their
-    sum, because they are one property wearing two schemas. On the legacy
-    schema a record says it in prose, in an `ungranted_note` that is not the
-    sentinel. On the routes schema there is no prose field to say it in: a
-    record says it structurally, by carrying a language whose answering
-    routes would all need a grant except for an untiered one that still
-    answers. `arch/complexity` is the same claim either way - silenced in
-    TypeScript, rescued by an ESLint invocation under an audit-owned config
-    that needs no install - and it must stay counted across its own
-    migration rather than dropping out of the population because the schema
-    it declares changed. A record that writes `answers_ungranted: none`
-    instead is the routes-era sentinel and does not count, exactly as
-    `ungranted_note: none` does not. The two populations cannot overlap: the
-    loader rejects a record carrying both schemas.
+    "Something real" has no prose field to live in: a record says it
+    structurally, by carrying a language whose answering routes would all
+    need a grant except for an untiered one that still answers.
+    `arch/complexity` is the shape - silenced in TypeScript but for an ESLint
+    invocation under an audit-owned config that needs no install. A record
+    that writes `answers_ungranted: none` instead is the sentinel and does not
+    count.
 
-    The prose half is empty, and it is empty structurally rather than by
-    chance, so read the paragraphs below about a two-population sum as
-    describing a mechanism with one live half. No record carries an
-    `ungranted_note` in any form - not prose and not the sentinel - and no
-    record is on the legacy schema, let alone one with a fully tiered language, so the
-    loader's requirement fires on nothing and there is no shape a legacy
-    record could be in today that would put it in this half. That is not a
-    reason to stop counting it while the legacy readers stand, but the
-    loader now refuses a record-level `tooling` or `needs`, so no record on a
-    real tree can refill this half; it goes when those readers are retired.
-    What it does mean is that a floor resting on
-    the sum is, at this moment, a floor on the routed half, and that anything
-    below arguing from the two halves moving against each other is describing
-    what the guard is built to survive rather than what it is currently
-    watching.
-
-    The sum moved as migration proceeded and is never itself the thing to
-    check against a remembered number - the paragraphs below make the case
-    for why. One move worth keeping straight because it looks like a loss
-    and is not: `arch/complexity-gate` was in the population the floor was
-    first set against and is in neither population now. It lost no claim.
-    Both sentences of its note became structure - the reading of the linter
-    configuration and the CI workflow files became an untiered route, and
-    "the classified tools are the gate's subject rather than its instrument"
-    became `kind: subject` on all five of them. It leaves the population
-    because it was never really silenced: the legacy schema had no way to
-    say a tool is the check's subject rather than its instrument, so tiering
-    ESLint under `typescript` made that language read as fully tiered, the
-    loader demanded a note, and the record spent that note explaining why
-    its own frontmatter was misleading. The note was an artifact of a
-    missing field, not a claim, and `kind: subject` retires it. The records
-    then carrying prose notes were read for the same shape and none has
-    it - every one is a within-language rescue, a tiered scanner beside a
-    reading pass in the same language that still answers - so this was an
-    exception of exactly one record rather than the leading edge of a
-    pattern. Should a second record ever leave the population this way, that
-    is the pattern arriving and the floor is the wrong instrument for it.
+    A `kind: subject` route is not something a language can be rescued from:
+    `arch/complexity-gate` names `ruff`, `radon` and `xenon` as the gate's
+    subject rather than its instrument and is not in the population, because
+    it was never silenced. Counting a tiered subject route here would recover
+    a number by contradicting the independence of `needs` and `kind`, which a
+    test below pins.
 
     Be honest about what a floor on a count catches and what it does not: it
-    fails only once the count drops below the floor, so it says nothing if
-    the count already sits above it - a change that trades one record's
-    claim for another's passes silently, because the guard counts records
-    rather than naming them, and so does a drop back down to just above the
-    floor once a later change has raised it. It also cannot see whether an
-    untiered route genuinely answers, which is the judgment `answers_ungranted`
-    exists to force and no count can make.
+    fails only once the count drops below the floor, so a change that trades
+    one record's claim for another's passes silently, because the guard counts
+    records rather than naming them. It also cannot see whether an untiered
+    route genuinely answers, which is the judgment `answers_ungranted` exists
+    to force and no count can make.
 
-    Issue #5 did not add notes, contrary to what this docstring first
-    predicted: it gave records already silenced in one language a second
-    fully tiered language, which changes what a note must say and not
-    whether the record carries one, so the count did not move. Resist
-    naming how many records that was - an earlier draft of this sentence
-    said three and the number was four, because the three whose prose had
-    to be rewritten are not the same set as the records that gained a
-    second fully tiered language. The claim the floor rests on needs no
-    count of records at all. A later change
-    that does add claims raises the floor with it, in the same commit that
-    adds them, so no slack is left for a later deletion to hide in. Never
-    lower it to make a deletion pass,
-    never narrow what it counts to make a migration pass, and never widen
-    what it counts to recover a number: counting a tiered `kind: subject`
-    route as something a language can be rescued from would recover a
-    number by contradicting both the independence of `needs` and `kind` and
-    the test below that pins that edge, and a number recovered by
-    contradicting a guard is worse than a number that moved for a reason.
-
-    A later migration can also raise this sum without either schema gaining
-    a new explanation to make. `arch/layering`'s legacy `typescript` tooling
-    already paired a tiered `dependency-cruiser` (`needs: resolved-tree`)
-    with an untiered `madge` - removing `madge` would have silenced
-    `typescript`, which is exactly the routed population's own definition -
-    but the legacy rule only ever asks whether *every* tool in a language
-    needs a grant, so it never noticed and no `ungranted_note` was ever
-    required. Migrating the record to routes did not create that claim; it
-    gave the counting function, which only ever reads `check.routes`, its
-    first look at a fact the record's own `tooling`/`needs` declaration
-    always carried. The two populations are therefore not symmetric by
-    construction: prose counts what the legacy rule forced a record to
-    write down, routed counts what is actually true whether or not the old
-    rule ever asked. The second is the more honest measure of what this
-    floor exists to protect, and being a truer measure over the same
-    records, it can only ever sit at or above what the coarser one found -
-    so a rise as migration proceeds is not a regression to explain, it is
-    the truer measure reaching a claim the coarser one never asked about.
-    Ratchet the floor onto it in the commit that produces it: the guard is
-    only ever as strong as the distance between the floor and the count,
-    and a floor left behind a growing population stops protecting the
-    records it was raised over. The signal worth stopping for runs the other way: a
-    **drop** means some record that used to demonstrate an ungranted answer
-    no longer does, in either schema, which is a real defect regardless of
-    which population lost the claim. A **rise** is the migration working as
-    intended and is never, by itself, a reason to stop - including a rise
-    produced by several records gaining their rescuing route in the same
-    batch, which is this same mechanism repeated, not a different one, and
-    then re-measured and ratcheted onto. What stays a liability is treating
-    the number written here as the count to expect: it records the
-    population at the last ratchet, and the only way to know the current one
-    is to measure it. Ratcheted at the ci migration, where the count was
-    measured at 21 on the branch and on `main` alike: the slack under the
-    previous 17 predated that slice, and the ci records, none of which carries
-    a tier, added nothing to it. Ratcheted again at the eval migration, to 23:
-    `eval/reproducibility` and `eval/cost-latency` each keep an untiered
-    reading beside a route that runs the target's evals.
+    A **drop** means some record that used to demonstrate an ungranted answer
+    no longer does, which is a real defect. A **rise** is a record gaining a
+    rescuing route, and the floor is raised onto it in the same commit, so no
+    slack is left for a later deletion to hide in. Never lower the floor to
+    make a deletion pass, and never narrow or widen what it counts to recover
+    a number. The number written here is the population at the last ratchet,
+    and the only way to know the current one is to measure it.
     """
     checks, errors = ac.load_checks(ac.SKILLS_DIR)
     assert errors == []
-    prose = [
-        c.id
-        for c in checks.values()
-        if c.ungranted_note is not None and c.ungranted_note != ac.UNGRANTED_NONE
-    ]
-    routed = [
+    claims = sorted(
         c.id for c in checks.values() if _languages_rescued_by_an_untiered_route(c)
-    ]
-    claims = sorted(prose + routed)
-    assert len(claims) >= 23, f"only {len(claims)} records answer anything: {claims}"
-
-
-def test_a_language_with_no_tools_is_not_fully_tiered(tmp_path):
-    """`all()` is vacuously true over an empty list. A record listing a
-    language with no tools has said nothing about grants, so it must not
-    read as silenced - which would demand a note it has no basis to write.
-    """
-    check = _record(
-        tooling={"python": ["pip-licenses"], "typescript": []},
-        needs={"resolved-tree": ["pip-licenses"]},
-        extra="ungranted_note: none\n",
     )
-    _, errors = _load_one(tmp_path, check)
-    assert errors == [], errors
-    assert ac._fully_tiered_languages(
-        {"python": ("pip-licenses",), "typescript": ()},
-        {"resolved-tree": ("pip-licenses",)},
-    ) == ("python",)
+    assert len(claims) >= 23, f"only {len(claims)} records answer anything: {claims}"
 
 
 def _routes_frontmatter(route_body: str, extra: str = "") -> str:
@@ -665,9 +316,8 @@ def _errors_for_route(tmp_path, route_body):
 def test_a_record_level_tooling_is_refused(tmp_path):
     """`routes:` is the schema, not one of two (#69): `tooling:` alone is refused.
 
-    Every record migrated, so a record declaring the legacy list is a record
-    written against a schema the tree no longer holds, and reading it would
-    bring the projection and prose-fallback readers back into use unseen.
+    A record declares what it runs as routes, so a record-level tool list is
+    refused by name, with a message saying what replaces it.
     """
     _write(
         tmp_path,
@@ -696,13 +346,12 @@ def test_a_record_level_needs_is_refused(tmp_path):
     assert any("record-level tooling" in e for e in errors), errors
 
 
-def test_a_refused_record_gets_no_legacy_advice(tmp_path):
-    """Once a record-level key is refused, the legacy readers stay silent.
+def test_a_refused_record_gets_only_the_refusal(tmp_path):
+    """A refused key is reported once, by name, and read for nothing else.
 
-    A fully tiered `tooling`/`needs` pair is what the legacy schema demanded an
-    `ungranted_note` for, and asking for one beside the refusal tells the
-    author to add a field the same error list has just ruled out. So the only
-    errors are the refusals themselves, whatever shape the legacy keys are in.
+    The keys are not parsed, so their shape cannot add a second error, and the
+    message names what replaces each, so it is the whole of what the author
+    needs. The same holds beside `routes:`.
     """
     _write(
         tmp_path,
@@ -710,28 +359,21 @@ def test_a_refused_record_gets_no_legacy_advice(tmp_path):
         _record(tooling={"python": ["t"]}, needs={"bogus-tier": ["t", "u"]}),
     )
     _, errors = ac.load_checks(tmp_path)
-    assert errors, errors
-    assert all("declares a record-level" in e for e in errors), errors
-    _write(
-        tmp_path,
-        "demo-audit/checks/thing.md",
-        _record(tooling={"python": ["t"]}, needs={"resolved-tree": ["t"]}),
-    )
-    _, errors = ac.load_checks(tmp_path)
-    assert all("declares a record-level" in e for e in errors), errors
-    assert not any("ungranted_note" in e for e in errors), errors
-    # The same holds where the legacy keys sit beside `routes:`: the error is
-    # that it carries both, and nothing asks for a legacy field on top.
+    assert len(errors) == 2, errors
+    assert all("is not a field" in e for e in errors), errors
     _write(
         tmp_path,
         "demo-audit/checks/thing.md",
         _routes_frontmatter(
             "lang: any\n    kind: procedure\n    note: Read it.",
-            extra="tooling:\n  python: [t]\nneeds:\n  resolved-tree: [t]\n",
+            extra="tooling:\n  python: [t]\nneeds:\n  resolved-tree: [t]\n"
+            "ungranted_note: none\n",
         ),
     )
     _, errors = ac.load_checks(tmp_path)
-    assert errors and all("carries both" in e for e in errors), errors
+    assert len(errors) == 3, errors
+    assert all("is not a field" in e for e in errors), errors
+    assert any("answers_ungranted" in e for e in errors), errors
 
 
 def test_a_route_s_own_needs_is_untouched_by_the_refusal(tmp_path):
@@ -749,19 +391,6 @@ def test_a_route_s_own_needs_is_untouched_by_the_refusal(tmp_path):
     assert errors == [], errors
     check = checks["demo/thing"]
     assert check.routes[0].needs == "resolved-tree"
-    assert check.needs == {"resolved-tree": ("t",)}
-
-
-def test_the_legacy_readers_still_read_when_asked(tmp_path):
-    """`legacy_schema=True` is what keeps them testable until they retire."""
-    _write(
-        tmp_path,
-        "demo-audit/checks/thing.md",
-        _record(tooling={"python": ["t", "u"]}, needs={"resolved-tree": ["t"]}),
-    )
-    checks, errors = ac.load_checks(tmp_path, legacy_schema=True)
-    assert errors == []
-    assert checks["demo/thing"].needs == {"resolved-tree": ("t",)}
 
 
 def _errors_for_both_schemas(tmp_path):
@@ -806,8 +435,8 @@ def test_a_package_written_with_no_value_is_rejected(tmp_path):
     `None`, which `get` cannot tell from an absent key - so the fallback to
     the tool name never fires and the string check is skipped, and a record
     that meant to name a package ends up naming none while loading clean.
-    This is the shape `ungranted_note` and `answers_ungranted` already
-    reject by name, for the same reason: an empty value is a claim the
+    This is the shape `answers_ungranted` and `evidence` already reject by
+    name, for the same reason: an empty value is a claim the
     reader cannot distinguish from an omission.
     """
     errors = _errors_for_route(
@@ -1012,41 +641,6 @@ def test_a_forbidden_procedure_route_without_a_note_is_rejected(tmp_path):
         "kind: procedure\n    tool: c8\n    disposition: forbidden\n    note: ''",
     )
     assert any("forbidden procedure route needs a note" in e for e in errors), errors
-
-
-def test_a_forbidden_procedure_route_is_excluded_from_both_projections(tmp_path):
-    """The exclusion is by disposition, so it holds on a procedure route as on
-    a command route - tested rather than inherited, because this is the shape
-    the #141 reading pass parked: putting the warned-against tool into the
-    record's projected tooling was the reason `markdownlint` stayed in prose.
-    """
-    text = """---
-id: demo/thing
-domain: demo
-locality: local
-handbook: []
-handbook_note: Fixture record for route tests.
-routes:
-  - lang: any
-    kind: procedure
-    tool: markdownlint
-    disposition: forbidden
-    note: the opposite rule
-  - lang: any
-    kind: procedure
-    note: read the source
----
-
-# Thing
-
-Fixture body.
-"""
-    _write(tmp_path, "demo-audit/checks/thing.md", text)
-    checks, errors = ac.load_checks(tmp_path)
-    assert errors == [], errors
-    check = checks["demo/thing"]
-    assert check.tooling == {}
-    assert check.needs == {}
 
 
 def test_an_untiered_forbidden_procedure_route_does_not_satisfy_the_escape(tmp_path):
@@ -1686,7 +1280,7 @@ def test_a_route_defaults_to_the_any_language(tmp_path):
     """No test above names `lang:` on a route, and every one of them must
     still load clean - so the default has to be a value nothing in
     `ROUTE_LANGS` treats as an error. `any` is that value, and it is also
-    the one the projection in `_project_tooling` gives special handling.
+    the one `_routes_answering_ungranted` spreads over every language.
     """
     check = _one_route_record(
         tmp_path, "kind: command\n    tool: t\n    registry: pypi\n    argv: [t]"
@@ -1734,7 +1328,7 @@ def test_a_genuinely_universal_route_still_needs_its_registry(tmp_path):
 
 def test_a_record_with_no_routes_key_carries_none(tmp_path):
     _write(tmp_path, "arch-audit/checks/layering.md", GOOD)
-    checks, errors = ac.load_checks(tmp_path, legacy_schema=True)
+    checks, errors = ac.load_checks(tmp_path)
     assert errors == []
     assert checks["arch/layering"].routes == ()
 
@@ -1796,235 +1390,6 @@ Fixture body.
     assert any("routes[1]" in e and "argv" in e for e in errors), errors
     assert not any("routes[0]" in e for e in errors), errors
 
-
-def test_tooling_and_needs_are_projected_from_routes(tmp_path):
-    """A migrated record's `tooling`/`needs` are read by call sites outside
-    this module that predate `routes`. Project them so none of those
-    readers has to change.
-    """
-    text = """---
-id: demo/thing
-domain: demo
-locality: local
-handbook: []
-handbook_note: Fixture record for route tests.
-routes:
-  - lang: python
-    kind: command
-    tool: pydeps
-    argv: [pydeps, --show-cycles]
-    needs: resolved-tree
-  - lang: python
-    kind: library
-    tool: grimp
-  - lang: typescript
-    kind: command
-    tool: dependency-cruiser
-    argv: [depcruise]
----
-
-# Thing
-
-Fixture body.
-"""
-    _write(tmp_path, "demo-audit/checks/thing.md", text)
-    checks, errors = ac.load_checks(tmp_path)
-    assert errors == [], errors
-    check = checks["demo/thing"]
-    assert check.tooling == {
-        "python": ("pydeps", "grimp"),
-        "typescript": ("dependency-cruiser",),
-    }
-    assert check.needs == {"resolved-tree": ("pydeps",)}
-
-
-def test_a_lang_any_route_projects_under_the_literal_any_key(tmp_path):
-    """`tooling: {any: [...]}` was the legacy shape for a language-agnostic
-    tool - every reader looks a language up with `.get(lang, ())`, so an
-    `any` tool is deliberately invisible to a `python`/`typescript` lookup.
-    A migrated record's `lang: any` route must project the same way: under
-    the literal `"any"` key, not fanned out to every language the record
-    also names.
-    """
-    text = """---
-id: demo/thing
-domain: demo
-locality: local
-handbook: []
-handbook_note: Fixture record for route tests.
-routes:
-  - lang: any
-    kind: library
-    tool: semgrep
----
-
-# Thing
-
-Fixture body.
-"""
-    _write(tmp_path, "demo-audit/checks/thing.md", text)
-    checks, errors = ac.load_checks(tmp_path)
-    assert errors == [], errors
-    assert checks["demo/thing"].tooling == {"any": ("semgrep",)}
-
-
-def test_an_any_route_does_not_fan_into_a_named_language(tmp_path):
-    """A record naming both a `python` route and an `any` route must keep
-    the `any` tool out of `tooling["python"]` - fanning it out would hand
-    a check like `arch/size` (an `any`-only record today) Python
-    invocations it does not have, and would change which records a
-    Python lens believes it must cover.
-    """
-    text = """---
-id: demo/thing
-domain: demo
-locality: local
-handbook: []
-handbook_note: Fixture record for route tests.
-routes:
-  - lang: python
-    kind: command
-    tool: pydeps
-    argv: [pydeps]
-  - lang: any
-    kind: library
-    tool: semgrep
----
-
-# Thing
-
-Fixture body.
-"""
-    _write(tmp_path, "demo-audit/checks/thing.md", text)
-    checks, errors = ac.load_checks(tmp_path)
-    assert errors == [], errors
-    check = checks["demo/thing"]
-    assert check.tooling == {"python": ("pydeps",), "any": ("semgrep",)}
-
-
-def test_a_forbidden_route_is_excluded_from_both_projections(tmp_path):
-    """A `disposition: forbidden` route names a command the record warns
-    against - the npm `semgrep` placeholder, the bare `dlx depcruise` - so
-    projecting it into `tooling`/`needs` would tell the lens to check a
-    tool the record forbids. `depcruise` appears only on the forbidden
-    route here, so it must not appear in either projection at all; `madge`
-    appears on an ordinary route and must appear normally.
-    """
-    text = """---
-id: demo/thing
-domain: demo
-locality: local
-handbook: []
-handbook_note: Fixture record for route tests.
-routes:
-  - lang: typescript
-    kind: command
-    tool: depcruise
-    argv: [dlx, depcruise]
-    disposition: forbidden
-  - lang: typescript
-    kind: command
-    tool: madge
-    argv: [madge]
-    needs: resolved-tree
-answers_ungranted: none
----
-
-# Thing
-
-Fixture body.
-"""
-    _write(tmp_path, "demo-audit/checks/thing.md", text)
-    checks, errors = ac.load_checks(tmp_path)
-    assert errors == [], errors
-    check = checks["demo/thing"]
-    assert check.tooling == {"typescript": ("madge",)}
-    assert check.needs == {"resolved-tree": ("madge",)}
-
-
-def test_a_forbidden_route_does_not_hide_the_same_tool_offered_elsewhere(tmp_path):
-    """The two tests above name a different tool on the forbidden route than
-    on the ordinary one, so neither would notice a regression that filtered
-    by tool name instead of by route - a record forbids an invocation, not
-    a tool, so the same tool run one way (`uvx semgrep`) and forbidden run
-    another way (`npx semgrep`) must still appear as offered, from the
-    route that offers it. The shape under test is one tool, two routes,
-    opposite dispositions.
-    """
-    text = """---
-id: demo/thing
-domain: demo
-locality: local
-handbook: []
-handbook_note: Fixture record for route tests.
-routes:
-  - lang: python
-    kind: command
-    tool: semgrep
-    argv: [uvx, semgrep, scan]
-    needs: resolved-tree
-  - lang: python
-    kind: command
-    tool: semgrep
-    argv: [npx, semgrep, scan]
-    disposition: forbidden
-    needs: resolved-tree
-answers_ungranted: none
----
-
-# Thing
-
-Fixture body.
-"""
-    _write(tmp_path, "demo-audit/checks/thing.md", text)
-    checks, errors = ac.load_checks(tmp_path)
-    assert errors == [], errors
-    check = checks["demo/thing"]
-    assert check.tooling == {"python": ("semgrep",)}
-    assert check.needs == {"resolved-tree": ("semgrep",)}
-
-
-def test_alternative_and_superseded_routes_do_contribute(tmp_path):
-    """Unlike `forbidden`, an `alternative` or `superseded` route is a tool
-    the record does offer - just not the one it runs by default - so both
-    must still appear in the `tooling` projection.
-    """
-    text = """---
-id: demo/thing
-domain: demo
-locality: local
-handbook: []
-handbook_note: Fixture record for route tests.
-routes:
-  - lang: python
-    kind: command
-    tool: import-linter
-    argv: [lint-imports]
-  - lang: python
-    kind: command
-    tool: tach
-    argv: [tach, check]
-    disposition: alternative
-  - lang: python
-    kind: command
-    tool: pydeps
-    argv: [pydeps, --show-cycles]
-    disposition: superseded
----
-
-# Thing
-
-Fixture body.
-"""
-    _write(tmp_path, "demo-audit/checks/thing.md", text)
-    checks, errors = ac.load_checks(tmp_path)
-    assert errors == [], errors
-    assert checks["demo/thing"].tooling == {
-        "python": ("import-linter", "tach", "pydeps")
-    }
-
-
-# --- answers_ungranted: the ungranted rule, rebuilt on routes -------------
 
 _UNSET = object()
 
@@ -2243,36 +1608,27 @@ def test_a_miscased_route_sentinel_is_rejected_by_name(tmp_path, spelling):
 
 
 def test_no_routes_at_all_is_not_silenced():
-    """`all()` is vacuously true over an empty list - the same trap
-    `_fully_tiered_languages` already warns about for the legacy schema's
-    tooling dict, where a language listed with no tools must not read as
-    fully tiered. A route tuple carrying nothing has offered no answering
-    route for any language, so if `_silenced_languages` ever stopped
-    treating that as no claim at all, every record on the legacy schema
-    would acquire an unmet demand for `answers_ungranted` - it reaches the
-    function with an empty tuple exactly as a routes record with nothing
-    left in it would.
+    """`all()` is vacuously true over an empty list. A route tuple carrying
+    nothing has offered no answering route for any language, so if
+    `_silenced_languages` ever stopped treating that as no claim at all,
+    every record declaring no routes would acquire an unmet demand for
+    `answers_ungranted`.
 
     Asserted against the function rather than through a loaded record,
-    because a record whose frontmatter says `routes: []` no longer loads:
-    it is rejected as the schema declared and then not stated. The vacuity
-    property still has to hold, since the legacy half of the family reaches
-    here through the same empty tuple.
+    because a record whose frontmatter says `routes: []` does not load: it is
+    rejected as the schema declared and then not stated. A record omitting the
+    key reaches the function with the same empty tuple.
     """
     assert ac._routes_answering_ungranted(()) == {}
     assert ac._silenced_languages(()) == ()
 
 
 def test_answers_ungranted_without_routes_is_rejected(tmp_path):
-    """`answers_ungranted` only means something alongside a `routes:` list -
-    it is the routes-schema counterpart of `ungranted_note`, not a second
-    way to spell the legacy field on a record that has not migrated.
+    """`answers_ungranted` only means something alongside a `routes:` list:
+    it says no route answers without a grant, and a record with no routes has
+    none to say that of.
     """
-    check = _record(
-        tooling={"python": ["pip-licenses"]},
-        needs={"resolved-tree": ["pip-licenses"]},
-        extra="answers_ungranted: none\n",
-    )
+    check = _record(extra="answers_ungranted: none\n")
     _, errors = _load_one(tmp_path, check)
     assert any("answers_ungranted" in e and "routes" in e for e in errors), errors
 
@@ -2314,10 +1670,9 @@ def test_a_blank_sentinel_is_rejected(tmp_path):
 
 
 def test_prose_is_rejected_the_dissolution_says_it_with_a_route(tmp_path):
-    """`answers_ungranted` is not a free-form note the way `ungranted_note`
-    is - a migrated record that has something to say about what still
-    answers says it with an untiered route, which is the entire point of
-    the dissolution. Prose here is rejected even though it is not the
+    """`answers_ungranted` is not a free-form note: a record that has something
+    to say about what still answers says it with an untiered route, which is
+    the entire point of the field accepting only the sentinel. Prose here is rejected even though it is not the
     miscased sentinel.
     """
     errors = _errors_for_routes(
@@ -2495,7 +1850,7 @@ def test_an_untiered_forbidden_route_does_not_satisfy_the_escape(tmp_path):
     record's only real instrument for it needs a grant and the untiered
     route is one it warns against running. If this regresses, a forbidden
     placeholder invocation would silently satisfy the ungranted rule for a
-    real migrated record.
+    real record.
     """
     errors = _errors_for_routes(
         tmp_path,
@@ -2549,9 +1904,8 @@ def test_an_untiered_alternative_route_still_answers_the_check(tmp_path):
 
 
 def test_a_rescued_language_needs_a_tiered_route_to_be_rescued_from(tmp_path):
-    """The floor's routes-era population is the counterpart of a real prose
-    `ungranted_note`, so it must count a record that *would* be silenced and
-    is not - never one that was never at risk. The record here is the first:
+    """The floor counts a record that *would* be silenced and is not - never
+    one that was never at risk. The record here is the first:
     `knip` needs the tree, `ts-prune` does not, so deleting the untiered
     route would silence TypeScript.
     """
@@ -2688,7 +2042,7 @@ def test_empty_handbook_without_a_note_is_rejected(tmp_path):
 
 def test_a_note_alongside_anchors_is_rejected(tmp_path):
     text = GOOD.replace(
-        "tooling:", "handbook_note: why this exceeds the handbook\ntooling:"
+        "\n---\n\n# ", "\nhandbook_note: why this exceeds the handbook\n---\n\n# "
     )
     _write(tmp_path, "arch-audit/checks/layering.md", text)
     _, errors = ac.load_checks(tmp_path)
@@ -2736,16 +2090,6 @@ def test_missing_title_is_rejected(tmp_path):
     )
     _, errors = ac.load_checks(tmp_path)
     assert any("title" in e for e in errors)
-
-
-def test_tooling_must_map_language_to_a_list(tmp_path):
-    _write(
-        tmp_path,
-        "arch-audit/checks/layering.md",
-        GOOD.replace("python: [import-linter, tach]", "python: import-linter"),
-    )
-    _, errors = ac.load_checks(tmp_path, legacy_schema=True)
-    assert any("tooling" in e for e in errors)
 
 
 def test_duplicate_ids_across_files_are_reported(tmp_path):
@@ -2942,8 +2286,7 @@ def test_the_real_checks_tree_loads_clean():
     ]
 
 
-# Empty since the `prompt` slice of #69 migrated the last records. Kept as a
-# named set rather than deleted, so a record written without `routes:` fails
+# Empty: every record declares routes. Kept as a named set rather than deleted, so a record written without `routes:` fails
 # here by name instead of reading as nothing having changed.
 RECORDS_DECLARING_NO_ROUTES: frozenset[str] = frozenset()
 
@@ -2951,21 +2294,16 @@ RECORDS_DECLARING_NO_ROUTES: frozenset[str] = frozenset()
 def test_the_records_declaring_no_routes_are_the_ones_named():
     """A record gaining or losing `routes:` fails until this set is updated.
 
-    The set is every record the loader accepts without a `routes:` block, and
-    that can be two populations wearing one name: records the migration has
-    not reached, and records written after the routes schema existed that
-    declare neither schema, and so were never migrated from anything. The
-    first kind is gone: every record has migrated, and the loader now refuses
-    a record-level `tooling:` or `needs:`, so a record can no longer be written
-    on the legacy schema at all. The second kind is still accepted - a record
-    declaring neither, whose body says what to read instead - so the set is
-    empty by what the tree holds rather than by what the loader refuses, and a
-    new record of that kind fails here by name.
+    The set is every record the loader accepts without a `routes:` block: a
+    record with nothing to run, whose body says what to read instead. The
+    loader accepts one, so the set is empty by what the tree holds rather than
+    by what the loader refuses, and a new record of that kind fails here by
+    name.
     """
     checks, errors = ac.load_checks(ac.SKILLS_DIR)
     assert not errors, errors
-    legacy = {cid for cid, check in checks.items() if not check.routes}
-    assert legacy == RECORDS_DECLARING_NO_ROUTES
+    routeless = {cid for cid, check in checks.items() if not check.routes}
+    assert routeless == RECORDS_DECLARING_NO_ROUTES
 
 
 def test_every_tool_less_check_states_a_reading_procedure():
@@ -2974,22 +2312,13 @@ def test_every_tool_less_check_states_a_reading_procedure():
     read. If this fails, write the prose or the note the named record is
     missing - do not weaken either assertion.
 
-    One property read on each schema's own terms. A record declaring
-    `tooling:` says it in `## Tooling fallback`, the only place it has. A
-    record declaring `routes:` may not carry that section at all - the loader
-    rejects one beside routes - and says it per route instead, in the `note`
-    of a route naming no tool, which is the shape a route takes when there is
-    nothing for the harness to run. Scoping the first half by the declared
-    schema is what stops this reading as a demand for a section the routes
-    schema replaced; the second half is the same requirement where the routes
-    schema puts it, so the narrowing drops nothing.
-
-    The routed half reads every route naming no tool rather than only the
-    routes of a record whose projected `tooling` is empty, and that is wider
-    than the prose half on purpose. On the legacy schema a record with one
-    tool and one reading axis had nowhere to write the second, so the section
-    was all-or-nothing per record; on the routes schema each axis is its own
-    route and each one can be silent on its own.
+    Two shapes, each saying it in the one place it has. A record declaring no
+    routes says it in `## Tooling fallback`. A record declaring `routes:` may
+    not carry that section at all - the loader rejects one beside routes - and
+    says it per route instead, in the `note` of a route naming no tool, which
+    is the shape a route takes when there is nothing for the harness to run.
+    Each axis of a check is its own route, so each one can be silent on its
+    own, which is why the routed half reads every route naming no tool.
 
     **The loader now owns the routed half**, rejecting a tool-less route that
     carries no note, so `assert errors == []` below fires before `silent` can
@@ -3001,19 +2330,15 @@ def test_every_tool_less_check_states_a_reading_procedure():
     """
     checks, errors = ac.load_checks(ac.SKILLS_DIR)
     assert errors == []
-    prose_scope = [
-        check_id
-        for check_id, check in checks.items()
-        if ac.fallback_lives_in_prose(check) and not check.tooling
-    ]
+    prose_scope = [check_id for check_id, check in checks.items() if not check.routes]
     routed_scope = [
         check_id
         for check_id, check in checks.items()
         if any(route.tool is None for route in check.routes)
     ]
-    # The prose half is a record declaring neither schema, which the loader
-    # still accepts and which must then say what to read in that section; none
-    # exists today, and the half is what guards the next one.
+    # The prose half is a record declaring no routes, which the loader accepts
+    # and which must then say what to read in that section; none exists today,
+    # and the half is what guards the next one.
     assert routed_scope, sorted(routed_scope)
     missing = sorted(
         check_id
@@ -3021,7 +2346,7 @@ def test_every_tool_less_check_states_a_reading_procedure():
         if "\n## Tooling fallback" not in checks[check_id].path.read_text()
     )
     assert missing == [], (
-        f"these checks declare no tooling and state no fallback: {missing}"
+        f"these checks declare no routes and state no fallback: {missing}"
     )
     silent = sorted(
         f"{check_id}: routes[{i}]"
@@ -3060,37 +2385,61 @@ def test_every_review_lens_paragraph_carries_a_label():
     assert unlabeled == [], f"unlabeled review-lens paragraphs: {unlabeled}"
 
 
+def _tiers_a_record_gives(check: ac.Check) -> dict[str, frozenset[str]]:
+    """Each tool a record offers, mapped to the tiers its routes give it.
+
+    Over the non-forbidden routes naming a tool, so a route the record warns
+    against says nothing about what the tool needs. A tool none of whose
+    routes is tiered maps to the empty set, which is the claim that every way
+    the record runs it answers from a read-only clone.
+    """
+    tiers: dict[str, set[str]] = {}
+    for route in check.routes:
+        if route.tool is None or route.disposition == "forbidden":
+            continue
+        held = tiers.setdefault(route.tool, set())
+        if route.needs is not None:
+            held.add(route.needs)
+    return {tool: frozenset(held) for tool, held in tiers.items()}
+
+
 def test_a_tool_has_one_tier_across_the_family():
     """A tool needs the same thing everywhere, so two records that name it
-    must agree. This is the guard that can see *into* a record's
-    classification, and it sees only through a tool some other record
-    already classified: an absent `needs:` entry is a positive claim that
-    the tool runs against a read-only clone, so a record nobody examined is
-    indistinguishable from one deliberately left at the default unless the
-    same tool is classified elsewhere. The vacuity test below covers the
-    other half - that the sweep happened at all - by counting the records
-    that classify anything; neither reaches a wrongly-defaulted tool no
-    other record names. If this fails, classify the tool the same way in
-    both records - do not weaken the assertion.
+    must agree on the tiers they give it. This is the guard that can see
+    *into* a record's classification, and it sees only through a tool some
+    other record already classified: an absent `needs` on a route is a
+    positive claim that the route runs against a read-only clone, so a record
+    nobody examined is indistinguishable from one deliberately left at the
+    default unless the same tool is classified elsewhere. The vacuity test
+    below covers the other half - that the sweep happened at all - by
+    counting the records that classify anything; neither reaches a
+    wrongly-defaulted tool no other record names. If this fails, classify the
+    tool the same way in both records - do not weaken the assertion.
+
+    What is compared is the set of tiers a record's routes give a tool, not
+    one tier per route, because a tier belongs to how a route runs its tool:
+    ESLint under a config the audit supplies needs nothing, under the
+    target's own config it needs `target-execution`, and several records
+    carry both routes. So this catches a record that tiers none of a tool's
+    routes where the others tier one, or tiers it differently; it does not
+    catch two routes running a tool the same way under different tiers, which
+    only a reading keyed on the route's command could see.
     """
     checks, errors = ac.load_checks(ac.SKILLS_DIR)
     assert errors == []
-    tier_of: dict[str, tuple[str, str]] = {}
+    tiers_of: dict[str, tuple[frozenset[str], str]] = {}
     disagreements = []
     for check_id, check in sorted(checks.items()):
-        classified = {
-            name: tier for tier, names in check.needs.items() for name in names
-        }
-        for name in sorted({n for names in check.tooling.values() for n in names}):
-            tier = classified.get(name, "")
-            if name not in tier_of:
-                tier_of[name] = (tier, check_id)
+        for name, tiers in sorted(_tiers_a_record_gives(check).items()):
+            if name not in tiers_of:
+                tiers_of[name] = (tiers, check_id)
                 continue
-            seen_tier, seen_in = tier_of[name]
-            if seen_tier != tier:
+            seen_tiers, seen_in = tiers_of[name]
+            if seen_tiers != tiers:
                 disagreements.append(
-                    f"{name!r}: {seen_in} says {seen_tier or 'read-only clone'}, "
-                    f"{check_id} says {tier or 'read-only clone'}"
+                    f"{name!r}: {seen_in} says "
+                    f"{sorted(seen_tiers) or 'read-only clone'}, "
+                    f"{check_id} says {sorted(tiers) or 'read-only clone'}"
                 )
     assert disagreements == [], "the same tool is classified two ways: " + "; ".join(
         disagreements
@@ -3099,24 +2448,26 @@ def test_a_tool_has_one_tier_across_the_family():
 
 def test_the_classification_is_not_vacuous():
     """`test_a_tool_has_one_tier_across_the_family` passes trivially on a
-    tree where nothing is classified, which is the state this change exists
-    to leave behind. Assert the sweep actually happened, so deleting every
-    route's `needs:` field fails loudly instead of turning the guard above into a
-    no-op. The floor is the number of records the sweep classified, with no
-    slack: a floor below that count would let a classification be deleted
-    silently, and a deleted tier is not visibly missing - it reads as the
-    positive claim that every tool in the record answers from a read-only
-    clone. Adding a record that needs a tier therefore raises the floor
-    with it. If this fails, a classification was removed - restore it
+    tree where nothing is classified. Assert the sweep actually happened, so
+    deleting every route's `needs` field fails loudly instead of turning the
+    guard above into a no-op. The floor is the number of records classifying
+    a tool, with no slack: a floor below that count would let a
+    classification be deleted silently, and a deleted tier is not visibly
+    missing - it reads as the positive claim that the route answers from a
+    read-only clone. Adding a record that needs a tier therefore raises the
+    floor with it. If this fails, a classification was removed - restore it
     rather than lowering the floor.
     """
     checks, errors = ac.load_checks(ac.SKILLS_DIR)
     assert errors == []
-    classified = sorted(c.id for c in checks.values() if c.needs)
+    tiered = {
+        c.id: set().union(*_tiers_a_record_gives(c).values()) for c in checks.values()
+    }
+    classified = sorted(cid for cid, tiers in tiered.items() if tiers)
     assert len(classified) >= 23, (
         f"only {len(classified)} record(s) classify any tool: {classified}"
     )
-    assert {t for c in checks.values() for t in c.needs} == set(ac.NEEDS_TIERS), (
+    assert set().union(*tiered.values()) == set(ac.NEEDS_TIERS), (
         "both tiers should be in use across the family"
     )
 
@@ -3143,50 +2494,27 @@ def test_every_tooling_record_offers_a_typescript_lens():
     this fails, add the lens or add the record to the set with a reason; do
     not delete the assertion.
 
-    Each schema is read on its own terms, because the projected `tooling`
-    a migrated record exposes cannot answer this question. The projection
-    keeps a `kind: subject` route's tool under that route's language, and a
-    subject route names what the check inspects rather than what answers it
-    - so a record whose every TypeScript route is a subject satisfies a
-    projection-based check with routes that answer nothing, which is exactly
-    the clean bill this guard exists to refuse. On a record declaring
-    `routes:` the requirement is therefore at least one answering-kind
-    (`command`, `library`, `procedure`), non-`forbidden` route whose `lang`
-    is `typescript`, `any` or `none`. `any` and `none` both apply whatever
-    the partition's language is, and `none` is how a single repo-wide fact
-    read off configuration answers for every partition at once, so a record
-    whose only untyped route is one of those has a TypeScript lens.
-
-    On a record declaring `tooling:` the requirement is a `typescript:` or
-    `any:` key, and what is checked is that the key is present rather than
-    what sits under it, so `typescript: []` would satisfy it. A record
-    declaring neither schema is in scope under neither branch - it
-    prescribes a reading pass, which needs no language.
-
-    Do not close the projection gap by dropping subject routes from
-    `_project_tooling` instead. `arch/complexity-gate` names `ruff`, `radon`
-    and `xenon` as subjects and offers no other Python route, so its
-    projected `python:` entry would vanish, and two guards in
-    `test_python_fixture_harness.py` carry it: the per-tool split naming the
-    checks whose records offer `ruff`, and the three-way equality between
-    the records carrying a `python:` entry, the checks the harness runs and
-    `EXPECTATIONS`. The harness's side of that equality is both of its
-    enumeration sources, so for `arch/complexity-gate` it is the record's own
-    routes rather than a transcription that carries the entry.
+    The requirement is at least one answering-kind (`command`, `library`,
+    `procedure`), non-`forbidden` route whose `lang` is `typescript`, `any` or
+    `none`. A `kind: subject` route does not count: it names what the check
+    inspects rather than what answers it, so a record whose every TypeScript
+    route is a subject would otherwise earn the clean bill this guard exists
+    to refuse. `any` and `none` both apply whatever the partition's language
+    is, and `none` is how a single repo-wide fact read off configuration
+    answers for every partition at once, so a record whose only untyped route
+    is one of those has a TypeScript lens. A record declaring no routes is out
+    of scope - it prescribes a reading pass, which needs no language.
     """
     checks, errors = ac.load_checks(ac.SKILLS_DIR)
     assert errors == []
     gaps = set()
     for check_id, check in checks.items():
-        if check.routes:
-            if not any(
-                route.lang in {"typescript", "any", "none"}
-                and route.kind in ac.ANSWERING_ROUTE_KINDS
-                and route.disposition != "forbidden"
-                for route in check.routes
-            ):
-                gaps.add(check_id)
-        elif check.tooling and not ({"typescript", "any"} & set(check.tooling)):
+        if check.routes and not any(
+            route.lang in {"typescript", "any", "none"}
+            and route.kind in ac.ANSWERING_ROUTE_KINDS
+            and route.disposition != "forbidden"
+            for route in check.routes
+        ):
             gaps.add(check_id)
     assert gaps == _NO_TYPESCRIPT_LENS, (
         f"missing a TypeScript lens: {sorted(gaps - _NO_TYPESCRIPT_LENS)}; "
@@ -3194,77 +2522,11 @@ def test_every_tooling_record_offers_a_typescript_lens():
     )
 
 
-def test_a_record_that_classifies_a_tool_states_a_fallback():
-    """A `needs:` entry is machine-readable and says nothing about what to
-    do instead. `## Tooling fallback` is where an executing agent reads
-    that, so a record admitting one of its tools needs a grant must have
-    the section - otherwise the agent reaches for the tool, it fails, and
-    the check reports `no-evidence` for a reason the record could have
-    predicted. If this fails, write the section - do not weaken the
-    assertion.
-
-    This deliberately checks that the section exists and not that it names
-    each classified tool. A record whose whole fallback is another record's,
-    deferred to by reference rather than by restating its tool list, is a
-    shape the family writes and the right one where it does; an
-    every-name-must-appear rule would force such a record to duplicate
-    exactly what it was written to avoid. Whether the prose actually explains
-    the consequence is a reading pass, not a test.
-
-    Scoped to the records whose fallback lives in prose. On a record declaring
-    `routes:` the same requirement is machine-enforced instead of being a
-    section that exists: a language whose every answering route needs a grant
-    must carry `answers_ungranted`, and what to do instead is the untiered
-    route itself. The projected `needs` still reports a tier there, so without
-    the predicate this would demand a section the schema has replaced.
-    """
-    checks, errors = ac.load_checks(ac.SKILLS_DIR)
-    assert errors == []
-    silent = sorted(
-        check_id
-        for check_id, check in checks.items()
-        if check.needs
-        and ac.fallback_lives_in_prose(check)
-        and not re.search(
-            r"^## Tooling fallback\n\s*\S",
-            check.path.read_text(),
-            re.M,
-        )
-    )
-    assert silent == [], (
-        f"these records classify a tool and state no fallback: {silent}"
-    )
-
-
-def test_the_prose_fallback_predicate_follows_the_declared_schema():
-    """One predicate, so a property's scope cannot drift from the test's.
-
-    Read off the declared schema rather than off the presence of the section:
-    presence was what the properties that scoped on it were there to check, so keying
-    the scope on it would make each one vacuous on exactly the record it was
-    written to catch.
-    """
-    checks, errors = ac.load_checks(ac.SKILLS_DIR)
-    assert errors == []
-    prose = {c for c, k in checks.items() if ac.fallback_lives_in_prose(k)}
-    routed = {c for c, k in checks.items() if not ac.fallback_lives_in_prose(k)}
-    # The prose population is exactly the records declaring no routes, which
-    # the loader still accepts and `RECORDS_DECLARING_NO_ROUTES` names.
-    assert routed, len(routed)
-    assert prose == set(RECORDS_DECLARING_NO_ROUTES), sorted(prose)
-    assert prose | routed == set(checks)
-    assert not prose & routed
-    assert routed == {c for c, k in checks.items() if k.routes}
-
-
 def test_a_routes_record_may_not_carry_a_fallback_section(tmp_path):
-    """The direction the scoping cannot catch.
+    """A section beside the routes is a second copy of the prescription.
 
-    Scoping this suite's legacy-schema properties by `fallback_lives_in_prose`
-    stops them reading a section that is not there. It says nothing about a section coming
-    back: a migrated record that grows one again carries a second copy of its
-    routes that no property reads and nothing holds against them, which is the
-    state this whole change exists to end.
+    No property reads it and nothing holds it against the routes, so the
+    loader refuses it, which keeps a record to one copy of what it prescribes.
     """
     text = _routes_frontmatter("kind: command\n    tool: t\n    argv: [t]")
     _write(
@@ -3336,10 +2598,9 @@ def test_a_four_space_indented_block_is_not_a_fence(tmp_path, block):
     _write(
         tmp_path,
         "demo-audit/checks/thing.md",
-        _record(tooling={"python": ["t"]})
-        + f"\n## Tooling fallback\n\nRun `t`, which reports:\n\n{block}\n",
+        _record() + f"\n## Tooling fallback\n\nRead `t`'s report:\n\n{block}\n",
     )
-    checks, errors = ac.load_checks(tmp_path, legacy_schema=True)
+    checks, errors = ac.load_checks(tmp_path)
     assert errors == [], errors
     assert set(checks) == {"demo/thing"}
 
@@ -3367,26 +2628,13 @@ def test_no_record_in_the_tree_carries_a_fence():
     assert fenced == [], fenced
 
 
-def test_a_tooling_record_may_carry_a_fallback_section(tmp_path):
-    """Under `legacy_schema=True`, a record on the old schema may carry its section."""
-    _write(
-        tmp_path,
-        "demo-audit/checks/thing.md",
-        _record(tooling={"python": ["t"]})
-        + "\n## Tooling fallback\n\nRun `t` over the package.\n",
-    )
-    _, errors = ac.load_checks(tmp_path, legacy_schema=True)
-    assert errors == [], errors
-
-
 def test_a_tool_less_route_with_no_note_is_refused_by_name(tmp_path):
     """The note is the prescription where there is no tool and no argv.
 
     A `kind: procedure` route naming no tool is what a record writes when what
     answers the check is a reading rather than a command. Strip its note and
-    the route says nothing at all, while still reading through the projected
-    `tooling`/`needs` pair and every set guard over the family exactly like a
-    route that works. It is also the one route kind where nothing downstream
+    the route says nothing at all, while still reading through every set guard
+    over the family exactly like a route that works. It is also the one route kind where nothing downstream
     stands in: a `kind: command` route missing a note still has its argv.
     """
     errors = _errors_for_routes(tmp_path, [{"lang": "none", "kind": "procedure"}])
@@ -3459,14 +2707,13 @@ def test_the_tool_less_route_population_is_held():
 
 
 def test_a_tool_with_one_tiered_route_and_one_untiered_still_answers(tmp_path):
-    """The case the per-tool projection cannot express, stated as the two
-    readings disagreeing.
+    """The case a per-tool reading cannot express, stated as the two readings
+    disagreeing.
 
     `deps/inventory` is this shape: one `cyclonedx-py` route carrying the
     file-parsing subcommands untiered, and `cyclonedx-py environment` under
     `target-execution` because it starts the installed environment's
-    interpreter. Projected onto
-    the tool, the record's Python side reads as fully tiered and the grant
+    interpreter. Read per tool, the record's Python side reads as fully tiered and the grant
     looks decisive; read per route, an untiered route still runs a tool and
     the grant changes nothing about what the check answers.
     """
@@ -3484,8 +2731,9 @@ def test_a_tool_with_one_tiered_route_and_one_untiered_still_answers(tmp_path):
             },
         ],
     )
-    # The projection, which every pre-routes reader still sees, says tiered.
-    assert ac._fully_tiered_languages(check.tooling, check.needs) == ("python",)
+    # Read per tool - a tool tiered wherever any of its routes is - it is tiered.
+    tiered_tools = {r.tool for r in check.routes if r.needs}
+    assert {r.tool for r in check.routes} <= tiered_tools
     # Read per route, it does not - and that is the reading the round uses.
     assert ac._languages_whose_tools_all_need_a_grant(check.routes) == ()
     # Nothing is silenced either way, so no sentinel is demanded.
@@ -3622,9 +2870,8 @@ def test_an_untiered_universal_route_naming_a_tool_answers_for_every_language(
 def test_a_language_naming_no_tool_at_all_makes_no_claim_about_grants(tmp_path):
     """`all()` over an empty list is not a claim.
 
-    The same rule `_fully_tiered_languages` applies to a language listed with
-    no tools: a language answering only by a reading has said nothing a grant
-    can change, so it is absent rather than vacuously named.
+    A language answering only by a reading has said nothing a grant can
+    change, so it is absent rather than vacuously named.
     """
     check = _routes_record(
         tmp_path,
