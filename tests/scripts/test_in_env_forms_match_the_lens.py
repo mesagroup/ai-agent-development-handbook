@@ -36,7 +36,7 @@ OPENING = "**A route hands you the tool's own command line, not a runner's"
 
 # The lens's concrete values, and the placeholder the engine writes for each.
 TOOL = "some-tool"
-SUBSTITUTIONS = {TOOL: "<tool>", f"{VENV_BIN}/python": "<venv-python>"}
+SUBSTITUTIONS = {TOOL: "<tool>", f"{VENV_BIN}/python": "<path-to-venv-python>"}
 
 
 def _paragraph() -> str:
