@@ -883,10 +883,12 @@ def test_the_plugin_root_is_three_levels_above_any_skill_directory():
 
 
 def test_the_typescript_one_shot_fetches_the_routes_package_rather_than_its_tool():
-    """A route whose `package` differs from its `tool` is fetched by the package.
+    """A route is fetched by its package, whatever the command after it is called.
 
-    No TypeScript route in the tree declares a differing package today, which
-    is why a double carries it: without this, the npm half of the rule could
+    `deps/inventory`'s `@cdxgen/cdxgen` route is the live case: its command is
+    `cdxgen`, an unscoped name the registry does not carry, so only the package
+    form reaches the tool. No TypeScript route declares a `package` differing
+    from its `tool`, which is why a double carries that cell: without this, the npm half of the rule could
     regress to fetching the tool's name - the `cyclonedx-npm` placeholder shape
     - and nothing in the record set would notice.
     """
@@ -903,4 +905,14 @@ def test_the_typescript_one_shot_fetches_the_routes_package_rather_than_its_tool
         "pnpm",
         "--package=@cyclonedx/cyclonedx-npm",
         "dlx",
+    )
+    cdxgen = next(
+        i for i in routed_invocations("typescript") if i.tool == "@cdxgen/cdxgen"
+    )
+    assert argv_for(cdxgen, "npm")[0] == "cdxgen"
+    assert launcher(cdxgen, "npm", granted=False) == (
+        "npx",
+        "--yes",
+        "--package=@cdxgen/cdxgen",
+        "--",
     )

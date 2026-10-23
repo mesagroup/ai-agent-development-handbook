@@ -1969,19 +1969,23 @@ def packages_for(invocation: Invocation) -> tuple[str, ...]:
     )
 
 
-def python_one_shot(packages: Sequence[str], tool: str) -> tuple[str, ...]:
+def python_one_shot(packages: Sequence[str], command: str) -> tuple[str, ...]:
     """The isolated runner in front of a Python route's command, by the engine's rule.
 
-    `audit-core`'s route-running paragraph: a route whose `package` differs from
-    its `tool` tells the runner which package provides the command, as
-    `uvx --from <package>`, and the argv runs as written after it; a route whose
-    package is its tool's name takes the bare `uvx`. A companion the harness
-    adds rides along as `--with`, which needs `--from` to name the first
-    package even where it is the tool's own name, since `uvx --with` alone
-    would still resolve the command by its name.
+    `audit-core`'s route-running paragraph: a runner handed only a command
+    fetches the package named like that command, so wherever the package that
+    provides it is not the command's own name the runner is told the package,
+    as `uvx --from <package>`, and the argv runs as written after it. The
+    comparison is with `command`, the first word of what runs, and not with
+    the route's `tool`: `pytest-cov` is both a route's tool and its package
+    while the command is `pytest`, and the bare `uvx pytest` would fetch pytest
+    without the plugin. A companion the harness adds rides along as `--with`,
+    which needs `--from` to name the first package even where it is the
+    command's own name, since `uvx --with` alone would still resolve the
+    command by its name.
     """
     package, *companions = packages
-    if package == tool and not companions:
+    if package == command and not companions:
         return ("uvx",)
     extra = tuple(word for name in companions for word in ("--with", name))
     return ("uvx", "--from", package, *extra)
@@ -1993,8 +1997,14 @@ def launcher(
     *,
     granted: bool,
     honour_own_runner: bool = True,
+    command: str | None = None,
 ) -> tuple[str, ...]:
     """The words that go in front of the command, and how the tool is obtained.
+
+    `command` is the first word of what will run after these words, which
+    decides whether an isolated runner has to be told the package: the record's
+    own argv on this partition where the caller passes none, and the caller's
+    where it runs something else, as the version probe does.
 
     Nothing goes in front of a command the record already writes whole, which is
     what `own_runner` names - see that field for why such a route exists at all.
@@ -2065,7 +2075,10 @@ def launcher(
     packages = packages_for(invocation)
     extra = tuple(word for name in packages[1:] for word in ("--with", name))
     if not (invocation.in_env and granted):
-        return python_one_shot(packages, invocation.tool)
+        if command is None:
+            words = argv_for(invocation, partition)
+            command = words[0] if words else invocation.tool
+        return python_one_shot(packages, command)
     if partition == "uv":
         return ("uv", "run", "--no-sync", "--with", packages[0], *extra)
     return (
@@ -2089,7 +2102,8 @@ def _ts_launcher(
     `_ts_fixture_env` has already put on PATH, and there is no package to fetch.
     An `in_env` tool under a grant runs the tree's own copy through
     `TS_IN_ENV`; anything else is fetched once through `TS_ONE_SHOT`, naming
-    the tool as the package. As on the Python side, the argv itself never
+    the route's `package` as the package, or the tool's name on a row that
+    carries none, so the command after it never has to be the package's name. As on the Python side, the argv itself never
     changes here.
     """
     if invocation.tool in TS_MANAGER_TOOLS:
@@ -2690,7 +2704,9 @@ def probe_versions(
                 "this probe could run inside"
             )
             continue
-        prefix = launcher(inv, partition, granted=granted, honour_own_runner=False)
+        prefix = launcher(
+            inv, partition, granted=granted, honour_own_runner=False, command=probe[0]
+        )
         command = (*prefix, *probe)
         outcome = run(command, work_dir, timeout)
         stdout = str(outcome["stdout"]).strip()
