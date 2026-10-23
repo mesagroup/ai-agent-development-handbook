@@ -17,9 +17,7 @@ import argparse
 import json
 import re
 import sys
-from collections import Counter
-from dataclasses import dataclass, field, asdict
-
+from dataclasses import asdict, dataclass, field
 
 # ---------------------------------------------------------------------------
 # Directive patterns
@@ -59,9 +57,11 @@ _CONSTRAINT_LINE_RE = re.compile(
 # Data classes
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class SectionMetrics:
     """Metrics for a single section of the prompt."""
+
     id: str
     title: str
     level: int  # header level (2=##, 3=###)
@@ -82,6 +82,7 @@ class SectionMetrics:
 @dataclass
 class RedundancyGroup:
     """A group of similar constraint phrases found across sections."""
+
     pattern: str
     occurrences: int
     sections: list[str]
@@ -90,6 +91,7 @@ class RedundancyGroup:
 @dataclass
 class PromptAnalysis:
     """Complete quantitative analysis of a system prompt."""
+
     file_path: str
     total_words: int = 0
     total_chars: int = 0
@@ -106,6 +108,7 @@ class PromptAnalysis:
 # ---------------------------------------------------------------------------
 # Parsing
 # ---------------------------------------------------------------------------
+
 
 def _count_directives(text: str) -> dict[str, int]:
     counts = {}
@@ -158,9 +161,15 @@ def _detect_redundancy(text: str, sections: list[tuple]) -> list[RedundancyGroup
 
     # Common constraint verb phrases to track
     tracking_patterns = [
-        (r"(?:invent|fabricate|hallucinate).*(?:marker|ref|url|citation|identifier)", "invent/fabricate markers"),
+        (
+            r"(?:invent|fabricate|hallucinate).*(?:marker|ref|url|citation|identifier)",
+            "invent/fabricate markers",
+        ),
         (r"(?:preserve|copy|use).*(?:verbatim|exactly|character)", "preserve verbatim"),
-        (r"(?:modify|alter|truncate|shorten|reconstruct).*(?:marker|ref|url)", "modify/alter markers"),
+        (
+            r"(?:modify|alter|truncate|shorten|reconstruct).*(?:marker|ref|url)",
+            "modify/alter markers",
+        ),
         (r"(?:note|verify|record).*<ref>", "track <ref> values"),
         (r"(?:mention|expose).*(?:tool|service|internal)", "hide tool/service names"),
         (r"(?:invent|guess|approximate).*(?:URL|url|link)", "invent URLs"),
@@ -189,20 +198,24 @@ def _detect_redundancy(text: str, sections: list[tuple]) -> list[RedundancyGroup
     groups = []
     for label, secs in phrase_to_sections.items():
         if len(secs) >= 2:
-            groups.append(RedundancyGroup(
-                pattern=label,
-                occurrences=len(secs),
-                sections=sorted(secs),
-            ))
+            groups.append(
+                RedundancyGroup(
+                    pattern=label,
+                    occurrences=len(secs),
+                    sections=sorted(secs),
+                )
+            )
 
     # Add repeated exact lines
     for normalized, secs in line_sections.items():
         if len(secs) >= 3:
-            groups.append(RedundancyGroup(
-                pattern=f"repeated line: \"{normalized[:60]}...\"",
-                occurrences=len(secs),
-                sections=sorted(secs),
-            ))
+            groups.append(
+                RedundancyGroup(
+                    pattern=f'repeated line: "{normalized[:60]}..."',
+                    occurrences=len(secs),
+                    sections=sorted(secs),
+                )
+            )
 
     groups.sort(key=lambda g: g.occurrences, reverse=True)
     return groups
@@ -235,6 +248,7 @@ def _compute_flow_depth(graph: dict[str, list[str]]) -> int:
 # ---------------------------------------------------------------------------
 # Main analysis
 # ---------------------------------------------------------------------------
+
 
 def analyze(text: str, file_path: str = "<stdin>") -> PromptAnalysis:
     """Run full quantitative analysis on a system prompt text."""
@@ -285,6 +299,7 @@ def analyze(text: str, file_path: str = "<stdin>") -> PromptAnalysis:
 # Output formatting
 # ---------------------------------------------------------------------------
 
+
 def _format_json(analysis: PromptAnalysis) -> str:
     d = asdict(analysis)
     return json.dumps(d, indent=2, ensure_ascii=False)
@@ -298,8 +313,8 @@ def _format_markdown(analysis: PromptAnalysis) -> str:
     # Global summary
     lines.append("## Global Metrics")
     lines.append("")
-    lines.append(f"| Metric | Value |")
-    lines.append(f"|--------|-------|")
+    lines.append("| Metric | Value |")
+    lines.append("|--------|-------|")
     lines.append(f"| Words | {analysis.total_words:,} |")
     lines.append(f"| Characters | {analysis.total_chars:,} |")
     lines.append(f"| Lines | {analysis.total_lines:,} |")
@@ -312,7 +327,17 @@ def _format_markdown(analysis: PromptAnalysis) -> str:
     # Directive breakdown
     lines.append("### Directive Keyword Counts")
     lines.append("")
-    for kw in ["MUST", "MUST NOT", "SHALL NOT", "SHOULD", "SHOULD NOT", "MAY", "NEVER", "CRITICAL", "IMPORTANT"]:
+    for kw in [
+        "MUST",
+        "MUST NOT",
+        "SHALL NOT",
+        "SHOULD",
+        "SHOULD NOT",
+        "MAY",
+        "NEVER",
+        "CRITICAL",
+        "IMPORTANT",
+    ]:
         count = analysis.total_directives.get(kw, 0)
         if count:
             lines.append(f"- **{kw}**: {count}")
@@ -321,23 +346,37 @@ def _format_markdown(analysis: PromptAnalysis) -> str:
     # Per-section table
     lines.append("## Per-Section Breakdown")
     lines.append("")
-    lines.append("| Section | Words | Directives | Density (/100w) | Constraint lines | Cross-refs |")
-    lines.append("|---------|-------|-----------|-----------------|-----------------|------------|")
+    lines.append(
+        "| Section | Words | Directives | Density (/100w) | Constraint lines | Cross-refs |"
+    )
+    lines.append(
+        "|---------|-------|-----------|-----------------|-----------------|------------|"
+    )
     for s in analysis.sections:
         density = f"{s.directive_density:.1f}"
         xrefs = ", ".join(s.cross_refs) if s.cross_refs else "-"
         indent = "  " * (s.level - 2) if s.level > 2 else ""
         name = f"{indent}{s.id}: {s.title[:50]}"
-        lines.append(f"| {name} | {s.words} | {s.total_directives} | {density} | {s.constraint_lines} | {xrefs} |")
+        lines.append(
+            f"| {name} | {s.words} | {s.total_directives} | {density} | {s.constraint_lines} | {xrefs} |"
+        )
     lines.append("")
 
     # Top 5 heaviest sections
-    sorted_sections = sorted(analysis.sections, key=lambda s: s.total_directives, reverse=True)
+    sorted_sections = sorted(
+        analysis.sections, key=lambda s: s.total_directives, reverse=True
+    )
     lines.append("### Heaviest Sections (by directive count)")
     lines.append("")
     for s in sorted_sections[:5]:
-        pct = (s.total_directives / analysis.grand_total_directives * 100) if analysis.grand_total_directives else 0
-        lines.append(f"1. **{s.id}** ({s.title[:40]}): {s.total_directives} directives ({pct:.0f}% of total), {s.words} words")
+        pct = (
+            (s.total_directives / analysis.grand_total_directives * 100)
+            if analysis.grand_total_directives
+            else 0
+        )
+        lines.append(
+            f"1. **{s.id}** ({s.title[:40]}): {s.total_directives} directives ({pct:.0f}% of total), {s.words} words"
+        )
     lines.append("")
 
     # Cross-reference graph
@@ -346,7 +385,9 @@ def _format_markdown(analysis: PromptAnalysis) -> str:
         lines.append("")
         for src, targets in analysis.cross_reference_graph.items():
             lines.append(f"- {src} -> {', '.join(targets)}")
-        lines.append(f"\nData flow depth: {analysis.data_flow_depth} (longest forward reference chain)")
+        lines.append(
+            f"\nData flow depth: {analysis.data_flow_depth} (longest forward reference chain)"
+        )
         lines.append("")
 
     # Redundancy
@@ -356,7 +397,9 @@ def _format_markdown(analysis: PromptAnalysis) -> str:
         lines.append("Constraint themes appearing in multiple sections:")
         lines.append("")
         for g in analysis.redundancy_groups:
-            lines.append(f"- **{g.pattern}**: {g.occurrences} sections ({', '.join(g.sections)})")
+            lines.append(
+                f"- **{g.pattern}**: {g.occurrences} sections ({', '.join(g.sections)})"
+            )
         lines.append("")
 
     return "\n".join(lines)
@@ -366,11 +409,16 @@ def _format_markdown(analysis: PromptAnalysis) -> str:
 # CLI
 # ---------------------------------------------------------------------------
 
+
 def main():
     parser = argparse.ArgumentParser(description="Analyze a system prompt or SOP")
     parser.add_argument("file", help="Path to the prompt file (use '-' for stdin)")
-    parser.add_argument("--format", choices=["json", "markdown"], default="markdown",
-                        help="Output format (default: markdown)")
+    parser.add_argument(
+        "--format",
+        choices=["json", "markdown"],
+        default="markdown",
+        help="Output format (default: markdown)",
+    )
     args = parser.parse_args()
 
     if args.file == "-":
