@@ -4,10 +4,11 @@
 quantitative scan from a copy this plugin carries. Three things can go wrong
 with a copy, and none of them is visible from the record:
 
-- **The copy drifts.** An edit made here, even a linter's, turns it into a
-  fork nobody decided to maintain. `VENDORED.md` records the source commit and
-  the hash of the file taken from it, and the hash is held here, so a local
-  edit fails the suite and an update has to restate both.
+- **A copy drifts.** An edit made here, even a linter's, turns it into a fork
+  nobody decided to maintain. `VENDORED.md` records each vendored file's source
+  commit and hash, and every hash is held here, so a local edit fails the suite
+  and an update has to restate both. The analysis framework the skill links is
+  held the same way.
 - **The route stops naming it.** The argv spells the path under
   `${CLAUDE_PLUGIN_ROOT}`; a path that resolves to nothing in this checkout
   resolves to nothing in the plugin cache either.
@@ -30,9 +31,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 from audit_checks import SKILLS_DIR, load_checks
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SCRIPTS = REPO_ROOT / ".agents" / "skills" / "prompt-audit" / "scripts"
-VENDORED = SCRIPTS / "analyze_prompt.py"
-PROVENANCE = SCRIPTS / "VENDORED.md"
+SKILL = REPO_ROOT / ".agents" / "skills" / "prompt-audit"
+VENDORED = SKILL / "scripts" / "analyze_prompt.py"
+PROVENANCE = SKILL / "VENDORED.md"
 PLUGIN_ROOT = "${CLAUDE_PLUGIN_ROOT}"
 
 PROMPT = """# Assistant
@@ -57,20 +58,29 @@ def _route():
     return route
 
 
-def _recorded(field: str) -> str:
-    match = re.search(
-        rf"^\| {re.escape(field)} \| `([^`]+)` \|$",
+def _rows() -> dict[str, tuple[str, str]]:
+    """`VENDORED.md`'s table: skill-relative path to (source commit, SHA-256)."""
+    rows = re.findall(
+        r"^\| `([^`]+)` \| `[^`]+` \| `([0-9a-f]{40})` \| `([0-9a-f]{64})` \|$",
         PROVENANCE.read_text(encoding="utf-8"),
         re.MULTILINE,
     )
-    assert match, f"{PROVENANCE.name} records no {field}"
-    return match.group(1)
+    return {path: (commit, digest) for path, commit, digest in rows}
 
 
-def test_the_copy_is_the_file_its_provenance_names():
-    digest = hashlib.sha256(VENDORED.read_bytes()).hexdigest()
-    assert digest == _recorded("SHA-256")
-    assert re.fullmatch(r"[0-9a-f]{40}", _recorded("Source commit"))
+def test_every_copy_is_the_file_its_provenance_names():
+    rows = _rows()
+    assert set(rows) == {
+        "scripts/analyze_prompt.py",
+        "references/analysis-framework.md",
+    }
+    for path, (_, digest) in rows.items():
+        assert hashlib.sha256((SKILL / path).read_bytes()).hexdigest() == digest, path
+
+
+def test_the_skill_links_the_vendored_framework():
+    text = (SKILL / "SKILL.md").read_text(encoding="utf-8")
+    assert "](references/analysis-framework.md)" in text
 
 
 def test_the_route_runs_the_vendored_copy_through_the_interpreter():
