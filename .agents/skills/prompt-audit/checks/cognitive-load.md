@@ -8,16 +8,23 @@ routes:
   - lang: any
     kind: command
     tool: analyze_prompt.py
-    argv: [analyze_prompt.py, "<file>"]
+    argv: [python3, "<prompt-analyzer-dir>/scripts/analyze_prompt.py", "<file>"]
     own_runner: true
     applies_when: >-
       The project or the audit environment ships the `prompt-analyzer` skill,
       whose quantitative scan this script is.
     note: >-
-      **Quantitative scan:** `analyze_prompt.py <file>` (or with `--format
-      json`) gives the token budget, per-section directive counts and
-      density, the constraint-line count, the cross-reference graph +
-      data-flow depth, and the redundancy groups.
+      **Quantitative scan:**
+      `python3 <prompt-analyzer-dir>/scripts/analyze_prompt.py <file>` (or
+      with `--format json`) gives the token budget, per-section directive
+      counts and density, the constraint-line count, the cross-reference
+      graph + data-flow depth, and the redundancy groups.
+      `<prompt-analyzer-dir>` is the directory of the installed
+      `prompt-analyzer` skill. The script is run through the interpreter
+      rather than by name, because it ships without the executable bit:
+      measured with its directory on `PATH`, the bare `analyze_prompt.py`
+      fails with `Permission denied`. It imports only the standard library,
+      so any Python 3 runs it and nothing is fetched.
     alone_insufficient: >-
       The numbers are the input to the qualitative judgment, not the verdict
       themselves.
