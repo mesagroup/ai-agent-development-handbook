@@ -303,27 +303,30 @@ FROZEN_FORM = {
 # check computes over or inspects rather than invokes, so neither's own console
 # entry point (`hypothesis` needs `click`, which nothing here installs; `grimp`
 # has no console entry point at all) is what the family actually runs. Their
-# probes read the installed distribution's own metadata instead, and the
-# `--with <pkg>` is safe to bake into the probe itself only because both tools
-# are `in_env=False` everywhere they occur: `launcher` then returns bare
-# `("uvx",)` on every partition and every grant, so there is no in-environment
-# branch this hard-coded flag could collide with.
+# probes read the installed distribution's own metadata instead, through a
+# `python -c` the probe spells and nothing else: `launcher` is handed `python`
+# as the command, and by `audit-core`'s rule a package that is not the
+# command's name is named to the runner, so both are `in_env=False` everywhere
+# and run as `uvx --from grimp python -c ...`. Measured with uvx 0.12: that
+# form prints grimp's and hypothesis's versions. The probe carries no runner
+# flag of its own, because `launcher` compares the probe's first word with the
+# package, and a flag there would be compared as though it were the command.
 #
-# The four pytest plugins are the same shape without the safety condition: each
-# is `in_env=True`, so under a grant the tool is already present in the
-# materialized environment (or added via the same `--with` `launcher` computes
-# for the real check) and the bare `python -c` finds it with no flag of the
-# probe's own; under no grant it resolves to a bare interpreter with nothing
-# installed and the probe fails with `PackageNotFoundError`, which is recorded
-# as failure text rather than dropped - an honest answer, since there is no
-# environment to read the plugin's version from.
+# The four pytest plugins are the same shape and `in_env=True`: under a grant
+# the tool is present in the materialized environment, added via the same
+# `--with` `launcher` computes for the real check, and the bare `python -c`
+# finds it; under no grant the probe falls back to the one-shot runner, which
+# the same rule tells the package, so it reports the version a one-shot fetch
+# resolves - measured, `uvx --from pytest-cov python -c ...` reports it where
+# the bare `uvx python -c ...` raises `PackageNotFoundError` - and the route
+# itself does not run, as `launcher` says.
 _METADATA_VERSION = "from importlib.metadata import version; print(version({0!r}))"
 
 VERSION_PROBE: dict[str, tuple[str, ...] | None] = {
     "ruff": ("ruff", "--version"),
     "radon": ("radon", "--version"),
     "xenon": ("xenon", "--version"),
-    "grimp": ("--with", "grimp", "python", "-c", _METADATA_VERSION.format("grimp")),
+    "grimp": ("python", "-c", _METADATA_VERSION.format("grimp")),
     "pydeps": ("pydeps", "--version"),
     "import-linter": ("import-linter", "--version"),
     "tach": ("tach", "--version"),
@@ -350,13 +353,7 @@ VERSION_PROBE: dict[str, tuple[str, ...] | None] = {
     "pytest-timeout": ("python", "-c", _METADATA_VERSION.format("pytest-timeout")),
     "mutmut": ("mutmut", "--version"),
     "cosmic-ray": ("cosmic-ray", "--version"),
-    "hypothesis": (
-        "--with",
-        "hypothesis",
-        "python",
-        "-c",
-        _METADATA_VERSION.format("hypothesis"),
-    ),
+    "hypothesis": ("python", "-c", _METADATA_VERSION.format("hypothesis")),
 }
 
 # Empty on purpose rather than absent: every tool the harness enumerates, from
