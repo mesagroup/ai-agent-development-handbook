@@ -1425,9 +1425,10 @@ def grant_tier(check: str, tool: str, lang: str = "python") -> str:
     neighbouring question about the record rather than about one row.
 
     Where the record prescribes no `runs` command route for the tool in `lang`,
-    the tier is the first one any of its other offered routes for that tool
-    carries: such a row runs through whichever of them the lens composes, and
-    a tier one of them declares is one the row must hold.
+    the row runs no command, and its tier is the first offered route's for
+    that tool, because a record's route order is its precedence: a tier on a
+    later route of the same tool is not a claim about the first, which is the
+    rule above applied to a row with no command to gate.
 
     Returns:
         `resolved-tree`, `target-execution`, or the empty string where the
@@ -1452,7 +1453,7 @@ def grant_tier(check: str, tool: str, lang: str = "python") -> str:
     ]
     if prescribed:
         return prescribed[0].needs or ""
-    return next((route.needs for route in offered if route.needs), "")
+    return offered[0].needs or ""
 
 
 def _partition_keys(

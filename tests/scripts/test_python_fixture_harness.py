@@ -1606,6 +1606,43 @@ def test_the_tier_gating_a_row_is_the_prescribed_routes_not_the_tools(monkeypatc
         assert grant_tier("x/y", "t") == "target-execution"
 
 
+def test_a_row_with_no_command_takes_its_first_offered_routes_tier(monkeypatch):
+    """With no `runs` command route, the first offered route decides, and a
+    forbidden one is not offered.
+
+    A record's route order is its precedence, so a tier on a later route of the
+    same tool is not a claim about the first - the same rule as for a row with
+    a command, applied where there is no command to gate. A forbidden route is
+    one the record warns against, so its tier says nothing about the row.
+    """
+    later_tier = _routes_only_record(
+        _fake_route(kind="procedure", argv=(), note="audit-supplied config"),
+        _fake_route(
+            kind="procedure", argv=(), note="own config", needs="target-execution"
+        ),
+    )
+    with _records_replaced_by(monkeypatch, {"x/y": later_tier}):
+        assert grant_tier("x/y", "t") == ""
+
+    forbidden_first = _routes_only_record(
+        _fake_route(
+            kind="procedure", argv=(), disposition="forbidden", needs="resolved-tree"
+        ),
+        _fake_route(
+            kind="procedure", argv=(), note="read it", needs="target-execution"
+        ),
+    )
+    with _records_replaced_by(monkeypatch, {"x/y": forbidden_first}):
+        assert grant_tier("x/y", "t") == "target-execution"
+
+    only_forbidden = _routes_only_record(
+        _fake_route(kind="procedure", argv=(), disposition="forbidden"),
+    )
+    with _records_replaced_by(monkeypatch, {"x/y": only_forbidden}):
+        with pytest.raises(ValueError, match="does not offer"):
+            grant_tier("x/y", "t")
+
+
 def test_an_unknown_check_or_tool_is_rejected_by_name():
     with pytest.raises(ValueError, match="conda"):
         grant_tier("conda/whatever", "deptry")

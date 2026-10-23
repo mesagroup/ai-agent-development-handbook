@@ -362,7 +362,7 @@ def test_a_known_check_with_a_tool_no_longer_in_invocations_does_not_abort_gradi
     """`arch/over-abstraction` + `ruff` is a real instance, not a hypothetical.
 
     `fe2b0e42` (#45) dropped `ruff` from `arch/over-abstraction`'s tooling and
-    from `INVOCATIONS` in the same commit, but `fixtures/python/results/` is
+    from the harness's rows in the same commit, but `fixtures/python/results/` is
     gitignored and nothing regenerates it, so a results file written before
     that commit still carries this exact (check, tool) row. The check itself
     is still named by an expectation - this is not the orphan case - so the
