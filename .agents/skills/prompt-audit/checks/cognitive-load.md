@@ -8,30 +8,29 @@ routes:
   - lang: any
     kind: command
     tool: analyze_prompt.py
-    argv: [python3, "<prompt-analyzer-dir>/scripts/analyze_prompt.py", "<file>"]
+    argv: [python3, "${CLAUDE_PLUGIN_ROOT}/.agents/skills/prompt-audit/scripts/analyze_prompt.py", "<file>"]
     own_runner: true
-    applies_when: >-
-      The project or the audit environment ships the `prompt-analyzer` skill,
-      whose quantitative scan this script is.
     note: >-
       **Quantitative scan:**
-      `python3 <prompt-analyzer-dir>/scripts/analyze_prompt.py <file>` (or
-      with `--format json`) gives the token budget, per-section directive
-      counts and density, the constraint-line count, the cross-reference
-      graph + data-flow depth, and the redundancy groups.
-      `<prompt-analyzer-dir>` is the directory of the installed
-      `prompt-analyzer` skill. The script is run through the interpreter
-      rather than by name, because it ships without the executable bit:
-      measured with its directory on `PATH`, the bare `analyze_prompt.py`
-      fails with `Permission denied`. It imports only the standard library,
-      so any Python 3 runs it and nothing is fetched.
+      `python3 ${CLAUDE_PLUGIN_ROOT}/.agents/skills/prompt-audit/scripts/analyze_prompt.py <file>`
+      (or with `--format json`) gives the token budget, per-section
+      directive counts and density, the constraint-line count, the
+      cross-reference graph + data-flow depth, and the redundancy groups.
+      The script is the `prompt-analyzer` skill's scan, vendored into this
+      plugin, so it is present wherever the plugin is installed and the
+      target need not ship the skill. `python3` is the audit host's own
+      interpreter, not the target's, so the route needs no grant; the
+      script imports only the standard library, so nothing is fetched. It
+      is run through the interpreter rather than by name because it is not
+      tracked as executable: with its directory on `PATH`, the bare
+      `analyze_prompt.py` fails with `Permission denied`.
     alone_insufficient: >-
       The numbers are the input to the qualitative judgment, not the verdict
       themselves.
   - lang: any
     kind: procedure
     note: >-
-      Where `analyze_prompt.py` is not available, compute the same metrics
+      Where the vendored script cannot run, compute the same metrics
       inline: count RFC 2119 keywords per section, estimate tokens
       (~chars/4), and scan for repeated constraint lines - the framework is
       small.
