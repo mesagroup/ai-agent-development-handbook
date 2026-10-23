@@ -22,9 +22,16 @@ routes:
       findings, as one invocation whose operands are every workflow file this
       agent holds and every local action definition those workflows use - each
       action a `uses:` step names by a path starting `./`, under `.github` or
-      anywhere else in the tree, and the local actions those use in turn - each given as its
-      directory or its `action.yml`, and the workflows alone where they use
-      none; capture the rule id + `file:line`. Measured with zizmor 1.31.1 on a
+      anywhere else in the tree, and the local actions those use in turn - each
+      given as its definition file, `action.yml` or `action.yaml`, and each file
+      once, and the workflows alone where they use none. Never pass an action's
+      directory: a directory operand collects every workflow and action file
+      beneath it, so `uses: ./` would make it the whole tree, and a file named
+      twice reports its findings twice. Capture the rule id + `file:line`. A
+      `./` path resolves against the job's workspace, so where a step checks
+      code out to another `path:`, or checks out the pull request's code, the
+      file scanned is the clone's copy and not necessarily what the job ran,
+      which the reading route settles. Measured with zizmor 1.31.1 on a
       tree planting a template injection in a workflow and in two composite
       actions it uses: a workflow operand alone scans the workflow and not the
       actions; `zizmor .github` scans `.github/actions/` and misses an action
