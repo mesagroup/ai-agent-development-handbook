@@ -61,6 +61,7 @@ from run_python_fixture_lens import (
     DETAILS,
     DISPOSITIONS,
     FROZEN_FORM,
+    GRADED_ALTERNATIVES,
     GRANTS,
     HARNESS_COMPANIONS,
     INVOCATIONS,
@@ -81,6 +82,7 @@ from run_python_fixture_lens import (
     _fixture_env,
     _forms_for,
     _run,
+    _run_alternative,
     argv_for,
     classify,
     grant_tier,
@@ -4842,3 +4844,165 @@ def test_a_version_probe_starts_with_its_command_rather_than_a_runner_flag():
         grimp, "uv", granted=False, honour_own_runner=False, command=probe[0]
     )
     assert (*prefix, *probe[:2]) == ("uvx", "--from", "grimp", "python", "-c")
+
+
+# --- graded alternatives --------------------------------------------------------
+
+
+def test_the_graded_alternatives_are_exactly_the_opted_in_routes():
+    """An opt-in per route, so the set is pinned rather than grown by default."""
+    assert set(GRADED_ALTERNATIVES) == {("deps/inventory", "cyclonedx-py")}
+
+
+def test_the_inventory_row_carries_its_environment_route_as_the_alternative():
+    row = _entry("deps/inventory", "cyclonedx-py")
+    assert row.alternative_argv == (
+        "cyclonedx-py",
+        "environment",
+        "<path-to-venv-python>",
+    )
+    assert row.alternative_needs == "target-execution"
+    assert dict(row.alternative_fills) == {"<path-to-venv-python>": ".venv/bin/python"}
+    # The row's own command is untouched: the default route still runs.
+    assert row.prescribed("pip") == ("cyclonedx-py", "requirements")
+
+
+@pytest.mark.parametrize("count", [0, 2])
+def test_an_opt_in_needs_exactly_one_alternative_route(monkeypatch, count):
+    routes = [_fake_route(tool="cyclonedx-py", argv=("cyclonedx-py", "requirements"))]
+    routes += [
+        _fake_route(
+            tool="cyclonedx-py",
+            argv=("cyclonedx-py", "environment", f"<p{i}>"),
+            disposition="alternative",
+            needs="target-execution",
+        )
+        for i in range(count)
+    ]
+    records = {"deps/inventory": _fake_record(*routes)}
+    with (
+        _records_replaced_by(monkeypatch, records),
+        pytest.raises(ValueError, match="must carry one"),
+    ):
+        routed_invocations()
+
+
+def _alternative_row():
+    return Invocation(
+        check="deps/inventory",
+        tool="cyclonedx-py",
+        argv_by_partition=(
+            ("uv", ("uv", "export")),
+            ("pip", ("cyclonedx-py", "requirements")),
+        ),
+        own_runner=("uv",),
+        package="cyclonedx-bom",
+        alternative_argv=("cyclonedx-py", "environment", "<path-to-venv-python>"),
+        alternative_needs="target-execution",
+        alternative_fills=(("<path-to-venv-python>", ".venv/bin/python"),),
+        alternative_note="graded",
+    )
+
+
+@pytest.mark.parametrize("partition", ["uv", "pip"])
+def test_a_granted_alternative_runs_by_its_own_composition(tmp_path, partition):
+    """The row's `own_runner` is about its prescribed commands, so the uv
+    partition still fetches the alternative's package, and the placeholder is
+    filled rather than reaching the command."""
+    seen = []
+
+    def run(command, cwd, timeout):
+        seen.append(tuple(command))
+        return _outcome(stdout='{"components": []}')
+
+    entry = _run_alternative(
+        _alternative_row(),
+        partition,
+        granted=True,
+        blocked_by=None,
+        copy=tmp_path,
+        timeout=5,
+        run=run,
+    )
+    assert seen == [
+        (
+            "uvx",
+            "--from",
+            "cyclonedx-bom",
+            "cyclonedx-py",
+            "environment",
+            ".venv/bin/python",
+        )
+    ]
+    assert entry["ran"] is True and entry["status"] == "ok"
+    assert entry["record_argv"] == [
+        "cyclonedx-py",
+        "environment",
+        "<path-to-venv-python>",
+    ]
+
+
+def test_an_ungranted_alternative_is_not_permitted_and_runs_nothing(tmp_path):
+    entry = _run_alternative(
+        _alternative_row(),
+        "uv",
+        granted=False,
+        blocked_by=None,
+        copy=tmp_path,
+        timeout=5,
+        run=lambda *a: pytest.fail("ran an alternative without its grant"),
+    )
+    assert (entry["ran"], entry["status"], entry["reason"]) == (
+        False,
+        "no-evidence",
+        "not-permitted",
+    )
+
+
+def test_an_alternative_over_an_unbuilt_environment_says_so(tmp_path):
+    entry = _run_alternative(
+        _alternative_row(),
+        "uv",
+        granted=True,
+        blocked_by=["uv", "sync", "--frozen"],
+        copy=tmp_path,
+        timeout=5,
+        run=lambda *a: pytest.fail("ran an alternative against no environment"),
+    )
+    assert entry["detail"] == "environment-unmaterialized"
+    assert entry["reason"] == "tool-unavailable"
+
+
+def test_a_graded_alternative_needs_its_reason():
+    with pytest.raises(ValueError, match="reason it is graded"):
+        Invocation(check="c/x", tool="t", alternative_argv=("t",))
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {"then": ("cyclonedx-py", "validate")},
+        {"applies_when": "a venv exists"},
+        {"argv": ("cyclonedx-py", "environment", "<unfilled>")},
+    ],
+)
+def test_a_graded_alternative_the_round_would_run_in_part_is_refused(
+    monkeypatch, extra
+):
+    alternative = {
+        "tool": "cyclonedx-py",
+        "argv": ("cyclonedx-py", "environment", "<path-to-venv-python>"),
+        "disposition": "alternative",
+        "needs": "target-execution",
+    } | extra
+    records = {
+        "deps/inventory": _fake_record(
+            _fake_route(tool="cyclonedx-py", argv=("cyclonedx-py", "requirements")),
+            _fake_route(**alternative),
+        )
+    }
+    with (
+        _records_replaced_by(monkeypatch, records),
+        pytest.raises(ValueError, match=r"does not run|has no fill"),
+    ):
+        routed_invocations()

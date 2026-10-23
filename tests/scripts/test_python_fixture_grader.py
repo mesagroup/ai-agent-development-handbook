@@ -844,3 +844,37 @@ def test_an_entry_saying_its_result_stands_alone_is_not_marked(grader):
     rows = [r for r in grader.grade_rows(run) if r.check == "security/injection"]
     assert rows[0].observations[0].alone_insufficient == ""
     assert "not the check's answer alone" not in grader.render(rows)
+
+
+def test_a_graded_alternative_is_its_own_labelled_observation(grader):
+    """The row's prescribed command and its graded alternative are two answers.
+
+    Shown side by side, each with its own status, and the alternative labelled,
+    so a reader never takes the alternative's result for the prescribed route's.
+    """
+    run = {
+        "partition": "pylock",
+        "grant": "target-execution",
+        "results": [
+            {
+                "check": "deps/inventory",
+                "tool": "cyclonedx-py",
+                "ran": True,
+                "status": "no-evidence",
+                "reason": "tool-failed",
+                "alternative": {
+                    "ran": True,
+                    "status": "ok",
+                    "reason": "",
+                    "stdout": '{"components": []}',
+                },
+            }
+        ],
+    }
+    entries = grader.observations_for(run, "deps/inventory")
+    assert [e["tool"] for e in entries] == [
+        "cyclonedx-py",
+        "cyclonedx-py (graded alternative)",
+    ]
+    assert [e["status"] for e in entries] == ["no-evidence", "ok"]
+    assert entries[1]["findings_stream"] == entries[0]["findings_stream"]
