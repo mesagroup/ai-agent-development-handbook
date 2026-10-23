@@ -52,11 +52,10 @@ def test_findings_stream_is_looked_up_when_the_entry_carries_none(grader):
     against `fixtures/python/results/pip-none.json`), so `observations_for` has
     to look the stream up from the harness's own enumeration rather than
     default to stdout - the default that reads a deptry run backwards. The
-    entry this test uses is `deptry`, whose record declares routes, so the
-    lookup answers it out of `routed_invocations`; the lookup reads
-    `INVOCATIONS` too, the legacy slot, empty today, and
+    entry this test uses is `deptry`, which the lookup answers out of
+    `routed_invocations`, and
     `test_every_row_the_harness_can_produce_resolves_a_findings_stream` holds
-    that it reads both.
+    that it resolves every row.
     """
     run = {
         "partition": "pip",
@@ -80,7 +79,7 @@ def test_findings_stream_is_looked_up_when_the_entry_carries_none(grader):
 def test_observations_for_marks_the_stream_unresolved_when_the_pair_is_not_in_the_invocation_table(
     grader,
 ):
-    """A stale row naming a tool `INVOCATIONS` no longer carries for this
+    """A stale row naming a tool the harness's rows no longer carry for this
     check must not abort grading - see `arch/over-abstraction` + `ruff`
     (`fe2b0e42`, #45), a real instance of exactly this drift.
     """
@@ -326,7 +325,7 @@ def test_an_orphan_entry_gets_its_own_row_instead_of_vanishing(grader, spec):
 
 
 def test_an_orphan_entry_does_not_raise_even_when_the_tool_is_unknown(grader):
-    """The (check, tool) pair here is not in `INVOCATIONS` either.
+    """The (check, tool) pair here is not one the harness's rows carry either.
 
     An orphan row must not go through `_findings_stream_for`'s lookup at all -
     there is no expectation to draw seeds from, so no signal is ever computed
@@ -767,16 +766,14 @@ def test_every_row_the_harness_can_produce_resolves_a_findings_stream(grader):
     stderr, and a lookup that cannot resolve it reads nothing where the tool
     wrote its whole report.
 
-    Built from `INVOCATIONS` alone this held vacuously, because every pair it
-    could be asked about came from the same table it was built from. The
-    records that declare their routes are enumerated elsewhere, so the two
-    sides can now disagree, and this is what says they do not.
+    The grader builds its lookup through its own `_enumeration`, so the two
+    sides can disagree, and this is what says they do not.
     """
-    from run_python_fixture_lens import INVOCATIONS, routed_invocations
+    from run_python_fixture_lens import routed_invocations
 
     unresolved = sorted(
         (inv.check, inv.tool)
-        for inv in INVOCATIONS + routed_invocations()
+        for inv in routed_invocations()
         if grader._findings_stream_for({"check": inv.check, "tool": inv.tool})
         == grader.UNRESOLVED_FINDINGS_STREAM
     )

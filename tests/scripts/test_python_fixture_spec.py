@@ -73,8 +73,7 @@ def _python_lens_records() -> set[str]:
     """Every check record in the family that names a Python tool.
 
     Read from the records rather than listed here: the fixture round exercises
-    the `python:` tooling entries, written as frontmatter or projected from
-    routes, so the set it covers is whatever the family currently names rather
+    the records' Python routes that name a tool, so the set it covers is whatever the family currently names rather
     than a copy taken when this was written.
 
     A record can carry a `lang: python` route and still sit outside this set,
@@ -87,7 +86,16 @@ def _python_lens_records() -> set[str]:
     """
     checks, errors = load_checks(SKILLS_DIR)
     assert not errors, errors
-    return {cid for cid, check in checks.items() if check.tooling.get("python")}
+    return {
+        cid
+        for cid, check in checks.items()
+        if any(
+            route.lang == "python"
+            and route.tool is not None
+            and route.disposition != "forbidden"
+            for route in check.routes
+        )
+    }
 
 
 def test_every_dependency_name_is_a_bare_toml_key():
@@ -623,21 +631,17 @@ def test_the_ungranted_answer_is_stated_exactly_where_the_grant_changes_it():
     in both states. Deriving the requirement rather than eyeballing it is what
     stops a new expectation quietly omitting the axis.
 
-    **Both halves read the schema the record declares, and neither is
-    schema-neutral.** A record declaring `routes:` states what still answers by
-    keeping an untiered answering route, and carries a tier per route; every
-    record does. The legacy branch below - a record declaring `tooling:`,
-    stating it in `ungranted_note` with a tier per tool - is reachable only
-    under `legacy_schema=True` and goes with the legacy readers.
+    **Both halves read the routes.** A record states what still answers by
+    keeping an untiered answering route, and carries a tier per route.
 
-    The tiered half is what reads per route, and the reason is that
-    `_project_needs` collapses routes onto tools. A tool with one tiered route
-    and one untiered route reads through the projected pair as tiered, so the
-    record's whole language does too, and the derivation then demands an
+    The tiered half reads per route, and the reason is that a reading keyed by
+    tool collapses routes onto tools. A tool with one tiered route and one
+    untiered route reads that way as tiered, so the record's whole language
+    does too, and the derivation then demands an
     ungranted claim from a check whose default route is untiered and answers
     the same either way. `deps/inventory` is that shape. Reading it per route
     through `_languages_whose_tools_all_need_a_grant` asks the question the
-    projection cannot: whether any route *naming a tool* still answers.
+    per-tool reading cannot: whether any route *naming a tool* still answers.
 
     The two halves are deliberately over different sets, and collapsing them
     breaks this test rather than simplifying it. Asking whether every
@@ -647,24 +651,18 @@ def test_the_ungranted_answer_is_stated_exactly_where_the_grant_changes_it():
     expectation carrying a measured `ungranted` claim would lose it. What
     distinguishes the records that need the claim is that their untiered
     escape names no tool: `deps/freshness` has `uv` and `pip` both tiered and
-    a registry-comparison route that needs no grant and names nothing, so it
-    projects no tool at all and the pair is the one place that answer is
+    a registry-comparison route that needs no grant and names nothing, so a
+    reading over the routes that name a tool is the one place that answer is
     invisible.
     """
     checks, errors = load_checks(SKILLS_DIR)
     assert not errors, errors
     for expectation in EXPECTATIONS:
         record = checks[expectation.check]
-        if record.routes:
-            tooling_needs_a_grant = "python" in _languages_whose_tools_all_need_a_grant(
-                record.routes
-            )
-            answers = bool(_routes_answering_ungranted(record.routes).get("python", ()))
-        else:
-            python_tools = set(record.tooling.get("python", ()))
-            tiered = {t for names in (record.needs or {}).values() for t in names}
-            tooling_needs_a_grant = bool(python_tools) and python_tools <= tiered
-            answers = (record.ungranted_note or "").strip() not in ("", "none")
+        tooling_needs_a_grant = "python" in _languages_whose_tools_all_need_a_grant(
+            record.routes
+        )
+        answers = bool(_routes_answering_ungranted(record.routes).get("python", ()))
         differs = tooling_needs_a_grant and answers
         assert bool(expectation.ungranted) == differs, (expectation.check, differs)
 
@@ -677,7 +675,7 @@ def test_the_ungranted_axis_is_not_vacuous():
     the claims were deleted in the same breath, which moves both sides
     together and leaves it green. That is the shape this floor exists for, and
     it is the same argument `test_the_classification_is_not_vacuous` makes
-    about `needs:`.
+    about a route's `needs`.
 
     The floor is the number of expectations carrying the axis today, with no
     slack, because each of those claims was graded against an actual

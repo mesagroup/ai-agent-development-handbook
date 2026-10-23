@@ -29,11 +29,8 @@ Frontmatter fields:
 | `locality` | yes | `local` (decidable from one partition) or `global` |
 | `handbook` | yes | Handbook row ids grounding the check; may be empty |
 | `handbook_note` | iff `handbook` is empty | Why the check exceeds the handbook |
-| `tooling` | refused | The legacy schema's language-to-tools list; projected from `routes` instead |
-| `needs` | refused | The legacy schema's tier-to-tools mapping; projected from `routes` instead |
-| `ungranted_note` | refused, as vacuous without `tooling` | The legacy schema's claim about what answers once a grant is withheld |
-| `routes` | no, and non-empty where present | A list of `Route`s: what this check can run, replacing `tooling`/`needs`/`ungranted_note` |
-| `answers_ungranted` | iff every answering-kind route in a language needs a grant | The routes-schema counterpart of `ungranted_note`: the sentinel `none`, written where no route in that language answers without a grant |
+| `routes` | no, and non-empty where present | A list of `Route`s: what this check can run, each in one language, with its tool, its command and its tier |
+| `answers_ungranted` | iff every answering-kind route in a language needs a grant | The sentinel `none`, written where no route in that language answers without a grant |
 | `evidence` | no, and non-empty where present | What this check measures and what a row records as its evidence, where that belongs to the check rather than to any one route |
 | `optin` | no | Default `false`; an opt-in sub-audit that produces findings |
 
@@ -42,47 +39,25 @@ clauses. It is not required to be exhaustive - the matrix is the
 authoritative edge set - but everything it lists must be true, and a check
 some row cites may not claim to be ungrounded.
 
-A `tooling` value is a list of names, not of invocations, and a name may be
-a registry package, a subcommand of the target's own package manager, or a
-standalone binary in no registry. Nothing here validates which - a name is
-only a string to this loader - so the legacy schema stated the kind and the
-precedence between its names in `## Tooling fallback` prose. A record
-carrying `routes` (below) states both as data:
-`kind` is a field on every route, and precedence is the route's
-`disposition` and its position in the list, so neither depends on prose
-there.
+A route's tool may be a registry package, a subcommand of the target's own
+package manager, or a standalone binary in no registry, and a record's routes
+state both that and the precedence between them as data: `kind` and `registry`
+are fields of every route, and precedence is the route's `disposition` and its
+position in the list. `tooling`, `needs` and `ungranted_note` are refused at
+record level by name (`REFUSED_FIELDS`), each with a message naming what
+replaces it, rather than reported as unknown keys.
 
-The legacy readers below are kept until their own retirement, though the
-loader refuses a record-level `tooling` or `needs` on a real tree;
-`load_checks(..., legacy_schema=True)` skips that refusal for the tests that
-still hold them.
-
-`needs` answers a different question about the same names: not where the
-tool comes from, but what must be present in the target before it can
-answer. A tool absent from `needs` runs against a read-only clone;
-`resolved-tree` needs the dependency graph materialized; `target-execution`
-needs that and runs code from the target's graph, the target's own or an
-installed package's, a `.pth` startup hook included. The names are deliberately
-repeated from `tooling` rather than folded into it on the legacy schema, and
-the repetition was what is checked there: every name under `needs` must be one
-the record actually offers, so a rename that misses one of the two places fails
-here instead of quietly describing a tool that is no longer listed.
-
-`ungranted_note` answers a third question, and it is about the check rather
-than about any tool: when the tools need a grant this run does not hold,
-what can the check still answer? `needs` cannot express this, because it
-is per-tool, and the engine's rule - a check whose every tool needs a
-grant is `no-evidence` without it - is a check-level conclusion derived
-from tool-level facts. That derivation is wrong wherever a check has an
-axis needing no tool, which is why the field exists rather than the
-records arguing with their own frontmatter in prose. The value is either
-what still answers, or the sentinel `none` where nothing does, and it is
-rejected on a record that keeps a tool answering from a read-only clone,
-because there the withheld-grant situation it describes cannot arise.
-It was required on exactly the records this rule would silence, so an absent
-key was never a silent claim; with no record-level `tooling` there is nothing
-it can be required on, so outside `legacy_schema=True` it is refused as
-vacuous wherever it appears.
+A route's `needs` answers a different question from where its tool comes from:
+what must be present in the target before the route can answer. A route with
+no tier runs against a read-only clone; `resolved-tree` needs the dependency
+graph materialized; `target-execution` needs that and runs code from the
+target's graph, the target's own or an installed package's, a `.pth` startup
+hook included. The tier belongs to the route rather than to its tool, because
+two routes running one tool differently can need different things:
+`deps/inventory`'s `cyclonedx-py` reads a lockfile untiered on one route and an
+installed environment under `target-execution` on another, and ESLint runs
+under a config the audit supplies on one route and under the target's own on
+another.
 
 `evidence` is the one field that is about neither the tools nor the grant:
 what does this check measure, and what does a row record as the evidence
@@ -90,41 +65,33 @@ behind it? A record whose every route measures the same thing says it once
 here rather than once per route, which is the case that has no other home -
 a route's own `note` is the right place for a measurement only that route
 takes. It is optional and carries no derived meaning, so
-an absent key claims nothing at all; that is the difference from `needs`,
-whose absence is the positive claim that no tool here needs a grant. What
+an absent key claims nothing at all; that is the difference from a route's
+`needs`, whose absence is the positive claim that the route needs no grant. What
 it must not be is present and empty, because YAML reads a bare key as
 nothing and the dataclass cannot tell that from an omitted one.
 
-Every record declares `routes` in place of `tooling`/`needs`/`ungranted_note`:
-one list of `Route`s, each one way of answering the check in one language,
-in place of a free-form tool list plus the two side mappings that classify
-it. The list must hold at least one route, because an empty one is the
-schema declared and then not stated - indistinguishable downstream from a
-record that never declared it. A record carrying `routes` and a legacy key is rejected for carrying both, because a route's tier is the only place a tool's requirement is
-declared, and repeating it under `needs` too would reopen the drift
-`needs`'s own repetition-check exists to close. A record's
-`tooling` and `needs` are then derived from its routes by projection (see
-`_project_tooling` and `_project_needs`), so the call sites in
-`run_python_fixture_lens.py`, `test_python_fixture_harness.py` and
-`test_python_fixture_spec.py` that predate `routes` still read the same
-shape without change - `test_python_fixture_spec.py` now reads it on the
-legacy branch only, and `run_python_fixture_lens.py`'s `grant_tier` reads
-the prescribed route instead. The shape is all the projection carries: the
-tools and their tiers, and no ungranted claim, so the questions about
-grants are read from the routes and never off the projected pair. Whether a
-withheld grant silences a language goes through `_silenced_languages`;
-whether any *tool* still answers there goes through
-`_languages_whose_tools_all_need_a_grant`. The pair over-reports tiering in
-two structurally different ways, which is why neither is derived from it:
-`_project_tooling` keeps a `kind: subject` route's tool under its language,
-which is how a language nothing there was answering reads as fully tiered;
-and `_project_needs` collapses a record's routes onto their tools, so a
-tool carrying one tiered route and one untiered route reads as simply
-tiered - `deps/inventory`'s `cyclonedx-py` is that shape, and reading the
-pair for it withheld a whole row over one tiered `alternative` route. A record
-declaring `routes` may not also carry a `## Tooling fallback` section: on
-this schema the routes are the fallback, and a section beside them would be
-a second copy nothing holds against the first, and read by no property.
+`routes` is one list of `Route`s, each one way of answering the check in one
+language. The list must hold at least one route where the key is present,
+because an empty one is the schema declared and then not stated -
+indistinguishable downstream from a record that never declared it. A record
+declaring no `routes` at all is one with nothing to run, and states what to
+read instead in a `## Tooling fallback` section of its body. A record declaring
+`routes` may not also carry that section: there the routes are the fallback,
+and a section beside them would be a second copy of the prescription nothing
+holds against the first, so prose prescriptions could return beside the routes
+with nothing reading them.
+
+Whether a withheld grant silences a language, and whether any *tool* still
+answers there, are read from the routes rather than from any per-tool summary
+of them: `_silenced_languages` and `_languages_whose_tools_all_need_a_grant`.
+A summary over-reports tiering in two structurally different ways, which is
+why neither question is derived from one. Keyed by language, it keeps a
+`kind: subject` route's tool, which is how a language nothing there was
+answering would read as fully tiered; keyed by tool, it collapses a record's
+routes onto their tools, so a tool carrying one tiered route and one untiered
+one reads as simply tiered - `deps/inventory`'s `cyclonedx-py` is that shape,
+and a reading keyed by tool once withheld a whole row over one tiered
+`alternative` route.
 
 The body is validated too, which the split above understates: it must carry
 an `# ` title, being the check's display name, and it may not carry a fenced
@@ -148,11 +115,12 @@ record has no concrete language, and to at least two distinct values where
 it appears; a record whose every route answers the whole check carries it
 nowhere.
 
-`answers_ungranted` is `ungranted_note`'s counterpart under `routes`: where
-every answering-kind route (`command`, `library`, `procedure`) a language
-offers needs a grant, the record must also carry an untiered route that
-answers there, or the sentinel `none`, for the same reason `ungranted_note`
-is required rather than left to an absent key reading as a claim. A route
+`answers_ungranted` covers the case the engine's rule gets wrong if left to
+derive it: where every answering-kind route (`command`, `library`,
+`procedure`) a language offers needs a grant, the record must also carry an
+untiered route that answers there, or the sentinel `none`, so a withheld grant
+silencing the check is a claim the record makes rather than an absent key
+read as one. A route
 whose `lang` is one of `UNIVERSAL_ROUTE_LANGS` answers in every language
 the record answers for, because that is what those two `ROUTE_LANGS`
 values mean, so an untiered one rescues a language whose own routes are
@@ -175,8 +143,7 @@ default. `_routes_answering_ungranted` computes, per language, the routes
 actually in scope for this: the answering-kind, non-forbidden routes
 carrying no tier, each language's own plus the universal ones. A
 language absent from its result has offered no such route at all, so it
-has made no claim this rule can silence, exactly as a language absent
-from `tooling` made none under the legacy schema.
+has made no claim this rule can silence.
 
 Usage:
     from audit_checks import SKILLS_DIR, load_checks
@@ -215,8 +182,7 @@ NEEDS_TIERS = ("resolved-tree", "target-execution")
 UNGRANTED_NONE = "none"
 # A route's four vocabularies. `ROUTE_LANGS` includes `none` alongside the
 # languages: a procedure route that names no tool (reading source, reading
-# CI config) belongs to no language, which `tooling`'s bare language keys
-# had no way to say.
+# CI config) belongs to no language.
 ROUTE_KINDS = ("command", "library", "procedure", "subject")
 # The `ROUTE_KINDS` that can answer the check at all. `subject` is the one
 # absence: it names what the check inspects rather than what runs it -
@@ -272,15 +238,36 @@ FIELDS = frozenset(
         "locality",
         "handbook",
         "handbook_note",
-        "tooling",
-        "needs",
-        "ungranted_note",
         "routes",
         "answers_ungranted",
         "evidence",
         "optin",
     }
 )
+
+# Record-level keys a record may not carry, each with what replaces it. They
+# are kept out of `FIELDS` and reported here rather than as unknown keys so the
+# message points at the replacement. `tooling` and `needs` were a language-to-
+# tools list and a tier-to-tools mapping, which held a tool's tier apart from
+# the tool and left the kind and precedence of each name to prose; a route
+# carries all four. `ungranted_note` said in prose what still answered once a
+# grant was withheld, which is now an untiered route where something does and
+# `answers_ungranted: none` where nothing does.
+REFUSED_FIELDS = {
+    "tooling": (
+        "a record-level tooling is not a field - declare `routes:`, one route "
+        "per way of answering the check, each naming its own tool"
+    ),
+    "needs": (
+        "a record-level needs is not a field - a tier belongs to the route that "
+        "needs it, as that route's own `needs`"
+    ),
+    "ungranted_note": (
+        "ungranted_note is not a field - where something still answers with no "
+        "grant held, declare it as an untiered route; where nothing does, write "
+        f"answers_ungranted: {UNGRANTED_NONE!r}"
+    ),
+}
 
 _FRONTMATTER_RE = re.compile(r"\A---\n(.*?)\n---(?:\n(.*))?\Z", re.DOTALL)
 _TITLE_RE = re.compile(r"^# (.+?)\s*$", re.MULTILINE)
@@ -322,12 +309,10 @@ class Route:
     where the rest of the route's commands do.
 
     Each of the two is a record's own declaration rather than anything derived,
-    so which records carry either moves as the migration runs and `grep
-    own_runner` and `grep "then:"` over the check tree is the way to ask.
-    `deps/inventory` and `test/coverage-reach` are the records the two fields
-    were written for - the schema moved ahead of them because neither could be
-    migrated without it - and each now declares its own: `own_runner: [uv]` on
-    the first, `then` on the second.
+    so `grep own_runner` and `grep "then:"` over the check tree is the way to
+    ask which records carry either. `deps/inventory` and `test/coverage-reach`
+    are the records the two fields were written for: `own_runner: [uv]` on the
+    first, `then` on the second.
 
     A runner-led shared argv is the shape that wants the flag, and the test is
     the argv's own first token: a fetcher there - `npx` or a `dlx` - means the
@@ -416,9 +401,6 @@ class Check:
     title: str
     handbook: tuple[str, ...]
     handbook_note: str | None
-    tooling: dict[str, tuple[str, ...]]
-    needs: dict[str, tuple[str, ...]]
-    ungranted_note: str | None
     routes: tuple[Route, ...]
     answers_ungranted: str | None
     evidence: str | None
@@ -477,33 +459,6 @@ def _str_list(value: Any) -> tuple[str, ...] | None:
     if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
         return None
     return tuple(value)
-
-
-def _fully_tiered_languages(
-    tooling: dict[str, tuple[str, ...]], needs: dict[str, tuple[str, ...]]
-) -> tuple[str, ...]:
-    """Languages whose every offered tool needs a grant.
-
-    These are the (record, language) pairs the engine silences: with no
-    grant held, a check has nothing left to run in that language, so it
-    reports `no-evidence (not-permitted)` unless the record says otherwise.
-    A language offering no tools at all is not one of them - `all()` is
-    vacuously true over an empty list, and a record that lists a language
-    with no tools has said nothing about grants.
-
-    Args:
-        tooling: Language to the tools the record offers.
-        needs: Tier to the tools that need it.
-
-    Returns:
-        The languages, sorted, so a message naming them is stable.
-    """
-    tiered = {name for names in needs.values() for name in names}
-    return tuple(
-        lang
-        for lang, names in sorted(tooling.items())
-        if names and all(name in tiered for name in names)
-    )
 
 
 def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
@@ -579,7 +534,7 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
 
     The empty list is rejected rather than tolerated because `routes: []` and
     an absent `routes` key are indistinguishable to everything downstream:
-    both project to no tooling and no needs, neither can silence a language,
+    both offer no route, neither can silence a language,
     and so neither is ever asked for `answers_ungranted`. A record that
     declared the routes schema and then listed nothing would read as one that
     never declared it, which is the schema question answered by default in
@@ -1010,8 +965,8 @@ def _load_routes(raw: Any, where: str) -> tuple[tuple[Route, ...], list[str]]:
                 "prescription. With no tool and no argv, the note is the whole "
                 "of what this route says to do, so without one the record "
                 "offers a way of answering the check that carries nothing an "
-                "agent or a consumer can act on, and reads through the "
-                "projected tooling/needs pair exactly like a route that works"
+                "agent or a consumer can act on, and reads to every set guard "
+                "over the family exactly like a route that works"
             )
         elif (
             tool is not None
@@ -1163,69 +1118,6 @@ def registry_for(route: Route) -> str | None:
     return REGISTRY_BY_LANG.get(route.lang)
 
 
-def _project_tooling(routes: tuple[Route, ...]) -> dict[str, tuple[str, ...]]:
-    """Derive a legacy `tooling` mapping from a migrated record's routes.
-
-    This is a view, not a second source - a route is the only place a tool is
-    declared. It exists so the call sites in `run_python_fixture_lens.py` and
-    its tests that still read `Check.tooling` see the same shape they always
-    have, without a migrated record repeating each tool a second time.
-
-    Args:
-        routes: The record's parsed routes.
-
-    Returns:
-        Language to the tools offered in that language, in route order,
-        duplicates collapsed. A `lang: any` route projects under the literal
-        `"any"` key, exactly as `tooling: {any: [...]}` did before routes
-        existed - every reader of `Check.tooling` already looks a language
-        up with `.get(lang, ())`, so an `any` tool stays invisible to a
-        `python`/`typescript` lookup precisely as it did before. A
-        `disposition: forbidden` route contributes nothing: the record is
-        warning against that tool, not offering it, though the same tool
-        offered by another route in the record still appears. A route
-        naming no tool contributes nothing either.
-    """
-    per_lang: dict[str, list[str]] = {}
-    for route in routes:
-        if route.tool is None or route.disposition == "forbidden":
-            continue
-        tools = per_lang.setdefault(route.lang, [])
-        if route.tool not in tools:
-            tools.append(route.tool)
-    return {lang: tuple(tools) for lang, tools in per_lang.items()}
-
-
-def _project_needs(routes: tuple[Route, ...]) -> dict[str, tuple[str, ...]]:
-    """Derive a legacy `needs` mapping from a migrated record's routes.
-
-    The same view as `_project_tooling`: a route's tier is the only place it
-    is declared, and this only reshapes it for the pre-migration readers of
-    `Check.needs`. A `disposition: forbidden` route contributes nothing here
-    either, for the same reason `_project_tooling` excludes it - the record
-    is warning against the tool, not offering it under that tier.
-
-    Args:
-        routes: The record's parsed routes.
-
-    Returns:
-        Tier to the tools of the routes carrying it, in route order,
-        duplicates collapsed.
-    """
-    per_tier: dict[str, list[str]] = {}
-    for route in routes:
-        if (
-            route.needs is None
-            or route.tool is None
-            or route.disposition == "forbidden"
-        ):
-            continue
-        tools = per_tier.setdefault(route.needs, [])
-        if route.tool not in tools:
-            tools.append(route.tool)
-    return {tier: tuple(tools) for tier, tools in per_tier.items()}
-
-
 def _routes_answering_ungranted(
     routes: tuple[Route, ...],
 ) -> dict[str, tuple[Route, ...]]:
@@ -1252,8 +1144,7 @@ def _routes_answering_ungranted(
       language's escape would let the record pass without ever saying
       what actually answers once the grant is withheld, which is the
       exact silence this rule exists to prevent, produced by the rule
-      itself. `_project_tooling`/`_project_needs` already exclude a
-      forbidden route from what the record offers; this mirrors that.
+      itself.
       An `alternative` or `superseded` route is not excluded - the record
       does offer those, it just does not run them by default.
 
@@ -1265,10 +1156,9 @@ def _routes_answering_ungranted(
     withheld. Reading it under the literal key alone demanded
     `answers_ungranted: none` from a record that is not silenced, which
     is a false claim forced into frontmatter by the rule meant to prevent
-    one. This differs from `_project_tooling`, which files an `any` route
-    under the literal `"any"` key on purpose - there the question is which
-    invocations a language's lens should run, and here it is whether
-    anything at all still answers.
+    one. A lens deciding which invocations a language runs reads an `any`
+    route under its literal key on purpose; the question here is different,
+    whether anything at all still answers.
 
     Args:
         routes: The record's parsed routes.
@@ -1308,16 +1198,15 @@ def _languages_whose_tools_all_need_a_grant(
 ) -> tuple[str, ...]:
     """Languages where every route that names a tool needs a grant.
 
-    The counterpart of `_fully_tiered_languages` for routes, and the one
-    that reads per route rather than per tool. That difference is the
-    whole point of it: `_project_needs` collapses a record's routes onto
-    their tools, so a tool with a tiered route and an untiered one reads
-    through the projected pair as simply tiered, and a record cannot then
-    tier one invocation mode without its whole language reading as tiered.
+    Read per route rather than per tool, which is the whole point of it: a
+    reading keyed by tool collapses a record's routes onto their tools, so a
+    tool with a tiered route and an untiered one reads as simply tiered, and a
+    record cannot then tier one invocation mode without its whole language
+    reading as tiered.
     `deps/inventory` is that shape - `cyclonedx-py` carries the
     per-partition file-parsing subcommands untiered and `environment`
     under `target-execution`, because it starts the installed environment's
-    interpreter - and reading it off the projection says the
+    interpreter - and reading it per tool says the
     grant changes what the check answers when the route it prescribes by
     default is untiered and answers the same either way.
 
@@ -1351,9 +1240,8 @@ def _languages_whose_tools_all_need_a_grant(
 
     Returns:
         The languages, sorted. A language naming no tool at all is absent,
-        mirroring `_fully_tiered_languages`' own rule that a language
-        offering no tools has said nothing about grants: `all()` over an
-        empty list is not a claim. So is a language with no answering-kind,
+        because a language offering no tools has said nothing about grants:
+        `all()` over an empty list is not a claim. So is a language with no answering-kind,
         non-forbidden route to begin with.
     """
     by_lang: dict[str, list[Route]] = {}
@@ -1378,7 +1266,7 @@ def _languages_whose_tools_all_need_a_grant(
 def _silenced_languages(routes: tuple[Route, ...]) -> tuple[str, ...]:
     """Languages a withheld grant silences under the `routes` schema.
 
-    Mirrors `_fully_tiered_languages` for routes: a language is silenced
+    A language is silenced
     when it offers at least one answering-kind route and every one of them
     needs a grant, i.e. `_routes_answering_ungranted` maps it to an empty
     tuple. A language absent from that mapping altogether - no answering
@@ -1404,15 +1292,13 @@ def _silenced_languages(routes: tuple[Route, ...]) -> tuple[str, ...]:
 
 
 def _load_one(
-    path: Path, skills_dir: Path, *, legacy_schema: bool = False
+    path: Path, skills_dir: Path
 ) -> tuple[Check | None, list[str], str | None]:
     """Parse and validate a single record in isolation.
 
     Args:
         path: The record file, at `<domain>-audit/checks/<slug>.md`.
         skills_dir: The skills root the record's expected id is relative to.
-        legacy_schema: Accept a record-level `tooling:`/`needs:` instead of
-            refusing it, as `load_checks` documents.
 
     Returns:
         The record (or `None` if it failed), one message per problem, and the
@@ -1437,9 +1323,9 @@ def _load_one(
     # YAML admits a non-string mapping key, and sorting a set holding both a
     # string and an int raises `TypeError`, which would leave `_load_one`
     # raising out of `load_checks` and lose every other problem in the tree to
-    # one malformed record. This path serves every record rather than only a
-    # migrated one, so it reaches further than the route-level check does.
-    for key in sorted(set(meta) - FIELDS, key=repr):
+    # one malformed record. This path serves every record rather than only one
+    # declaring routes, so it reaches further than the route-level check does.
+    for key in sorted(set(meta) - FIELDS - set(REFUSED_FIELDS), key=repr):
         if isinstance(key, str):
             errors.append(f"{where}: unknown frontmatter key {key!r}")
         else:
@@ -1521,146 +1407,15 @@ def _load_one(
     routes, route_errors = _load_routes(raw_routes, where)
     errors.extend(route_errors)
 
-    legacy_route_keys = [
-        key for key in ("tooling", "needs", "ungranted_note") if key in meta
-    ]
-    if raw_routes is not None and legacy_route_keys:
-        for key in legacy_route_keys:
-            errors.append(
-                f"{where}: carries both routes and {key} - a record declares "
-                "what it runs once, not in two schemas; drop one"
-            )
-    # `routes:` is the schema, not one of two: every record was migrated onto
-    # it, so a record-level `tooling:` or `needs:` is refused outright rather
-    # than read as the legacy schema. A route's own `needs` field is a key of
-    # the route, not of the record, and is untouched. The readers below still
-    # parse the two keys, because retiring them is its own change, but only
-    # where the record is being read as the legacy schema - no `routes:`, and
-    # `legacy_schema=True`. Anywhere else a legacy key has just been refused,
-    # by the error above or by this one, and every message the readers give
-    # advises the author on that refused schema - add a tooling map, add an
-    # ungranted_note - which would contradict the refusal in the same list.
-    legacy_read = raw_routes is None and legacy_schema
-    if raw_routes is None and not legacy_schema:
-        for key in ("tooling", "needs"):
-            if key in meta:
-                errors.append(
-                    f"{where}: declares a record-level {key}, the legacy schema "
-                    "every record has migrated off - declare `routes:` instead, "
-                    "one route per way of answering the check, with each "
-                    "route's own `needs` field carrying its tier"
-                )
+    # A record declares what it runs as `routes:` and nowhere else. The three
+    # record-level keys that schema replaced are refused by name rather than
+    # left to the unknown-key error, so the message says what replaces each:
+    # a reader who meets one in an old branch or an old record is told where
+    # the claim now lives instead of being told the key is a typo.
+    for key in REFUSED_FIELDS:
+        if key in meta:
+            errors.append(f"{where}: {REFUSED_FIELDS[key]}")
 
-    tooling: dict[str, tuple[str, ...]] = {}
-    raw_tooling = meta.get("tooling") if legacy_read else None
-    if raw_tooling is not None:
-        if not isinstance(raw_tooling, dict):
-            errors.append(
-                f"{where}: tooling must be a mapping of language to tool list"
-            )
-        else:
-            for lang, tools in raw_tooling.items():
-                names = _str_list(tools)
-                if not isinstance(lang, str) or names is None:
-                    errors.append(
-                        f"{where}: tooling[{lang!r}] must be a list of tool-name strings"
-                    )
-                    continue
-                tooling[lang] = names
-
-    needs: dict[str, tuple[str, ...]] = {}
-    raw_needs = meta.get("needs") if legacy_read else None
-    if raw_needs is not None:
-        if not isinstance(raw_needs, dict):
-            errors.append(f"{where}: needs must be a mapping of tier to tool list")
-        elif raw_tooling is None:
-            errors.append(
-                f"{where}: needs classifies tooling this record does not declare - "
-                "add a tooling map, or drop needs"
-            )
-        else:
-            offered = {name for names in tooling.values() for name in names}
-            tier_of: dict[str, str] = {}
-            for tier, tools in raw_needs.items():
-                names = _str_list(tools)
-                if tier not in NEEDS_TIERS or names is None:
-                    errors.append(
-                        f"{where}: needs[{tier!r}] must map one of {NEEDS_TIERS} to "
-                        "a list of tool-name strings"
-                    )
-                    continue
-                for name in names:
-                    if name not in offered:
-                        errors.append(
-                            f"{where}: needs[{tier}] names {name!r}, which is not in "
-                            "this record's tooling"
-                        )
-                    if name in tier_of:
-                        errors.append(
-                            f"{where}: {name!r} is classified both "
-                            f"{tier_of[name]} and {tier}"
-                        )
-                    else:
-                        tier_of[name] = tier
-                needs[tier] = names
-
-    silenced = _fully_tiered_languages(tooling, needs)
-    if silenced and "ungranted_note" not in meta:
-        errors.append(
-            f"{where}: every tool this record offers for {', '.join(silenced)} "
-            "needs a grant, so a withheld grant silences the check - add an "
-            "ungranted_note saying what still answers, or "
-            f"{UNGRANTED_NONE!r} if nothing does"
-        )
-
-    ungranted = meta.get("ungranted_note")
-    if "ungranted_note" in meta:
-        if ungranted is None:
-            errors.append(
-                f"{where}: ungranted_note is empty - YAML reads `null`, `~` and a "
-                f"bare key as nothing, which is indistinguishable from omitting "
-                f"the key. Write {UNGRANTED_NONE!r} if nothing answers without a "
-                "grant, or say what does"
-            )
-        elif not isinstance(ungranted, str):
-            errors.append(
-                f"{where}: ungranted_note must be prose or {UNGRANTED_NONE!r}, "
-                f"got {ungranted!r}"
-            )
-        elif not ungranted.strip():
-            errors.append(
-                f"{where}: ungranted_note is blank - write {UNGRANTED_NONE!r} if "
-                "nothing answers without a grant, or say what does"
-            )
-        elif (
-            ungranted.strip().lower() == UNGRANTED_NONE
-            and ungranted.strip() != UNGRANTED_NONE
-        ):
-            errors.append(
-                f"{where}: write the sentinel as {UNGRANTED_NONE!r}, not "
-                f"{ungranted!r} - YAML leaves the capitalised spellings as "
-                "ordinary strings, so this would be read as a claim that "
-                "something answers"
-            )
-        else:
-            ungranted = ungranted.strip()
-    else:
-        ungranted = None
-
-    if not silenced and "ungranted_note" in meta:
-        errors.append(
-            f"{where}: ungranted_note describes a withheld grant leaving this "
-            "record with nothing to run, which cannot happen here - no language "
-            "it offers is fully tiered, because every one of them either lists "
-            "no tools or keeps a tool that answers from a read-only clone. "
-            "Remove ungranted_note; on `routes:`, a language whose every "
-            "answering route needs a grant carries `answers_ungranted: none` "
-            "instead"
-        )
-
-    # `answers_ungranted` is the routes-schema counterpart of `ungranted_note`
-    # above; the legacy block is reachable only under `legacy_schema=True` and
-    # goes with the legacy readers.
     raw_answers = meta.get("answers_ungranted")
     has_answers_key = "answers_ungranted" in meta
     if has_answers_key and raw_routes is None:
@@ -1762,18 +1517,13 @@ def _load_one(
             "section. On this schema the routes are the fallback - a route's "
             "note says what to run, its alone_insufficient says what running it "
             "is not enough for on its own, and its needs says what must be "
-            "present first. A section beside them is a second copy nothing "
-            "holds against the first, and the properties that would have read "
-            "it do not read a migrated record"
+            "present first. A section beside them is a second copy of the "
+            "prescription nothing holds against the first, so prose could "
+            "drift from the routes with nothing reading it"
         )
 
     if errors:
         return None, errors, declared
-    # `tooling`/`needs` are read by sites outside this module that predate
-    # `routes`; project them from the routes rather than changing every
-    # reader, so a route stays the one place a tool is declared.
-    final_tooling = _project_tooling(routes) if raw_routes is not None else tooling
-    final_needs = _project_needs(routes) if raw_routes is not None else needs
     return (
         Check(
             id=cid,
@@ -1782,9 +1532,6 @@ def _load_one(
             title=title,
             handbook=handbook,
             handbook_note=note,
-            tooling=final_tooling,
-            needs=final_needs,
-            ungranted_note=ungranted,
             routes=routes,
             answers_ungranted=answers_ungranted,
             evidence=evidence,
@@ -1796,9 +1543,7 @@ def _load_one(
     )
 
 
-def load_checks(
-    skills_dir: Path, *, legacy_schema: bool = False
-) -> tuple[dict[str, Check], list[str]]:
+def load_checks(skills_dir: Path) -> tuple[dict[str, Check], list[str]]:
     """Load every check record owned by every domain skill.
 
     Collects problems rather than raising, so one run reports every
@@ -1810,13 +1555,6 @@ def load_checks(
         skills_dir: The skills root. Each `<domain>-audit/checks/` beneath
             it holds that domain's records; a skill with no such directory
             carries no records and is skipped in silence.
-        legacy_schema: Accept a record declaring the legacy record-level
-            `tooling:`/`needs:` pair instead of refusing it. Every record
-            declares `routes:`, so a tree is always loaded without it; it
-            exists so the legacy readers, which are retired in their own
-            change rather than in the one that started refusing the schema,
-            can still be exercised by their tests until then, and it goes
-            with them.
 
     Returns:
         Records keyed by id, and one message per problem.
@@ -1843,9 +1581,7 @@ def load_checks(
                     f"nested deeper and would never be loaded"
                 )
                 continue
-            check, problems, declared = _load_one(
-                path, skills_dir, legacy_schema=legacy_schema
-            )
+            check, problems, declared = _load_one(path, skills_dir)
             errors.extend(problems)
             if declared is not None:
                 if declared in declared_ids:
@@ -1859,24 +1595,3 @@ def load_checks(
                 continue
             checks[check.id] = check
     return checks, errors
-
-
-def fallback_lives_in_prose(check: Check) -> bool:
-    """Whether this record's `## Tooling fallback` prose is its source of truth.
-
-    True for a record with no routes, which on a tree that loads is a record
-    declaring neither schema - the loader refuses a record-level `tooling:` -
-    and which states what to read instead in that section and nowhere else;
-    under `legacy_schema=True` a legacy record is one too. A record declaring
-    `routes:` states the same thing per route - the `note`, the
-    `alone_insufficient` and the `needs` - and carries no such section at all.
-    The record suite scopes two properties by this: such a record naming no
-    tool must say in its body what to read instead, and one classifying a tool
-    under `needs` must state a fallback; on a routed record both questions are
-    answered by the routes and the loader.
-
-    Keyed on the declared schema rather than on whether the section is present.
-    Presence is what those properties check, and a scope keyed on it would
-    switch each one off on exactly the record it was written to catch.
-    """
-    return not check.routes

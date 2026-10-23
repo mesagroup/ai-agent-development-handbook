@@ -193,7 +193,12 @@ def test_the_inventory_route_writes_its_document_to_stdout_and_installs_nothing(
 
 def test_every_typescript_tooling_entry_has_a_routed_row():
     declared = {
-        (c.id, tool) for c in _records().values() for tool in c.tooling.get(LANG, ())
+        (c.id, route.tool)
+        for c in _records().values()
+        for route in c.routes
+        if route.lang == LANG
+        and route.tool is not None
+        and route.disposition != "forbidden"
     }
     assert {(i.check, i.tool) for i in routed_invocations(LANG)} == declared
     assert {t for _, t in declared} == tools_named_in_records(LANG)
