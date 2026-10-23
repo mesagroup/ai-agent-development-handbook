@@ -20,24 +20,30 @@ routes:
     note: >-
       `zizmor <workflows> <local-actions>` for trigger/injection/permission/pinning
       findings, as one invocation whose operands are every workflow file this
-      agent holds and every local action definition those workflows use - each
-      action a `uses:` step names by a path starting `./`, under `.github` or
-      anywhere else in the tree, and the local actions those use in turn - each
-      given as its definition file, `action.yml` or `action.yaml`, and each file
-      once, and the workflows alone where they use none. Never pass an action's
-      directory: a directory operand collects every workflow and action file
-      beneath it, so `uses: ./` would make it the whole tree, and a file named
-      twice reports its findings twice. Capture the rule id + `file:line`. A
-      `./` path resolves against the job's workspace, so where a step checks
-      code out to another `path:`, or checks out the pull request's code, the
-      file scanned is the clone's copy and not necessarily what the job ran,
-      which the reading route settles. Measured with zizmor 1.31.1 on a
+      agent holds and the definition file, `action.yml` or `action.yaml`, of
+      every local action those workflows use, each file once and the workflows
+      alone where they use none. A local action is one a `uses:` step names by
+      a workspace-relative `./` path or by GitHub's self-repository `$/` path,
+      wherever in the tree it lives, and the local actions those use in turn.
+      A step naming this repository by its slug, `<owner>/<repo>/<path>@<ref>`,
+      is a remote action rather than a local one, because it fetches the version
+      at that ref rather than the running commit, so the clone's copy is not
+      what runs. Never pass an action's directory: a directory operand collects
+      every workflow and action file beneath it, so a root action, `uses: ./`
+      or `uses: $/`, would make it the whole tree, and a file named twice
+      reports its findings twice. Capture the rule id + `file:line`. A step's
+      `./` action path, unlike a `$/` one or a reusable workflow's `./` path,
+      resolves against the job's workspace, so where a step checks code out to
+      another `path:`, or checks out the pull request's code, the file scanned
+      is the clone's copy and not necessarily what the job ran, which the
+      reading route settles. Measured with zizmor 1.31.1 on a
       tree planting a template injection in a workflow and in two composite
       actions it uses: a workflow operand alone scans the workflow and not the
       actions; `zizmor .github` scans `.github/actions/` and misses an action
       elsewhere; `zizmor .` scans every action definition the tree's
       `.gitignore` does not exclude, a vendored one or one no workflow uses
-      included; the explicit operands scan exactly the three files. A PyPI
+      included; the explicit operands scan exactly the three files, with one
+      action named by `./` and the other by `$/`. A PyPI
       package, so `uvx zizmor`
       obtains it whatever the partition's language.
   - lang: any
