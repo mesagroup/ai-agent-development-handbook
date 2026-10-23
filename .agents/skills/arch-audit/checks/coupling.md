@@ -30,8 +30,8 @@ routes:
       one-shot runner, as a tool on a route that is not `in_env` is, that is the
       target's own modules alone, materialized tree or not, so the route needs
       no grant and the counts it supports are between the target's own modules.
-      Run on the venv's path instead, it also shows the edges into the target
-      from its external packages, and starting that interpreter is
+      Run on the venv's path instead, it also shows the target's imports of its
+      external packages, and starting that interpreter is
       `target-execution`: measured with pydeps 3.0.9 on the seeded uv partition,
       the isolated graph was the same with and without the tree and started no
       interpreter, and the in-venv one added five external edges and started it.

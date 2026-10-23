@@ -29,9 +29,10 @@ routes:
       stdout. The tool reads import opcodes from compiled bytecode rather than
       executing the target, so it sees only the modules the import machinery can
       find, and run as this route runs - isolated, through a one-shot runner,
-      since it is not `in_env` - that is the target's own modules alone: no
-      external package ever appears in the graph, whether or not the tree is
-      materialized, which is why the route needs no grant. A cycle runs through
+      since it is not `in_env` - that is the target's own modules: an external
+      package appears in the graph only where the runner's own sandbox happens
+      to carry it, whether or not the tree is materialized, which is why the
+      route needs no grant. A cycle runs through
       the target's own modules, so that is the graph this check reads. Measured
       with pydeps 3.0.9 on the seeded uv partition: the isolated run printed the
       same graph with the tree materialized and without it, and never started the

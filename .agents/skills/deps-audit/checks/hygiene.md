@@ -127,7 +127,8 @@ routes:
       loads and executes the target's own tool configuration (its peer deps
       `typescript` and `@types/node`, plus whatever the config files declare)
       to see what is actually exported, which is why it sits at
-      `target-execution` where `depcheck` sits at `resolved-tree`. `knip`
+      `target-execution`, as `depcheck` does for loading the shareable ESLint
+      config. `knip`
       answers nothing trustworthy without the tree.
 ---
 

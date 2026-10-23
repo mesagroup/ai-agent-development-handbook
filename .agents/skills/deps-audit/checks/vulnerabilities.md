@@ -71,6 +71,7 @@ routes:
     kind: procedure
     tool: safety
     needs: target-execution
+    in_env: true
     note: >-
       The alternative to `pip-audit`, named without a command line, so there
       is no argv to declare and a `kind: command` route would have to invent
@@ -86,10 +87,16 @@ routes:
       command run in the venv with `uv run --no-sync --with safety` scanned 46,
       the target's and the overlay's together, found the seeded jinja2
       vulnerability, and started the interpreter, which a `.pth` marker
-      planted in the venv showed. Its current command, `safety scan`, requires
+      planted in the venv showed. That is why the route is `in_env`: run
+      isolated, as a route without it is, the tool reports on an environment
+      holding nothing of the target's, which reads exactly like a clean scan.
+      The measurement is of the deprecated `safety check`, which ran without
+      authentication. Its current command, `safety scan`, requires
       authentication, which makes it unusable in an unauthenticated audit for a
-      reason separate from its tier; the deprecated `safety check` measured
-      above ran without it.
+      reason separate from its tier, and was not measured: its documentation
+      says it scans a project directory and detects the virtual environments in
+      it, so whether it starts their interpreters is open, and this tier is the
+      `check` form's.
   - lang: typescript
     kind: command
     tool: npm audit
