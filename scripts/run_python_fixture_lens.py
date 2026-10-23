@@ -2862,8 +2862,9 @@ def run_partition(
             rows.append(row)
             continue
         # A row needing the tree is one carrying a tier or running inside the
-        # environment; the two sets are not the same, because `pydeps` needs the
-        # resolved tree to see the graph and still launches through `uvx`.
+        # environment; the two sets are not the same in general, because a route
+        # can carry a tier and still launch through a one-shot runner. No Python
+        # row is that shape today; the `or` keeps such a row gated if one is.
         if blocked_by is not None and (tier or invocation.in_env):
             row |= {
                 "ran": False,
