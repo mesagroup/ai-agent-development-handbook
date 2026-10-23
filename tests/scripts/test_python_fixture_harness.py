@@ -2029,13 +2029,15 @@ def test_every_invoked_tool_resolves_to_a_package_that_can_be_fetched():
     )
 
 
-def test_the_isolated_runner_names_the_package_only_where_it_differs_from_the_tool():
-    """`audit-core`'s rule, cell by cell: `uvx --from <package>` where they differ.
+def test_the_isolated_runner_names_the_package_wherever_the_command_is_not_its_name():
+    """`audit-core`'s rule, cell by cell: `uvx --from <package>` unless they match.
 
-    A route whose package is its tool's name takes the bare `uvx`; one whose
-    package differs is told the package, because the bare form asks the
-    registry for a package carrying the command's name. A harness companion
-    needs `--from` even where the package is the tool's own name, since
+    A runner handed only a command fetches the package named like it, so the
+    comparison is between the package and the command that runs, never the
+    route's `tool`. `pytest-cov` is the cell that tells the two apart: it is
+    the route's tool and its package, its command is `pytest`, and the bare
+    form would fetch pytest without the plugin. A harness companion needs
+    `--from` even where the package is the command's own name, since
     `uvx --with` alone would still resolve the command by its name.
     """
     assert python_one_shot(("bandit",), "bandit") == ("uvx",)
@@ -2044,6 +2046,11 @@ def test_the_isolated_runner_names_the_package_only_where_it_differs_from_the_to
         "--from",
         "cyclonedx-bom",
     )
+    assert python_one_shot(("pytest-cov",), "pytest") == (
+        "uvx",
+        "--from",
+        "pytest-cov",
+    )
     assert python_one_shot(("mutmut", "pytest"), "mutmut") == (
         "uvx",
         "--from",
@@ -2051,13 +2058,10 @@ def test_the_isolated_runner_names_the_package_only_where_it_differs_from_the_to
         "--with",
         "pytest",
     )
-    assert python_one_shot(("coverage", "pytest"), "coverage.py") == (
-        "uvx",
-        "--from",
-        "coverage",
-        "--with",
-        "pytest",
-    )
+    pytest_cov = _entry("test/coverage-reach", "pytest-cov")
+    assert launcher(
+        pytest_cov, "pip", granted=False, honour_own_runner=False, command="python"
+    ) == ("uvx", "--from", "pytest-cov")
 
 
 def test_a_route_naming_its_own_runner_takes_no_prefix():
