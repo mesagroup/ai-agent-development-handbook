@@ -4822,3 +4822,23 @@ def test_the_inventory_environment_route_reads_the_venv_through_its_interpreter(
     assert not route.in_env
     assert route.needs == "target-execution"
     assert route.disposition == "alternative"
+
+
+def test_a_version_probe_starts_with_its_command_rather_than_a_runner_flag():
+    """`launcher` compares a probe's first word with the package it fetches.
+
+    By `audit-core`'s rule that word is the command a one-shot runner is told
+    the package for, so a probe carrying a runner flag of its own would have
+    the flag compared as though it were the command and get a second fetch in
+    front of it. A library probe spells `python -c` and lets the rule name the
+    package: `uvx --from grimp python -c ...`.
+    """
+    for tool, probe in VERSION_PROBE.items():
+        if probe is not None:
+            assert not probe[0].startswith("-"), (tool, probe)
+    grimp = _entry("arch/coupling", "grimp")
+    probe = VERSION_PROBE["grimp"]
+    prefix = launcher(
+        grimp, "uv", granted=False, honour_own_runner=False, command=probe[0]
+    )
+    assert (*prefix, *probe[:2]) == ("uvx", "--from", "grimp", "python", "-c")
