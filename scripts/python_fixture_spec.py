@@ -774,6 +774,21 @@ class Expectation:
             )
 
 
+# The environment route `deps/inventory` offers as an `alternative`, which the
+# lens's `GRADED_ALTERNATIVES` also runs beside each partition's default route.
+# Measured on the seeded partitions with cyclonedx-bom's `cyclonedx-py
+# environment .venv/bin/python`, behind `uvx --from cyclonedx-bom`.
+_ENV_ROUTE = (
+    "Under target-execution the record's alternative route, `cyclonedx-py "
+    "environment` given the interpreter the partition's own materialization built, "
+    "emits CycloneDX 1.6 and"
+)
+_ENV_UNGRANTED = (
+    "Without the grant that route does not run and is no-evidence (not-permitted), "
+    "while the default route's answer above holds in both states"
+)
+
+
 EXPECTATIONS = (
     Expectation(
         "deps/vulnerabilities",
@@ -898,7 +913,9 @@ EXPECTATIONS = (
         "the file-parsing routes this record prescribes by default populates licences "
         "on any partition, so an SBOM is not "
         "where this family's licence evidence comes from and deps/licenses owns it "
-        "alone",
+        f"alone. {_ENV_ROUTE} lists 7 components, the {len(declared())} declared "
+        "dependencies, markupsafe, pyparsing and the fixture's own package, 6 of them "
+        f"with a licence, the fixture's own package being the one without. {_ENV_UNGRANTED}",
         (),
     ),
     Expectation(
@@ -911,7 +928,11 @@ EXPECTATIONS = (
         "field. Both absences are correct tool behaviour on this input rather than "
         "misses, which is why this partition is written as its own entry - an SBOM "
         "expectation naming markupsafe would grade a working tool against a claim its "
-        "input cannot support",
+        f"input cannot support. {_ENV_ROUTE} lists 9 components: the {len(declared())} "
+        "declared dependencies, markupsafe, pyparsing, pip, which the seeded venv "
+        "carries, and the fixture's own editable package twice, once with a purl and "
+        "once as a distribution with a generated bom-ref; 7 carry a licence, the two "
+        f"fixture-package entries being the ones without. {_ENV_UNGRANTED}",
         (),
     ),
     Expectation(
@@ -920,7 +941,9 @@ EXPECTATIONS = (
         "exact",
         "`cyclonedx-py pipenv` reads Pipfile.lock and emits CycloneDX 1.6 listing the "
         f"{len(declared())} declared dependencies plus markupsafe and pyparsing. No "
-        "licences field, as on the other file-parsing routes here",
+        f"licences field, as on the other file-parsing routes here. {_ENV_ROUTE} lists "
+        "the same 9 components as on pip, pip and the fixture's editable package "
+        f"twice included, 7 with a licence. {_ENV_UNGRANTED}",
         (),
     ),
     Expectation(
@@ -935,14 +958,18 @@ EXPECTATIONS = (
         "CycloneDX 1.6 document, so the finding is that the subcommand has no route "
         "for PEP 621 poetry metadata rather than no poetry route at all. Recorded "
         "before the run precisely so PR 2 cannot mistake the narrow claim for the "
-        "broad one",
+        f"broad one. {_ENV_ROUTE} answers where the subcommand does not, reading the "
+        f"installed environment rather than the manifest: 8 components, the "
+        f"{len(declared())} declared dependencies, markupsafe, pyparsing, pip and the "
+        f"fixture's own package, 7 with a licence. {_ENV_UNGRANTED}",
         (),
     ),
     Expectation(
         "deps/inventory",
         ("pylock",),
         "exact",
-        "none of this record's prescribed SBOM routes reads PEP 751. `uv export "
+        "none of this record's file-parsing SBOM routes, the ones it prescribes by "
+        "default, reads PEP 751. `uv export "
         "--frozen` refuses, because this partition carries no uv.lock by construction; "
         "cyclonedx-py has no pylock subcommand; and its requirements subcommand pointed "
         "at pylock.toml does not refuse either - it reads the TOML as requirement lines "
@@ -954,7 +981,12 @@ EXPECTATIONS = (
         "nothing. Scoped to this record's own routes on purpose - the format is "
         "readable, `uv pip install -r pylock.toml` resolves the partition and is how it "
         "is materialized, so the gap is in the inventory tooling rather than in the "
-        "ecosystem's support for the format",
+        "ecosystem's support for the format. The gap is the default routes' and not "
+        f"the record's: {_ENV_ROUTE} reads the environment `uv pip install -r "
+        "pylock.toml` materialized and lists 7 components, the "
+        f"{len(declared())} declared dependencies, markupsafe, pyparsing and the "
+        "fixture's own package, 6 with a licence, so under target-execution this "
+        f"partition is answered. {_ENV_UNGRANTED}",
         (),
     ),
     Expectation(

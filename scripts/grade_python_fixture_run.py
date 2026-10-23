@@ -292,17 +292,33 @@ def observations_for(run: Run, check: str) -> list[dict[str, object]]:
     backwards, and with `alone_insufficient` filled in the same way, so a
     results file older than the field still says which hits are candidates.
     Both are looked up among the rows of the run's own language, read off its
-    partition.
+    partition. A row carrying a graded alternative contributes a second entry,
+    labelled as the alternative, for the route the lens's `GRADED_ALTERNATIVES`
+    also ran.
     """
     lang = _lang_of_run(run)
-    return [
-        {
+    observed = []
+    for entry in _entries_for(run, check):
+        resolved = {
             **entry,
             "findings_stream": _findings_stream_for(entry, lang),
             "alone_insufficient": _alone_insufficient_for(entry, lang),
         }
-        for entry in _entries_for(run, check)
-    ]
+        observed.append(resolved)
+        alternative = entry.get("alternative")
+        if isinstance(alternative, dict):
+            # A graded alternative is the same tool answering by another route,
+            # so it reports on the same stream; labelled so the worksheet never
+            # reads it as the row's prescribed command.
+            observed.append(
+                {
+                    **alternative,
+                    "tool": f"{entry.get('tool', '')} (graded alternative)",
+                    "findings_stream": resolved["findings_stream"],
+                    "alone_insufficient": "",
+                }
+            )
+    return observed
 
 
 def seed_signals(entry: dict[str, object], seeds: Sequence[str]) -> dict[str, int]:
