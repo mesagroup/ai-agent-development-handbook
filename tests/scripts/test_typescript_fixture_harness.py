@@ -46,6 +46,7 @@ from run_python_fixture_lens import (
     invocations_for,
     launcher,
     not_run_on,
+    plugin_root,
     routed_invocations,
     run_partition,
     tools_named_in_records,
@@ -864,3 +865,42 @@ def test_a_package_manager_subcommand_404_is_not_a_missing_tool():
 
     assert not launcher_missed(["pnpm", "audit"], 1, " ERR_PNPM_FETCH_404  GET ...")
     assert not launcher_missed(["npm", "outdated"], 1, "npm error code E404")
+
+
+def test_the_plugin_root_is_three_levels_above_any_skill_directory():
+    """`audit-core`'s rule for the directory a plugin-root token stands for.
+
+    The shell a run uses does not set the variable, so a sweep derives the
+    directory from the base directory Claude Code prints for a skill; the lens
+    derives it the same way, and every skill of the plugin has to give the
+    same answer, or a token resolved under one domain's skill would name a
+    different tree from the same token under another's.
+    """
+    skills = sorted(p for p in SKILLS_DIR.iterdir() if (p / "SKILL.md").is_file())
+    assert skills
+    assert {plugin_root(skill) for skill in skills} == {REPO_ROOT}
+    assert expand_plugin_root((f"{PLUGIN_ROOT_VARIABLE}/x",)) == (f"{REPO_ROOT}/x",)
+
+
+def test_the_typescript_one_shot_fetches_the_routes_package_rather_than_its_tool():
+    """A route whose `package` differs from its `tool` is fetched by the package.
+
+    No TypeScript route in the tree declares a differing package today, which
+    is why a double carries it: without this, the npm half of the rule could
+    regress to fetching the tool's name - the `cyclonedx-npm` placeholder shape
+    - and nothing in the record set would notice.
+    """
+    inv = Invocation(
+        check="x/y", tool="cyclonedx-npm", package="@cyclonedx/cyclonedx-npm"
+    )
+    assert launcher(inv, "npm", granted=False) == (
+        "npx",
+        "--yes",
+        "--package=@cyclonedx/cyclonedx-npm",
+        "--",
+    )
+    assert launcher(inv, "pnpm", granted=False) == (
+        "pnpm",
+        "--package=@cyclonedx/cyclonedx-npm",
+        "dlx",
+    )

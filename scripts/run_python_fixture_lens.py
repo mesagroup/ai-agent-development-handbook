@@ -192,29 +192,23 @@ DETAILS = ("timed-out", "environment-unmaterialized")
 # inside these two.
 GRANTS = ("none", "target-execution")
 
-# What has to be installed for a tool whose own name is not enough, and a tool
-# absent from here is fetched under its own name. Two of the entries are also a
-# record's `package` field - `coverage.py` in `test/coverage-reach` and
-# `cyclonedx-py` in `deps/inventory` - which this table does not read; the
-# third, the pytest companions, is harness plumbing no record states.
-#
-# Three things put an entry here. `coverage.py` is the project's own name for a
-# distribution published as `coverage`, and `cyclonedx-py` is the command name
-# of a distribution published as `cyclonedx-bom` - naming the distribution makes
-# the resolution direct instead of leaving the runner to guess from an alias.
-# And **the fixture declares no pytest**,
-# so a route whose command runs the target's suite has to bring one, whichever
-# population supplies the row: `coverage run -m pytest` and `mutmut run` are
-# both read from their records rather than transcribed here, and both die on
+# What a route's command needs installed beside the package its record names,
+# where the fixture does not declare it. The package itself is the route's own
+# `package` field, read off the record by `packages_for` and placed in front of
+# the command by `python_one_shot` as `audit-core`'s route-running paragraph
+# writes the rule, so nothing here restates a record. What is here is harness
+# plumbing no record states: **the fixture declares no pytest**, so a route whose
+# command runs the target's suite has to bring one, whichever population
+# supplies the row: `coverage run -m pytest` and `mutmut run` are both read from
+# their records rather than transcribed here, and both die on
 # `No module named pytest` otherwise, which reads as a tool that failed rather
 # than as a package nobody installed - a failure this harness would have
 # invented, on an entry the record had right. The pytest plugins need no entry
 # because each depends on pytest already, so naming the plugin brings the runner
 # with it.
-TOOL_PACKAGES = {
-    "coverage.py": ("coverage", "pytest"),
-    "cyclonedx-py": ("cyclonedx-bom",),
-    "mutmut": ("mutmut", "pytest"),
+HARNESS_COMPANIONS: dict[str, tuple[str, ...]] = {
+    "coverage.py": ("pytest",),
+    "mutmut": ("pytest",),
 }
 
 # How each partition's tree is materialized, verified end to end when the
@@ -516,6 +510,10 @@ class Invocation:
             this field - `grep findings_stream` over the check tree is the
             answer, and a third record adding one must not have to find this
             sentence.
+        package: The package a one-shot runner fetches for this tool, read from
+            the routes' `package` field, which the loader fills with the tool's
+            name where the record names none. Empty only on a row built by hand,
+            which then fetches the tool by its name.
         alone_insufficient: What the route's own result still needs before it is
             the check's answer, read from the route this row runs - the `runs`
             command route where there is one, otherwise the caveats of the
@@ -580,6 +578,7 @@ class Invocation:
     then: tuple[str, ...] = ()
     note: str = ""
     in_env: bool = False
+    package: str = ""
     findings_stream: str = "stdout"
     forms: tuple[tuple[str, str], ...] = ()
     alone_insufficient: str = ""
@@ -738,11 +737,27 @@ class Invocation:
 PLUGIN_ROOT_VARIABLE = "${CLAUDE_PLUGIN_ROOT}"
 
 
+def plugin_root(skill_dir: Path) -> Path:
+    """The plugin's install directory, from the base directory of any of its skills.
+
+    `audit-core`'s route-running paragraph tells a run where the directory comes
+    from: three levels above the base directory Claude Code prints for a skill,
+    which is `.agents/skills/<skill>/` under it. The shell a run's commands use
+    does not set the variable - measured in a Claude Code session - so this is
+    the derivation a sweep makes, and the lens makes the same one rather than
+    reading a constant that could agree with the engine by accident.
+    """
+    return skill_dir.parents[2]
+
+
 def expand_plugin_root(command: Sequence[str]) -> tuple[str, ...]:
-    """`command` with the plugin root variable expanded to this checkout's root."""
-    return tuple(
-        token.replace(PLUGIN_ROOT_VARIABLE, str(REPO_ROOT)) for token in command
-    )
+    """`command` with the plugin root variable expanded as the engine says to.
+
+    The root is derived from `audit-core`'s own skill directory by
+    `plugin_root`, which in a fixture run is this checkout's root.
+    """
+    root = str(plugin_root(SKILLS_DIR / "audit-core"))
+    return tuple(token.replace(PLUGIN_ROOT_VARIABLE, root) for token in command)
 
 
 def argv_for(invocation: Invocation, partition: str) -> tuple[str, ...]:
@@ -1833,6 +1848,13 @@ def routed_invocations(lang: str = "python") -> tuple[Invocation, ...]:
                     "the tool launches through the partition's environment "
                     "would depend on their order in the record"
                 )
+            packages = {r.package or tool for r in routes}
+            if len(packages) > 1:
+                raise ValueError(
+                    f"{check_id}/{tool}: routes disagree on package "
+                    f"({sorted(packages)}), so which distribution a runner "
+                    "fetched would depend on their order in the record"
+                )
             if lang == "python":
                 supplied = COMPLETIONS.get((check_id, tool))
                 contributed = SUPPLIED.get((check_id, tool))
@@ -1872,6 +1894,7 @@ def routed_invocations(lang: str = "python") -> tuple[Invocation, ...]:
                     ),
                     findings_stream=streams.pop(),
                     in_env=in_env.pop(),
+                    package=packages.pop(),
                     completion=supplied.tokens if supplied else (),
                     completion_by_partition=(
                         ts_completion.by_partition if ts_completion else ()
@@ -1933,13 +1956,35 @@ def invocations_for(
     return filtered
 
 
-def packages_for(tool: str) -> tuple[str, ...]:
-    """Everything that has to be installed for this tool's route to run.
+def packages_for(invocation: Invocation) -> tuple[str, ...]:
+    """Everything that has to be installed for this row's route to run.
 
-    The first is the tool itself; anything after it is what the route needs
-    present and the fixture does not declare.
+    The first is the route's own `package`, or the tool's name on a row that
+    carries none; anything after it is what the route needs present and the
+    fixture does not declare, from `HARNESS_COMPANIONS`.
     """
-    return TOOL_PACKAGES.get(tool, (tool,))
+    return (
+        invocation.package or invocation.tool,
+        *HARNESS_COMPANIONS.get(invocation.tool, ()),
+    )
+
+
+def python_one_shot(packages: Sequence[str], tool: str) -> tuple[str, ...]:
+    """The isolated runner in front of a Python route's command, by the engine's rule.
+
+    `audit-core`'s route-running paragraph: a route whose `package` differs from
+    its `tool` tells the runner which package provides the command, as
+    `uvx --from <package>`, and the argv runs as written after it; a route whose
+    package is its tool's name takes the bare `uvx`. A companion the harness
+    adds rides along as `--with`, which needs `--from` to name the first
+    package even where it is the tool's own name, since `uvx --with` alone
+    would still resolve the command by its name.
+    """
+    package, *companions = packages
+    if package == tool and not companions:
+        return ("uvx",)
+    extra = tuple(word for name in companions for word in ("--with", name))
+    return ("uvx", "--from", package, *extra)
 
 
 def launcher(
@@ -2017,12 +2062,10 @@ def launcher(
         return ()
     if lang_of(partition) == "typescript":
         return _ts_launcher(invocation, partition, granted=granted)
-    packages = packages_for(invocation.tool)
+    packages = packages_for(invocation)
     extra = tuple(word for name in packages[1:] for word in ("--with", name))
     if not (invocation.in_env and granted):
-        if packages == (invocation.tool,):
-            return ("uvx",)
-        return ("uvx", "--from", packages[0], *extra)
+        return python_one_shot(packages, invocation.tool)
     if partition == "uv":
         return ("uv", "run", "--no-sync", "--with", packages[0], *extra)
     return (
@@ -2054,7 +2097,8 @@ def _ts_launcher(
     if invocation.in_env and granted:
         return TS_IN_ENV[partition]
     return tuple(
-        word.format(package=invocation.tool) for word in TS_ONE_SHOT[partition]
+        word.format(package=invocation.package or invocation.tool)
+        for word in TS_ONE_SHOT[partition]
     )
 
 

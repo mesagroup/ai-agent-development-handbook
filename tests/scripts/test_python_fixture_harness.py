@@ -62,6 +62,7 @@ from run_python_fixture_lens import (
     DISPOSITIONS,
     FROZEN_FORM,
     GRANTS,
+    HARNESS_COMPANIONS,
     INVOCATIONS,
     MATERIALIZE,
     NO_VERSION_ROUTE,
@@ -72,7 +73,6 @@ from run_python_fixture_lens import (
     STATUSES,
     SUPPLIED,
     SUPPLIED_REQUIREMENTS,
-    TOOL_PACKAGES,
     VENV_BIN,
     VERSION_PROBE,
     Completion,
@@ -91,6 +91,7 @@ from run_python_fixture_lens import (
     nonzero_exit_meaning,
     packages_for,
     probe_versions,
+    python_one_shot,
     reconstruct,
     routed_invocations,
     run_partition,
@@ -1998,29 +1999,64 @@ def test_no_prescribed_command_is_never_classified_as_a_tool_failure(
 def test_every_invoked_tool_resolves_to_a_package_that_can_be_fetched():
     """Non-emptiness is not resolvability, and the difference is a silent one.
 
-    The whole map is pinned because an entry is only ever here to correct a
-    name a runner would otherwise resolve wrongly - `coverage.py` to the
-    distribution published as `coverage`, `cyclonedx-py` to `cyclonedx-bom` -
-    and a resolution that goes wrong produces a tool that runs and reports
-    nothing rather than an error. Dropping an entry restores exactly that.
+    The package a runner fetches is the route's own `package` field, read off
+    the record, so a record correcting a name a runner would otherwise resolve
+    wrongly - `coverage.py` to the distribution published as `coverage`,
+    `cyclonedx-py` to `cyclonedx-bom` - is what the lens fetches, and a record
+    changing that field moves the lens with it. A resolution that goes wrong
+    produces a tool that runs and reports nothing rather than an error, so
+    every routed row is held to the package its routes declare.
 
-    Held over both enumeration paths: a routed row runs on `FULL_PARTITION`
-    exactly as a hand-written one does, through the same `launcher`, so its
-    tool has to resolve to a fetchable package too.
+    `HARNESS_COMPANIONS` is pinned whole because it is the one thing here no
+    record states: what the fixture needs beside a record's package.
     """
-    assert TOOL_PACKAGES == {
-        "coverage.py": ("coverage", "pytest"),
-        "cyclonedx-py": ("cyclonedx-bom",),
-        "mutmut": ("mutmut", "pytest"),
-    }
+    assert HARNESS_COMPANIONS == {"coverage.py": ("pytest",), "mutmut": ("pytest",)}
+    checks, errors = load_checks(SKILLS_DIR)
+    assert errors == []
     for inv in every_invocation():
         if argv_for(inv, FULL_PARTITION):
-            packages = packages_for(inv.tool)
-            assert packages and all(packages), inv.tool
+            declared = {
+                r.package
+                for r in checks[inv.check].routes
+                if r.tool == inv.tool and r.kind == "command"
+            }
+            assert declared == {inv.package}, (inv.check, inv.tool, declared)
+            assert packages_for(inv)[0] == inv.package, inv.tool
     assert launcher(_entry("deps/inventory", "cyclonedx-py"), "pip", granted=False) == (
         "uvx",
         "--from",
         "cyclonedx-bom",
+    )
+
+
+def test_the_isolated_runner_names_the_package_only_where_it_differs_from_the_tool():
+    """`audit-core`'s rule, cell by cell: `uvx --from <package>` where they differ.
+
+    A route whose package is its tool's name takes the bare `uvx`; one whose
+    package differs is told the package, because the bare form asks the
+    registry for a package carrying the command's name. A harness companion
+    needs `--from` even where the package is the tool's own name, since
+    `uvx --with` alone would still resolve the command by its name.
+    """
+    assert python_one_shot(("bandit",), "bandit") == ("uvx",)
+    assert python_one_shot(("cyclonedx-bom",), "cyclonedx-py") == (
+        "uvx",
+        "--from",
+        "cyclonedx-bom",
+    )
+    assert python_one_shot(("mutmut", "pytest"), "mutmut") == (
+        "uvx",
+        "--from",
+        "mutmut",
+        "--with",
+        "pytest",
+    )
+    assert python_one_shot(("coverage", "pytest"), "coverage.py") == (
+        "uvx",
+        "--from",
+        "coverage",
+        "--with",
+        "pytest",
     )
 
 
@@ -2072,11 +2108,10 @@ def test_a_route_that_runs_the_suite_brings_a_runner_the_fixture_does_not_declar
     pinned to `INVOCATIONS` would raise before asserting anything rather than
     narrowing the property to a population this launcher does not distinguish.
     """
-    assert packages_for("coverage.py") == ("coverage", "pytest")
-    assert packages_for("mutmut") == ("mutmut", "pytest")
-    assert packages_for("bandit") == ("bandit",)
-
     coverage = _entry("test/coverage-reach", "coverage.py")
+    assert packages_for(coverage) == ("coverage", "pytest")
+    assert packages_for(_entry("test/mutation", "mutmut")) == ("mutmut", "pytest")
+
     assert launcher(coverage, "uv", granted=True) == (
         "uv",
         "run",
@@ -4156,6 +4191,10 @@ def test_a_migrated_record_reads_its_supplied_route_from_the_overlay(monkeypatch
             "disagree on in_env",
         ),
         (
+            (_fake_route(), _fake_route(disposition="superseded", package="u")),
+            "disagree on package",
+        ),
+        (
             (
                 _fake_route(kind="library", argv=()),
                 _fake_route(kind="procedure", argv=()),
@@ -4167,7 +4206,7 @@ def test_a_migrated_record_reads_its_supplied_route_from_the_overlay(monkeypatch
 def test_an_ambiguous_group_is_refused_by_name(monkeypatch, routes, expected):
     """Each raise names the group and what is wrong with it.
 
-    The first four are ambiguity: each resolves silently to whichever route
+    The first five are ambiguity: each resolves silently to whichever route
     came first if the guard is removed, and each is a shape the record set
     does not currently contain - so the message is the only thing a future
     reader gets, and it is read here rather than assumed. That absence needs
