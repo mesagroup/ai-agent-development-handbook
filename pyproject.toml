@@ -60,7 +60,9 @@ target-version = "py312"
 # docs/ holds no first-party Python, but recent ruff formats Python inside
 # markdown fences. Specs, plans and stories are a record of what was written at
 # the time; reformatting their code samples would edit the record.
-extend-exclude = ["docs"]
+# The vendored prompt-analyzer script is a byte-identical copy whose hash a test
+# holds against its source commit, so linting it into shape would break the pin.
+extend-exclude = ["docs", ".agents/skills/prompt-audit/scripts/analyze_prompt.py"]
 
 [tool.ruff.lint]
 select = [
