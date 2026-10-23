@@ -267,7 +267,7 @@ def render_typescript() -> str:
         "",
         "# TypeScript fixture expectations",
         "",
-        "What each `lang: typescript` command route in the audit skill family must observe when it runs against the seeded npm and pnpm fixture partitions, written down before the run. Generated from `scripts/python_fixture_spec.py` by `scripts/render_python_fixture_expectations.py`, the same module and renderer as the Python record beside it: edit the module and re-render, never this file. The `--check` flag of that renderer holds both records to the module, and CI runs it.",
+        "What each `lang: typescript` command route in the audit skill family must observe when it runs against the seeded npm, pnpm and npm-layered fixture partitions, written down before the run. Generated from `scripts/python_fixture_spec.py` by `scripts/render_python_fixture_expectations.py`, the same module and renderer as the Python record beside it: edit the module and re-render, never this file. The `--check` flag of that renderer holds both records to the module, and CI runs it.",
         "",
         "A fixture whose expected output is not recorded first is just a smaller real target. Against a real repository an audit can only ask whether a command ran and returned something plausible; here the right answer is known before the tool speaks, so a route that runs cleanly and reports half the truth fails instead of passing.",
         "",

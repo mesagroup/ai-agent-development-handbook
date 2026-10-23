@@ -82,7 +82,7 @@ def _applies_to(route, partition: str) -> bool:
     `madge`, `vitest`, `npx` - runs the same way on both.
     """
     leader = route.argv[0] if route.argv else ""
-    return leader not in _MANAGERS or leader == partition
+    return leader not in _MANAGERS or leader == spec.manager_of(partition)
 
 
 def _manifests(partition: str) -> dict[str, dict]:

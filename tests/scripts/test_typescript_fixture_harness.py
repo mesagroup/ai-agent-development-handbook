@@ -440,6 +440,9 @@ def _inv(tool="madge", in_env=False, **kw):
         ("npm", True, False, ("npx", "--yes", "--package=madge", "--")),
         ("npm", False, True, ("npx", "--yes", "--package=madge", "--")),
         ("npm", True, True, ("npx", "--no", "--")),
+        # A partition whose name is not its manager's: the configured npm tree.
+        ("npm-layered", False, False, ("npx", "--yes", "--package=madge", "--")),
+        ("npm-layered", True, True, ("npx", "--no", "--")),
         ("pnpm", False, False, ("pnpm", "--package=madge", "dlx")),
         ("pnpm", True, False, ("pnpm", "--package=madge", "dlx")),
         ("pnpm", False, True, ("pnpm", "--package=madge", "dlx")),
@@ -534,7 +537,7 @@ def test_a_manager_subcommand_runs_only_on_its_own_managers_partition():
             if manager is None:
                 continue
             skipped = not_run_on(inv, partition)
-            if manager == partition:
+            if manager == manager_of(partition):
                 assert skipped is None or skipped[0] != "manager", inv.tool
             else:
                 assert skipped is not None and skipped[0] == "manager", inv.tool
@@ -578,7 +581,8 @@ def _probed_tools():
         inv.tool
         for partition in TS_PARTITIONS
         for inv in invocations_for(partition)
-        if TS_MANAGER_TOOLS.get(inv.tool, partition) == partition
+        if TS_MANAGER_TOOLS.get(inv.tool, manager_of(partition))
+        == manager_of(partition)
     }
 
 
@@ -600,7 +604,8 @@ def test_every_tool_that_can_run_a_command_carries_a_nonzero_exit_meaning():
         inv.tool
         for partition in TS_PARTITIONS
         for inv, _ in _rows_on(partition)
-        if TS_MANAGER_TOOLS.get(inv.tool, partition) == partition
+        if TS_MANAGER_TOOLS.get(inv.tool, manager_of(partition))
+        == manager_of(partition)
     }
     assert set(TS_NONZERO_EXIT_MEANING) == can_run
     assert set(TS_NONZERO_EXIT_MEANING.values()) <= set(NONZERO_EXIT_KINDS)

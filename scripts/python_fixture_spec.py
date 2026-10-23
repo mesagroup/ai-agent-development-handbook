@@ -33,12 +33,14 @@ VERIFIED_ON = "2026-08-13"
 
 PARTITIONS = ("uv", "pip", "poetry", "pipenv", "pylock")
 
-# The TypeScript partitions (#181), one per package manager a named TypeScript
-# target uses. Named here, beside the Python tuple, because `Expectation`
+# The TypeScript partitions (#181): one tree per package manager a named
+# TypeScript target uses, plus `npm-layered` (#233), the npm tree carrying a
+# dependency-cruiser config of its own, so a manager can carry more than one
+# tree and `manager_of` says which manager a tree runs on. Named here, beside the Python tuple, because `Expectation`
 # validates its scope against both and a partition name has to mean one
 # language. `PARTITIONS` stays the Python tuple on purpose: the Python harness,
 # renderer and tests all read it as "the Python partitions", and widening it
-# would hand every one of them two partitions it has no manifest for.
+# would hand every one of them three partitions it has no manifest for.
 TS_PARTITIONS = ("npm", "pnpm", "npm-layered")
 
 # The package manager each TypeScript partition runs on. A partition is one
@@ -1855,9 +1857,9 @@ TS_EXPECTATIONS = (
         "the tsconfig reading",
         ("layering",),
         "the tiered `dependency-cruiser` route does not run, so the harness records "
-        "no-evidence (not-permitted); the record's untiered madge procedure and its "
-        "tsconfig reading answer from a read-only clone, which this round does not "
-        "execute",
+        "no-evidence (not-permitted); the record's untiered madge procedure answers "
+        "from a read-only clone, which this round does not execute, and its tsconfig "
+        "reading does not apply here, because this tree carries a config of its own",
     ),
     Expectation(
         "arch/coupling",

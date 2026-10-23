@@ -1147,16 +1147,17 @@ TS_NO_VERSION_ROUTE: dict[str, str] = {
 }
 
 # What a non-zero exit from each TypeScript tool means, in `NONZERO_EXIT_KINDS`.
-# Each `findings` entry is from the tool's own documentation or source rather
-# than assumed: `npm audit`, `pnpm audit`, `npm outdated` and `pnpm outdated` exit
+# Each entry is from the tool's own documentation, its source or a measurement
+# rather than assumed: `npm audit`, `pnpm audit`, `npm outdated` and `pnpm outdated` exit
 # 1 when they find a vulnerable or outdated dependency (pnpm's source returns
 # `exitCode: outdatedPackages.length === 0 ? 0 : 1`, and the same for audit's
 # advisories); madge's CLI sets exit code 1 when `--circular` finds a cycle;
 # dependency-cruiser's exit code under `--output-type json` is 0 whatever the
 # report holds - measured with 18.7.0 on the configured npm tree, an
 # error-severity violation reported at exit 0, where `--output-type err` exits 1
-# - so on every route here a non-zero exit is the tool failing, with no findings
-# on stdout to read, and the violations are read from the report; and
+# - so its entry is `failure`: on every route here a non-zero exit is the tool
+# failing, with no findings on stdout to read, and the violations are read from
+# the report; and
 # vitest and jest exit 1 on a failing test, which is the planted finding for
 # `test/determinism`. `npm sbom`, `pnpm licenses list` and `@cdxgen/cdxgen` are
 # reporting commands with no gating flag in the prescribed invocation - cdxgen's
@@ -1169,7 +1170,7 @@ TS_NONZERO_EXIT_MEANING: dict[str, str] = {
     "npm outdated": "findings",
     "pnpm outdated": "findings",
     "madge": "findings",
-    "dependency-cruiser": "findings",
+    "dependency-cruiser": "failure",
     "vitest": "findings",
     "jest": "findings",
     "npm sbom": "ambiguous",
@@ -1369,10 +1370,11 @@ _VITEST = AppliesWhen(
     "every partition declares vitest as its runner, and the seeded tests import it",
 )
 _NOT_JEST = AppliesWhen(
-    False, "neither partition declares jest; the fixtures' runner is vitest"
+    False, "no partition declares jest; the fixtures' runner is vitest"
 )
 _NOT_YARN_CLASSIC = AppliesWhen(
-    False, "no fixture partition is on Yarn Classic; the partitions are npm and pnpm"
+    False,
+    "no fixture partition is on Yarn Classic; the partitions run on npm and pnpm",
 )
 TS_APPLIES_WHEN: dict[tuple[str, str], AppliesWhen] = {
     ("arch/cycles", "madge"): AppliesWhen(
@@ -1581,7 +1583,7 @@ def _argv_by_partition(
     A route may carry a shared `argv` and per-partition ones at once, and
     `Invocation` admits one or the other, so a route carrying both expands
     here: the override where the route names the partition, the shared argv
-    everywhere else - `.get(partition, route.argv)` falls back to the shared
+    everywhere else - `.get(manager_of(p), route.argv)` falls back to the shared
     command for a partition the map does not name. Where the route carries no
     shared `argv`, that fallback is `()`, so a partition the map does not name
     has no command at all rather than inheriting one; the loader now permits
@@ -1632,7 +1634,8 @@ def _own_runner_partitions(
     an unnamed partition too would claim completeness for a command that
     does not exist, which is exactly what `Invocation._check_own_runner`
     rejects, so this stops short of the claim rather than making it and
-    relying on that guard to catch it. A list names partitions directly, and
+    relying on that guard to catch it. A list names package managers, so it
+    marks the partitions running on one of them, and
     claims it of those alone either way.
 
     Neither claim is checkable here, or by the loader: whether a command needs
@@ -2807,12 +2810,12 @@ def run_partition(
     setup = []
     if lang == "typescript":
         shim_dir = None
-        if partition in TS_COREPACK_MANAGED:
+        if manager_of(partition) in TS_COREPACK_MANAGED:
             shim_dir = work_root / TS_SHIM_DIRNAME
             shim_dir.mkdir(parents=True, exist_ok=True)
         env = _ts_fixture_env(shim_dir)
         if shim_dir is not None:
-            command = ts_shim_command(partition, shim_dir)
+            command = ts_shim_command(manager_of(partition), shim_dir)
             setup.append(
                 {"command": list(command), **_runner(env)(command, copy, timeout)}
             )
