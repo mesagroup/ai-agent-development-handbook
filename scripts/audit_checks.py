@@ -65,9 +65,8 @@ needs that and runs code from the target's graph, the target's own or an
 installed package's, a `.pth` startup hook included. The names are deliberately
 repeated from `tooling` rather than folded into it on the legacy schema, and
 the repetition was what is checked there: every name under `needs` must be one
-the record actually
-offers, so a rename that misses one of the two places fails here instead of
-quietly describing a tool that is no longer listed.
+the record actually offers, so a rename that misses one of the two places fails
+here instead of quietly describing a tool that is no longer listed.
 
 `ungranted_note` answers a third question, and it is about the check rather
 than about any tool: when the tools need a grant this run does not hold,
