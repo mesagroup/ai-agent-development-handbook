@@ -9,7 +9,7 @@ routes:
     kind: command
     tool: zizmor
     registry: pypi
-    argv: [zizmor, "<workflow>"]
+    argv: [zizmor, "<workflows>", "<local-actions>"]
     applies_when: >-
       The CI platform is GitHub Actions, whose workflow and action definitions are what the tool reads.
     alone_insufficient: >-
@@ -19,8 +19,20 @@ routes:
       is the check's answer, and a clean zizmor run beside an unread workflow
       is not this check answered.
     note: >-
-      `zizmor <workflow>` for trigger/injection/permission/pinning findings;
-      capture the rule id + `file:line`. A PyPI package, so `uvx zizmor`
+      `zizmor <workflows> <local-actions>` for trigger/injection/permission/pinning
+      findings, as one invocation whose operands are every workflow file this
+      agent holds and every local action definition those workflows use - each
+      action a `uses:` step names by a path starting `./`, under `.github` or
+      anywhere else in the tree, and the local actions those use in turn - each given as its
+      directory or its `action.yml`, and the workflows alone where they use
+      none; capture the rule id + `file:line`. Measured with zizmor 1.31.1 on a
+      tree planting a template injection in a workflow and in two composite
+      actions it uses: a workflow operand alone scans the workflow and not the
+      actions; `zizmor .github` scans `.github/actions/` and misses an action
+      elsewhere; `zizmor .` scans every action definition the tree's
+      `.gitignore` does not exclude, a vendored one or one no workflow uses
+      included; the explicit operands scan exactly the three files. A PyPI
+      package, so `uvx zizmor`
       obtains it whatever the partition's language. Where it cannot be
       obtained, the reading route answers the same question.
   - lang: any
