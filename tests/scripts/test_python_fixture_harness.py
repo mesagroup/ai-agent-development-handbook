@@ -3963,9 +3963,14 @@ def test_the_per_partition_deps_rows_survive_their_records_migration():
     # instead of a one-shot runner, and a route naming stderr would move which
     # stream `classify` grades - each with every argv above still matching and
     # the whole suite green.
-    for row in (inv, vuln, rows[("deps/vulnerabilities", "safety")]):
+    for row in (inv, vuln):
         assert row.in_env is False, (row.check, row.tool)
         assert row.findings_stream == "stdout", (row.check, row.tool)
+    # Safety scans the environment it runs under, so its route runs in the
+    # partition's own; isolated it would scan the runner's sandbox.
+    safety = rows[("deps/vulnerabilities", "safety")]
+    assert safety.in_env is True
+    assert safety.findings_stream == "stdout"
 
 
 def test_the_coverage_and_mutation_rows_survive_their_records_migration():
