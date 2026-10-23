@@ -101,7 +101,11 @@ routes:
       for not importing `site` during that step, is no way round it: it
       keeps the venv's `site-packages` off the path altogether, and on the
       seeded uv and pip partitions it wrote no marker and emitted a document
-      with no components at exit 0.
+      with no components at exit 0. Where the target's own package is
+      installed editable, the document can list it twice: measured on the
+      seeded pip and pipenv partitions, once with a purl and once as a
+      distribution with a generated `bom-ref`, so a component count read off
+      it counts that package twice.
   - lang: typescript
     kind: command
     tool: npm sbom
