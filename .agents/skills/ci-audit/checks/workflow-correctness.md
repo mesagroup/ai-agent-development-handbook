@@ -69,7 +69,10 @@ routes:
       partition's language. The two tools answer different questions rather
       than standing in for one another, which the two `answers` values carry:
       a status that covers both halves when one tool ran is the failure this
-      record exists to avoid.
+      record exists to avoid. It does not flag a `${{ }}` expression
+      interpolated into a Docker action's `args:` (measured with zizmor
+      1.31.1), so a clean zizmor run says nothing about that position, and the
+      reading route below is what answers it.
   - lang: any
     kind: procedure
     answers: injection

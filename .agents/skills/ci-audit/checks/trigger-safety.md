@@ -37,7 +37,12 @@ routes:
       resolves against the job's workspace, so where a step checks code out to
       another `path:`, or checks out the pull request's code, the file scanned
       is the clone's copy and not necessarily what the job ran, which the
-      reading route settles. Measured with zizmor 1.31.1 on a
+      reading route settles. A remote composite action's own steps can name a
+      `./` path too, which resolves against the caller's workspace and so runs
+      a file of this repository, but no workflow here names that file, so the
+      operands above never include it: a clean scan says nothing about it, and
+      the reading route, which reads through composite actions, is what
+      covers it. Measured with zizmor 1.31.1 on a
       tree planting a template injection in a workflow and in two composite
       actions it uses: a workflow operand alone scans the workflow and not the
       actions; `zizmor .github` scans `.github/actions/` and misses an action
