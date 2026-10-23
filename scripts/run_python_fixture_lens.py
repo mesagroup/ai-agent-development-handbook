@@ -31,7 +31,9 @@ the results. They are SBOM and vulnerability routes for dependency files the
 record names no subcommand or mode for, so each is a candidate answer to a named
 hole rather than a correction to the record - and keeping it out of `record_argv`
 is what stops a later pass reading "the harness ran this" as "the record said
-this". Both records that leave such a hole have migrated, so both supplied
+this". A row can also carry a graded alternative, the record's own
+`disposition: alternative` route that `GRADED_ALTERNATIVES` opts in, run beside
+the row's command and recorded as the row's `alternative` rather than as it. Both records that leave such a hole have migrated, so both supplied
 routes now live in `SUPPLIED`, keyed `(check, tool)` beside `COMPLETIONS` - a
 routed row carries one without the record ever prescribing it, which is the
 whole reason the overlay exists. The hand-written table can still hold one, and
@@ -366,8 +368,10 @@ VERSION_PROBE: dict[str, tuple[str, ...] | None] = {
 NO_VERSION_ROUTE: dict[str, str] = {}
 
 # What a declared command form is for. A disposition says what the *record* names
-# a form for, and `runs` is the only value the harness acts on. Each of the other
-# two says a different thing about a form the harness does not run:
+# a form for, and `runs` is the value the harness acts on by default; an
+# `alternative` route runs only where `GRADED_ALTERNATIVES` opts it in, beside the
+# row's own command rather than as it. Each of the other two says a different
+# thing about a form the harness does not run by default:
 #
 # * `superseded` - the record names the form and then narrows the same command,
 #   the way the `--no-deps --disable-pip` pair narrows `pip-audit -r
@@ -545,7 +549,10 @@ class Invocation:
             form the harness runs as written while declaring it `superseded` or
             `alternative` fails the property holding prescribed and completed
             commands against the non-`runs` declarations - whether the record
-            prescribed the whole of it or a completion supplied the rest.
+            prescribed the whole of it or a completion supplied the rest. A
+            graded alternative is outside that property by construction: it runs
+            beside the row's command, from its own field, and is never the row's
+            prescribed or completed argv.
             Flipping the last `runs` form off an entry fails the property
             requiring an entry that declares forms to declare one it runs,
             before any argv is touched, which is what keeps a disposition from
@@ -586,6 +593,7 @@ class Invocation:
     alternative_needs: str = ""
     alternative_fills: tuple[tuple[str, str], ...] = ()
     alternative_note: str = ""
+    alternative_alone_insufficient: str = ""
 
     def __post_init__(self) -> None:
         if self.alternative_argv and not self.alternative_note:
@@ -971,11 +979,13 @@ class Supplied:
                     )
 
 
-# The round's own contributions, for a partition a migrated record prescribes
-# no route for. Both entries are that shape: `deps/inventory` names no
+# The round's own contributions, for a partition a record prescribes no
+# default route for. Both entries are that shape: `deps/inventory` names no
 # subcommand for a PEP 751 lock file, and `deps/vulnerabilities` names no mode
-# for a uv tree, so on those two partitions the records' own routes run
-# nothing. Each stays here rather than moving into the record beside the routes
+# for a uv tree, so on those two partitions the records' default routes run
+# nothing (`deps/inventory`'s environment alternative, which
+# `GRADED_ALTERNATIVES` also runs, does answer the PEP 751 partition under
+# `target-execution`). Each stays here rather than moving into the record beside the routes
 # it answers, for the reason a completion does: a record declaring a supplied
 # route would be prescribing it, and the whole point is that it never renders
 # as `record_argv`.
@@ -1031,10 +1041,15 @@ SUPPLIED: dict[tuple[str, str], Supplied] = {
 
 @dataclass(frozen=True)
 class GradedAlternative:
-    """Why the round grades one of a tool's `alternative` routes, and its fills."""
+    """Why the round grades one of a tool's `alternative` routes, and its fills.
+
+    `lang` is the language whose route is graded, because a row is keyed by
+    `(check, tool)` and one tool name can carry routes in two languages.
+    """
 
     note: str
     fills: tuple[tuple[str, str], ...] = ()
+    lang: str = "python"
 
     def __post_init__(self) -> None:
         if not self.note:
@@ -1967,7 +1982,7 @@ def _graded_alternative(
     would leave the round choosing between them, so both raise.
     """
     graded = GRADED_ALTERNATIVES.get((check, tool))
-    if graded is None:
+    if graded is None or graded.lang != lang:
         return {}
     alternatives = [
         route
@@ -1983,8 +1998,35 @@ def _graded_alternative(
             f"the record carries {len(alternatives)} for {lang}; it must carry one"
         )
     (route,) = alternatives
+    # What `_run_alternative` honours is one shared argv, its tier and its fills.
+    # A route carrying more would run as something other than the record wrote,
+    # so it is refused rather than run in part.
+    unsupported = [
+        name
+        for name, value in (
+            ("argv_by_partition", route.argv_by_partition),
+            ("then", route.then),
+            ("applies_when", route.applies_when),
+            ("own_runner", route.own_runner),
+            ("in_env", route.in_env),
+        )
+        if value
+    ]
+    if unsupported or not route.argv:
+        raise ValueError(
+            f"{check}/{tool}: the graded alternative carries "
+            f"{unsupported or ['no shared argv']}, which the round does not run"
+        )
+    fills = dict(graded.fills)
+    unfilled = [t for t in route.argv if t.startswith("<") and t not in fills]
+    if unfilled:
+        raise ValueError(
+            f"{check}/{tool}: the graded alternative's {unfilled} has no fill, so "
+            "the literal placeholder would reach the command"
+        )
     return {
         "alternative_argv": tuple(route.argv),
+        "alternative_alone_insufficient": route.alone_insufficient or "",
         "alternative_needs": route.needs or "",
         "alternative_fills": graded.fills,
         "alternative_note": graded.note,
@@ -2016,6 +2058,7 @@ def _run_alternative(
         "fills": fills,
         "needs": invocation.alternative_needs,
         "note": invocation.alternative_note,
+        "alone_insufficient": invocation.alternative_alone_insufficient,
     }
     if invocation.alternative_needs and not granted:
         status, reason = classify(0, "", "", tool_present=True, permitted=False)

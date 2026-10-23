@@ -4976,3 +4976,33 @@ def test_an_alternative_over_an_unbuilt_environment_says_so(tmp_path):
 def test_a_graded_alternative_needs_its_reason():
     with pytest.raises(ValueError, match="reason it is graded"):
         Invocation(check="c/x", tool="t", alternative_argv=("t",))
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {"then": ("cyclonedx-py", "validate")},
+        {"applies_when": "a venv exists"},
+        {"argv": ("cyclonedx-py", "environment", "<unfilled>")},
+    ],
+)
+def test_a_graded_alternative_the_round_would_run_in_part_is_refused(
+    monkeypatch, extra
+):
+    alternative = {
+        "tool": "cyclonedx-py",
+        "argv": ("cyclonedx-py", "environment", "<path-to-venv-python>"),
+        "disposition": "alternative",
+        "needs": "target-execution",
+    } | extra
+    records = {
+        "deps/inventory": _fake_record(
+            _fake_route(tool="cyclonedx-py", argv=("cyclonedx-py", "requirements")),
+            _fake_route(**alternative),
+        )
+    }
+    with (
+        _records_replaced_by(monkeypatch, records),
+        pytest.raises(ValueError, match=r"does not run|has no fill"),
+    ):
+        routed_invocations()

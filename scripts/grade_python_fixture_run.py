@@ -315,7 +315,9 @@ def observations_for(run: Run, check: str) -> list[dict[str, object]]:
                     **alternative,
                     "tool": f"{entry.get('tool', '')} (graded alternative)",
                     "findings_stream": resolved["findings_stream"],
-                    "alone_insufficient": "",
+                    "alone_insufficient": str(
+                        alternative.get("alone_insufficient", "")
+                    ),
                 }
             )
     return observed
