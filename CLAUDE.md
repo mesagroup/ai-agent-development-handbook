@@ -50,7 +50,7 @@ This repository ships as a Claude Code plugin (`.claude-plugin/`). Three things 
 
 What an install puts on disk was established by installing, not by reading: the marketplace entry's `source` is the repository root, and the install copied the whole repository to the plugin cache, `scripts/`, `docs/` and `pyproject.toml` included. Claude Code's own documentation says a relative `source` works only for a local marketplace and that a remote one fetches only the named file, so the observed shape and the documented one disagree, and the observed one is what the tree relies on. If a release follows the documentation, the install changes shape and every path the skills spell under `${CLAUDE_PLUGIN_ROOT}` (the emitter's, and every file a route's argv names, which the Writing section's test enumerates) can move with it; re-install and re-list before trusting either claim again.
 
-The repository is private, so the absolute GitHub URLs the skills emit resolve only for members of the owning organisation. Audit reports handed to an outside reader will carry links that reader cannot open.
+The absolute GitHub URLs the skills emit resolve only for a reader who can see this repository: while it is private, that means members of the owning organisation, and an outside reader of an audit report cannot open them.
 
 ## Task management
 
