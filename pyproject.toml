@@ -3,6 +3,8 @@ name = "ai-agent-development-handbook"
 version = "0.1.0"
 description = "Engineering handbook for agentic systems, and the audit skill family that checks a codebase against it"
 requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
 # markdown is used by scripts/render_handbook_artifact.py. In the origin repository it
 # arrived transitively via mkdocs; here it is a direct dependency.
 # fonttools is used by scripts/book_figures.py: the book build subsets the figure font
