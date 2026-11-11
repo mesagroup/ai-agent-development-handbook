@@ -39,6 +39,10 @@ The matrix Markdown is generated. Edit [`handbook-traceability.yaml`](docs/audit
 
 The traceability gate is the one that matters most: the matrix and the check records are two views of a single edge set, and a change applied to only one of them fails it. Rendering the handbook artifact additionally needs the [`d2`](https://d2lang.com) CLI on `PATH`.
 
+## Licence
+
+This repository, the handbook text included, is released under the [MIT License](LICENSE). The typefaces under [`fonts/`](fonts/) are not: each family carries its own SIL Open Font License in its directory.
+
 ## History
 
 This repository was extracted from its origin repository with history preserved, so `#NNN` references in commits before the split point at that repository's issues and read as `<origin-repo>#NNN`. `CLAUDE.md` says what that placeholder stands for; the origin's name lives in the engagement's own records, not here.
